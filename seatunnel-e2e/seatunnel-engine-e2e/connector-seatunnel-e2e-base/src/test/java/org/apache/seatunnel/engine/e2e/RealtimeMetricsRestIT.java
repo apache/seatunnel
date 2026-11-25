@@ -17,32 +17,49 @@
 
 package org.apache.seatunnel.engine.e2e;
 
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.core.job.JobDAGInfo;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
+import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
+import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.observability.ObservabilityConfig;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.config.MemberAttributeConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.hazelcast.map.IMap;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static io.restassured.RestAssured.given;
@@ -59,6 +76,8 @@ import static io.restassured.RestAssured.given;
 public class RealtimeMetricsRestIT {
 
     private static final String HOST = "http://localhost:";
+    private static final Logger LOG = LoggerFactory.getLogger(RealtimeMetricsRestIT.class);
+    private static final int HISTORY_EXPIRY_MINUTES = 60;
 
     private HazelcastInstanceImpl node;
     private SeaTunnelClient engineClient;
@@ -69,6 +88,7 @@ public class RealtimeMetricsRestIT {
     void beforeEach() throws Exception {
         String testClusterName = TestUtils.getClusterName("RealtimeMetricsRestIT");
         config = ConfigProvider.locateAndGetSeaTunnelConfig();
+        config.getEngineConfig().setHistoryJobExpireMinutes(HISTORY_EXPIRY_MINUTES);
         config.getEngineConfig().getHttpConfig().setPort(getAvailablePort());
         config.getEngineConfig().getHttpConfig().setEnabled(true);
         config.getHazelcastConfig().setClusterName(testClusterName);
@@ -99,6 +119,7 @@ public class RealtimeMetricsRestIT {
 
     @AfterEach
     void afterEach() {
+        cancelJobBestEffort(jobProxy);
         if (engineClient != null) {
             engineClient.close();
         }
@@ -237,10 +258,234 @@ public class RealtimeMetricsRestIT {
                         });
     }
 
+    @Test
+    public void testRestoreUsesCurrentRealtimeObservabilityConfiguration() throws Exception {
+        String baseUrl = HOST + config.getEngineConfig().getHttpConfig().getPort();
+        jobProxy.cancelJob();
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () -> Assertions.assertEquals(JobStatus.CANCELED, jobProxy.getJobStatus()));
+
+        Path disabledConfig = null;
+        Path enabledConfig = null;
+        AtomicReference<ClientJobProxy> initialJobReference = new AtomicReference<>();
+        AtomicReference<ClientJobProxy> restoredJobReference = new AtomicReference<>();
+        try {
+            disabledConfig = Files.createTempFile("realtime-observability-disabled-", ".conf");
+            enabledConfig = Files.createTempFile("realtime-observability-enabled-", ".conf");
+            Files.writeString(
+                    disabledConfig,
+                    restoreObservabilityConfig(false, 1000),
+                    StandardCharsets.UTF_8);
+            Files.writeString(
+                    enabledConfig, restoreObservabilityConfig(true, 2000), StandardCharsets.UTF_8);
+
+            JobConfig jobConfig = new JobConfig();
+            jobConfig.setName("realtime_observability_restore");
+            ClientJobExecutionEnvironment executionEnvironment =
+                    engineClient.createExecutionContext(
+                            disabledConfig.toString(), jobConfig, config);
+            ClientJobProxy initialJob = executionEnvironment.execute();
+            initialJobReference.set(initialJob);
+            long jobId = initialJob.getJobId();
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.RUNNING, initialJob.getJobStatus()));
+
+            awaitAllTasksReady(jobId);
+            engineClient.savePointJob(jobId);
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.SAVEPOINT_DONE, initialJob.getJobStatus()));
+            assertAttemptOneHistoryEntry(jobId);
+
+            ClientJobProxy restoredJob =
+                    engineClient
+                            .restoreExecutionContext(
+                                    enabledConfig.toString(), jobConfig, config, jobId)
+                            .execute();
+            restoredJobReference.set(restoredJob);
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.RUNNING, restoredJob.getJobStatus()));
+
+            assertAttemptOneHistoryEntry(jobId);
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () -> {
+                                assertAttemptOneHistoryEntry(jobId);
+                                List<Map<String, Object>> jobs =
+                                        given().get(baseUrl + "/metrics/realtime/jobs")
+                                                .then()
+                                                .statusCode(200)
+                                                .extract()
+                                                .path("jobs");
+                                Map<String, Object> job =
+                                        jobs.stream()
+                                                .filter(
+                                                        value ->
+                                                                String.valueOf(jobId)
+                                                                        .equals(
+                                                                                String.valueOf(
+                                                                                        value.get(
+                                                                                                "jobId"))))
+                                                .findFirst()
+                                                .orElse(null);
+                                Assertions.assertNotNull(job, "restored job not found");
+                                Assertions.assertEquals(true, job.get("enabled"));
+                                Assertions.assertEquals(2000, toLong(job.get("bucketMs")));
+                            });
+
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () -> {
+                                assertAttemptOneHistoryEntry(jobId);
+                                Map<String, Object> vertices =
+                                        given().get(
+                                                        baseUrl
+                                                                + "/metrics/realtime/jobs/"
+                                                                + jobId
+                                                                + "/vertices?windowMs=180000")
+                                                .then()
+                                                .statusCode(200)
+                                                .extract()
+                                                .as(Map.class);
+                                Assertions.assertEquals(2000, toLong(vertices.get("bucketMs")));
+                                List<Map<String, Object>> vertexValues =
+                                        (List<Map<String, Object>>) vertices.get("vertices");
+                                Assertions.assertFalse(vertexValues.isEmpty());
+                                Assertions.assertFalse(
+                                        ((List<?>) vertexValues.get(0).get("points")).isEmpty());
+                            });
+
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () -> {
+                                assertAttemptOneHistoryEntry(jobId);
+                                Map<String, Object> edges =
+                                        given().get(
+                                                        baseUrl
+                                                                + "/metrics/realtime/jobs/"
+                                                                + jobId
+                                                                + "/edges?windowMs=180000")
+                                                .then()
+                                                .statusCode(200)
+                                                .extract()
+                                                .as(Map.class);
+                                Assertions.assertEquals(2000, toLong(edges.get("bucketMs")));
+                                List<Map<String, Object>> edgeValues =
+                                        (List<Map<String, Object>>) edges.get("edges");
+                                Assertions.assertFalse(edgeValues.isEmpty());
+                                Assertions.assertFalse(
+                                        ((List<?>) edgeValues.get(0).get("points")).isEmpty());
+                            });
+        } finally {
+            cancelJobBestEffort(restoredJobReference.get());
+            cancelJobBestEffort(initialJobReference.get());
+            if (disabledConfig != null) {
+                deleteTempFileBestEffort(disabledConfig);
+            }
+            if (enabledConfig != null) {
+                deleteTempFileBestEffort(enabledConfig);
+            }
+        }
+    }
+
+    private JobDAGInfo assertAttemptOneHistoryEntry(long jobId) {
+        IMap<Long, JobDAGInfo> finishedJobDAGInfoIMap =
+                node.getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO);
+        JobDAGInfo archivedJob = finishedJobDAGInfoIMap.get(jobId);
+        Assertions.assertNotNull(
+                archivedJob, "attempt-1 archived entry must remain in finished-job history");
+        ObservabilityConfig archivedConfig =
+                ObservabilityConfig.fromEnvOptions(archivedJob.getEnvOptions());
+        Assertions.assertFalse(
+                archivedConfig.isEnabled(), "attempt-1 history must remain disabled");
+        Assertions.assertEquals(1000L, archivedConfig.getBucketMs());
+        return archivedJob;
+    }
+
+    private static void cancelJobBestEffort(ClientJobProxy job) {
+        if (job == null) {
+            return;
+        }
+        try {
+            JobStatus status = job.getJobStatus();
+            if (status != JobStatus.FINISHED
+                    && status != JobStatus.CANCELED
+                    && status != JobStatus.FAILED) {
+                job.cancelJob();
+            }
+        } catch (Exception e) {
+            LOG.warn("Best-effort cancellation of realtime metrics test job failed", e);
+        }
+    }
+
+    private static void deleteTempFileBestEffort(Path path) {
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException e) {
+            LOG.warn("Best-effort cleanup of realtime metrics test file failed: {}", path, e);
+        }
+    }
+
     private static void assertRatio01(Object value) {
         double v = toDouble(value);
         Assertions.assertTrue(v >= 0D, "ratio must be >= 0");
         Assertions.assertTrue(v <= 1D, "ratio must be <= 1");
+    }
+
+    private static String restoreObservabilityConfig(boolean enabled, long bucketMs) {
+        // Keep the same job ID across restore while changing observability settings; the long-lived
+        // source and delayed sink keep the job running until the savepoint and restore complete.
+        return "env {\n"
+                + "  job.mode = \"STREAMING\"\n"
+                + "  checkpoint.interval = 15000\n"
+                + "  parallelism = 1\n"
+                + "  engine {\n"
+                + "    observability {\n"
+                + "      enabled = "
+                + enabled
+                + "\n"
+                + "      bucket_ms = "
+                + bucketMs
+                + "\n"
+                + "      retention_minutes = 3\n"
+                + "    }\n"
+                + "  }\n"
+                + "}\n"
+                + "\nsource {\n"
+                + "  FakeSource {\n"
+                + "    row.num = 10000000\n"
+                + "    split.num = 1\n"
+                + "    split.read-interval = 0\n"
+                + "    schema = {\n"
+                + "      fields {\n"
+                + "        c_int = int\n"
+                + "        c_string = string\n"
+                + "      }\n"
+                + "    }\n"
+                + "  }\n"
+                + "}\n"
+                + "\n"
+                + "sink {\n"
+                + "  InMemory {\n"
+                + "    write_delay_ms = 2\n"
+                + "  }\n"
+                + "}\n";
     }
 
     private static double toDouble(Object value) {
@@ -255,6 +500,38 @@ public class RealtimeMetricsRestIT {
         } catch (Exception ignored) {
             return 0D;
         }
+    }
+
+    private void awaitAllTasksReady(long jobId) {
+        // Ensure all tasks are running before taking the savepoint.
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () -> {
+                            SeaTunnelServer server =
+                                    node.node
+                                            .getNodeEngine()
+                                            .getService(SeaTunnelServer.SERVICE_NAME);
+                            JobMaster jobMaster =
+                                    server.getCoordinatorService().getJobMaster(jobId);
+                            Assertions.assertNotNull(jobMaster);
+                            CheckpointManager checkpointManager = jobMaster.getCheckpointManager();
+                            Assertions.assertNotNull(checkpointManager);
+                            for (SubPlan subPlan : jobMaster.getPhysicalPlan().getPipelineList()) {
+                                CheckpointCoordinator coordinator =
+                                        checkpointManager.getCheckpointCoordinator(
+                                                subPlan.getPipelineLocation().getPipelineId());
+                                AtomicBoolean ready =
+                                        (AtomicBoolean)
+                                                ReflectionUtils.getField(
+                                                                coordinator, "isAllTaskReady")
+                                                        .orElseThrow(
+                                                                () ->
+                                                                        new AssertionError(
+                                                                                "CheckpointCoordinator.isAllTaskReady not found via reflection; it may have been renamed"));
+                                Assertions.assertTrue(ready.get());
+                            }
+                        });
     }
 
     private static long toLong(Object value) {

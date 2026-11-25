@@ -22,6 +22,7 @@ import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
@@ -103,6 +104,11 @@ public class RealtimeMetricsService {
 
     private final ConcurrentMap<Long, JobStore> jobStores = new ConcurrentHashMap<>();
     private final ConcurrentMap<Long, JobMeta> jobMetas = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, CachedObservabilityConfig> configCache =
+            new ConcurrentHashMap<>();
+    // Log corrupt metadata once per job attempt, rather than on every poll.
+    private final ConcurrentMap<Long, Set<Long>> corruptJobInfoWarningTimestamps =
+            new ConcurrentHashMap<>();
 
     private volatile long lastCollectStartMs = -1;
     private volatile long lastCollectEndMs = -1;
@@ -138,6 +144,7 @@ public class RealtimeMetricsService {
         scheduler.shutdownNow();
         jobStores.clear();
         jobMetas.clear();
+        configCache.clear();
     }
 
     /** Returns a lightweight summary of running jobs and their observability status. */
@@ -221,6 +228,8 @@ public class RealtimeMetricsService {
 
         jobStores.keySet().removeIf(jobId -> !runningJobIds.contains(jobId));
         jobMetas.keySet().removeIf(jobId -> !runningJobIds.contains(jobId));
+        configCache.keySet().removeIf(jobId -> !runningJobIds.contains(jobId));
+        corruptJobInfoWarningTimestamps.keySet().removeIf(jobId -> !runningJobIds.contains(jobId));
 
         long nowMs = System.currentTimeMillis();
         Set<Long> enabledJobIds = new HashSet<>();
@@ -300,15 +309,55 @@ public class RealtimeMetricsService {
     private ObservabilityConfig resolveObservabilityConfig(long jobId) {
         String jobName = String.valueOf(jobId);
         long createTime = System.currentTimeMillis();
+        JobInfo runningJobInfo = null;
         try {
             IMap<Long, JobInfo> runningJobInfoMap =
                     nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
-            JobInfo runningJobInfo = runningJobInfoMap.get(jobId);
-            if (runningJobInfo != null && runningJobInfo.getInitializationTimestamp() != null) {
-                createTime = runningJobInfo.getInitializationTimestamp();
+            runningJobInfo = runningJobInfoMap.get(jobId);
+            if (runningJobInfo != null) {
+                Long initializationTimestamp = runningJobInfo.getInitializationTimestamp();
+                if (initializationTimestamp != null) {
+                    createTime = initializationTimestamp;
+                    CachedObservabilityConfig cachedConfig = configCache.get(jobId);
+                    if (cachedConfig != null
+                            && cachedConfig.initializationTimestamp == initializationTimestamp) {
+                        return cachedConfig.config;
+                    }
+                }
             }
-        } catch (Exception ignored) {
-            // ignore
+        } catch (Exception e) {
+            log.warn("Unable to read running JobInfo for realtime observability, job {}", jobId, e);
+        }
+        if (runningJobInfo != null) {
+            try {
+                JobImmutableInformation immutableInformation =
+                        nodeEngine
+                                .getSerializationService()
+                                .toObject(runningJobInfo.getJobImmutableInformation());
+                ObservabilityConfig config =
+                        ObservabilityConfig.fromEnvOptions(
+                                immutableInformation.getJobConfig().getEnvOptions(),
+                                jobName,
+                                createTime);
+                Long initializationTimestamp = runningJobInfo.getInitializationTimestamp();
+                if (initializationTimestamp != null) {
+                    configCache.put(
+                            jobId, new CachedObservabilityConfig(initializationTimestamp, config));
+                }
+                return config;
+            } catch (Exception e) {
+                Long initializationTimestamp = runningJobInfo.getInitializationTimestamp();
+                if (initializationTimestamp == null
+                        || corruptJobInfoWarningTimestamps
+                                .computeIfAbsent(jobId, key -> ConcurrentHashMap.newKeySet())
+                                .add(initializationTimestamp)) {
+                    log.warn(
+                            "Unable to deserialize running JobInfo for realtime observability, job "
+                                    + jobId
+                                    + "; falling back to coordinator history",
+                            e);
+                }
+            }
         }
         try {
             JobDAGInfo jobInfo = coordinatorService.getJobInfo(jobId);
@@ -326,6 +375,17 @@ public class RealtimeMetricsService {
         }
 
         return ObservabilityConfig.disabled(jobName, createTime);
+    }
+
+    private static final class CachedObservabilityConfig {
+        private final long initializationTimestamp;
+        private final ObservabilityConfig config;
+
+        private CachedObservabilityConfig(
+                long initializationTimestamp, ObservabilityConfig config) {
+            this.initializationTimestamp = initializationTimestamp;
+            this.config = config;
+        }
     }
 
     @SuppressWarnings("unchecked")

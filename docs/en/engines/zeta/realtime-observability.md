@@ -33,6 +33,12 @@ Configuration is under job `env`, using key prefix:
 
 > Parsing supports dot notation (e.g., `engine.observability.enabled`), corresponding to nested objects in HOCON/YAML.
 
+When a job is restored from a savepoint with the same job ID, realtime observability uses the
+current attempt's `enabled`, `bucket_ms`, and `retention_minutes` settings. Retained history from
+the previous attempt does not override the current attempt's observability settings. If
+`bucket_ms` or `retention_minutes` changes on restore, the in-memory realtime window restarts:
+a new store is created and points from the previous store are dropped.
+
 ### 2.2 Configuration Items (Current Implementation)
 
 ```hocon
