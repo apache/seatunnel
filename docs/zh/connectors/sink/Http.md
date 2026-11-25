@@ -64,7 +64,7 @@ Http Sink 始终使用 `POST` 请求，并将行数据转换为 JSON 请求体�
 
 ### 重试行为
 
-HTTP Sink 接受 \`retry\`、\`retry_backoff_multiplier_ms\` 和 \`retry_backoff_max_ms\` 配置。当前写入器不应用这三个选项。
+HTTP Sink 接受 `retry`、`retry_backoff_multiplier_ms` 和 `retry_backoff_max_ms` 配置。当前写入器不应用这三个选项。
 
 ### array_mode 与 batch_size
 

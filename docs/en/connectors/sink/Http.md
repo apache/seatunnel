@@ -64,7 +64,7 @@ current writer does not read `params`; put static query parameters directly in
 
 ### retry behavior
 
-The HTTP sink accepts \`retry\`, \`retry_backoff_multiplier_ms\`, and \`retry_backoff_max_ms\` in the configuration. The writer does not apply these settings.
+The HTTP sink accepts `retry`, `retry_backoff_multiplier_ms`, and `retry_backoff_max_ms` in the configuration. The writer does not apply these settings.
 
 ### array_mode and batch_size
 
