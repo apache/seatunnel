@@ -220,13 +220,14 @@ Exactly-once delivery uses XA transactions and therefore requires XA support fro
 | password                                  | String  | No       | -                            |
 | query                                     | String  | No       | -                            |
 | compatible_mode                           | String  | No       | -                            |
-| dialect                                   | String  | No       | -                            | 
+| dialect                                   | String  | No       | -                            |
 | database                                  | String  | No       | -                            |
 | table                                     | String  | No       | -                            |
 | schema                                    | String  | No       | -                            |
 | tablePrefix                               | String  | No       | -                            |
 | tableSuffix                               | String  | No       | -                            |
 | primary_keys                              | Array   | No       | -                            |
+| multi_table_sink_replica                  | Int     | No       | 1                            |
 | connection_check_timeout_sec              | Int     | No       | 30                           |
 | connect_timeout_ms                        | Int     | No       | 86400000                     |
 | socket_timeout_ms                         | Int     | No       | 86400000                     |
@@ -262,7 +263,6 @@ Exactly-once delivery uses XA transactions and therefore requires XA support fro
 | access_key_id                             | String  | No       |                              |
 | secret_access_key                         | String  | No       |                              |
 | region                                    | String  | No       |                              |
-| multi_table_sink_replica                  | Int     | No       | 1                            |
 
 ### driver [string]
 
@@ -318,6 +318,10 @@ If the `dialect` option is not set and no dialect matches the url, SeaTunnel use
 ### database [string]
 
 The target database or catalog used in generated SQL mode. This option is required when `generate_sink_sql = true` and must not be combined with `query`.
+
+### multi_table_sink_replica [int]
+
+The replica number of multi table sink writer. Only takes effect in multi-table jobs.
 
 ### table [string]
 

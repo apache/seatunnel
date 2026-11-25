@@ -47,7 +47,7 @@ different API endpoints.
 
 ### model_provider
 
-The providers for generating embeddings include common options such as `AMAZON`, `DOUBAO`, `QIANFAN`, and `OPENAI`. Additionally,
+The providers for generating embeddings include common options such as `AMAZON`, `DOUBAO`, `QIANFAN`, `ZHIPU`, and `OPENAI`. Additionally,
 you can choose `CUSTOM` to implement requests and retrievals for custom embedding models.
 
 ### api_key
