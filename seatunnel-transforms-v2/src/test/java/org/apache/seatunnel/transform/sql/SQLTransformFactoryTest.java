@@ -112,6 +112,22 @@ public class SQLTransformFactoryTest {
     }
 
     @Test
+    void testWhereRejectedUpdateAsDeleteIsAnOptionalPolicy() {
+        Assertions.assertTrue(
+                new SQLTransformFactory()
+                        .optionRule()
+                        .getOptionalOptions()
+                        .contains(TransformCommonOptions.WHERE_REJECTED_UPDATE_AS_DELETE));
+        Assertions.assertFalse(
+                TransformCommonOptions.WHERE_REJECTED_UPDATE_AS_DELETE.defaultValue());
+        // Like a global policy, it must not make the per-table rule partial
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(tableRule()));
+        cfg.put(TransformCommonOptions.WHERE_REJECTED_UPDATE_AS_DELETE.key(), true);
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
     void testTableTransformEntryWithoutTablePathFails() {
         Map<String, Object> entry = tableRule();
         entry.remove(TransformCommonOptions.TABLE_PATH.key());

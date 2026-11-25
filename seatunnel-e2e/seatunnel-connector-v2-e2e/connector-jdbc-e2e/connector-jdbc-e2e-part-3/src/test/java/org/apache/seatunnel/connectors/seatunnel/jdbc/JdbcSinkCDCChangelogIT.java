@@ -135,26 +135,73 @@ public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResourc
     }
 
     /**
-     * A WHERE clause of the Sql transform on a CDC stream: row 1 goes from active to inactive and
-     * must be removed from the keyed sink table, row 3 goes from inactive to active and must be
-     * written, row 2 stays active.
+     * {@code where_rejected_update_as_delete} on a CDC stream, with the key taken from the primary
+     * key of the source schema: row 1 goes from active to inactive and must be removed from the
+     * keyed sink table, row 3 goes from inactive to active and must be written, row 2 stays active.
      */
     @TestTemplate
-    public void testSqlWhereOnCDCChangelog(TestContainer container)
+    public void testWhereRejectedUpdateAsDeleteWithSchemaKey(TestContainer container)
             throws IOException, InterruptedException, SQLException {
-        assertWhereOnCDCChangelog(container, "/jdbc_sink_cdc_changelog_sql_where.conf");
+        for (String config :
+                Arrays.asList(
+                        "/jdbc_sink_cdc_changelog_sql_where.conf",
+                        "/jdbc_sink_cdc_changelog_calcite_where.conf")) {
+            assertWhereOnCDCChangelog(
+                    container,
+                    config,
+                    "sink_status",
+                    Arrays.asList(Arrays.asList(2L, "active"), Arrays.asList(3L, "active")));
+        }
     }
 
-    /** The same as {@link #testSqlWhereOnCDCChangelog} with the Calcite transform. */
+    /**
+     * The same as {@link #testWhereRejectedUpdateAsDeleteWithSchemaKey}, with a source schema
+     * without a primary key and the key set only by {@code primary_keys} on the sink.
+     */
     @TestTemplate
-    public void testCalciteWhereOnCDCChangelog(TestContainer container)
+    public void testWhereRejectedUpdateAsDeleteWithSinkKey(TestContainer container)
             throws IOException, InterruptedException, SQLException {
-        assertWhereOnCDCChangelog(container, "/jdbc_sink_cdc_changelog_calcite_where.conf");
+        for (String config :
+                Arrays.asList(
+                        "/jdbc_sink_cdc_changelog_sql_where_sink_key.conf",
+                        "/jdbc_sink_cdc_changelog_calcite_where_sink_key.conf")) {
+            assertWhereOnCDCChangelog(
+                    container,
+                    config,
+                    "sink_status",
+                    Arrays.asList(Arrays.asList(2L, "active"), Arrays.asList(3L, "active")));
+        }
     }
 
-    private void assertWhereOnCDCChangelog(TestContainer container, String config)
+    /**
+     * A keyless append-only Jdbc sink with the default {@code where_rejected_update_as_delete =
+     * false}: the WHERE clause drops every row that does not match, as before, so the rejected
+     * UPDATE_AFTER of row 1 is not appended as a new row. The UPDATE_BEFORE of row 1 matches and is
+     * appended like any other row, as before.
+     */
+    @TestTemplate
+    public void testWhereOnCDCChangelogKeylessByDefault(TestContainer container)
             throws IOException, InterruptedException, SQLException {
-        executeSql("truncate table sink_status");
+        for (String config :
+                Arrays.asList(
+                        "/jdbc_sink_cdc_changelog_sql_where_keyless.conf",
+                        "/jdbc_sink_cdc_changelog_calcite_where_keyless.conf")) {
+            assertWhereOnCDCChangelog(
+                    container,
+                    config,
+                    "sink_status_append",
+                    Arrays.asList(
+                            Arrays.asList(1L, "active"),
+                            Arrays.asList(1L, "active"),
+                            Arrays.asList(2L, "active"),
+                            Arrays.asList(3L, "active")));
+        }
+    }
+
+    private void assertWhereOnCDCChangelog(
+            TestContainer container, String config, String table, List<List<Object>> expected)
+            throws IOException, InterruptedException, SQLException {
+        executeSql("truncate table " + table);
         try {
             Container.ExecResult execResult = container.executeJob(config);
             Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -168,18 +215,18 @@ public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResourc
                     Statement statement = connection.createStatement();
                     ResultSet resultSet =
                             statement.executeQuery(
-                                    "select pk_id, status from sink_status order by pk_id")) {
+                                    "select pk_id, status from "
+                                            + table
+                                            + " order by pk_id, status")) {
                 while (resultSet.next()) {
                     actual.add(
                             Arrays.asList(
                                     resultSet.getLong("pk_id"), resultSet.getString("status")));
                 }
             }
-            Assertions.assertEquals(
-                    Arrays.asList(Arrays.asList(2L, "active"), Arrays.asList(3L, "active")),
-                    actual);
+            Assertions.assertEquals(expected, actual, config);
         } finally {
-            executeSql("truncate table sink_status");
+            executeSql("truncate table " + table);
         }
     }
 
@@ -211,6 +258,11 @@ public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResourc
             statement.execute(
                     "create table if not exists sink_status(\n"
                             + "pk_id BIGINT NOT NULL PRIMARY KEY,\n"
+                            + "status varchar(255)\n"
+                            + ")");
+            statement.execute(
+                    "create table if not exists sink_status_append(\n"
+                            + "pk_id BIGINT NOT NULL,\n"
                             + "status varchar(255)\n"
                             + ")");
         } catch (SQLException e) {

@@ -52,11 +52,14 @@ public class CalciteTransform extends AbstractCatalogSupportFlatMapTransform {
 
     private final String sql;
     private final String inputTableName;
+    private final boolean whereRejectedUpdateAsDelete;
     private transient CalciteSQLEngine engine;
 
     public CalciteTransform(@NonNull ReadonlyConfig config, @NonNull CatalogTable catalogTable) {
         super(catalogTable, config.get(TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION));
         this.sql = config.get(CalciteTransformConfig.SQL);
+        this.whereRejectedUpdateAsDelete =
+                config.get(TransformCommonOptions.WHERE_REJECTED_UPDATE_AS_DELETE);
         List<String> pluginInputIdentifiers = config.get(ConnectorCommonOptions.PLUGIN_INPUT);
         if (pluginInputIdentifiers != null && !pluginInputIdentifiers.isEmpty()) {
             this.inputTableName = pluginInputIdentifiers.get(0);
@@ -72,7 +75,12 @@ public class CalciteTransform extends AbstractCatalogSupportFlatMapTransform {
 
     @Override
     public void open() {
-        engine = new CalciteSQLEngine(sql, inputTableName, inputCatalogTable.getSeaTunnelRowType());
+        engine =
+                new CalciteSQLEngine(
+                        sql,
+                        inputTableName,
+                        inputCatalogTable.getSeaTunnelRowType(),
+                        whereRejectedUpdateAsDelete);
         engine.init();
     }
 

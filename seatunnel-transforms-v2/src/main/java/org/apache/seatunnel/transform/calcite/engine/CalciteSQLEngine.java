@@ -69,13 +69,17 @@ public class CalciteSQLEngine implements AutoCloseable {
     private final String tableName;
     private final SeaTunnelRowType inputRowType;
 
+    /** Whether an UPDATE_AFTER that the WHERE clause rejects is emitted as a DELETE. */
+    private final boolean whereRejectedUpdateAsDelete;
+
     private SchemaPlus rootSchema;
     private SeaTunnelScannableTable scannableTable;
     private Bindable<Object[]> bindable;
 
     /**
-     * The query without its WHERE clause, or null when the query has no WHERE clause or is not a
-     * single SELECT. It builds the DELETE image of an UPDATE_AFTER that the WHERE clause rejects.
+     * The query without its WHERE clause, or null when {@link #whereRejectedUpdateAsDelete} is off,
+     * the query has no WHERE clause or is not a single SELECT. It builds the DELETE image of an
+     * UPDATE_AFTER that the WHERE clause rejects.
      */
     private Bindable<Object[]> withoutWhereBindable;
 
@@ -88,9 +92,22 @@ public class CalciteSQLEngine implements AutoCloseable {
     private SeaTunnelDataContext dataContext;
 
     public CalciteSQLEngine(String sql, String tableName, SeaTunnelRowType inputRowType) {
+        this(sql, tableName, inputRowType, false);
+    }
+
+    /**
+     * @param whereRejectedUpdateAsDelete whether an UPDATE_AFTER that the WHERE clause rejects is
+     *     emitted as a DELETE of its projected row instead of being dropped
+     */
+    public CalciteSQLEngine(
+            String sql,
+            String tableName,
+            SeaTunnelRowType inputRowType,
+            boolean whereRejectedUpdateAsDelete) {
         this.sql = sql;
         this.tableName = tableName;
         this.inputRowType = inputRowType;
+        this.whereRejectedUpdateAsDelete = whereRejectedUpdateAsDelete;
     }
 
     /**
@@ -133,7 +150,10 @@ public class CalciteSQLEngine implements AutoCloseable {
             RelDataType validatedRowType = relRoot.validatedRowType;
 
             bindable = toBindable(relRoot.rel);
-            withoutWhereBindable = compileWithoutWhere(frameworkConfig, validatedRowType);
+            withoutWhereBindable =
+                    whereRejectedUpdateAsDelete
+                            ? compileWithoutWhere(frameworkConfig, validatedRowType)
+                            : null;
 
             outputRowType =
                     new OutputRowTypeDeriver(inputRowType).derive(validated, validatedRowType);
@@ -152,6 +172,16 @@ public class CalciteSQLEngine implements AutoCloseable {
         }
     }
 
+    /**
+     * Converts a validated logical plan into the enumerable convention and compiles it.
+     *
+     * <p>The given plan is only read. The returned {@link Bindable} holds no row state: it can be
+     * bound again for every input row, and it reads the current row from the data context passed to
+     * {@link Bindable#bind}.
+     *
+     * @param logicalPlan the logical plan of a validated query
+     * @return the compiled plan, reusable for every row
+     */
     private static Bindable<Object[]> toBindable(RelNode logicalPlan) {
         RelNode enumerablePlan =
                 Programs.standard()
@@ -203,10 +233,12 @@ public class CalciteSQLEngine implements AutoCloseable {
      * Executes the pre-compiled SQL plan against a single input row. Returns a list of output rows
      * (typically 1, but UNNEST may produce 0-N rows).
      *
-     * <p>When the WHERE clause rejects an UPDATE_AFTER, the update moves the row out of the
-     * condition: its UPDATE_BEFORE matched and was kept, but a sink that writes UPDATE_AFTER as an
-     * upsert skips UPDATE_BEFORE and would keep the old row. The query without its WHERE clause
-     * then builds the new image, which is emitted as a DELETE so that the sink removes the row.
+     * <p>When {@code where_rejected_update_as_delete} is enabled and the WHERE clause rejects an
+     * UPDATE_AFTER, the update may have moved the row out of the condition: its UPDATE_BEFORE
+     * matched and was kept, but a sink that writes UPDATE_AFTER as an upsert skips UPDATE_BEFORE
+     * and would keep the old row. The query without its WHERE clause then builds the new image,
+     * which is emitted as a DELETE so that the sink removes the row. When the option is disabled,
+     * the rejected row is dropped like any other row.
      */
     public List<SeaTunnelRow> execute(SeaTunnelRow inputRow) {
         List<SeaTunnelRow> results = execute(bindable, inputRow, inputRow.getRowKind());

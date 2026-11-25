@@ -75,6 +75,9 @@ public class ZetaSQLEngine implements SQLEngine {
 
     private Integer allColumnsCount = null;
 
+    /** Whether an UPDATE_AFTER that the WHERE condition rejects is emitted as a DELETE. */
+    private boolean whereRejectedUpdateAsDelete = false;
+
     /** Whether a failed projection of a DELETE image was already logged at WARN. */
     private boolean deleteImageFailureLogged = false;
 
@@ -87,6 +90,11 @@ public class ZetaSQLEngine implements SQLEngine {
     @Nullable private int[] directProjectionIndexes;
 
     public ZetaSQLEngine() {}
+
+    @Override
+    public void setWhereRejectedUpdateAsDelete(boolean whereRejectedUpdateAsDelete) {
+        this.whereRejectedUpdateAsDelete = whereRejectedUpdateAsDelete;
+    }
 
     @Override
     public void init(
@@ -348,11 +356,11 @@ public class ZetaSQLEngine implements SQLEngine {
         if (retain) {
             return projectRow(inputFields, inputRow, inputRow.getRowKind(), outRowType);
         }
-        if (inputRow.getRowKind() != RowKind.UPDATE_AFTER) {
+        if (!whereRejectedUpdateAsDelete || inputRow.getRowKind() != RowKind.UPDATE_AFTER) {
             return null;
         }
-        // The update moves the row out of the WHERE condition: its UPDATE_BEFORE matched and was
-        // kept, but a sink that writes UPDATE_AFTER as an upsert skips UPDATE_BEFORE and would
+        // The update may move the row out of the WHERE condition: its UPDATE_BEFORE matched and
+        // was kept, but a sink that writes UPDATE_AFTER as an upsert skips UPDATE_BEFORE and would
         // keep the old row. Emit the new image as a DELETE so that the sink removes the row.
         try {
             return projectRow(inputFields, inputRow, RowKind.DELETE, outRowType);

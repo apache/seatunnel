@@ -76,6 +76,17 @@ public class TransformCommonOptions {
                                     + "When skip is selected, data format error will skip this column data."
                                     + "When skip_row is selected, data format error will skip this line data.");
 
+    public static final Option<Boolean> WHERE_REJECTED_UPDATE_AS_DELETE =
+            Options.key("where_rejected_update_as_delete")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether an UPDATE_AFTER row that the WHERE clause of the Sql or Calcite "
+                                    + "transform rejects is emitted as a DELETE of its projected row. "
+                                    + "When false, the row is dropped like any other row the WHERE "
+                                    + "clause rejects. Enable it only when the query selects a key "
+                                    + "that does not change and the sink deletes rows by that key.");
+
     public static final Option<String> ERROR_TABLE_OPTION =
             Options.key("row_error_handle_way.error_table")
                     .stringType()

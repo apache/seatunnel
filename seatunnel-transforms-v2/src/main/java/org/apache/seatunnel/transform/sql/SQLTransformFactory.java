@@ -42,7 +42,7 @@ public class SQLTransformFactory implements TableTransformFactory {
         // The rule of a single table: the SQL query to execute on that table.
         OptionRule tableRule = OptionRule.builder().required(KEY_QUERY).build();
         return OptionRule.builder()
-                .optional(KEY_QUERY)
+                .optional(KEY_QUERY, TransformCommonOptions.WHERE_REJECTED_UPDATE_AS_DELETE)
                 .optional(
                         TransformCommonOptions.MULTI_TABLES,
                         Conditions.extension(

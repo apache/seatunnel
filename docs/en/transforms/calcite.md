@@ -21,6 +21,7 @@ SQL transform plugin powered by [Apache Calcite](https://calcite.apache.org/). U
 | table_transform | list | no | [] | Per-table SQL overrides for multi-table CDC scenarios |
 | table_match_regex | string | no | .* | Regex to match table paths. Unmatched tables pass through unchanged |
 | row_error_handle_way | enum | no | FAIL | How to handle row-level errors: `FAIL`, `SKIP`, or `ROUTE_TO_TABLE` |
+| where_rejected_update_as_delete | boolean | no | false | Emit an `UPDATE_AFTER` row that `WHERE` rejects as a `DELETE` |
 
 ### sql [string]
 
@@ -56,6 +57,10 @@ How to handle errors during SQL execution for a row:
 - `FAIL` (default) -- fail the job immediately
 - `SKIP` -- accepted, but currently behaves like `FAIL` for the Calcite transform: SQL execution errors are thrown as plain `TransformException`, so the row is not skipped
 - `ROUTE_TO_TABLE` -- accepted for compatibility, but the Calcite transform does not implement error-table routing yet; it currently behaves like `FAIL`
+
+### where_rejected_update_as_delete [boolean]
+
+Whether an `UPDATE_AFTER` row that the `WHERE` clause rejects is emitted as a `DELETE` of its projected row. When `false` (the default), it is dropped like any other row that does not match. Enable it only when the query selects a key that the update does not change and the sink deletes rows by that key; see the WHERE on a CDC stream tip under Limitations. In `table_transform`, set it in each entry that needs it: an entry does not inherit it from the transform level.
 
 ### common options [string]
 
@@ -462,13 +467,15 @@ Custom scalar functions can be added via the `CalciteUdf` SPI. For the full deve
 |------------|--------|
 | Single input table | Only one table is registered in the Calcite schema per transform. Multi-table `JOIN` is not supported |
 | Row-at-a-time processing | Each row is processed independently. `GROUP BY` / `SUM()` / `COUNT()` operate on a single row and are generally not useful for batch aggregation |
-| WHERE filtering | `WHERE` conditions that evaluate to `false` cause the row to be dropped (not passed through), except an `UPDATE_AFTER` row, which is emitted as a `DELETE` (see below) |
+| WHERE filtering | `WHERE` conditions that evaluate to `false` cause the row to be dropped (not passed through). With `where_rejected_update_as_delete = true`, a rejected `UPDATE_AFTER` row is emitted as a `DELETE` instead (see below) |
 | Table name matching | The `FROM` table name in SQL must exactly match the `plugin_input` value |
 | Scalar UDFs only | Only scalar functions are supported. Table-valued functions and aggregate UDFs are not available |
 | Vector type mapping | Vector types are mapped to VARBINARY internally. Use built-in vector UDFs (COSINE_DISTANCE, L1_DISTANCE, etc.) for vector operations |
 
 :::tip WHERE on a CDC stream
-When the `WHERE` clause rejects an `UPDATE_AFTER` row, the transform runs the query without its `WHERE` clause and emits the result as a `DELETE`. An update that moves a row out of the condition is then removed from a sink that writes rows by key, such as Jdbc with `primary_keys`, instead of keeping its old values. Rejected `INSERT`, `UPDATE_BEFORE` and `DELETE` rows are still dropped. This applies to a single `SELECT` without `GROUP BY` or `HAVING`, with or without `ORDER BY`. Select the key columns of the sink so that the `DELETE` can find the row; the sink needs the permission to delete, and a Kudu sink needs `ignore_not_found = true`. If that projection fails, the row is dropped and a warning is logged.
+When an update moves a row out of the `WHERE` condition, its `UPDATE_BEFORE` matches and is kept and its `UPDATE_AFTER` is dropped, so a sink that writes `UPDATE_AFTER` as an upsert and skips `UPDATE_BEFORE`, such as Jdbc with a primary key, keeps the old row. With `where_rejected_update_as_delete = true`, the transform runs the query without its `WHERE` clause for a rejected `UPDATE_AFTER` row and emits the result as a `DELETE`, so a sink that writes rows by key removes the row. Rejected `INSERT`, `UPDATE_BEFORE` and `DELETE` rows are still dropped. This applies to a single `SELECT` without `GROUP BY` or `HAVING`, with or without `ORDER BY`; other queries drop the row as with the default `false`.
+
+Enable it only when the query selects the key columns that the sink deletes by, the update does not change them, and the sink deletes rows by that key. The `DELETE` is built from the new values only. If the query does not select the key, the output schema has no primary key and the sink cannot find the row; a sink without a key, such as Jdbc without `primary_keys` or a schema primary key, writes the `DELETE` as a new row. A `DELETE` is also sent when the old values did not match either, so the sink needs the permission to delete, and a Kudu sink needs `ignore_not_found = true`. If the projection fails, the row is dropped and a warning is logged.
 :::
 
 :::tip CDC schema changes

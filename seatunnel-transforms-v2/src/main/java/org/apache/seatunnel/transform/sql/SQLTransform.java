@@ -39,6 +39,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.transform.common.AbstractCatalogSupportFlatMapTransform;
+import org.apache.seatunnel.transform.common.TransformCommonOptions;
 import org.apache.seatunnel.transform.exception.TransformCommonErrorCode;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.SQLEngineFactory.EngineType;
@@ -72,6 +73,8 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
 
     private final EngineType engineType;
 
+    private final boolean whereRejectedUpdateAsDelete;
+
     private SeaTunnelRowType outRowType;
 
     private transient SQLEngine sqlEngine;
@@ -86,6 +89,8 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
         } else {
             this.engineType = ZETA;
         }
+        this.whereRejectedUpdateAsDelete =
+                config.get(TransformCommonOptions.WHERE_REJECTED_UPDATE_AS_DELETE);
 
         List<String> pluginInputIdentifiers = config.get(ConnectorCommonOptions.PLUGIN_INPUT);
         if (pluginInputIdentifiers != null && !pluginInputIdentifiers.isEmpty()) {
@@ -103,6 +108,7 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
     @Override
     public void open() {
         sqlEngine = SQLEngineFactory.getSQLEngine(engineType);
+        sqlEngine.setWhereRejectedUpdateAsDelete(whereRejectedUpdateAsDelete);
         sqlEngine.init(
                 inputTableName,
                 inputCatalogTable.getTableId().getTableName(),

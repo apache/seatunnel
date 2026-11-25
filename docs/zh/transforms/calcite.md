@@ -21,6 +21,7 @@
 | table_transform | list | 否 | [] | 多表 CDC 场景下的逐表 SQL 覆盖 |
 | table_match_regex | string | 否 | .* | 表路径匹配正则。不匹配的表直接透传 |
 | row_error_handle_way | enum | 否 | FAIL | 行级错误处理方式：`FAIL`、`SKIP`、`ROUTE_TO_TABLE` |
+| where_rejected_update_as_delete | boolean | 否 | false | 把被 `WHERE` 拒绝的 `UPDATE_AFTER` 行作为 `DELETE` 发出 |
 
 ### sql [string]
 
@@ -56,6 +57,10 @@ table_transform = [
 - `FAIL`（默认）-- 立即终止作业
 - `SKIP` -- 仅为兼容性保留，Calcite 转换中当前行为等同 `FAIL`：SQL 执行错误以普通 `TransformException` 抛出，错误行不会被跳过
 - `ROUTE_TO_TABLE` -- 仅为兼容性保留，Calcite 转换尚未实现错误表路由，当前行为等同 `FAIL`
+
+### where_rejected_update_as_delete [boolean]
+
+是否把被 `WHERE` 子句拒绝的 `UPDATE_AFTER` 行作为其投影结果的 `DELETE` 发出。为 `false`（默认）时，它会像其他不满足条件的行一样被丢弃。仅当查询选出了更新不会改变的键、且 Sink 按该键删除行时才启用；参见“限制”中的 CDC 流上的 WHERE 提示。在 `table_transform` 中，请在每个需要的条目中单独设置：条目不会继承 Transform 级别的设置。
 
 ### 公共参数 [string]
 
@@ -460,13 +465,15 @@ transform {
 |------|------|
 | 单表输入 | 每个 Transform 只注册一张表到 Calcite Schema，不支持多表 `JOIN` |
 | 逐行处理 | 每行独立处理。`GROUP BY` / `SUM()` / `COUNT()` 作用于单行，通常无实际聚合意义 |
-| WHERE 过滤 | `WHERE` 条件为 `false` 的行会被丢弃（不透传），`UPDATE_AFTER` 行除外，它会作为 `DELETE` 发出（见下文） |
+| WHERE 过滤 | `WHERE` 条件为 `false` 的行会被丢弃（不透传）。设置 `where_rejected_update_as_delete = true` 时，被拒绝的 `UPDATE_AFTER` 行会改为作为 `DELETE` 发出（见下文） |
 | 表名匹配 | SQL `FROM` 中的表名必须与 `plugin_input` 值完全一致 |
 | 仅标量 UDF | 仅支持标量函数，不支持表值函数和聚合 UDF |
 | 向量类型映射 | 向量类型内部映射为 VARBINARY。可使用内置向量 UDF（COSINE_DISTANCE、L1_DISTANCE 等）进行向量运算 |
 
 :::tip CDC 流上的 WHERE
-当 `WHERE` 子句拒绝一条 `UPDATE_AFTER` 行时，该 Transform 会执行去掉 `WHERE` 子句的查询，并把结果作为 `DELETE` 发出。这样，使某行不再满足条件的更新会从按主键写入的 Sink（例如配置了 `primary_keys` 的 Jdbc）中删除该行，而不是保留旧值。被拒绝的 `INSERT`、`UPDATE_BEFORE` 和 `DELETE` 行仍会被丢弃。这适用于不带 `GROUP BY` 或 `HAVING` 的单个 `SELECT`（可带 `ORDER BY`）。请选出 Sink 的主键列，以便 `DELETE` 能找到对应的行；Sink 需要删除权限，Kudu Sink 需设置 `ignore_not_found = true`。如果该投影失败，该行会被丢弃，并记录一条警告日志。
+当更新使某行不再满足 `WHERE` 条件时，它的 `UPDATE_BEFORE` 满足条件而被保留，`UPDATE_AFTER` 被丢弃，因此把 `UPDATE_AFTER` 写成 upsert 并跳过 `UPDATE_BEFORE` 的 Sink（例如带主键的 Jdbc）会保留旧行。设置 `where_rejected_update_as_delete = true` 后，对于被拒绝的 `UPDATE_AFTER` 行，该 Transform 会执行去掉 `WHERE` 子句的查询，并把结果作为 `DELETE` 发出，按键写入的 Sink 就会删除该行。被拒绝的 `INSERT`、`UPDATE_BEFORE` 和 `DELETE` 行仍会被丢弃。这适用于不带 `GROUP BY` 或 `HAVING` 的单个 `SELECT`（可带 `ORDER BY`）；其他查询会像默认值 `false` 一样丢弃该行。
+
+仅当查询选出了 Sink 用来删除的键列、更新不会改变这些列、且 Sink 按该键删除行时才启用。`DELETE` 只由新值构造。如果查询没有选出键，输出 Schema 中没有主键，Sink 无法找到对应的行；没有键的 Sink（例如既没有 `primary_keys`、Schema 中也没有主键的 Jdbc）会把 `DELETE` 写成一条新行。旧值同样不满足条件时也会发送 `DELETE`，因此 Sink 需要删除权限，Kudu Sink 需设置 `ignore_not_found = true`。如果投影失败，该行会被丢弃，并记录一条警告日志。
 :::
 
 :::tip CDC Schema 变更

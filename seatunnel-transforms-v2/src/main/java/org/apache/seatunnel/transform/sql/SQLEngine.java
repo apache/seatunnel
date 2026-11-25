@@ -29,6 +29,12 @@ public interface SQLEngine {
             SeaTunnelRowType inputRowType,
             String sql);
 
+    /**
+     * Sets whether an UPDATE_AFTER row that the WHERE clause rejects is emitted as a DELETE of its
+     * projected row instead of being dropped. Called before {@link #init}; disabled by default.
+     */
+    default void setWhereRejectedUpdateAsDelete(boolean whereRejectedUpdateAsDelete) {}
+
     SeaTunnelRowType typeMapping(List<String> inputColumnsMapping);
 
     List<SeaTunnelRow> transformBySQL(SeaTunnelRow inputRow, SeaTunnelRowType outputRowType);

@@ -16,6 +16,7 @@ SQL transform use memory SQL engine, we can via SQL functions and ability of SQL
 | plugin_output | string | no       | -             |
 | query             | string | yes      | -             |
 | engine            | string | no       | ZETA          |
+| where_rejected_update_as_delete | boolean | no | false |
 
 ### plugin_input [string]
 
@@ -31,6 +32,10 @@ or `select c_row.c_inner_row.column_b` to query the inline struct column that na
 ### engine [string]
 
 The SQL engine used by this transform. Supported values are `ZETA` and `INTERNAL`. If this option is not configured, `ZETA` is used.
+
+### where_rejected_update_as_delete [boolean]
+
+Whether an `UPDATE_AFTER` row that the `WHERE` clause rejects is emitted as a `DELETE` of its projected row. When `false` (the default), it is dropped like any other row that does not match. Enable it only when the query selects a key that the update does not change and the sink deletes rows by that key; see [WHERE on a CDC stream](#where-on-a-cdc-stream). In `table_transform`, set it in each entry that needs it: an entry does not inherit it from the transform level.
 
 ## Numeric comparisons
 
@@ -74,7 +79,9 @@ precision matters. These rules apply to both `ZETA` and `INTERNAL`.
 
 ## WHERE on a CDC stream
 
-The `WHERE` clause judges each row on its own. On a CDC stream an update arrives as an `UPDATE_BEFORE` row with the old values and an `UPDATE_AFTER` row with the new values. The transform emits:
+The `WHERE` clause judges each row on its own and keeps its row kind. On a CDC stream an update arrives as an `UPDATE_BEFORE` row with the old values and an `UPDATE_AFTER` row with the new values. When an update moves a row out of the condition, the `UPDATE_BEFORE` matches and is kept, and the `UPDATE_AFTER` is dropped. A sink that writes `UPDATE_AFTER` as an upsert and skips `UPDATE_BEFORE`, such as Jdbc with a primary key, then keeps the old row.
+
+With `where_rejected_update_as_delete = true`, the transform emits:
 
 | Row kind | Matches the `WHERE` clause | Output |
 |----------|----------------------------|--------|
@@ -82,12 +89,31 @@ The `WHERE` clause judges each row on its own. On a CDC stream an update arrives
 | `UPDATE_AFTER` | no | the projected row, as a `DELETE` |
 | `INSERT`, `UPDATE_BEFORE`, `DELETE` | no | nothing |
 
-An update that moves a row out of the condition therefore reaches the sink as a `DELETE`, and a sink that writes rows by key, such as Jdbc with `primary_keys`, removes the row. Without it, a sink that writes `UPDATE_AFTER` as an upsert and skips `UPDATE_BEFORE` would keep the old row. An update that moves a row into the condition arrives as an `UPDATE_AFTER` and is written as usual.
+An update that moves a row out of the condition then reaches the sink as a `DELETE`, and a sink that writes rows by key removes the row. With the default `false`, every row that does not match is dropped, as in earlier versions.
 
-- Select the key columns of the sink, so that the `DELETE` can find the row.
+```hocon
+transform {
+  Sql {
+    plugin_input = "cdc"
+    plugin_output = "active_users"
+    query = "select id, name, status from dual where status = 'active'"
+    where_rejected_update_as_delete = true
+  }
+}
+```
+
+Enable it only when both of these hold:
+
+- **A stable key:** the query selects the key columns that the sink deletes by, and the update does not change them. The `DELETE` is built from the new values only, so it finds the row only by a key that is the same before and after the update. The key can come from the primary key of the source schema or from the sink configuration, such as `primary_keys` on Jdbc.
+- **A sink that deletes:** the sink deletes rows by that key. A sink without a key appends every row it receives; for example, a Jdbc sink without `primary_keys` and without a primary key in the schema writes the `DELETE` as a new row.
+
+Limits of the projection:
+
+- If the query does not select the key, for example `select name, status from dual where status = 'active'` for a sink keyed by `id`, the output schema has no primary key and the `DELETE` carries only the selected columns, so the sink cannot find the row. A Jdbc sink whose `primary_keys` names a column that the query does not select fails at start, with or without this option.
 - A `DELETE` is also sent when the old values did not match either. A keyed sink then deletes a key it does not hold, which changes no data, but the sink needs the permission to delete. The Kudu sink fails on such a delete unless `ignore_not_found = true`.
 - With `LATERAL VIEW`, every row produced from a rejected `UPDATE_AFTER` is a `DELETE`.
 - If the projection of a rejected `UPDATE_AFTER` fails, for example `select 10 / x as r from dual where x <> 0` with `x = 0`, the row is dropped and a warning is logged.
+- A target table loaded before the option was enabled can still hold rows that no longer match; reload it from the source to remove them.
 
 ## Example
 
