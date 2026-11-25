@@ -22,6 +22,18 @@ MySQL `DATETIME` 映射为 SeaTunnel `TIMESTAMP`（`LocalDateTime`）。MySQL JD
 
 从受 [#13024](https://github.com/apache/seatunnel/issues/13024) 影响的版本升级时，请移除为补偿 `DATETIME` 写入偏移而手动添加的小时偏移。已经写入的数据不会自动修复；修正或重新加载之前，请先与原始数据进行比较。
 
+## GoldenDB
+
+使用 GoldenDB 驱动以及兼容 MySQL 的 JDBC 方言和 catalog 时，请显式设置 `dialect = "GoldenDB"`，并配置与驱动匹配的驱动类和 URL，例如：
+
+```hocon
+url = "jdbc:goldendb://goldendb-host:3306/example"
+driver = "com.goldendb.jdbc.Driver"
+dialect = "GoldenDB"
+```
+
+请自行安装与数据库版本兼容的 GoldenDB JDBC 驱动；驱动类名和支持的 URL 格式以实际版本为准。提供 MySQL 协议的 GoldenDB 部署也可以使用兼容的 MySQL JDBC 驱动和 `jdbc:mysql://` URL，此时会选择现有的 MySQL 方言。未显式指定方言的既有 `jdbc:goldendb:` 配置仍使用通用方言。MySQL catalog 要求配置 `username` 和 `password`，且不会将 JDBC `properties` 映射传给 catalog 连接。生产使用前请针对实际 GoldenDB 版本验证 SQL、数据类型和事务行为；MySQL 测试不能代替 GoldenDB 数据库及驱动的验证。
+
 ## 使用依赖
 
 先安装 `connector-jdbc` 插件：
@@ -250,6 +262,7 @@ Exactly-once 依赖 XA 事务，因此数据库和 JDBC 驱动都必须支持 XA
 | access_key_id                             | String  | 否       |                              |
 | secret_access_key                         | String  | 否       |                              |
 | region                                    | String  | 否       |                              |
+| multi_table_sink_replica                  | Int     | 否    | 1                            |
 ### driver [string]
 
 用于连接远程数据源的 jdbc 类名，如果使用MySQL，则值为`com.mysql.cj.jdbc.Driver`
@@ -286,7 +299,7 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 
 如果未设置 `dialect` 且 url 无法被任何方言识别，SeaTunnel 会使用默认方言 `GenericDialect`；如果 `dialect` 设置了无法匹配任何受支持方言名称的值，任务初始化会直接失败而不是回退。请确保您提供的驱动程序支持您想要连接的数据库。
 
-#### 示例可选
+#### 方言列表
 
 |           | 方言名称       |          |
 |-----------|------------|----------|
@@ -349,11 +362,11 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 
 ### connect_timeout_ms [int]
 
-建立 JDBC 连接时的连接超时时间，单位毫秒。默认值为 24 小时。设置为 `0` 表示不超时。
+建立 JDBC 连接时的连接超时时间，单位毫秒。默认值为 24 小时。设置为 `0` 表示使用驱动默认值（不显式设置超时）。当前该参数仅 Hive 方言生效，其他方言会忽略。
 
 ### socket_timeout_ms [int]
 
-JDBC 连接建立后的 socket 读取超时时间，单位毫秒。默认值为 24 小时。设置为 `0` 表示不超时。
+JDBC 连接建立后的 socket 读取超时时间，单位毫秒。默认值为 24 小时。设置为 `0` 表示使用驱动默认值（不显式设置超时）。当前该参数仅 Hive 方言生效，其他方言会忽略。
 
 ### max_retries [int]
 
@@ -692,6 +705,8 @@ Amazon Aurora DSQL 所在的区域。 该参考仅适用于 dialect="dsql"
 | Highgo     | com.highgo.jdbc.Driver                       | jdbc:highgo://localhost:5866/highgo                                | /                                                  | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                        |
 | Dsql       | org.postgresql.Driver                        | jdbc:postgresql://Amazon Aurora DSQL Cluster Endpoint:5432/postgres | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                       |
 | YashanDB   | com.yashandb.jdbc.Driver                     | jdbc:yasdb://localhost:1688/SYS                                    | /                                                  | https://repo1.maven.org/maven2/com/yashandb/yashandb-jdbc/1.10.7/yashandb-jdbc-1.10.7.jar          |
+| xugu       | com.xugu.cloudjdbc.Driver                    | jdbc:xugu://localhost:5138                                         | /                                                  | https://repo1.maven.org/maven2/com/xugudb/xugu-jdbc/12.2.0/xugu-jdbc-12.2.0.jar |
+| InterSystems IRIS | com.intersystems.jdbc.IRISDriver      | jdbc:IRIS://localhost:1972/%SYS                                    | /                                                  | https://repo1.maven.org/maven2/com/intersystems/intersystems-jdbc/3.10.3/intersystems-jdbc-3.10.3.jar |
 
 ## 常用模式
 
@@ -905,6 +920,48 @@ sink {
 }
 ```
 
+#### SqlServer CDC source
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["column_type_test"]
+    table-names = [
+      "column_type_test.dbo.full_types",
+      "column_type_test.dbo.full_types_2"
+    ]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test"
+  }
+}
+
+sink {
+  Jdbc {
+    plugin_input = "customers"
+    driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test;encrypt=false"
+    user = "sa"
+    password = "Password!"
+    generate_sink_sql = true
+    database = "column_type_test"
+    schema = "dbo"
+    table = "sink_${table_name}"
+    batch_size = 1
+    primary_keys = ["id"]
+  }
+}
+```
+
+`table` 中的 `${table_name}` 占位符会使用上游记录的表元数据填充，因此每张源表（`full_types`、`full_types_2`）都会写入各自的 sink 表（`sink_full_types`、`sink_full_types_2`）。请配合 `generate_sink_sql = true` 并预先配置 `primary_keys`，这样 SeaTunnel 才能为每张上游表生成正确的 INSERT/UPSERT 语句。
+
 #### Amazon Aurora DSQL
 
 ```hocon
@@ -952,6 +1009,14 @@ sink {
     }
 }
 ```
+
+`dialect = "Dsql"` 表示选择 Amazon Aurora DSQL。`username` 填写数据库角色名。连接器使用
+`access_key_id`、`secret_access_key` 和 `region` 生成 IAM token，作为 JDBC 密码。
+Aurora DSQL 不支持 XA，因此请将 `is_exactly_once` 保持为默认值 `false`。
+
+### multi_table_sink_replica [int]
+
+多表 Sink 写入器的副本数，必须至少为 1。默认值为 `1`。
 
 ## 故障排查
 

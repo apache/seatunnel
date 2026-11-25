@@ -10,6 +10,18 @@ JDBC Source 是有界数据源：它读取数据库查询当前可见的数据�
 
 第一次配置 JDBC Source 时，请先阅读[选择读取模式](#选择读取模式)和[快速入门](#快速入门postgresql)，再按需查阅后面的完整参数说明。
 
+## GoldenDB
+
+使用 GoldenDB 驱动以及兼容 MySQL 的 JDBC 方言和 catalog 时，请显式设置 `dialect = "GoldenDB"`，并配置与驱动匹配的驱动类和 URL，例如：
+
+```hocon
+url = "jdbc:goldendb://goldendb-host:3306/example"
+driver = "com.goldendb.jdbc.Driver"
+dialect = "GoldenDB"
+```
+
+请自行安装与数据库版本兼容的 GoldenDB JDBC 驱动；驱动类名和支持的 URL 格式以实际版本为准。提供 MySQL 协议的 GoldenDB 部署也可以使用兼容的 MySQL JDBC 驱动和 `jdbc:mysql://` URL，此时会选择现有的 MySQL 方言。未显式指定方言的既有 `jdbc:goldendb:` 配置仍使用通用方言。MySQL catalog 要求配置 `username` 和 `password`，且不会将 JDBC `properties` 映射传给 catalog 连接。生产使用前请针对实际 GoldenDB 版本验证 SQL、数据类型和事务行为；MySQL 测试不能代替 GoldenDB 数据库及驱动的验证。
+
 ## 使用依赖
 
 先安装 `connector-jdbc` 插件：
@@ -138,6 +150,9 @@ driver = "org.mariadb.jdbc.Driver"
 - [x] [批](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流](../../introduction/concepts/connector-v2-features.md)
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+
+JDBC Source 是有界（bounded）数据源：完成一次快照读取后即结束。如果作业需要持续捕获后续的插入、更新和删除，请使用 CDC source 连接器。
+
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 
 使用 `query` 可以只读取需要的列。
@@ -152,7 +167,7 @@ driver = "org.mariadb.jdbc.Driver"
 
 | 参数名                                       | 类型    | 必须   | 默认值   | 描述                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 |--------------------------------------------|---------|------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                        | String  | 是    | -       | JDBC 连接的 URL。参考示例：jdbc:postgresql://localhost/test                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| url                                        | String  | 是    | -       | JDBC 连接的 URL。参考示例：jdbc:postgresql://localhost/test。历史配置键 `base-url` 仍作为兼容键支持。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | driver                                     | String  | 是    | -       | 用于连接到远程数据源的 jdbc 类名，如果您使用 MySQL，值为 `com.mysql.cj.jdbc.Driver`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | username                                   | String  | 否    | -       | 数据库账号。历史配置键 `user` 仍作为兼容键支持。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | password                                   | String  | 否    | -       | 数据库账号的密码。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -160,8 +175,8 @@ driver = "org.mariadb.jdbc.Driver"
 | compatible_mode                            | String  | 否    | -       | 数据库的兼容模式，当数据库支持多种兼容模式时需要。<br/> 例如，使用 OceanBase 数据库时，需要将其设置为 'mysql' 或 'oracle'。<br/> 使用 starrocks 时，需要将其设置为 `starrocks`                                                                                                                                                                                                                                                                                                                                                                                                             |
 | dialect                                    | String  | 否    | -       | 指定的方言。设置后，取值必须是下方方言列表中的名称（不区分大小写），并优先于根据 url 推断的方言；未设置时根据 url 推断方言。<br/> 注意：StarRocks 不是方言名称，使用 StarRocks 时请保持 `dialect` 不设置，并将 `compatible_mode` 设置为 `starrocks`。Inceptor 也不是方言名称，使用 Inceptor 时请保持 `dialect` 不设置或将 `dialect` 设置为 `HIVE`，并将 `compatible_mode` 设置为 `inceptor`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | connection_check_timeout_sec               | Int     | 否    | 30      | 等待用于验证连接的数据库操作完成的时间（秒）。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| connect_timeout_ms                         | Int     | 否    | 86400000 | 建立 JDBC 连接时的连接超时时间，单位毫秒。`0` 表示不超时。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| socket_timeout_ms                          | Int     | 否    | 86400000 | JDBC 连接建立后的 socket 读取超时时间，单位毫秒。`0` 表示不超时。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| connect_timeout_ms                         | Int     | 否    | 86400000 | 建立 JDBC 连接时的连接超时时间，单位毫秒。`0` 表示使用驱动默认值（不显式设置超时）。当前该参数仅 Hive 方言生效，其他方言会忽略。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| socket_timeout_ms                          | Int     | 否    | 86400000 | JDBC 连接建立后的 socket 读取超时时间，单位毫秒。`0` 表示使用驱动默认值（不显式设置超时）。当前该参数仅 Hive 方言生效，其他方言会忽略。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | partition_column                           | String  | 否    | -       | 用于分割数据的列名。按该列分片时，该列为 NULL 的行不属于任何分片范围或哈希桶，不会被读取，请选择不含 NULL 值的列。设置 `enable_concurrent_read = false` 时表不分片，这些行也会被读取。CockroachDB 的哈希分片会把 NULL 放入一个桶，这些行也会被读取。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | partition_upper_bound                      | String  | 否    | -       | query 分区读取使用的闭区间上界。未配置时，SeaTunnel 会从源表查询最大值。对于 DATE 分区列，支持 ISO-8601 日期字符串（`yyyy-MM-dd`）或兼容历史配置的 epoch-day 数字。                                                                                                                                                                                                                                                                                                                                                                                                             |
 | partition_lower_bound                      | String  | 否    | -       | query 分区读取使用的闭区间下界。未配置时，SeaTunnel 会从源表查询最小值。对于 DATE 分区列，支持 ISO-8601 日期字符串（`yyyy-MM-dd`）或兼容历史配置的 epoch-day 数字。                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -195,6 +210,7 @@ driver = "org.mariadb.jdbc.Driver"
 | split.string_split_mode                    | Enum    | 否    | sample          | 支持不同的字符串分割算法。默认使用 `sample`，通过采样字符串值来确定分割。可以切换为 `charset_based` 启用基于字符集的字符串分割算法。设置为 `charset_based` 时，算法假定 partition_column 的字符在 ASCII 32-126 范围内，覆盖了大多数基于字符的分割场景。                                                                                                                                                    |
 | split.string-strategy                      | Enum    | 否    | -               | 控制 String 分区列的分片方式，可选值为 `none`、`hash`、`range`、`auto`。`range` 和 `auto` 当前要求 MySQL binary collation，且键值为固定长度的可打印 ASCII 字符串。其他 JDBC 方言在显式验证 range 分片支持前会拒绝 `range` 和 `auto`。`auto` 会优先尝试 range 分片，range 不安全时回退为 hash 分片。未设置该参数时，SeaTunnel 保持现有 `split.string_split_mode` 行为。                                                                                                                                                                                                                                                                       |
 | split.string_split_mode_collate            | String  | 否    | -               | 当 string_split_mode 设置为 `charset_based` 且表具有特殊排序规则时，指定要使用的排序规则。如果未指定，将使用数据库的默认排序规则。                                                                                                                                                                                                            |
+| multi_table.failure_policy                 | Enum    | 否    | FAIL_FAST       | 多表作业的失败处理策略。`FAIL_FAST` 在任一表出错时中止整个作业。`CONTINUE_OTHER_TABLES` 在错误可以归因到单个表时隔离失败表，其余健康表继续运行。                                                                                                                                                                                            |
 | common-options                             |         | 否    | -       | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 详见。                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 固定查询分片支持映射为 SeaTunnel DATE 类型的列，边界可使用 ISO 日期或整数 epoch-day。支持范围取决于方言映射；例如 Oracle DATE 映射为 TIMESTAMP，不在本次支持范围内。TIME、TIMESTAMP 和 TIMESTAMP_TZ 列不支持作为分片列；请选择受支持的列，或不设置 partition_column，以单个分片读取查询。
@@ -554,6 +570,44 @@ source {
 
 sink {
   Console {}
+}
+```
+
+### 使用显式分区列和分区查询读取
+
+使用 `partition_column` 配合 `query` 可以将单表读取拆分为多个并行分片。`partition_lower_bound` 和 `partition_upper_bound` 是可选的；如果不配置，读取开始前会先执行一条 `MIN`/`MAX` 探测查询。
+
+```hocon
+env {
+  parallelism = 4
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    url = "jdbc:postgresql://postgresql.example.com:5432/sales?loggerLevel=OFF"
+    driver = "org.postgresql.Driver"
+    username = "seatunnel_reader"
+    password = "change_me"
+    query = """select gid, uuid_col, text_col, varchar_col, char_one_col, char_col, boolean_col, smallint_col, integer_col,
+                      bigint_col, decimal_col, numeric_col, real_col, double_precision_col, smallserial_col, serial_col,
+                      bigserial_col, date_col, timestamp_col, timestamp_tz_col, bpchar_col, age, name from pg_e2e_source_table"""
+    partition_column = "gid"
+    partition_num = 4
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://postgresql.example.com:5432/sales?loggerLevel=OFF&stringtype=unspecified"
+    driver = "org.postgresql.Driver"
+    username = "writer"
+    password = "change_me"
+    generate_sink_sql = true
+    database = "sales"
+    table = "public.pg_e2e_sink_table"
+    primary_keys = ["gid"]
+  }
 }
 ```
 

@@ -547,6 +547,79 @@ def _find_metadata_export_sh() -> str | None:
 
 # ─── Unified metadata fetcher (two-tier priority) ───
 
+def _connector_lookup_key(name: str) -> str:
+    """Reduce a connector name to what is the same across spellings.
+
+    Case and separators carry no meaning in a plugin name, so `jdbc`, `JDBC`
+    and `Jdbc` are one connector, and `mysql-cdc`, `MySQL-CDC` and `MySqlCdc`
+    are another.
+    """
+    return re.sub(r"[^a-z0-9]", "", (name or "").lower())
+
+
+def canonicalize_connector(
+    name: str, plugin_type: str | None = None,
+) -> tuple[str | None, list[str]]:
+    """Resolve a plan's connector name to a registered one.
+
+    Returns `(canonical_name, candidates)`. `canonical_name` is set only when
+    the name resolves to exactly one registered connector; otherwise it is
+    `None` and `candidates` lists the registered names the caller could have
+    meant.
+
+    Resolution is deliberately limited to spellings of the same name --
+    case, separators, and for transforms a trailing "transform" (so
+    `SQLTransform` resolves to `Sql`). It does **not** guess at abbreviations:
+    `File` is not resolved to `LocalFile`, because 13 registered connectors
+    end in `File` (`LocalFile`, `S3File`, `OssFile`, `HdfsFile`, `SftpFile`
+    and more), and silently choosing one would point a job at the wrong
+    storage system. Those names come back as candidates instead, which is
+    information the caller can act on; a wrong guess is not.
+    """
+    registered: list[str] = []
+    try:
+        catalog = list_connector_names()
+    except Exception:  # noqa: BLE001 - registry unavailable is not fatal here
+        return (None, [])
+    buckets = {"source": "sources", "sink": "sinks", "transform": "transforms"}
+    keys = [buckets[plugin_type]] if plugin_type in buckets else list(buckets.values())
+    for key in keys:
+        registered.extend(catalog.get(key, []))
+
+    if name in registered:
+        return (name, [])
+
+    # De-duplicate first. Several connectors are registered under more than one
+    # type -- `Jdbc` is both a source and a sink -- so without this a lookup
+    # that is not scoped to a type sees the same name twice and calls one
+    # connector ambiguous with itself.
+    index: dict[str, list[str]] = {}
+    for candidate in dict.fromkeys(registered):
+        index.setdefault(_connector_lookup_key(candidate), []).append(candidate)
+
+    wanted = _connector_lookup_key(name)
+    for probe in [wanted] + (
+        # `SQLTransform` is the transform `Sql` with its kind spelled out.
+        [wanted[: -len("transform")]]
+        if plugin_type == "transform" and wanted.endswith("transform")
+        and len(wanted) > len("transform")
+        else []
+    ):
+        matches = index.get(probe, [])
+        if len(matches) == 1:
+            return (matches[0], [])
+        if len(matches) > 1:
+            return (None, sorted(matches))
+
+    # No spelling of this name is registered. Offer the names that contain it,
+    # which is how `File` surfaces the file connectors.
+    near = sorted(
+        candidate for key, names in index.items() for candidate in names
+        if wanted and (wanted in key or key in wanted)
+    )
+    return (None, near)
+
+
 def fetch_connector_metadata(
     plugin_name: str, plugin_type: str,
 ) -> dict | None:
@@ -576,7 +649,26 @@ def fetch_connector_metadata(
             logger.info(f"Metadata for {plugin_type}:{plugin_name} from runtime JSON")
             return detail
 
-    logger.warning(f"No metadata found for {plugin_type}:{plugin_name}")
+    # Tier 3: the name as written is not registered, but a different spelling
+    # of it may be. Planner output is free text, so `jdbc`, `MYSQL-CDC` and
+    # `SQLTransform` all reach here for connectors whose metadata exists.
+    # Only reached once the name as given has already failed, so a lookup that
+    # worked before behaves identically.
+    canonical, candidates = canonicalize_connector(plugin_name, plugin_type)
+    if canonical and canonical != plugin_name:
+        logger.info(
+            f"Resolved {plugin_type}:{plugin_name} to registered name "
+            f"{canonical}"
+        )
+        return fetch_connector_metadata(canonical, plugin_type)
+
+    if candidates:
+        logger.warning(
+            f"No metadata found for {plugin_type}:{plugin_name} — "
+            f"registered names it could mean: {', '.join(candidates)}"
+        )
+    else:
+        logger.warning(f"No metadata found for {plugin_type}:{plugin_name}")
     return None
 
 

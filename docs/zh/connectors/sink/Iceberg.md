@@ -155,6 +155,22 @@ sink {
 }
 ```
 
+### schema_save_mode [Enum]
+
+在 Sink 开始写入之前，控制如何处理目标表的结构。
+- `RECREATE_SCHEMA` ：如果目标表存在，则先删除该表然后重新创建；如果不存在则直接创建。
+- `CREATE_SCHEMA_WHEN_NOT_EXIST` ：如果目标表不存在则创建它；如果已存在则跳过创建。
+- `ERROR_WHEN_SCHEMA_NOT_EXIST` ：如果目标表不存在，则抛出异常并报错。
+- `IGNORE` ：忽略目标表结构的处理，不执行任何与结构相关的检查或 DDL 动作。
+
+### data_save_mode [Enum]
+
+在 Sink 开始写入之前，控制如何处理目标表中的已有数据。
+- `DROP_DATA` ：删除目标表中的已有数据。
+- `APPEND_DATA` ：保留目标表中的已有数据，并将新数据追加写入。
+- `CUSTOM_PROCESSING` ：执行用户自定义的处理。此选项需要配合 `custom_sql` 参数。
+- `ERROR_WHEN_DATA_EXISTS` ：如果目标表已包含数据，则抛出异常并报错。
+
 ### custom_sql [string]
 
 当 `data_save_mode = CUSTOM_PROCESSING` 时，配置在 Sink 写入前删除目标数据的 `delete` SQL。该模式下必须配置此选项。
