@@ -16,6 +16,8 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.mem0.sink;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
@@ -157,10 +159,22 @@ public class Mem0SinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     }
 
     private void validateAcceptedResponse(HttpResponse response) throws IOException {
-        JsonNode responseBody = objectMapper.readTree(response.getContent());
+        final JsonNode responseBody;
+        try {
+            responseBody =
+                    response.getContent() == null
+                            ? null
+                            : objectMapper
+                                    .reader()
+                                    .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                                    .readTree(response.getContent());
+        } catch (JsonProcessingException e) {
+            // Parser messages and locations can contain provider data. Do not retain the cause.
+            throw new IOException("Mem0 add response is not valid JSON");
+        }
         JsonNode eventId = responseBody == null ? null : responseBody.get("event_id");
-        if (eventId == null || eventId.isNull() || eventId.asText().trim().isEmpty()) {
-            throw new IOException("Mem0 add response did not contain a nonblank event_id");
+        if (eventId == null || !eventId.isTextual() || eventId.textValue().trim().isEmpty()) {
+            throw new IOException("Mem0 add response did not contain a nonblank string event_id");
         }
     }
 
