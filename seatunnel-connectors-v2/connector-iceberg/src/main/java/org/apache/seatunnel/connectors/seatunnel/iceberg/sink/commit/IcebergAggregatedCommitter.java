@@ -25,17 +25,16 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer.WriteResult
 
 import org.apache.iceberg.FileContent;
 
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /** Iceberg aggregated committer */
-@Slf4j
 public class IcebergAggregatedCommitter
         implements SinkAggregatedCommitter<IcebergCommitInfo, IcebergAggregatedCommitInfo> {
 
@@ -59,27 +58,25 @@ public class IcebergAggregatedCommitter
     public List<IcebergAggregatedCommitInfo> commit(
             List<IcebergAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
         for (IcebergAggregatedCommitInfo commitInfo : aggregatedCommitInfo) {
-            commitFiles(commitInfo.getCommitInfos(), commitInfo.getCheckpointId(), false);
+            Map<Long, List<IcebergCommitInfo>> checkpoints = new LinkedHashMap<>();
+            for (IcebergCommitInfo writer : commitInfo.getCommitInfos()) {
+                checkpoints
+                        .computeIfAbsent(writer.getCheckpointId(), ignored -> new ArrayList<>())
+                        .add(writer);
+            }
+            for (Map.Entry<Long, List<IcebergCommitInfo>> checkpoint : checkpoints.entrySet()) {
+                commitFiles(checkpoint.getValue(), checkpoint.getKey());
+            }
         }
         return Collections.emptyList();
     }
 
-    /**
-     * Commits restored checkpoints, skipping the snapshots that already reached the table. For a
-     * checkpoint that was split into several snapshots, only the missing groups are committed.
-     *
-     * <p>Resuming a partially committed split checkpoint requires the engine to call this method
-     * with the recovered committables. Zeta does. The Flink 1.13 and 1.15 adapters discard
-     * recovered global committables, and the Flink 1.20 adapter passes recovered pending
-     * committables to {@link #commit(List)} instead. See the {@code flush_row_size} documentation.
-     */
     @Override
     public List<IcebergAggregatedCommitInfo> restoreCommit(
             List<IcebergAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
-        for (IcebergAggregatedCommitInfo commitInfo : aggregatedCommitInfo) {
-            commitFiles(commitInfo.getCommitInfos(), commitInfo.getCheckpointId(), true);
-        }
-        return Collections.emptyList();
+        // Flink also replays recovered committables through ordinary commit(). Both paths must
+        // use the same publication check, rather than relying on engine-specific restore routing.
+        return commit(aggregatedCommitInfo);
     }
 
     @Override
@@ -95,29 +92,13 @@ public class IcebergAggregatedCommitter
         this.tableLoader.close();
     }
 
-    private void commitFiles(
-            List<IcebergCommitInfo> commitInfos, long checkpointId, boolean restoring) {
+    private void commitFiles(List<IcebergCommitInfo> commitInfos, long checkpointId) {
         List<List<WriteResult>> groups = planCommits(commitInfos);
-        if (groups.isEmpty()) {
-            return;
+        if (groups.size() == 1) {
+            filesCommitter.doCommit(groups.get(0), checkpointId);
+        } else if (!groups.isEmpty()) {
+            filesCommitter.doCommitInOrder(groups, checkpointId);
         }
-        if (groups.size() > 1) {
-            log.info(
-                    "Checkpoint {} has equality deletes after a writer rotation, committing it as"
-                            + " {} ordered snapshots",
-                    checkpointId,
-                    groups.size());
-            filesCommitter.doCommitInOrder(groups, checkpointId, restoring);
-            return;
-        }
-        List<WriteResult> results = groups.get(0);
-        if (restoring && filesCommitter.isAlreadyCommitted(checkpointId, results)) {
-            log.info(
-                    "Checkpoint {} already committed to Iceberg table, skipping restore commit",
-                    checkpointId);
-            return;
-        }
-        filesCommitter.doCommit(results, checkpointId);
     }
 
     /**

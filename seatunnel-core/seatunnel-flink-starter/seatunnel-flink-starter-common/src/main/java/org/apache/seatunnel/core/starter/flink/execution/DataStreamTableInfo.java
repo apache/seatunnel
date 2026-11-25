@@ -22,13 +22,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.flink.streaming.api.datastream.DataStream;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.util.List;
 
 @Data
-@AllArgsConstructor
 public class DataStreamTableInfo {
 
     private DataStream<SeaTunnelRow> dataStream;
@@ -36,4 +34,25 @@ public class DataStreamTableInfo {
     private List<CatalogTable> catalogTables;
 
     private String tableName;
+
+    /** Whether this stream carries Flink's internal schema-evolution control protocol. */
+    private boolean schemaEvolutionEnabled;
+
+    public DataStreamTableInfo(
+            DataStream<SeaTunnelRow> dataStream,
+            List<CatalogTable> catalogTables,
+            String tableName) {
+        this(dataStream, catalogTables, tableName, false);
+    }
+
+    public DataStreamTableInfo(
+            DataStream<SeaTunnelRow> dataStream,
+            List<CatalogTable> catalogTables,
+            String tableName,
+            boolean schemaEvolutionEnabled) {
+        this.dataStream = dataStream;
+        this.catalogTables = catalogTables;
+        this.tableName = tableName;
+        this.schemaEvolutionEnabled = schemaEvolutionEnabled;
+    }
 }
