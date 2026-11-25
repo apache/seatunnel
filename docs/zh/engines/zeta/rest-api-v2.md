@@ -951,8 +951,8 @@ seatunnel:
 > | jobId                | optional | string | job id                            |
 > | jobName              | optional | string | job name                          |
 > | isStartWithSavePoint | optional | string | if job is started with save point |
-> | restoreMode          | optional | string | 作业恢复的数据来源：`CHECKPOINT` 或 `SAVEPOINT`，需与 `restoreSourceJobId` 搭配使用。详见 [作业恢复与重启](rest-api-job-lifecycle.md#6-作业恢复与重启)。 |
-> | restoreSourceJobId   | optional | string | 设置了 `restoreMode` 时，用于指定需要恢复的作业 ID。若只设置了 `isStartWithSavePoint`（未设置 `restoreMode`），则回退使用 `jobId`。 |
+> | restoreMode          | optional | string | 作业恢复的数据来源：`CHECKPOINT` 或 `SAVEPOINT`。详见 [作业恢复与重启](rest-api-job-lifecycle.md#6-作业恢复与重启)。 |
+> | restoreSourceJobId   | optional | string | 要恢复的作业 ID，使用 `CHECKPOINT` 时必填。使用 `SAVEPOINT` 时，省略此参数则使用 `jobId`。 |
 > | format               | optional | string    | 配置风格,支持json、hocon 和 sql,默认 json   |
 
 **注意:** REST API 不支持 dry-run 功能。该功能仅通过 CLI 提供。
@@ -1089,8 +1089,8 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 > | jobId                | optional | string | job id                            |
 > | jobName              | optional | string | job name                          |
 > | isStartWithSavePoint | optional | string | if job is started with save point |
-> | restoreMode          | optional | string | 作业恢复的数据来源：`CHECKPOINT` 或 `SAVEPOINT`，需与 `restoreSourceJobId` 搭配使用。详见 [作业恢复与重启](rest-api-job-lifecycle.md#6-作业恢复与重启)。 |
-> | restoreSourceJobId   | optional | string | 设置了 `restoreMode` 时，用于指定需要恢复的作业 ID。若只设置了 `isStartWithSavePoint`（未设置 `restoreMode`），则回退使用 `jobId`。 |
+> | restoreMode          | optional | string | 作业恢复的数据来源：`CHECKPOINT` 或 `SAVEPOINT`。详见 [作业恢复与重启](rest-api-job-lifecycle.md#6-作业恢复与重启)。 |
+> | restoreSourceJobId   | optional | string | 要恢复的作业 ID，使用 `CHECKPOINT` 时必填。使用 `SAVEPOINT` 时，省略此参数则使用 `jobId`。 |
 
 #### 请求体
 上传文件key的名称是config_file，支持以下格式：

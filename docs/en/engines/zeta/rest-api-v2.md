@@ -968,8 +968,8 @@ Each member is asked in parallel and awaited against one shared deadline (`seatu
 > | jobId                | optional | string    | job id                                                   |
 > | jobName              | optional | string    | job name                                                 |
 > | isStartWithSavePoint | optional | string    | if job is started with save point                        |
-> | restoreMode          | optional | string    | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. Used together with `restoreSourceJobId`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
-> | restoreSourceJobId   | optional | string    | The job id to restore from when `restoreMode` is set. When only `isStartWithSavePoint` is set (no `restoreMode`), this falls back to `jobId`. |
+> | restoreMode          | optional | string    | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
+> | restoreSourceJobId   | optional | string    | ID of the job to restore. Required for `CHECKPOINT`. In `SAVEPOINT` mode, the server uses `jobId` if this parameter is omitted. |
 > | format               | optional | string    | config format, support json, hocon and sql, default json |
 
 **Note:** The dry-run feature is intentionally not supported via the REST API. It is exclusively available through the SeaTunnel CLI.
@@ -1106,8 +1106,8 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 > | jobId                | optional | string    | job id                            |
 > | jobName              | optional | string    | job name                          |
 > | isStartWithSavePoint | optional | string    | if job is started with save point |
-> | restoreMode          | optional | string    | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. Used together with `restoreSourceJobId`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
-> | restoreSourceJobId   | optional | string    | The job id to restore from when `restoreMode` is set. When only `isStartWithSavePoint` is set (no `restoreMode`), this falls back to `jobId`. |
+> | restoreMode          | optional | string    | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
+> | restoreSourceJobId   | optional | string    | ID of the job to restore. Required for `CHECKPOINT`. In `SAVEPOINT` mode, the server uses `jobId` if this parameter is omitted. |
 
 #### Request Body
 The name of the uploaded file key is config_file, and supports the following formats:

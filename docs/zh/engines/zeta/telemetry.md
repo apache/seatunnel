@@ -37,7 +37,8 @@ Prometheus 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/i
 
 OpenMetrics 的指标文本可通过 `http://{instanceHost}:8080/openmetrics` 获取。
 
-相同的内容也在 Hazelcast REST 端点 `http://{instanceHost}:5801/hazelcast/rest/instance/metrics` 上提供，该端点还需要在 `hazelcast.yaml` 的 `hazelcast.network.rest-api` 下设置 `rest-api.enabled: true`（发行包模板中默认关闭）。
+Hazelcast REST API 也在 `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics` 提供 OpenMetrics。
+使用 Hazelcast 端点时，请在 `hazelcast.yaml` 中设置 `hazelcast.network.rest-api.enabled: true`。
 
 可用的指标包括以下类别。
 

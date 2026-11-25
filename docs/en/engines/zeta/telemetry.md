@@ -36,7 +36,8 @@ The metric text of prometheus can be obtained from `http://{instanceHost}:5801/h
 
 The metric text of openMetrics can be obtained from `http://{instanceHost}:8080/openmetrics`.
 
-The same content is also served on the Hazelcast REST endpoint `http://{instanceHost}:5801/hazelcast/rest/instance/metrics`, which additionally requires `rest-api.enabled: true` under `hazelcast.network.rest-api` in `hazelcast.yaml` (it is disabled by default in the shipped template).
+The Hazelcast REST API also serves OpenMetrics at `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics`.
+Set `hazelcast.network.rest-api.enabled: true` in `hazelcast.yaml` to use the Hazelcast endpoints.
 
 Available metrics include the following categories.
 

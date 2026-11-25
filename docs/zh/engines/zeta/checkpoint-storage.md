@@ -312,6 +312,7 @@ seatunnel:
           fs.s3a.access.key: xxxxxxxxx # MinIO 的 Access Key
           fs.s3a.secret.key: xxxxxxxxxxxxxxxxxxxxx # MinIO 的 Secret Key
           fs.s3a.endpoint: http://127.0.0.1:9000 # Minio HTTP 服务访问地址
+          fs.s3a.path.style.access: true
           s3.bucket: s3a://test # test 为存储检查点文件的 bucket 名称
           fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
        # 重要：该 key 的用户需要有 bucket 的写权限，否则会返回 403 异常
