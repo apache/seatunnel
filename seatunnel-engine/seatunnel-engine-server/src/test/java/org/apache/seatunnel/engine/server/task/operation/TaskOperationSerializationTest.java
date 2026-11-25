@@ -31,9 +31,11 @@ import com.hazelcast.internal.serialization.InternalSerializationService;
 import com.hazelcast.internal.serialization.impl.DefaultSerializationServiceBuilder;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.DataSerializable;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 
 import java.io.IOException;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -43,10 +45,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TaskOperationSerializationTest {
 
+    private static final int OBSERVED_FACTORY_ID = 77499;
     private static final TaskLocation LOCATION =
             new TaskLocation(new TaskGroupLocation(7L, 3, 11L), 5L, 2);
     private final InternalSerializationService serializationService =
-            new DefaultSerializationServiceBuilder().build();
+            new DefaultSerializationServiceBuilder()
+                    .addDataSerializableFactory(OBSERVED_FACTORY_ID, id -> new ObservedLocation())
+                    .build();
 
     @AfterEach
     void tearDown() {
@@ -74,7 +79,8 @@ class TaskOperationSerializationTest {
 
     @Test
     void taskOperationRejectsDifferentClassIdFromSameFactory() throws IOException {
-        assertRejected(new WrongLocation(), false, Progress.class.getName());
+        assertRejected(
+                new WrongLocation(), false, "class ID is " + TaskDataSerializerHook.PROGRESS_TYPE);
     }
 
     @Test
@@ -90,6 +96,113 @@ class TaskOperationSerializationTest {
     @Test
     void splitAssignmentRejectsNullLocation() throws IOException {
         assertRejected(null, true, "null");
+    }
+
+    @Test
+    void taskOperationRejectsClassNamedPayloadBeforeConstruction() throws IOException {
+        byte[] bytes = encode(new WireFixture(new SideEffectPayload(), false)::writeInternal);
+        SideEffectPayload.constructions = 0;
+        SideEffectPayload.reads = 0;
+
+        assertThrows(
+                IOException.class,
+                () ->
+                        new TaskFixture(null)
+                                .readInternal(serializationService.createObjectDataInput(bytes)));
+
+        assertEquals(0, SideEffectPayload.constructions);
+        assertEquals(0, SideEffectPayload.reads);
+    }
+
+    @Test
+    void taskOperationRejectsOtherFactoryBeforeConstruction() throws IOException {
+        byte[] bytes = encode(new WireFixture(new ObservedLocation(), false)::writeInternal);
+        SideEffectPayload.constructions = 0;
+        SideEffectPayload.reads = 0;
+
+        IOException error =
+                assertThrows(
+                        IOException.class,
+                        () ->
+                                new TaskFixture(null)
+                                        .readInternal(
+                                                serializationService.createObjectDataInput(bytes)));
+
+        assertTrue(error.getMessage().contains("factory ID is " + OBSERVED_FACTORY_ID));
+        assertEquals(0, SideEffectPayload.constructions);
+        assertEquals(0, SideEffectPayload.reads);
+    }
+
+    @Test
+    void taskOperationRejectsOtherSerializerBeforeReadingIt() throws IOException {
+        assertRejected("not a location", false, "wire serializer type");
+    }
+
+    @Test
+    void taskLocationRoundTripsWithLittleEndianInput() throws IOException {
+        InternalSerializationService littleEndianService =
+                new DefaultSerializationServiceBuilder()
+                        .setByteOrder(ByteOrder.LITTLE_ENDIAN)
+                        .setAllowUnsafe(false)
+                        .build();
+        try {
+            TaskFixture original = new TaskFixture(LOCATION);
+            byte[] bytes = encode(littleEndianService, original::writeInternal);
+            TaskFixture decoded = new TaskFixture(null);
+            decoded.readInternal(littleEndianService.createObjectDataInput(bytes));
+            assertEquals(LOCATION, decoded.getTaskLocation());
+            assertArrayEquals(bytes, encode(littleEndianService, decoded::writeInternal));
+        } finally {
+            littleEndianService.dispose();
+        }
+    }
+
+    @Test
+    void taskOperationRejectsTruncatedLocationHeader() throws IOException {
+        byte[] bytes = encode(new WireFixture(new WrongLocation(), false)::writeInternal);
+        int prefixSize = encode(new WireFixture(null, false)::writeInternal).length - Integer.BYTES;
+        for (int size = prefixSize; size < prefixSize + 3 * Integer.BYTES + Byte.BYTES; size++) {
+            byte[] truncated = Arrays.copyOf(bytes, size);
+            assertThrows(
+                    IOException.class,
+                    () ->
+                            new TaskFixture(null)
+                                    .readInternal(
+                                            serializationService.createObjectDataInput(truncated)));
+        }
+    }
+
+    public static class ObservedLocation extends SideEffectPayload
+            implements IdentifiedDataSerializable {
+        @Override
+        public int getFactoryId() {
+            return OBSERVED_FACTORY_ID;
+        }
+
+        @Override
+        public int getClassId() {
+            return TaskDataSerializerHook.TASK_LOCATION_TYPE;
+        }
+    }
+
+    public static class SideEffectPayload implements DataSerializable {
+        private static int constructions;
+        private static int reads;
+
+        public SideEffectPayload() {
+            constructions++;
+        }
+
+        @Override
+        public void writeData(ObjectDataOutput output) throws IOException {
+            LOCATION.writeData(output);
+        }
+
+        @Override
+        public void readData(ObjectDataInput input) throws IOException {
+            reads++;
+            new TaskLocation().readData(input);
+        }
     }
 
     private void assertRejected(Object location, boolean splitAssignment, String decodedType)
@@ -112,7 +225,12 @@ class TaskOperationSerializationTest {
     }
 
     private byte[] encode(WireWriter writer) throws IOException {
-        try (BufferObjectDataOutput output = serializationService.createObjectDataOutput()) {
+        return encode(serializationService, writer);
+    }
+
+    private byte[] encode(InternalSerializationService service, WireWriter writer)
+            throws IOException {
+        try (BufferObjectDataOutput output = service.createObjectDataOutput()) {
             writer.write(output);
             return output.toByteArray();
         }
