@@ -79,6 +79,8 @@ Table list configuration:
 
 Note: When this configuration corresponds to a single table, you can flatten the configuration items in table_list to the outer layer. In that flattened form, configure `split.size` instead of `split_size`.
 
+Note: Each `table_list` entry (or the flattened outer-level configuration) must set at least one of `table_path` or `sql`. The connector fails with `table_path` and `sql` parameter cannot be both empty when both are missing.
+
 ## Parallel Reader
 The Clickhouse source connector supports parallel reading of data.
 

@@ -35,7 +35,7 @@ import ChangeLog from '../changelog/connector-easysearch.md';
 
 | Easysearch 数据类型             | SeaTunnel 数据类型   |
 |-----------------------------|----------------------|
-| STRING<br/>KEYWORD<br/>TEXT | STRING               |
+| STRING<br/>KEYWORD<br/>TEXT<br/>BINARY | STRING               |
 | BOOLEAN                     | BOOLEAN              |
 | BYTE                        | BYTE                 |
 | SHORT                       | SHORT                |
