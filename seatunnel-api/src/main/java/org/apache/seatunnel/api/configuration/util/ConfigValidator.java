@@ -165,7 +165,13 @@ public class ConfigValidator {
     }
 
     public void validate(OptionRule rule) {
-        validate(rule, null);
+        validateWithCondition(rule, null);
+    }
+
+    /** @deprecated Use {@link #validateWithCondition(OptionRule, Condition)}. */
+    @Deprecated
+    public void validate(OptionRule rule, Expression expression) {
+        validateWithCondition(rule, expression == null ? null : expression.toCondition());
     }
 
     /**
@@ -174,7 +180,7 @@ public class ConfigValidator {
      * @param rule the option rule to validate
      * @param condition the enclosing condition chain, may be {@code null}
      */
-    public void validate(OptionRule rule, Condition<?> condition) {
+    public void validateWithCondition(OptionRule rule, Condition<?> condition) {
         List<String> errors = new ArrayList<>();
         collectErrors(rule, condition, errors);
         if (!errors.isEmpty()) {

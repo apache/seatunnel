@@ -237,7 +237,7 @@ The [OpenAPI 3.1 contract for the read-only REST v2 subset](openapi-v2.yaml) cur
       "next": {
         "condition": {"option": {"key": "b"}},
         "operator": "AND",
-        "next": {"condition": {"option": {"key": "c"}}, "operator": null, "next": null}
+        "next": {"condition": {"option": {"key": "c"}}}
       }
     }
   }

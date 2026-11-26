@@ -139,31 +139,26 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
   - **影响**：使用默认配置时，时间戳写成 `yyyy-MM-dd HH:mm:ss`（`T` 改为空格，丢弃小数秒），时间写成 `HH:mm:ss`。依赖原 ISO 格式的下游需要调整。
   - **迁移指南**：如需保留 ISO 格式，请在 Sink 上配置 `datetime_format`，例如 `YYYY_MM_DD_HH_MM_SS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss`），或使用 `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss.SSS`）保留毫秒，并在读取时为 Source 配置对应的 `datetime_format`。
 
-### 条件选项规则统一使用 `Condition`，并删除已废弃的 `Expression` API
+### 条件选项规则按 AND 优先于 OR 的顺序求值
 
-- **破坏性变更：删除 `Expression` 及其全部入口，条件选项规则改为完全使用 `Condition` 构建、求值和渲染**
-  - **影响范围**：`seatunnel-api`（`OptionRule`、`ConditionRule`、`RequiredOption.ConditionalRequiredOptions`、`ConfigValidator`），以及渲染同一批条件的 Zeta REST 选项规则元数据接口和 `bin/seatunnel-metadata-export.sh` 元数据导出
-  - **变更说明**：`Expression` 不再是选项规则模型的一部分，`Condition` 链成为唯一表示。`A.and(B).or(C)` 这类链现在按标准布尔优先级求值和输出，即 `(A && B) || C`。旧的 `Expression` 模型对同一条链按右结合求值，即 `A && (B || C)`，且括号分组方式不同：`A.or(B).and(C)` 过去输出为 `(A || B) && C`，现在输出为 `A || (B && C)`。
-  - **影响**：
-    - **API 删除（源码不兼容）**：`Expression` 类以及所有使用它的入口都已删除：`ConfigValidator.validate(OptionRule, Expression)`、`RequiredOption.ConditionalRequiredOptions.of(Expression, List)`、`RequiredOption.ConditionalRequiredOptions.getExpression()`、`new ConditionRule(Expression, OptionRule)`、`ConditionRule.getExpression()`。仍在导入或调用它们的代码将无法编译，需要迁移到基于 `Condition` 的 API。
-    - 同时混用 AND 和 OR 的条件规则可能在新版本中命中以前不命中的分支。例如 `A.and(B).or(C)` 在 `A=false、B=false、C=true` 时，现在会触发必填校验，而旧表达式不会命中。
-    - 校验报错信息和 REST/CLI 中的 `expression` 文本按 AND 优先于 OR 的规则分组。旧 API 用单个 `Expression` 节点包装多节点 `Condition` 时，还会额外输出一层外括号。例如，`(A && B)` 现在输出为 `A && B`，`(A || B)` 输出为 `A || B`。这两种纯 AND 或纯 OR 链的求值结果保持一致。
-    - `Condition.equals` 和 `hashCode` 现在会计入链上每个节点的 `ConditionExtension`。如果工厂每次调用 `optionRule()` 都创建新的匿名扩展实例，即使扩展返回相同的描述，生成的规则也可能不相等。如果需要比较规则或将其用作哈希键，请复用同一个扩展实例，或为扩展实现一致的、基于值的 `equals` 和 `hashCode`。
-    - REST 与 CLI 元数据会把包含多个节点的条件链导出为一条平铺链：`operator` 和 `next` 位于导出的树节点上，每个节点的 `condition` 不再重复携带。
-    - **预编译插件需要重新编译（二进制不兼容）**：基于旧版 `seatunnel-api` 编译、使用已删除 API 的插件 jar 会在加载时抛出 `NoClassDefFoundError` 或 `NoSuchMethodError`，因为这些类和方法已从运行时移除。
-  - **迁移指南**：
-    - 用 `Condition.of(...)`、`and(...)` 和 `or(...)` 构建触发条件，先在 builder 上声明它引用的选项。使用 `conditional(trigger, requiredOptions...)` 添加条件必填项，使用 `conditionalRule(trigger, nestedRule)` 添加嵌套的 `OptionRule`。这两个入口都要求触发条件非空。可通过两类规则的 `getCondition()` 读取触发条件。
+SeaTunnel 使用 `Condition` 校验条件选项规则，并通过 Zeta REST API 和元数据导出 CLI 描述这些规则。3.1.0 中已废弃的 `Expression` 类及相关公共构造器、工厂方法、getter 和校验方法仍可供已有插件 jar 调用。
 
-      ```java
-      Condition<?> trigger = Condition.of(MODE, "snapshot").or(REPLAY, true);
-      OptionRule rule = OptionRule.builder()
-              .optional(MODE, REPLAY)
-              .conditional(trigger, START_TIME)
-              .conditionalRule(trigger, OptionRule.builder().bundled(USERNAME, PASSWORD).build())
-              .build();
-      ```
-    - 检查混用 AND 和 OR 的条件规则并明确期望的优先级。如果需要保留旧的右结合语义，请改写为等价的“AND 组之间取 OR”形式，例如 `A && (B || C)` 改写为 `(A && B) || (A && C)`。
-    - 由于表达式文本现在按 `Condition` 的规则渲染，请同步更新断言校验报错信息或导出元数据的测试与工具。
+升级后，运行时会将旧表达式展开为一条条件链，按 AND 优先于 OR 的顺序求值。这个变化也适用于已编译的插件。例如，3.1.0 将 `A.and(B).or(C)` 求值为 `A && (B || C)`，现在则是 `(A && B) || C`。当 A、B 为假且 C 为真时，现在会触发必填校验。多个旧表达式节点内部的分组边界也会被展开。如果规则依赖原有分组，请明确改写，例如将 `A && (B || C)` 写成 `(A && B) || (A && C)`。
+
+新规则可使用 `conditional(trigger, requiredOptions...)` 添加条件必填项，或使用 `conditionalRule(trigger, nestedRule)` 添加嵌套规则。先声明触发条件引用的选项，再通过 `getCondition()` 读取触发条件。旧的 `getExpression()` 返回独立副本。每个 OR 分支对应一个外层节点，分支内的 AND 条件保存在该节点中。如需修改规则，请使用新的触发条件重新构建。
+
+```java
+Condition<?> trigger = Condition.of(MODE, "snapshot").or(REPLAY, true);
+OptionRule rule = OptionRule.builder()
+        .optional(MODE, REPLAY)
+        .conditional(trigger, START_TIME)
+        .conditionalRule(trigger, OptionRule.builder().bundled(USERNAME, PASSWORD).build())
+        .build();
+```
+
+依赖校验报错或导出元数据的工具，请按 AND 优先于 OR 的规则解读表达式文本。遍历条件规则导出的触发条件树时，请读取表达式节点上的 `operator` 和 `next`。每个节点的 `condition` 描述一个谓词。
+
+`Condition.equals` 和 `hashCode` 会计入每个节点的 `ConditionExtension`。如果工厂要求等价规则比较相等，可以复用扩展实例，或为扩展实现按值比较的 `equals` 和 `hashCode`。
 
 ### 原生 CLI 帮助退出码
 

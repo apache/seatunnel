@@ -241,7 +241,9 @@ public class OptionRule {
         /**
          * Requires the given options when the trigger matches. Declare every option referenced by
          * the trigger first, including cross-field operands. The builder snapshots the chain so
-         * appending conditions to it later does not change this rule.
+         * appending conditions to it later does not change this rule. A trigger that references
+         * multiple options may share its target with other triggers. Two single-option triggers
+         * that require the same target must refer to the same option.
          */
         public Builder conditional(
                 @NonNull Condition<?> trigger, @NonNull Option<?>... requiredOptions) {
@@ -462,7 +464,7 @@ public class OptionRule {
         public OptionRule build() {
             List<ConditionRule> conditionRuleList =
                     conditionRulesMap.entrySet().stream()
-                            .map(e -> new ConditionRule(e.getKey(), e.getValue()))
+                            .map(e -> ConditionRule.of(e.getKey(), e.getValue()))
                             .collect(Collectors.toList());
             return new OptionRule(
                     optionalOptions, requiredOptions, conditionRuleList, valueConstraints);
@@ -503,63 +505,49 @@ public class OptionRule {
         private void verifyRequiredOptionDuplicate(
                 @NonNull RequiredOption requiredOption,
                 @NonNull Boolean ignoreVerifyDuplicateOptions) {
-            requiredOption
-                    .getOptions()
-                    .forEach(
-                            option -> {
-                                if (!ignoreVerifyDuplicateOptions) {
-                                    // Check if required option that duplicate with option options
-                                    verifyDuplicateWithOptionOptions(
-                                            option, requiredOption.getClass().getSimpleName());
-                                }
-                                requiredOptions.forEach(
-                                        ro -> {
-                                            if (ro
-                                                            instanceof
-                                                            RequiredOption
-                                                                    .ConditionalRequiredOptions
-                                                    && requiredOption
-                                                            instanceof
-                                                            RequiredOption
-                                                                    .ConditionalRequiredOptions) {
-                                                Option<?> requiredOptionCondition =
-                                                        ((RequiredOption.ConditionalRequiredOptions)
-                                                                        requiredOption)
-                                                                .getCondition()
-                                                                .getOption();
+            for (Option<?> option : requiredOption.getOptions()) {
+                if (!ignoreVerifyDuplicateOptions) {
+                    verifyDuplicateWithOptionOptions(
+                            option, requiredOption.getClass().getSimpleName());
+                }
+                for (RequiredOption existing : requiredOptions) {
+                    if (existing.getOptions().contains(option)
+                            && !canShareConditionalTarget(requiredOption, existing)) {
+                        throw new OptionValidationException(
+                                String.format(
+                                        "%s '%s' duplicate in %s options.",
+                                        requiredOption.getClass().getSimpleName(),
+                                        option.key(),
+                                        existing.getClass().getSimpleName()));
+                    }
+                }
+            }
+        }
 
-                                                Option<?> roOptionCondition =
-                                                        ((RequiredOption.ConditionalRequiredOptions)
-                                                                        ro)
-                                                                .getCondition()
-                                                                .getOption();
+        private boolean canShareConditionalTarget(RequiredOption first, RequiredOption second) {
+            if (!(first instanceof RequiredOption.ConditionalRequiredOptions)
+                    || !(second instanceof RequiredOption.ConditionalRequiredOptions)) {
+                return false;
+            }
+            Condition<?> firstTrigger =
+                    ((RequiredOption.ConditionalRequiredOptions) first).getCondition();
+            Condition<?> secondTrigger =
+                    ((RequiredOption.ConditionalRequiredOptions) second).getCondition();
+            return firstTrigger.getOption().equals(secondTrigger.getOption())
+                    || referencesMultipleOptions(firstTrigger)
+                    || referencesMultipleOptions(secondTrigger);
+        }
 
-                                                if (ro.getOptions().contains(option)
-                                                        && !requiredOptionCondition.equals(
-                                                                roOptionCondition)) {
-                                                    throw new OptionValidationException(
-                                                            String.format(
-                                                                    "%s '%s' duplicate in %s options.",
-                                                                    requiredOption
-                                                                            .getClass()
-                                                                            .getSimpleName(),
-                                                                    option.key(),
-                                                                    ro.getClass().getSimpleName()));
-                                                }
-                                            } else {
-                                                if (ro.getOptions().contains(option)) {
-                                                    throw new OptionValidationException(
-                                                            String.format(
-                                                                    "%s '%s' duplicate in %s options.",
-                                                                    requiredOption
-                                                                            .getClass()
-                                                                            .getSimpleName(),
-                                                                    option.key(),
-                                                                    ro.getClass().getSimpleName()));
-                                                }
-                                            }
-                                        });
-                            });
+        private boolean referencesMultipleOptions(Condition<?> trigger) {
+            Option<?> firstOption = trigger.getOption();
+            for (Condition<?> node = trigger; node != null; node = node.getNext()) {
+                if (!firstOption.equals(node.getOption())
+                        || (node.getCompareOption() != null
+                                && !firstOption.equals(node.getCompareOption()))) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private void verifyOptionOptionsDuplicate(

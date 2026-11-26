@@ -125,9 +125,27 @@ public interface RequiredOption {
             this.requiredOption = requiredOption;
         }
 
+        @Deprecated
+        ConditionalRequiredOptions(Expression expression, List<Option<?>> requiredOption) {
+            this(Objects.requireNonNull(expression, "expression").toCondition(), requiredOption);
+        }
+
+        /** @deprecated Use {@link #of(Condition, List)}. */
+        @Deprecated
+        public static ConditionalRequiredOptions of(
+                Expression expression, List<Option<?>> requiredOption) {
+            return new ConditionalRequiredOptions(expression, requiredOption);
+        }
+
         public static ConditionalRequiredOptions of(
                 Condition<?> condition, List<Option<?>> requiredOption) {
             return new ConditionalRequiredOptions(condition, requiredOption);
+        }
+
+        /** @deprecated Use {@link #getCondition()}. Returns a detached compatibility view. */
+        @Deprecated
+        public Expression getExpression() {
+            return Expression.fromCondition(condition);
         }
 
         public Condition<?> getCondition() {

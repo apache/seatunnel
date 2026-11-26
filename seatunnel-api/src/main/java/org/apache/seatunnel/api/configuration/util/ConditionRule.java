@@ -24,9 +24,25 @@ public class ConditionRule {
     private final Condition<?> condition;
     private final OptionRule optionRule;
 
-    public ConditionRule(Condition<?> condition, OptionRule optionRule) {
+    private ConditionRule(Condition<?> condition, OptionRule optionRule) {
         this.condition = Objects.requireNonNull(condition, "condition");
         this.optionRule = optionRule;
+    }
+
+    public static ConditionRule of(Condition<?> condition, OptionRule optionRule) {
+        return new ConditionRule(condition, optionRule);
+    }
+
+    /** @deprecated Use {@link #of(Condition, OptionRule)}. */
+    @Deprecated
+    public ConditionRule(Expression expression, OptionRule optionRule) {
+        this(Objects.requireNonNull(expression, "expression").toCondition(), optionRule);
+    }
+
+    /** @deprecated Use {@link #getCondition()}. Returns a detached compatibility view. */
+    @Deprecated
+    public Expression getExpression() {
+        return Expression.fromCondition(condition);
     }
 
     public Condition<?> getCondition() {

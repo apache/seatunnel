@@ -162,7 +162,7 @@ network:
       "next": {
         "condition": {"option": {"key": "b"}},
         "operator": "AND",
-        "next": {"condition": {"option": {"key": "c"}}, "operator": null, "next": null}
+        "next": {"condition": {"option": {"key": "c"}}}
       }
     }
   }

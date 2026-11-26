@@ -28,7 +28,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.seatunnel.api.configuration.OptionTest.TEST_MODE;
 import static org.apache.seatunnel.api.configuration.OptionTest.TEST_NUM;
@@ -135,8 +137,8 @@ public class OptionRuleTest {
         assertEquals(original, required.getCondition());
         assertEquals(List.of(TEST_TIMESTAMP), required.getOptions());
         assertEquals(2, rule.getConditionRules().size());
-        assertTrue(rule.getConditionRules().contains(new ConditionRule(original, nested)));
-        assertTrue(rule.getConditionRules().contains(new ConditionRule(trigger, nested)));
+        assertTrue(rule.getConditionRules().contains(ConditionRule.of(original, nested)));
+        assertTrue(rule.getConditionRules().contains(ConditionRule.of(trigger, nested)));
     }
 
     @Test
@@ -156,12 +158,87 @@ public class OptionRuleTest {
     }
 
     @Test
+    public void testSharedTargetIgnoresOrderOfConjunctsAndRegistrations() {
+        Option<String> target =
+                Options.key("target").singleChoice(String.class, List.of("valid")).noDefaultValue();
+        Condition<?> timestamp =
+                Condition.of(TEST_MODE, OptionTest.TestMode.TIMESTAMP).and(TEST_NUM, 1);
+        for (Condition<?> latest :
+                List.of(
+                        Condition.of(TEST_MODE, OptionTest.TestMode.LATEST).and(TEST_NUM, 1),
+                        Condition.of(TEST_NUM, 1).and(TEST_MODE, OptionTest.TestMode.LATEST))) {
+            for (List<Condition<?>> triggers :
+                    List.of(List.of(timestamp, latest), List.of(latest, timestamp))) {
+                OptionRule rule =
+                        OptionRule.builder()
+                                .optional(TEST_MODE, TEST_NUM)
+                                .conditional(triggers.get(0), target)
+                                .conditional(triggers.get(1), target)
+                                .build();
+
+                Map<String, Object> config = new HashMap<>();
+                config.put(TEST_MODE.key(), "LATEST");
+                config.put(TEST_NUM.key(), 0);
+                validate(rule, config);
+                config.put(target.key(), "invalid");
+                validate(rule, config);
+
+                config.put(TEST_NUM.key(), 1);
+                String invalid =
+                        assertThrows(OptionValidationException.class, () -> validate(rule, config))
+                                .getMessage();
+                assertTrue(invalid.contains("value(invalid) must be one of [valid]"), invalid);
+
+                config.remove(target.key());
+                assertMissingConditionalTarget(rule, config, latest);
+                config.put(target.key(), "valid");
+                validate(rule, config);
+
+                config.put(TEST_MODE.key(), "TIMESTAMP");
+                config.remove(target.key());
+                assertMissingConditionalTarget(rule, config, timestamp);
+            }
+        }
+    }
+
+    private void assertMissingConditionalTarget(
+            OptionRule rule, Map<String, Object> config, Condition<?> trigger) {
+        String message =
+                assertThrows(OptionValidationException.class, () -> validate(rule, config))
+                        .getMessage();
+        assertTrue(message.contains("required because [" + trigger + "] is true"), message);
+    }
+
+    private void validate(OptionRule rule, Map<String, Object> config) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(rule);
+    }
+
+    @Test
+    public void testSharedTargetDistinguishesFieldComparisonFromSingleOptionValueList() {
+        Option<Integer> limit = Options.key("limit").intType().noDefaultValue();
+        OptionRule.Builder builder = OptionRule.builder().optional(TEST_MODE, TEST_NUM, limit);
+        builder.conditional(
+                TEST_MODE,
+                List.of(OptionTest.TestMode.LATEST, OptionTest.TestMode.TIMESTAMP),
+                TEST_TIMESTAMP);
+        assertDoesNotThrow(
+                () ->
+                        builder.conditional(
+                                Conditions.lessThanField(TEST_NUM, limit), TEST_TIMESTAMP));
+        assertThrows(
+                OptionValidationException.class,
+                () -> builder.conditional(TEST_NUM, 1, TEST_TIMESTAMP));
+    }
+
+    @Test
     public void testNullTriggerIsRejectedAtConstruction() {
         OptionRule nested = OptionRule.builder().required(TEST_TIMESTAMP).build();
-        assertThrows(NullPointerException.class, () -> new ConditionRule(null, nested));
+        assertThrows(NullPointerException.class, () -> ConditionRule.of(null, nested));
         assertThrows(
                 NullPointerException.class,
-                () -> RequiredOption.ConditionalRequiredOptions.of(null, List.of(TEST_TIMESTAMP)));
+                () ->
+                        RequiredOption.ConditionalRequiredOptions.of(
+                                (Condition<?>) null, List.of(TEST_TIMESTAMP)));
     }
 
     @Test

@@ -3747,7 +3747,7 @@ public class ConfigValidatorTest {
                         Arrays.asList(MODE, PORT),
                         Collections.emptyList(),
                         Collections.singletonList(
-                                new ConditionRule(
+                                ConditionRule.of(
                                         condition,
                                         new OptionRule(
                                                 Collections.emptyList(),
