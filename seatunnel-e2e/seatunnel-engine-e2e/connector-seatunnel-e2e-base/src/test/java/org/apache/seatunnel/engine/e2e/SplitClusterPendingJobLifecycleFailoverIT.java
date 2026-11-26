@@ -65,7 +65,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 
@@ -1157,8 +1161,10 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             assertPendingQueueNotContainsJob(activeMaster, pendingJobId);
             assertFixedSlotOwnership(activeMaster, pendingJobId, true);
 
-            pendingJob.cancelJob();
-            assertEventuallyCanceled(pendingJob);
+            // Both the cancel RPC and the terminal-result join are bounded here: if the
+            // slot/lifecycle regression under test also prevents cancellation completion, this
+            // scenario must fail on its own deadline instead of consuming the whole CI lane.
+            cancelAndAwaitTerminalWithinBudget(pendingJob, 120);
             assertFixedSlotOwnership(activeMaster, pendingJobId, false);
         } finally {
             if (engineClient != null) {
@@ -1170,6 +1176,67 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             if (workerNode != null) {
                 workerNode.shutdown();
             }
+        }
+    }
+
+    /**
+     * Cancels a job and waits for its terminal result with test-owned deadlines.
+     *
+     * <p>{@link ClientJobProxy#cancelJob()} and {@link ClientJobProxy#waitForJobCompleteV2()} join
+     * remote futures without a test-controlled timeout; running both on a bounded daemon executor
+     * keeps a lifecycle regression from stalling the lane.
+     *
+     * @param clientJobProxy job to cancel
+     * @param timeoutSeconds deadline for each remote step
+     * @throws Exception when the cancel fails, or an assertion error when a deadline is missed
+     */
+    private static void cancelAndAwaitTerminalWithinBudget(
+            ClientJobProxy clientJobProxy, long timeoutSeconds) throws Exception {
+        ExecutorService cancelExecutor =
+                Executors.newSingleThreadExecutor(
+                        runnable -> {
+                            Thread thread = new Thread(runnable, "pending-job-terminal-cancel");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
+        try {
+            Future<?> cancel = cancelExecutor.submit(clientJobProxy::cancelJob);
+            try {
+                cancel.get(timeoutSeconds, TimeUnit.SECONDS);
+            } catch (TimeoutException timeout) {
+                cancel.cancel(true);
+                throw new AssertionError(
+                        "The cancel request for job "
+                                + clientJobProxy.getJobId()
+                                + " did not acknowledge within "
+                                + timeoutSeconds
+                                + " s",
+                        timeout);
+            }
+            Future<JobResult> terminal =
+                    cancelExecutor.submit(clientJobProxy::waitForJobCompleteV2);
+            JobResult jobResult;
+            try {
+                jobResult = terminal.get(timeoutSeconds, TimeUnit.SECONDS);
+            } catch (TimeoutException timeout) {
+                terminal.cancel(true);
+                throw new AssertionError(
+                        "Job "
+                                + clientJobProxy.getJobId()
+                                + " did not report its terminal result within "
+                                + timeoutSeconds
+                                + " s after the cancel",
+                        timeout);
+            }
+            Assertions.assertEquals(JobStatus.CANCELED, jobResult.getStatus());
+            Awaitility.await()
+                    .atMost(timeoutSeconds, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.CANCELED, clientJobProxy.getJobStatus()));
+        } finally {
+            cancelExecutor.shutdownNow();
         }
     }
 
