@@ -207,6 +207,27 @@ The same strictness applies wherever the shared JSON-to-row conversion is used w
   - **Impact**: With the defaults, timestamps are written as `yyyy-MM-dd HH:mm:ss` (a space instead of `T`, fractional seconds dropped) and times as `HH:mm:ss`. Readers that expect the previous ISO layout must be adjusted.
   - **Migration Guide**: To keep an ISO layout, set `datetime_format` on the sink, for example `YYYY_MM_DD_HH_MM_SS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss`) or `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss.SSS`) to keep milliseconds, and read the files with the matching source `datetime_format`.
 
+### Conditional option rules use AND-before-OR precedence
+
+SeaTunnel uses `Condition` to validate conditional option rules and to describe them in the Zeta REST API and metadata export CLI. The deprecated public `Expression` class, constructor, factories, getters and validator method from 3.1.0 remain available to existing plugin jars.
+
+On upgrade, the runtime flattens a legacy expression into a chain of conditions and evaluates AND before OR. This applies to precompiled plugins too. For example, 3.1.0 evaluated `A.and(B).or(C)` as `A && (B || C)`. It now means `(A && B) || C`. With A and B false and C true, the required option is enforced. Group boundaries inside a chain of legacy expression nodes also disappear. If your rule depends on grouping, rewrite it explicitly, for example `A && (B || C)` as `(A && B) || (A && C)`.
+
+New rules can pass a trigger to `conditional(trigger, requiredOptions...)` or `conditionalRule(trigger, nestedRule)`. Declare the referenced options first and read the trigger with `getCondition()`. Legacy `getExpression()` returns a detached view with one outer node per OR alternative. Each node holds its AND conditions. To change a rule, construct it with the new trigger.
+
+```java
+Condition<?> trigger = Condition.of(MODE, "snapshot").or(REPLAY, true);
+OptionRule rule = OptionRule.builder()
+        .optional(MODE, REPLAY)
+        .conditional(trigger, START_TIME)
+        .conditionalRule(trigger, OptionRule.builder().bundled(USERNAME, PASSWORD).build())
+        .build();
+```
+
+Tools that consume validation messages or metadata should expect AND-before-OR grouping in the rendered text. In a conditional rule's exported trigger tree, follow `operator` and `next` on the expression nodes. Each node's `condition` describes one predicate.
+
+`Condition.equals` and `hashCode` include each node's `ConditionExtension`. Factories that need equivalent rules to compare equal can reuse an extension instance or give it value-based `equals` and `hashCode` implementations.
+
 ### Native CLI help exit code
 
 `seatunnel.sh -h` now exits with `0` instead of `234`.
