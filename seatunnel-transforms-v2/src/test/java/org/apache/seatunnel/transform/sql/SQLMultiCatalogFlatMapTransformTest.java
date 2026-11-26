@@ -175,14 +175,18 @@ class SQLMultiCatalogFlatMapTransformTest {
                                     Collections.singletonMap(
                                             TransformCommonOptions.MULTI_TABLES.key(),
                                             Collections.singletonList(entry))));
-            SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "inactive"});
-            row.setRowKind(RowKind.UPDATE_AFTER);
-            List<SeaTunnelRow> rows = transform.flatMap(row);
-            if (asDelete) {
-                Assertions.assertEquals(1, rows.size());
-                Assertions.assertEquals(RowKind.DELETE, rows.get(0).getRowKind());
-            } else {
-                Assertions.assertTrue(rows == null || rows.isEmpty());
+            try {
+                SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "inactive"});
+                row.setRowKind(RowKind.UPDATE_AFTER);
+                List<SeaTunnelRow> rows = transform.flatMap(row);
+                if (asDelete) {
+                    Assertions.assertEquals(1, rows.size());
+                    Assertions.assertEquals(RowKind.DELETE, rows.get(0).getRowKind());
+                } else {
+                    Assertions.assertTrue(rows == null || rows.isEmpty());
+                }
+            } finally {
+                transform.close();
             }
         }
     }

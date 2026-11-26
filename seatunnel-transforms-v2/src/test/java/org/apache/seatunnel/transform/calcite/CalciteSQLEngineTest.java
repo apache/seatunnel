@@ -4487,13 +4487,17 @@ class CalciteSQLEngineTest {
                             ReadonlyConfig.fromMap(
                                     Collections.singletonMap(
                                             "table_transform", Collections.singletonList(entry))));
-            List<SeaTunnelRow> rows =
-                    transform.flatMap(changelogRow(RowKind.UPDATE_AFTER, 1, "inactive"));
-            if (asDelete) {
-                Assertions.assertEquals(1, rows.size());
-                Assertions.assertEquals(RowKind.DELETE, rows.get(0).getRowKind());
-            } else {
-                Assertions.assertTrue(rows == null || rows.isEmpty());
+            try {
+                List<SeaTunnelRow> rows =
+                        transform.flatMap(changelogRow(RowKind.UPDATE_AFTER, 1, "inactive"));
+                if (asDelete) {
+                    Assertions.assertEquals(1, rows.size());
+                    Assertions.assertEquals(RowKind.DELETE, rows.get(0).getRowKind());
+                } else {
+                    Assertions.assertTrue(rows == null || rows.isEmpty());
+                }
+            } finally {
+                transform.close();
             }
         }
     }
