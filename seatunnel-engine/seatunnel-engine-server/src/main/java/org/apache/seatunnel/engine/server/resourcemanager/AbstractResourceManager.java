@@ -184,6 +184,11 @@ public abstract class AbstractResourceManager implements ResourceManager {
     }
 
     @Override
+    public void resetSlotAllocationState(long jobId) {
+        slotAllocationStrategy.resetJobState(jobId);
+    }
+
+    @Override
     public CompletableFuture<List<SlotProfile>> applyResources(
             long jobId, List<ResourceProfile> resourceProfile, Map<String, String> tagFilter)
             throws NoEnoughResourceException {

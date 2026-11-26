@@ -25,20 +25,34 @@ import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 import org.apache.seatunnel.engine.server.utils.SystemLoadCalculate;
 
 import com.hazelcast.cluster.Address;
-import lombok.Getter;
-import lombok.Setter;
 
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /** SystemLoadStrategy is a strategy that selects the worker with the lowest system load. */
 public class SystemLoadStrategy implements SlotAllocationStrategy {
+
+    /**
+     * Slot bookkeeping used when calling {@link #selectWorker(List)} directly, without a job
+     * context.
+     */
+    private static final long UNSCOPED_JOB_ID = -1L;
+
     private final Map<Address, EvictingQueue<SystemLoadInfo>> workerLoadMap;
 
-    @Getter @Setter private Map<Address, SlotAssignedProfile> workerAssignedSlots;
+    /**
+     * Slots handed out by this strategy, scoped by job.
+     *
+     * <p>The strategy instance is shared by every job on the master. Keeping the bookkeeping per
+     * job means one job's allocation round can no longer wipe the in-flight counters of the other
+     * jobs (which used to distort placement for concurrent jobs and pipeline restores).
+     */
+    private final ConcurrentMap<Long, ConcurrentMap<Address, SlotAssignedProfile>>
+            workerAssignedSlotsByJob = new ConcurrentHashMap<>();
 
     public SystemLoadStrategy(Map<Address, EvictingQueue<SystemLoadInfo>> workerLoadMap) {
         this.workerLoadMap = workerLoadMap;
@@ -64,6 +78,12 @@ public class SystemLoadStrategy implements SlotAllocationStrategy {
 
     @Override
     public Optional<WorkerProfile> selectWorker(List<WorkerProfile> availableWorkers) {
+        return selectWorker(availableWorkers, UNSCOPED_JOB_ID);
+    }
+
+    @Override
+    public Optional<WorkerProfile> selectWorker(List<WorkerProfile> availableWorkers, long jobId) {
+        Map<Address, SlotAssignedProfile> workerAssignedSlots = assignedSlotsForJob(jobId);
         Optional<WorkerProfile> workerProfile =
                 availableWorkers.stream()
                         .max(
@@ -82,6 +102,15 @@ public class SystemLoadStrategy implements SlotAllocationStrategy {
                                             oldVal.getAssignedSlotsNum()));
                 });
         return workerProfile;
+    }
+
+    @Override
+    public void resetJobState(long jobId) {
+        workerAssignedSlotsByJob.remove(jobId);
+    }
+
+    private Map<Address, SlotAssignedProfile> assignedSlotsForJob(long jobId) {
+        return workerAssignedSlotsByJob.computeIfAbsent(jobId, key -> new ConcurrentHashMap<>());
     }
 
     public Double calculateWeight(

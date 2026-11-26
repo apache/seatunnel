@@ -291,7 +291,7 @@ public class ResourceRequestHandler {
                         .collect(Collectors.toList());
 
         Optional<WorkerProfile> workerProfile =
-                slotAllocationStrategy.selectWorker(availableWorkers);
+                slotAllocationStrategy.selectWorker(availableWorkers, jobId);
 
         if (!workerProfile.isPresent()) {
             // Check if there are still unassigned resources
