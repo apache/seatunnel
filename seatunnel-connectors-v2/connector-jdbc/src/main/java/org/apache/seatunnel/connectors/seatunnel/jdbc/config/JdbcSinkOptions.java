@@ -115,6 +115,20 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
                     .withDescription(
                             "is the primary key updated when performing an update operation");
 
+    public static final Option<String> UPDATE_CONDITION_SQL =
+            Options.key("update_condition_sql")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "PostgreSQL only. A condition an incoming row must meet to update the stored"
+                                    + " row with the same primary key, for example"
+                                    + " ':update_time > target.update_time'. ':column' is the"
+                                    + " incoming value and 'target.column' the stored value. A row"
+                                    + " with a new key is always inserted. When the condition is"
+                                    + " false or NULL the stored row is kept. DELETE rows are not"
+                                    + " affected. Requires generate_sink_sql = true, primary keys"
+                                    + " and enable_upsert = true.");
+
     public static final Option<Boolean> SUPPORT_UPSERT_BY_INSERT_ONLY =
             Options.key("support_upsert_by_insert_only")
                     .booleanType()

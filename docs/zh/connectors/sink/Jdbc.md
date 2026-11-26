@@ -252,6 +252,7 @@ Exactly-once 依赖 XA 事务，因此数据库和 JDBC 驱动都必须支持 XA
 | enable_upsert                             | Boolean | 否    | true                         |
 | is_primary_key_updated                    | Boolean | 否    | true                         |
 | support_upsert_by_insert_only             | Boolean | 否    | false                        |
+| update_condition_sql                      | String  | 否    | -                            |
 | table_options                             | Map     | 否    | -                            |
 | use_copy_statement                        | Boolean | 否    | false                        |
 | oracle_insert_mode                        | Enum    | 否    | CONVENTIONAL                 |
@@ -635,6 +636,58 @@ sink {
 ### support_upsert_by_insert_only [boolean]
 
 是否通过仅 insert 的语句支持 upsert 行为。该参数属于高级兼容选项，默认关闭。
+
+### update_condition_sql [String]
+
+仅支持 PostgreSQL JDBC Sink。输入行必须满足该条件，才能更新具有相同主键的已存储行。可用于修复或重放数据而不覆盖更新的数据，例如在 CDC 任务持续写入同一张表时，再用批任务从源端重新读取部分数据。
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://localhost:5432/sales"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "password"
+    generate_sink_sql = true
+    database = "sales"
+    table = "public.orders"
+    primary_keys = ["id"]
+    update_condition_sql = ":update_time > target.update_time"
+  }
+}
+```
+
+SeaTunnel 只把条件加在 PostgreSQL upsert 语句的更新分支上：
+
+```sql
+INSERT INTO "sales"."public"."orders" AS target ("id", "amount", "update_time") VALUES (...)
+ON CONFLICT ("id") DO UPDATE SET "amount"=EXCLUDED."amount", "update_time"=EXCLUDED."update_time"
+WHERE (EXCLUDED."update_time" > target."update_time")
+```
+
+结果：
+
+- 主键不存在时，插入该行。
+- 条件为真时，更新已存储的行。
+- 条件为假或 NULL 时，保留已存储的行。这不是错误，不会重试，也不会插入。与 NULL 比较的结果是 NULL，因此如果已存储行的 `update_time` 为 NULL 也需要更新，请写成 `target.update_time IS NULL OR :update_time > target.update_time`。
+- `DELETE` 行不受该条件影响，仍像之前一样删除已存储的行。
+
+语法：
+
+- `:column` 表示输入行的值，`target.column` 表示已存储行的值。列必须是 Sink 写入的列。其他名称请使用双引号，例如 `:"Update Time"` 和 `target."Update Time"`。
+- 支持比较运算 `=`、`<>`、`<`、`<=`、`>`、`>=`，运算符 `AND`、`OR`、`NOT`、`IS NULL`、`IS NOT NULL` 以及括号。
+- 函数、类型转换、字面量以及其他列引用方式会在任务启动时被拒绝。SeaTunnel 会解析条件并据此生成 SQL，不会把原始文本直接传给数据库。
+
+批次：不设置该选项时，Sink 在一个批次内只保留每个主键的最后一次变更。设置后，每条变更都按到达顺序执行，因此无论输入顺序如何，最新版本都会生效。当同一个主键在同一批次中再次出现时，Sink 会先执行已缓存的语句，保证一条语句不会两次修改同一行。该行为在 `reWriteBatchedInserts=true` 时同样适用。因此，包含重复主键的批次需要更多次与数据库的往返。
+
+要求（不满足时任务会在启动时失败）：
+
+- 使用 `jdbc:postgresql:` 开头的 url 和 PostgreSQL 方言。不支持 `compatible_mode = "postgresLow"`、基于 PostgreSQL 方言的其他方言（例如 OpenGauss 或 CockroachDB）以及其他 url（例如 `jdbc:pivotal:greenplum:` 或 `jdbc:highgo:`）
+- `generate_sink_sql = true`，且不配置 `query`
+- 存在主键：来自 `primary_keys`，或来自表的主键或唯一键
+- `enable_upsert = true`、`use_copy_statement = false` 且 `support_upsert_by_insert_only = false`
+
+当一次刷新失败并重试时，整个批次会按相同顺序重新执行。对于 `:update_time > target.update_time` 这样的条件，已经执行过的变更会被跳过。
 
 ### use_copy_statement [boolean]
 

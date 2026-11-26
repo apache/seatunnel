@@ -20,19 +20,28 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormatBuilder;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialect;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -65,7 +74,11 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -81,6 +94,22 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
      * preserving the order of all remaining visible columns.
      */
     private static final String DROPPED_COLUMN_TABLE = "pg_catalog_dropped_column_test";
+
+    private static final String UPDATE_CONDITION_TABLE = "pg_e2e_update_condition_sink";
+
+    private static final String UPDATE_CONDITION_REWRITE_TABLE =
+            "pg_e2e_update_condition_rewrite_sink";
+
+    private static final String UPDATE_CONDITION_ABSENT_TABLE =
+            "pg_e2e_update_condition_absent_sink";
+
+    private static final String UPDATE_CONDITION_CK_TABLE = "pg_e2e_update_condition_ck_sink";
+
+    private static final String UPDATE_CONDITION_CK_REWRITE_TABLE =
+            "pg_e2e_update_condition_ck_rewrite_sink";
+
+    private static final String UPDATE_CONDITION_CONCURRENT_TABLE =
+            "pg_e2e_update_condition_concurrent_sink";
 
     /** Partitioned-table fixtures for the full batch read test. */
     private static final String PARTITION_SOURCE_TABLE = "pg_e2e_partition_source_table";
@@ -587,6 +616,263 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         } finally {
             truncateNumericSpecialValueTables();
         }
+    }
+
+    /**
+     * Verifies {@code update_condition_sql}. The same changes are written with the condition (with
+     * and without {@code reWriteBatchedInserts}) and without it. With the condition every change is
+     * applied in arrival order, so the newest version wins in both input orders; without it the
+     * sink keeps reducing each key to its last change.
+     */
+    @TestTemplate
+    public void testUpdateConditionSql(TestContainer container)
+            throws IOException, InterruptedException {
+        List<String> tables =
+                Arrays.asList(
+                        UPDATE_CONDITION_TABLE,
+                        UPDATE_CONDITION_REWRITE_TABLE,
+                        UPDATE_CONDITION_ABSENT_TABLE);
+        for (String table : tables) {
+            executeSQL("DROP TABLE IF EXISTS " + table);
+            executeSQL(
+                    "CREATE TABLE "
+                            + table
+                            + " (id INT PRIMARY KEY, name VARCHAR(64), update_time BIGINT)");
+            executeSQL(
+                    "INSERT INTO "
+                            + table
+                            + " VALUES (1, 'stored', 100), (2, 'stored', 100), (3, 'stored', 100),"
+                            + " (4, 'stored', NULL), (7, 'stored', 100)");
+        }
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob("/jdbc_postgres_update_condition_sql.conf");
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+            List<List<Object>> expectedWithCondition =
+                    Arrays.asList(
+                            Arrays.asList(1, "v300", 300L), // older -> newer
+                            Arrays.asList(2, "v300", 300L), // newer -> older
+                            Arrays.asList(3, "stored", 100L), // false, then NULL predicate
+                            Arrays.asList(4, "stored", null), // stored NULL, NULL predicate
+                            Arrays.asList(5, "new", 10L), // missing key is inserted
+                            Arrays.asList(6, "v300", 300L), // missing key, newer -> older
+                            Arrays.asList(8, "v300", 300L)); // missing key, older -> newer
+            // key 7 is gone: DELETE is not guarded by the condition
+            Assertions.assertEquals(
+                    expectedWithCondition, queryUpdateConditionTable(tables.get(0)));
+            Assertions.assertEquals(
+                    expectedWithCondition, queryUpdateConditionTable(tables.get(1)));
+
+            // Without the option the last change of each key in the batch wins, as before.
+            Assertions.assertEquals(
+                    Arrays.asList(
+                            Arrays.asList(1, "v300", 300L),
+                            Arrays.asList(2, "v200", 200L),
+                            Arrays.asList(3, "null-incoming", null),
+                            Arrays.asList(4, "v500", 500L),
+                            Arrays.asList(5, "new", 10L),
+                            Arrays.asList(6, "v200", 200L),
+                            Arrays.asList(8, "v300", 300L)),
+                    queryUpdateConditionTable(tables.get(2)));
+        } finally {
+            tables.forEach(table -> executeSQL("DROP TABLE IF EXISTS " + table));
+        }
+    }
+
+    @TestTemplate
+    public void testUpdateConditionSqlWithCompositeKey(TestContainer container)
+            throws IOException, InterruptedException {
+        List<String> tables =
+                Arrays.asList(UPDATE_CONDITION_CK_TABLE, UPDATE_CONDITION_CK_REWRITE_TABLE);
+        for (String table : tables) {
+            executeSQL("DROP TABLE IF EXISTS " + table);
+            executeSQL(
+                    "CREATE TABLE "
+                            + table
+                            + " (a INT, b INT, v VARCHAR(64), update_time BIGINT, PRIMARY KEY (a, b))");
+            executeSQL(
+                    "INSERT INTO "
+                            + table
+                            + " VALUES (1, 1, 'stored', 100), (1, 2, 'stored', 100)");
+        }
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob("/jdbc_postgres_update_condition_sql_composite_key.conf");
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+            List<List<Object>> expected =
+                    Arrays.asList(
+                            Arrays.asList(1, 1, "v300", 300L),
+                            Arrays.asList(1, 2, "fresh", 150L),
+                            Arrays.asList(2, 1, "new", 10L));
+            for (String table : tables) {
+                Assertions.assertEquals(
+                        expected,
+                        querySql("SELECT a, b, v, update_time FROM " + table + " ORDER BY a, b"));
+            }
+        } finally {
+            tables.forEach(table -> executeSQL("DROP TABLE IF EXISTS " + table));
+        }
+    }
+
+    @TestTemplate
+    public void testInvalidUpdateConditionSqlFailsTheJob(TestContainer container)
+            throws IOException, InterruptedException {
+        executeSQL("DROP TABLE IF EXISTS " + UPDATE_CONDITION_TABLE);
+        executeSQL(
+                "CREATE TABLE "
+                        + UPDATE_CONDITION_TABLE
+                        + " (id INT PRIMARY KEY, name VARCHAR(64), update_time BIGINT)");
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob("/jdbc_postgres_update_condition_sql_invalid.conf");
+            Assertions.assertNotEquals(0, execResult.getExitCode());
+            Assertions.assertTrue(
+                    (execResult.getStdout() + execResult.getStderr())
+                            .contains("unknown column 'updat_time'"),
+                    execResult.getStderr());
+            Assertions.assertEquals(
+                    Collections.emptyList(), querySql("SELECT id FROM " + UPDATE_CONDITION_TABLE));
+        } finally {
+            executeSQL("DROP TABLE IF EXISTS " + UPDATE_CONDITION_TABLE);
+        }
+    }
+
+    /**
+     * Verifies {@code update_condition_sql} with two concurrent writers of the same key. The first
+     * writer keeps its transaction open, so the second one has to wait for the row. Once the first
+     * commits, the condition is evaluated against the committed row, for a stored key as well as
+     * for a key that both writers insert, and in both orders of arrival.
+     */
+    @Test
+    public void testUpdateConditionSqlWithConcurrentWriters() throws Exception {
+        executeSQL("DROP TABLE IF EXISTS " + UPDATE_CONDITION_CONCURRENT_TABLE);
+        executeSQL(
+                "CREATE TABLE "
+                        + UPDATE_CONDITION_CONCURRENT_TABLE
+                        + " (id INT PRIMARY KEY, name VARCHAR(64), update_time BIGINT)");
+        executeSQL(
+                "INSERT INTO "
+                        + UPDATE_CONDITION_CONCURRENT_TABLE
+                        + " VALUES (1, 'stored', 100), (2, 'stored', 100)");
+        try {
+            // Stored keys 1 and 2, missing keys 3 and 4.
+            writeConcurrently(1, 300L, 200L);
+            writeConcurrently(2, 200L, 300L);
+            writeConcurrently(3, 300L, 200L);
+            writeConcurrently(4, 200L, 300L);
+
+            Assertions.assertEquals(
+                    Arrays.asList(
+                            Arrays.asList(1, "v300", 300L),
+                            Arrays.asList(2, "v300", 300L),
+                            Arrays.asList(3, "v300", 300L),
+                            Arrays.asList(4, "v300", 300L)),
+                    queryUpdateConditionTable(UPDATE_CONDITION_CONCURRENT_TABLE));
+        } finally {
+            executeSQL("DROP TABLE IF EXISTS " + UPDATE_CONDITION_CONCURRENT_TABLE);
+        }
+    }
+
+    /**
+     * Writes one version of a key with each of two sink writers, so that the second write overlaps
+     * the uncommitted first one.
+     */
+    private void writeConcurrently(int id, long firstTime, long secondTime) throws Exception {
+        SimpleJdbcConnectionProvider firstConnection = updateConditionConnection();
+        SimpleJdbcConnectionProvider secondConnection = updateConditionConnection();
+        JdbcOutputFormat<SeaTunnelRow, ?> first = openUpdateConditionWriter(firstConnection);
+        JdbcOutputFormat<SeaTunnelRow, ?> second = openUpdateConditionWriter(secondConnection);
+        CompletableFuture<Void> secondWrite = null;
+        try {
+            first.writeRecord(new SeaTunnelRow(new Object[] {id, "v" + firstTime, firstTime}));
+            first.flush();
+
+            secondWrite =
+                    CompletableFuture.runAsync(
+                            () -> {
+                                second.writeRecord(
+                                        new SeaTunnelRow(
+                                                new Object[] {id, "v" + secondTime, secondTime}));
+                                try {
+                                    second.flush();
+                                    secondConnection.getConnection().commit();
+                                } catch (IOException | SQLException e) {
+                                    throw new CompletionException(e);
+                                }
+                            });
+            // The second writer must really be blocked by the first one, not run after it.
+            given().await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .until(
+                            () ->
+                                    !querySql(
+                                                    "SELECT 1 FROM pg_stat_activity"
+                                                            + " WHERE wait_event_type = 'Lock'")
+                                            .isEmpty());
+            Assertions.assertFalse(secondWrite.isDone());
+
+            firstConnection.getConnection().commit();
+            secondWrite.get(30, TimeUnit.SECONDS);
+        } finally {
+            // Releases the row lock if an assertion failed before the first writer committed.
+            if (secondWrite != null && !secondWrite.isDone()) {
+                firstConnection.getConnection().rollback();
+                secondWrite.get(30, TimeUnit.SECONDS);
+            }
+            first.close();
+            second.close();
+            firstConnection.closeConnection();
+            secondConnection.closeConnection();
+        }
+    }
+
+    private JdbcSinkConfig updateConditionSinkConfig() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("url", POSTGRESQL_CONTAINER.getJdbcUrl());
+        config.put("driver", POSTGRESQL_CONTAINER.getDriverClassName());
+        config.put("username", POSTGRESQL_CONTAINER.getUsername());
+        config.put("password", POSTGRESQL_CONTAINER.getPassword());
+        config.put("database", POSTGRESQL_CONTAINER.getDatabaseName());
+        config.put("table", "public." + UPDATE_CONDITION_CONCURRENT_TABLE);
+        config.put("primary_keys", Collections.singletonList("id"));
+        config.put("auto_commit", false);
+        config.put("update_condition_sql", ":update_time > target.update_time");
+        return JdbcSinkConfig.of(ReadonlyConfig.fromMap(config));
+    }
+
+    private SimpleJdbcConnectionProvider updateConditionConnection() {
+        return new SimpleJdbcConnectionProvider(
+                updateConditionSinkConfig().getJdbcConnectionConfig());
+    }
+
+    private JdbcOutputFormat<SeaTunnelRow, ?> openUpdateConditionWriter(
+            SimpleJdbcConnectionProvider connectionProvider) throws IOException {
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.INT_TYPE, 22L, false, null, ""))
+                        .column(
+                                PhysicalColumn.of(
+                                        "name", BasicType.STRING_TYPE, 64L, true, null, ""))
+                        .column(
+                                PhysicalColumn.of(
+                                        "update_time", BasicType.LONG_TYPE, 22L, true, null, ""))
+                        .build();
+        JdbcOutputFormat<SeaTunnelRow, ?> outputFormat =
+                new JdbcOutputFormatBuilder(
+                                new PostgresDialect(),
+                                connectionProvider,
+                                updateConditionSinkConfig(),
+                                schema,
+                                schema)
+                        .build();
+        outputFormat.open();
+        return outputFormat;
+    }
+
+    private List<List<Object>> queryUpdateConditionTable(String table) {
+        return querySql("SELECT id, name, update_time FROM " + table + " ORDER BY id");
     }
 
     private void assumeNumericInfinitySupported() {

@@ -45,6 +45,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormatBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
@@ -183,6 +184,10 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
         DataSaveMode dataSaveMode = config.get(JdbcSinkOptions.DATA_SAVE_MODE);
         SchemaSaveMode schemaSaveMode = config.get(JdbcSinkOptions.SCHEMA_SAVE_MODE);
         dialect.validateSaveModes(dataSaveMode, schemaSaveMode);
+        // Fail the job before it runs if update_condition_sql cannot be used. The primary keys
+        // are resolved above, so this sees the same keys and schema as the writer.
+        JdbcOutputFormatBuilder.resolveUpdateCondition(
+                dialect, sinkConfig, finalCatalogTable.getTableSchema());
         return () ->
                 new JdbcSink(
                         options,
@@ -238,6 +243,7 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                         JdbcSinkOptions.PRIMARY_KEYS,
                         JdbcSinkOptions.IS_PRIMARY_KEY_UPDATED,
                         JdbcSinkOptions.SUPPORT_UPSERT_BY_INSERT_ONLY,
+                        JdbcSinkOptions.UPDATE_CONDITION_SQL,
                         JdbcSinkOptions.USE_COPY_STATEMENT,
                         JdbcSinkOptions.COMPATIBLE_MODE,
                         JdbcSinkOptions.ENABLE_UPSERT,

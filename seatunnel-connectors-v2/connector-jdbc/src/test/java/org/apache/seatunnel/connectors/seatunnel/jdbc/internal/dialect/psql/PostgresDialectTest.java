@@ -18,6 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.condition.UpdateCondition;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 
 import org.junit.jupiter.api.Assertions;
@@ -29,6 +31,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 
 public class PostgresDialectTest {
 
@@ -63,6 +66,58 @@ public class PostgresDialectTest {
         Assertions.assertEquals(
                 doNothingSql,
                 "INSERT INTO \"seatunnel\".\"role\" (\"id\", \"type\", \"role_name\", \"description\", \"create_time\", \"update_time\") VALUES (:id, :type, :role_name, :description, :create_time, :update_time) ON CONFLICT (\"id\", \"type\", \"role_name\", \"description\", \"create_time\", \"update_time\") DO NOTHING");
+    }
+
+    @Test
+    void testConditionalUpsertStatement() {
+        PostgresDialect dialect = new PostgresDialect();
+        String[] fieldNames = {"id", "name", "update_time"};
+        UpdateCondition condition =
+                UpdateCondition.parse(
+                        ":update_time > target.update_time", Arrays.asList(fieldNames));
+
+        Assertions.assertEquals(
+                "INSERT INTO \"seatunnel\".\"role\" AS target (\"id\", \"name\", \"update_time\")"
+                        + " VALUES (:id, :name, :update_time) ON CONFLICT (\"id\") DO UPDATE SET"
+                        + " \"name\"=EXCLUDED.\"name\", \"update_time\"=EXCLUDED.\"update_time\""
+                        + " WHERE (EXCLUDED.\"update_time\" > target.\"update_time\")",
+                dialect.getConditionalUpsertStatement(
+                        "seatunnel", "role", fieldNames, new String[] {"id"}, condition));
+
+        Assertions.assertEquals(
+                "INSERT INTO \"seatunnel\".\"role\" AS target (\"id\", \"name\", \"update_time\")"
+                        + " VALUES (:id, :name, :update_time) ON CONFLICT (\"id\", \"name\") DO UPDATE"
+                        + " SET \"update_time\"=EXCLUDED.\"update_time\""
+                        + " WHERE (EXCLUDED.\"update_time\" > target.\"update_time\")",
+                dialect.getConditionalUpsertStatement(
+                        "seatunnel", "role", fieldNames, new String[] {"id", "name"}, condition));
+
+        Assertions.assertEquals(
+                "INSERT INTO \"seatunnel\".\"role\" AS target (\"id\", \"name\", \"update_time\")"
+                        + " VALUES (:id, :name, :update_time) ON CONFLICT (\"id\", \"name\","
+                        + " \"update_time\") DO NOTHING",
+                dialect.getConditionalUpsertStatement(
+                        "seatunnel", "role", fieldNames, fieldNames, condition));
+    }
+
+    @Test
+    void testConditionalUpsertStatementFollowsFieldIde() {
+        PostgresDialect dialect = new PostgresDialect(FieldIdeEnum.UPPERCASE.getValue());
+        String[] fieldNames = {"id", "update_time"};
+        String sql =
+                dialect.getConditionalUpsertStatement(
+                        "seatunnel",
+                        "role",
+                        fieldNames,
+                        new String[] {"id"},
+                        UpdateCondition.parse(
+                                ":update_time > target.update_time", Arrays.asList(fieldNames)));
+
+        Assertions.assertTrue(
+                sql.endsWith(
+                        "DO UPDATE SET \"UPDATE_TIME\"=EXCLUDED.\"UPDATE_TIME\""
+                                + " WHERE (EXCLUDED.\"UPDATE_TIME\" > target.\"UPDATE_TIME\")"),
+                sql);
     }
 
     @Test

@@ -411,4 +411,68 @@ class JdbcSinkFactoryTest {
         Assertions.assertEquals(
                 1, createJdbcSink(cfg, createCatalogTable(true)).routingKeyIndex().get());
     }
+
+    private Map<String, Object> postgresUpdateConditionConfig() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("url", "jdbc:postgresql://localhost:5432/test");
+        cfg.put("driver", "org.postgresql.Driver");
+        cfg.put("database", "test");
+        cfg.put("table", "public.t");
+        cfg.put("update_condition_sql", ":name > target.name");
+        return cfg;
+    }
+
+    @Test
+    void testUpdateConditionSqlIsAKnownOption() {
+        Assertions.assertDoesNotThrow(
+                () ->
+                        ConfigValidator.validateUnknownKeys(
+                                ReadonlyConfig.fromMap(postgresUpdateConditionConfig()),
+                                rule,
+                                "Jdbc"));
+    }
+
+    @Test
+    void testUpdateConditionSqlIsAcceptedWhenTheSinkIsCreated() {
+        Assertions.assertDoesNotThrow(
+                () -> createJdbcSink(postgresUpdateConditionConfig(), createCatalogTable(true)));
+        Map<String, Object> cfg = postgresUpdateConditionConfig();
+        cfg.put("primary_keys", Arrays.asList("id"));
+        Assertions.assertDoesNotThrow(() -> createJdbcSink(cfg, createCatalogTable(false)));
+    }
+
+    @Test
+    void testInvalidUpdateConditionSqlFailsWhenTheSinkIsCreated() {
+        Map<String, Object> unknownColumn = postgresUpdateConditionConfig();
+        unknownColumn.put("update_condition_sql", ":update_time > target.update_time");
+        assertUpdateConditionRejected(
+                unknownColumn, createCatalogTable(true), "unknown column 'update_time'");
+
+        assertUpdateConditionRejected(
+                postgresUpdateConditionConfig(),
+                createCatalogTable(false),
+                "it requires primary keys");
+
+        Map<String, Object> mysql = postgresUpdateConditionConfig();
+        mysql.put("url", "jdbc:mysql://localhost:3306/test");
+        mysql.put("driver", "com.mysql.cj.jdbc.Driver");
+        assertUpdateConditionRejected(
+                mysql, createCatalogTable(true), "it is only supported by the PostgreSQL dialect");
+
+        Map<String, Object> postgresLow = postgresUpdateConditionConfig();
+        postgresLow.put("compatible_mode", "postgresLow");
+        assertUpdateConditionRejected(
+                postgresLow,
+                createCatalogTable(true),
+                "it is only supported by the PostgreSQL dialect");
+    }
+
+    private void assertUpdateConditionRejected(
+            Map<String, Object> cfg, CatalogTable catalogTable, String expectedReason) {
+        JdbcConnectorException exception =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class, () -> createJdbcSink(cfg, catalogTable));
+        Assertions.assertTrue(
+                exception.getMessage().contains(expectedReason), exception.getMessage());
+    }
 }
