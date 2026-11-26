@@ -171,11 +171,7 @@ public class PostgresStreamingChangeEventSource
                                 ? offsetContext.lastCompletelyProcessedLsn()
                                 : offsetContext.lsn();
                 LOGGER.info("Retrieved latest position from stored offset '{}'", lsn);
-                walPosition =
-                        new WalPositionLocator(
-                                offsetContext.lastCommitLsn(),
-                                lsn,
-                                offsetContext.lastProcessedMessageType());
+                walPosition = createWalPositionLocator(offsetContext, lsn);
                 replicationStream.compareAndSet(
                         null, replicationConnection.startStreaming(lsn, walPosition));
             } else {
@@ -256,6 +252,27 @@ public class PostgresStreamingChangeEventSource
                 replicationStream.set(null);
             }
         }
+    }
+
+    /**
+     * Creates the resume locator for an unbounded reader, but skips recovery-position discovery for
+     * a fresh bounded snapshot backfill.
+     *
+     * <p>The bounded reader starts from the just-recorded LOW watermark and has no previously
+     * emitted record to locate. Searching for one can wait forever when only another database
+     * advances cluster WAL because the logical decoder emits no message for that WAL.
+     */
+    static WalPositionLocator createWalPositionLocator(
+            PostgresOffsetContext offsetContext, Lsn startLsn) {
+        if (offsetContext.getStreamingStoppingLsn() != null) {
+            LOGGER.info(
+                    "WAL recovery-position search is not required for bounded streaming from '{}' to '{}'",
+                    startLsn,
+                    offsetContext.getStreamingStoppingLsn());
+            return new WalPositionLocator();
+        }
+        return new WalPositionLocator(
+                offsetContext.lastCommitLsn(), startLsn, offsetContext.lastProcessedMessageType());
     }
 
     private void processMessages(
