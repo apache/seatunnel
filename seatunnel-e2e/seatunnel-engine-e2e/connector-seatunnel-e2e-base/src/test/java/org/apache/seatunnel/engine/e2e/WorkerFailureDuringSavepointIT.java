@@ -394,21 +394,58 @@ public class WorkerFailureDuringSavepointIT {
                     sinkAddress,
                     heldCheckpointId);
         } finally {
-            Files.deleteIfExists(releaseMarker);
+            // A failed status/overview assertion can reach this block while a scripted writer is
+            // still parked in snapshotState(). The fixture deliberately ignores interrupts, so
+            // publishing the release marker is the only way to unblock it; removing the marker
+            // before teardown would leave the task alive for up to MAX_HOLD_MILLIS and could stall
+            // or contaminate the rest of the fork.
+            releaseHoldQuietly(releaseMarker);
+            try {
+                savepointExecutor.shutdownNow();
+            } finally {
+                try {
+                    if (engineClient != null) {
+                        engineClient.close();
+                    }
+                } finally {
+                    try {
+                        if (workerNode1 != null) {
+                            workerNode1.shutdown();
+                        }
+                    } finally {
+                        try {
+                            if (workerNode2 != null) {
+                                workerNode2.shutdown();
+                            }
+                        } finally {
+                            if (masterNode != null) {
+                                masterNode.shutdown();
+                            }
+                        }
+                    }
+                }
+            }
+            // The release marker is retained until every member is down, so a parked writer always
+            // observes it; only then may the fixture files be removed.
             Files.deleteIfExists(heldMarker);
-            savepointExecutor.shutdownNow();
-            if (engineClient != null) {
-                engineClient.close();
-            }
-            if (workerNode1 != null) {
-                workerNode1.shutdown();
-            }
-            if (workerNode2 != null) {
-                workerNode2.shutdown();
-            }
-            if (masterNode != null) {
-                masterNode.shutdown();
-            }
+            Files.deleteIfExists(releaseMarker);
+        }
+    }
+
+    /**
+     * Publishes the fixture release marker without letting an I/O failure escape teardown.
+     *
+     * <p>The hold writer polls this marker and ignores interrupts, so this best-effort write is
+     * what keeps a negative-path failure from leaving a parked task behind.
+     *
+     * @param releaseMarker marker file watched by the scripted hold writer
+     */
+    private static void releaseHoldQuietly(Path releaseMarker) {
+        try {
+            Files.createDirectories(releaseMarker.getParent());
+            Files.write(releaseMarker, new byte[0]);
+        } catch (IOException e) {
+            log.warn("Failed to publish the savepoint hold release marker {}", releaseMarker, e);
         }
     }
 
