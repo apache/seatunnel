@@ -96,4 +96,28 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <!-- Keep CI's class filter in the Transform reactor subtree. -->
+    <profiles>
+        <profile>
+            <id>transform-it-shard</id>
+            <activation>
+                <property>
+                    <name>transform.it.test</name>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <configuration>
+                            <test>${transform.it.test}</test>
+                            <failIfNoSpecifiedTests>false</failIfNoSpecifiedTests>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
