@@ -220,6 +220,7 @@ jobs:
       translation-flink: ${{ steps.filter.outputs.translation-flink }}
       translation-spark: ${{ steps.filter.outputs.translation-spark }}
       run-engines: ${{ steps.run-engines.outputs.engines || '["flink","spark","zeta"]' }}
+      e2e-jdks: ${{ steps.e2e-jdks.outputs.jdks || '["11","17"]' }}
       engine: ${{ steps.filter.outputs.engine }}
       engine-e2e: ${{ steps.filter.outputs.engine-e2e }}
       edge-agent: ${{ steps.filter.outputs.edge-agent }}
@@ -417,6 +418,20 @@ jobs:
           fi
           echo "Run engines: $engines"
           echo "engines=$engines" >> "$GITHUB_OUTPUT"
+
+      - name: Decide integration test JDKs
+        id: e2e-jdks
+        run: |
+          # Scoped PR builds run each integration test job on the default JDK only, which
+          # halves the E2E job count on the contributor's fork (where the PR Build runs and
+          # the concurrency limit queues jobs). API and engine changes, and builds of the
+          # Apache dev/release branches, keep the full JDK 11 + 17 matrix; those branches
+          # also run the second JDK, so a JDK-specific failure still gates the merge.
+          if [[ '${{ steps.filter.outputs.api }}' == 'true' || '${{ steps.filter.outputs.engine }}' == 'true' ]]; then
+            echo 'jdks=["11","17"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'jdks=["17"]' >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Check Connector V2 Update
         id: cv2-modules
@@ -733,7 +748,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     steps:
       - uses: actions/checkout@v4
@@ -766,7 +781,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     steps:
       - uses: actions/checkout@v4
@@ -818,7 +833,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 300
     steps:
@@ -858,7 +873,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 300
     steps:
@@ -898,7 +913,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 300
     steps:
@@ -938,7 +953,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 300
     steps:
@@ -977,7 +992,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 300
     steps:
@@ -1016,7 +1031,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 300
     steps:
@@ -1055,7 +1070,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 300
     steps:
@@ -1095,7 +1110,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 300
     steps:
@@ -1133,7 +1148,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1164,7 +1179,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1195,7 +1210,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 45
     steps:
@@ -1253,7 +1268,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     # Part-1 alone takes about 99-107 minutes on ubuntu-latest; the UDF E2E module adds its own
     # build and tests, so keep headroom above that for slower runners.
@@ -1290,7 +1305,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     # A green run of this job takes about 149 minutes on ubuntu-latest, so keep the budget well
     # above that to avoid cancelling runs that are already on their last test class.
@@ -1329,7 +1344,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1367,7 +1382,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1405,7 +1420,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1443,7 +1458,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1481,7 +1496,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1519,7 +1534,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1557,7 +1572,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1595,7 +1610,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1630,7 +1645,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1665,7 +1680,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     # A green run of this job takes 113-115 minutes on ubuntu-latest (JdbcOracleIT alone is
     # about 25 minutes), so the previous 120 minute budget left ordinary runner variance no
@@ -1703,7 +1718,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1738,7 +1753,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1773,7 +1788,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1808,7 +1823,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1843,7 +1858,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1878,7 +1893,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1913,7 +1928,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -1946,7 +1961,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     # Kudu E2E expands each @TestTemplate case across several PR test containers.
     timeout-minutes: 90
@@ -1980,7 +1995,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -2013,7 +2028,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -2046,7 +2061,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
@@ -2079,7 +2094,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -2112,7 +2127,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -2145,7 +2160,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -2178,7 +2193,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -2211,7 +2226,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -2244,7 +2259,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
@@ -2282,7 +2297,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -2315,7 +2330,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -2348,7 +2363,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
@@ -2381,7 +2396,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
+        java: ${{ fromJSON(needs.changes.outputs.e2e-jdks) }}
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
