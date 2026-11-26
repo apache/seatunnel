@@ -29,6 +29,7 @@
         <module>seatunnel-transforms-v2-e2e-common</module>
         <module>seatunnel-transforms-v2-e2e-part-1</module>
         <module>seatunnel-transforms-v2-e2e-part-2</module>
+        <module>seatunnel-transforms-v2-e2e-part-3</module>
         <module>seatunnel-transforms-v2-udf</module>
         <module>seatunnel-transforms-v2-e2e-udf</module>
     </modules>
@@ -96,28 +97,4 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-    <!-- Keep CI's class filter in the Transform reactor subtree. -->
-    <profiles>
-        <profile>
-            <id>transform-it-shard</id>
-            <activation>
-                <property>
-                    <name>transform.it.test</name>
-                </property>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-failsafe-plugin</artifactId>
-                        <configuration>
-                            <test>${transform.it.test}</test>
-                            <failIfNoSpecifiedTests>false</failIfNoSpecifiedTests>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>

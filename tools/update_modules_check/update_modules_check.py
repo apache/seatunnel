@@ -17,9 +17,6 @@
 import json
 import sys
 import zlib
-from collections import Counter
-from pathlib import Path
-from xml.etree import ElementTree
 
 
 # Selected from the module durations in GitHub Actions run 31611542978, where
@@ -34,16 +31,6 @@ from xml.etree import ElementTree
 # Update test_historical_seed_assignments_are_preserved with the seed so an
 # accidental reshuffle cannot silently change the CI matrix.
 _FULL_CONNECTOR_IT_SHARD_SEED = "37709"
-
-TRANSFORM_IT_SHARD_COUNT = 3
-# Replayed Failsafe class durations on JDK 11 and 17 from GitHub Actions runs
-# 45762152179, 42382021909, and 42333935735. Of seeds 0-99999, this minimized
-# the longest estimated shard across the six samples (about 112 minutes,
-# including build overhead). Keep the seed fixed so new tests do not move existing tests.
-_TRANSFORM_IT_SHARD_SEED = "73995"
-_TRANSFORM_E2E_ROOT = (
-    Path(__file__).resolve().parents[2] / "seatunnel-e2e" / "seatunnel-transforms-v2-e2e"
-)
 
 # Connector modules handled by jobs outside the shared connector shards. Add a
 # module here only after its dedicated job handles API, engine, and direct changes
@@ -267,71 +254,16 @@ def filter_dedicated_shard_modules(modules, dedicated_modules, fail_on_missing):
     return [module for module in modules if module not in dedicated_modules_set]
 
 
-def _split_stable_it_shards(items, total_num, seed):
+def split_full_connector_it_modules(modules, total_num):
     if total_num <= 0:
         raise ValueError(f"total shard count must be positive, got {total_num}")
 
     shards = [[] for _ in range(total_num)]
-    for item in sorted(set(items)):
-        shard_key = f"{seed}:{item}".encode("utf-8")
+    for module in sorted(set(modules)):
+        shard_key = f"{_FULL_CONNECTOR_IT_SHARD_SEED}:{module}".encode("utf-8")
         shard = zlib.crc32(shard_key) % total_num
-        shards[shard].append(item)
+        shards[shard].append(module)
     return shards
-
-
-def split_full_connector_it_modules(modules, total_num):
-    return _split_stable_it_shards(modules, total_num, _FULL_CONNECTOR_IT_SHARD_SEED)
-
-
-def discover_transform_it_classes(e2e_root):
-    """Map Failsafe's default top-level IT class names to their reactor modules."""
-    classes = {}
-    modules = ElementTree.parse(e2e_root / "pom.xml").findall("{*}modules/{*}module")
-    for module in modules:
-        module_dir = e2e_root / module.text.strip()
-        artifact_id = ElementTree.parse(module_dir / "pom.xml").findtext("{*}artifactId")
-        test_sources = module_dir / "src" / "test" / "java"
-        for source in test_sources.rglob("*.java"):
-            if "$" in source.name or not (
-                source.name.startswith("IT") or source.name.endswith(("IT.java", "ITCase.java"))
-            ):
-                continue
-            class_name = ".".join(source.relative_to(test_sources).with_suffix("").parts)
-            if class_name in classes:
-                raise ValueError(f"Duplicate Transform integration test {class_name}")
-            classes[class_name] = artifact_id
-    return classes
-
-
-def get_sub_transform_it_classes(part):
-    part = int(part)
-    if not 1 <= part <= TRANSFORM_IT_SHARD_COUNT:
-        raise ValueError(f"Transform integration test shard {part} is out of range")
-
-    classes = discover_transform_it_classes(_TRANSFORM_E2E_ROOT)
-    if not classes:
-        raise ValueError(f"No Transform integration tests found under {_TRANSFORM_E2E_ROOT}")
-    shards = _split_stable_it_shards(classes, TRANSFORM_IT_SHARD_COUNT, _TRANSFORM_IT_SHARD_SEED)
-    tests = shards[part - 1]
-    modules = sorted({classes[test] for test in tests})
-    print("modules=" + ",".join(":" + module for module in modules))
-    print("tests=" + ",".join(tests))
-
-
-def check_transform_it_reports(e2e_root, tests):
-    """Require one Failsafe report per selected class on full engine runs."""
-    expected = Counter(tests)
-    reported = Counter(
-        report.stem.removeprefix("TEST-")
-        for report in e2e_root.glob("*/target/failsafe-reports/TEST-*.xml")
-    )
-    if reported != expected:
-        raise ValueError(
-            "Transform integration test report mismatch. "
-            f"Missing: {sorted((expected - reported).elements())}. "
-            f"Unexpected or duplicate: {sorted((reported - expected).elements())}."
-        )
-    print(f"Found one Failsafe report for each of the {len(expected)} selected Transform tests")
 
 
 def build_sub_it_modules(modules, total_num, current_num):
@@ -428,10 +360,6 @@ def main(argv):
         remove_deleted_modules(argv[2], argv[3])
     elif argv[1] == "sub_it_module":
         get_sub_it_modules(argv[2], argv[3], argv[4])
-    elif argv[1] == "sub_transform_it_classes":
-        get_sub_transform_it_classes(argv[2])
-    elif argv[1] == "check_transform_it_reports":
-        check_transform_it_reports(_TRANSFORM_E2E_ROOT, argv[2].split(","))
     elif argv[1] == "sub_update_it_module":
         get_sub_update_it_modules(argv[2], argv[3], argv[4])
     elif argv[1] == "sub_update_it_shards":

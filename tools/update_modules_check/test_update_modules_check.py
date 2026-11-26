@@ -14,7 +14,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-"""Regression tests for E2E sharding and workflow coverage."""
+"""Regression tests for connector E2E module sharding."""
 
 import io
 import json
@@ -23,29 +23,26 @@ import unittest
 from collections import Counter
 from contextlib import redirect_stdout
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 from update_modules_check import (
     ALL_CONNECTORS_DEDICATED_SHARD_MODULES,
     ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES,
     ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES,
     STANDALONE_MODULE_PATHS,
-    TRANSFORM_IT_SHARD_COUNT,
     build_standalone_modules,
     build_sub_it_modules,
     build_sub_update_it_modules,
     build_sub_update_it_shards,
-    check_transform_it_reports,
-    discover_transform_it_classes,
     get_sub_it_modules,
-    get_sub_transform_it_classes,
     get_sub_update_it_modules,
     modules_to_json,
     split_full_connector_it_modules,
 )
 
 
-class ItShardingTest(unittest.TestCase):
+class ConnectorItShardingTest(unittest.TestCase):
+    """Verify connector sharding remains stable as modules change."""
+
     @staticmethod
     def parse_modules(modules):
         return [module.lstrip(":") for module in modules.split(",") if module]
@@ -374,7 +371,9 @@ class ItShardingTest(unittest.TestCase):
     def workflow_pl_modules(self):
         modules = set()
         for pl in re.findall(
-            r"-pl\s+(:[A-Za-z0-9._-]+(?:,:[A-Za-z0-9._-]+)*)", self.workflow_text()
+            r"(?:-pl\s+|^\s+modules: ')(:[A-Za-z0-9._-]+(?:,:[A-Za-z0-9._-]+)*)",
+            self.workflow_text(),
+            re.MULTILINE,
         ):
             modules.update(module.lstrip(":") for module in pl.split(",") if module)
         return modules
@@ -424,10 +423,6 @@ class ItShardingTest(unittest.TestCase):
     def test_every_non_connector_e2e_it_module_has_a_workflow_job(self) -> None:
         e2e_root = self.repo_root() / "seatunnel-e2e"
         workflow_modules = self.workflow_pl_modules()
-        if 'sub_transform_it_classes "$SHARD"' in self.workflow_text():
-            workflow_modules.update(
-                discover_transform_it_classes(e2e_root / "seatunnel-transforms-v2-e2e").values()
-            )
         for pom in sorted(e2e_root.rglob("pom.xml")):
             relative = pom.relative_to(e2e_root).parts
             if relative[0] in ("seatunnel-connector-v2-e2e", "seatunnel-e2e-common") or "target" in relative:
@@ -438,84 +433,6 @@ class ItShardingTest(unittest.TestCase):
             module = self.pom_artifact_id(pom)
             with self.subTest(module=module):
                 self.assertIn(module, workflow_modules)
-
-    def test_transform_shards_select_each_class_in_its_module_once(self) -> None:
-        e2e_root = self.repo_root() / "seatunnel-e2e" / "seatunnel-transforms-v2-e2e"
-        classes = discover_transform_it_classes(e2e_root)
-        self.assertIn("org.apache.seatunnel.e2e.transform.udf.ExampleUdfIT", classes)
-        selected_classes = []
-        for part in range(1, TRANSFORM_IT_SHARD_COUNT + 1):
-            with self.subTest(part=part):
-                output = io.StringIO()
-                with redirect_stdout(output):
-                    get_sub_transform_it_classes(part)
-                selection = dict(line.split("=", 1) for line in output.getvalue().splitlines())
-                tests = selection["tests"].split(",") if selection["tests"] else []
-                self.assertEqual(
-                    {classes[test] for test in tests},
-                    set(self.parse_modules(selection["modules"])),
-                )
-                selected_classes.extend(tests)
-        self.assertCountEqual(list(classes), selected_classes)
-
-    def test_transform_discovery_follows_failsafe_class_patterns(self) -> None:
-        with TemporaryDirectory() as directory:
-            e2e_root = Path(directory)
-            (e2e_root / "pom.xml").write_text(
-                "<project><modules><module>module-path</module></modules></project>",
-                encoding="utf-8",
-            )
-            module_dir = e2e_root / "module-path"
-            test_package = module_dir / "src" / "test" / "java" / "example"
-            test_package.mkdir(parents=True)
-            (module_dir / "pom.xml").write_text(
-                "<project><artifactId>transform-tests</artifactId></project>",
-                encoding="utf-8",
-            )
-            for source in (
-                "ITFirst.java", "SecondIT.java", "ThirdITCase.java", "Helper.java", "Suite$NestedIT.java"
-            ):
-                (test_package / source).touch()
-
-            self.assertEqual(
-                {
-                    "example.ITFirst": "transform-tests",
-                    "example.SecondIT": "transform-tests",
-                    "example.ThirdITCase": "transform-tests",
-                },
-                discover_transform_it_classes(e2e_root),
-            )
-
-    def test_transform_report_check_rejects_missing_or_duplicate_reports(self) -> None:
-        with TemporaryDirectory() as directory:
-            e2e_root = Path(directory)
-            report_name = Path("target/failsafe-reports/TEST-example.FirstIT.xml")
-            report_a = e2e_root / "module-a" / report_name
-            report_b = e2e_root / "module-b" / report_name
-            report_a.parent.mkdir(parents=True)
-            report_b.parent.mkdir(parents=True)
-            report_a.touch()
-            with redirect_stdout(io.StringIO()):
-                check_transform_it_reports(e2e_root, ["example.FirstIT"])
-            report_b.touch()
-            with self.assertRaisesRegex(
-                ValueError, r"Missing: .*SecondIT.*Unexpected or duplicate: .*FirstIT"
-            ):
-                check_transform_it_reports(e2e_root, ["example.FirstIT", "example.SecondIT"])
-
-    def test_transform_workflow_covers_every_shard_on_both_jdks(self) -> None:
-        job = re.search(
-            r"^  transform-v2-it:\n(.*?)(?=^  \S)", self.workflow_text(), re.M | re.S
-        ).group(1)
-        shards = re.search(r"^\s+shard: \[(.*?)\]", job, re.M).group(1)
-        self.assertEqual(
-            list(range(1, TRANSFORM_IT_SHARD_COUNT + 1)), [int(part) for part in shards.split(",")]
-        )
-        self.assertIn("java: [ '11', '17' ]", job)
-        self.assertIn('sub_transform_it_classes "$SHARD"', job)
-        self.assertIn('-pl "$TEST_MODULES"', job)
-        self.assertIn('"-Dtransform.it.test=$TEST_CLASSES"', job)
-
 
 if __name__ == "__main__":
     unittest.main()

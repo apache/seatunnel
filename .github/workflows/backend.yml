@@ -1243,7 +1243,7 @@ jobs:
           id: ${{ matrix.java }}-${{ matrix.os }}
 
   transform-v2-it:
-    name: transform-v2-it-part-${{ matrix.shard }} (${{ matrix.java }}, ${{ matrix.os }})
+    name: transform-v2-it-part-${{ matrix.shard.part }} (${{ matrix.java }}, ${{ matrix.os }})
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     runs-on: ${{ matrix.os }}
@@ -1256,7 +1256,13 @@ jobs:
       matrix:
         java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
-        shard: [ 1, 2, 3 ]
+        shard:
+          - part: 1
+            modules: ':seatunnel-transforms-v2-e2e-part-1,:seatunnel-transforms-v2-e2e-udf'
+          - part: 2
+            modules: ':seatunnel-transforms-v2-e2e-part-2'
+          - part: 3
+            modules: ':seatunnel-transforms-v2-e2e-part-3'
     timeout-minutes: 210
     steps:
       - uses: actions/checkout@v4
@@ -1268,31 +1274,18 @@ jobs:
           cache: 'maven'
       - name: free disk space
         run: tools/github/free_disk_space.sh
-      - name: Select Transform integration tests
-        id: shard
-        env:
-          SHARD: ${{ matrix.shard }}
-        run: python3 tools/update_modules_check/update_modules_check.py sub_transform_it_classes "$SHARD" >> "$GITHUB_OUTPUT"
       - name: Run Transform integration tests
-        if: steps.shard.outputs.tests != ''
         env:
           MAVEN_OPTS: -Xmx4096m
-          TEST_MODULES: ${{ steps.shard.outputs.modules }}
-          TEST_CLASSES: ${{ steps.shard.outputs.tests }}
+          TEST_MODULES: ${{ matrix.shard.modules }}
         run: |
-          echo "Transform E2E classes: $TEST_CLASSES"
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true \
-            --no-snapshot-updates -pl "$TEST_MODULES" -am -Pci "-Dtransform.it.test=$TEST_CLASSES"
-      - name: Check Transform integration test coverage
-        if: steps.shard.outputs.tests != '' && env.RUN_ENGINES == '["flink","spark","zeta"]'
-        env:
-          TEST_CLASSES: ${{ steps.shard.outputs.tests }}
-        run: python3 tools/update_modules_check/update_modules_check.py check_transform_it_reports "$TEST_CLASSES"
+            --no-snapshot-updates -pl "$TEST_MODULES" -am -Pci
       - name: Upload test reports
-        if: ${{ !cancelled() && steps.shard.outputs.tests != '' }}
+        if: ${{ !cancelled() }}
         uses: ./.github/actions/upload-test-reports
         with:
-          id: part-${{ matrix.shard }}-${{ matrix.java }}-${{ matrix.os }}
+          id: part-${{ matrix.shard.part }}-${{ matrix.java }}-${{ matrix.os }}
 
   # Dedicated connector ownership and shard rebalancing guidance are maintained in
   # tools/update_modules_check/update_modules_check.py.
