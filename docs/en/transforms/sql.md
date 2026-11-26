@@ -12,14 +12,29 @@ SQL transform use memory SQL engine, we can via SQL functions and ability of SQL
 
 |       name        |  type  | required | default value |
 |-------------------|--------|----------|---------------|
-| plugin_input | string | no       | -             |
+| plugin_input | `list<string>` | no       | -             |
 | plugin_output | string | no       | -             |
 | query             | string | yes      | -             |
 | engine            | string | no       | ZETA          |
+| table_match_regex | string | no       | `.*`          |
+| table_transform   | array  | no       | -             |
+| rule_match_mode   | string | no       | `FIRST_MATCH` |
 
-### plugin_input [string]
+### table_match_regex [string]
 
-The source table name, the query SQL table name must match this field. If not configured, the input catalog table name is used.
+Regex of the table paths that the transform level rule applies to. The default `.*` matches every table.
+
+### table_transform [array]
+
+Per-table rules, see [Multi-Table Transform](transform-multi-table.md).
+
+### rule_match_mode [string]
+
+How multiple `table_transform` entries with the same `table_path` are evaluated.
+
+### plugin_input [`list<string>`]
+
+The upstream plugin identifier(s). The query SQL must reference the input table by the first identifier in this list, which is used as the SQL relation name (alias). If not configured, the input catalog table name is used. In multi-table scenarios this option accepts a list of upstream identifiers, but only the first entry is used, as that relation name. The SQL transform is applied per input catalog table — every connected input table is processed and its rows are routed by table ID — so this list is not a filter that restricts the transform to the first table.
 
 ### query [string]
 

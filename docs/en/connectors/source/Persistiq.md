@@ -26,7 +26,7 @@ Used to read data from Persistiq.
 | method                      | String  | No       | get           | HTTP request method, only supports `GET` and `POST` |
 | schema                      | Config  | No       | -             | HTTP and SeaTunnel data structure mapping. For more details, see [Schema Feature](../../introduction/concepts/schema-feature.md). |
 | schema.fields               | Config  | No       | -             | The schema fields of upstream data |
-| format                      | String  | No       | json          | The format of upstream data, now supports `json` and `text`, default `json` |
+| format                      | enum    | No       | text          | The format of upstream data, now supports `json` and `text`, default `text` |
 | params                      | Map     | No       | -             | HTTP request parameters |
 | body                        | String  | No       | -             | HTTP request body |
 | json_field                  | Config  | No       | -             | JSON field configuration for extracting fields from the response |
@@ -76,7 +76,7 @@ The maximum retry-backoff times(millis) if request http failed
 
 ### format [String]
 
-the format of upstream data, now only support `json` `text`, default `json`.
+the format of upstream data, now only support `json` `text`, default `text`.
 
 when you assign format is `json`, you should also assign schema option, for example:
 

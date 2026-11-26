@@ -77,7 +77,7 @@ Writing into an existing format version 3 table also accepts `TIMESTAMP_NS` and 
 | iceberg.catalog.config                 | map     | yes      | -                            | Specify the properties for initializing the Iceberg catalog, which can be referenced in this file: [CatalogProperties.java](https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/CatalogProperties.java)                                                                                                              |
 | hadoop.config                          | map     | no       | -                            | Properties passed through to the Hadoop configuration                                                                                                                                                                                                                                                                     |
 | iceberg.hadoop-conf-path               | string  | no       | -                            | The specified loading paths for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files.                                                                                                                                                                                                                              |
-| case_sensitive                         | boolean | no       | false                        | If data columns where selected via schema [config], controls whether the match to the schema will be done with case sensitivity.                                                                                                                                                                                          |
+| case_sensitive                         | boolean | no       | false                        | Controls whether column name matching is done case-sensitively.                                                                                                                                                                                                                                                           |
 | iceberg.table.write-props              | map     | no       | -                            | Properties passed through to Iceberg writer initialization, these take precedence, such as 'write.format.default', 'write.target-file-size-bytes', and other settings, can be found with specific parameters at [TableProperties.java](https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/TableProperties.java). |
 | iceberg.table.auto-create-props        | map     | no       | -                            | Configuration specified by Iceberg during automatic table creation.                                                                                                                                                                                                                                                       |
 | iceberg.table.schema-evolution-enabled | boolean | no       | false                        | Setting to true enables Iceberg tables to support schema evolution during the synchronization process                                                                                                                                                                                                                     |
@@ -152,6 +152,22 @@ sink {
   }
 }
 ```
+
+### schema_save_mode [Enum]
+
+Before the sink starts writing, controls how the target table schema is handled.
+- `RECREATE_SCHEMA` : Drop the target table if it exists, and then recreate it.
+- `CREATE_SCHEMA_WHEN_NOT_EXIST` : Create the target table if it does not exist, or skip creation if it exists.
+- `ERROR_WHEN_SCHEMA_NOT_EXIST` : Throw an error if the target table does not exist.
+- `IGNORE` : Ignore schema handling and do not perform any schema-related checks or DDL actions.
+
+### data_save_mode [Enum]
+
+Before the sink starts writing, controls how existing data in the target table is handled.
+- `DROP_DATA` : Delete existing data in the target table.
+- `APPEND_DATA` : Keep existing data in the target table and append new data.
+- `CUSTOM_PROCESSING` : Execute user-defined processing. This option requires the `custom_sql` option.
+- `ERROR_WHEN_DATA_EXISTS` : Throw an error if the target table already contains data.
 
 ### custom_sql [string]
 

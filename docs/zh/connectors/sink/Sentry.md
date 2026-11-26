@@ -72,7 +72,7 @@ DSN 告诉 SDK 将事件发送到哪里。格式为标准 Sentry DSN，例如
 是否启用从外部源（例如 classpath 中的 `sentry.properties`）加载配置。设置为 `true` 后，SDK 会
 自动加载环境特定的配置文件。
 
-### maxCacheItems [number]
+### maxCacheItems [int]
 
 最大缓存事件数量，超过后会丢弃旧事件。不设置时 SDK 默认为 `30`。
 
@@ -80,7 +80,7 @@ DSN 告诉 SDK 将事件发送到哪里。格式为标准 Sentry DSN，例如
 
 刷新待发送事件时的等待时间，单位毫秒。用于在写入器关闭时控制阻塞时长。
 
-### maxQueueSize [number]
+### maxQueueSize [int]
 
 事件刷新到磁盘前的最大队列大小。当事件产生速度快于网络发送速度时，可以适当调大该值。
 

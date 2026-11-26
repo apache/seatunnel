@@ -48,9 +48,9 @@ import ChangeLog from '../changelog/connector-doris.md';
 | TINYINT                              | TINYINT                                                                                                                                             |
 | SMALLINT                             | SMALLINT                                                                                                                                            |
 | BIGINT                               | BIGINT                                                                                                                                              |
-| LARGEINT                             | STRING                                                                                                                                              |
+| LARGEINT                             | DECIMAL(20,0)                                                                                                                                       |
 | BOOLEAN                              | BOOLEAN                                                                                                                                             |
-| DECIMAL                              | DECIMAL((Get the designated column's specified column size)+1,<br/>(Gets the designated column's number of digits to right of the decimal point.))) |
+| DECIMAL                              | DECIMAL(p, s)，其中 `p` 为列精度、`s` 为列小数位数；当列未定义时使用 DECIMAL(38, 10)。在 Doris 1.2.x 上，定义了 0 位小数位数时同样回退为 10。                              |
 | FLOAT                                | FLOAT                                                                                                                                               |
 | DOUBLE                               | DOUBLE                                                                                                                                              |
 | CHAR<br/>VARCHAR<br/>STRING<br/>TEXT | STRING                                                                                                                                              |
@@ -80,7 +80,10 @@ import ChangeLog from '../changelog/connector-doris.md';
 | doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | 每个 SeaTunnel split 包含的 Doris tablet 数量，最小值为 `1`。                                  |
 | doris.deserialize.arrow.async    | boolean | no      | false      | 是否异步反序列化 Arrow 数据。                                                                           |
 | doris.deserialize.queue.size     | int    | no       | 64         | 异步反序列化 Arrow 数据时使用的队列大小。                                                                |
+| database                         | string | yes      | -          | Doris 数据库名。未配置 `table_list` 时必须在 source 外层配置。                                     |
+| table                            | string | yes      | -          | Doris 表名。未配置 `table_list` 时必须在 source 外层配置。                                         |
 | table_list                       | Array  | no       | -           | 要读取的 Doris 表清单。                                                                                |
+| case_sensitive                   | boolean | no      | true        | 是否保留数据库名和表名的原始大小写。设置为 false 时，数据库名和表名将被转换为小写。仅在通过 `database` 和 `table` 配置单表时生效。 |
 
 表清单配置:
 

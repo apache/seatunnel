@@ -21,6 +21,21 @@ Vector types are not supported on the Spark engine.
 | fields | Map | yes (or the deprecated `src_field`+`dest_field` pair) |               |
 | src_field | String | no | |
 | dest_field | String | no | |
+| table_match_regex | String | no | `.*` |
+| table_transform | Array&lt;Map&gt; | no | - |
+| rule_match_mode | String | no | `FIRST_MATCH` |
+
+### table_match_regex [string]
+
+Regex of the table paths that the transform level rule applies to. The default `.*` matches every table.
+
+### table_transform [array&lt;map&gt;]
+
+Per-table rules, see [Multi-Table Transform](transform-multi-table.md).
+
+### rule_match_mode [string]
+
+How multiple `table_transform` entries with the same `table_path` are evaluated.
 
 ### fields [config]
 

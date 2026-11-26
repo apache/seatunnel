@@ -31,7 +31,7 @@ The FieldRename transform renames the columns of a table without changing the ta
 | replacements_with_regex | Array&lt;Map&gt; | no | - | Replacement rules. Each entry contains `replace_from`, `replace_to`, and optional `is_regex` (default `true`). |
 | specific | Array&lt;Map&gt; | no | - | Explicit rename rules. Each entry contains `field_name` and `target_name`. A matching rule wins over all other rename options. |
 | table_match_regex | String | no | `.*` | Regex of the table paths that the transform level rule applies to. |
-| table_transform | Array&lt;Map&gt; | no | - | Per-table rules, see [Multi-Table Transform](transform-multi-table.md). |
+| table_transform | Array&lt;Map&gt; | no | `[]` | Per-table rules, see [Multi-Table Transform](transform-multi-table.md). |
 | rule_match_mode | String | no | `FIRST_MATCH` | How multiple `table_transform` entries with the same `table_path` are evaluated. |
 | common options | - | no | - | Transform plugin common parameters, see [Transform Plugin](common-options/common-options.md). |
 
