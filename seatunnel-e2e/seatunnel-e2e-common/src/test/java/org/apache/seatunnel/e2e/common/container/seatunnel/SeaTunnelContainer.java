@@ -1032,6 +1032,10 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
 
     @Override
     public long getCompletedCheckpointCount(String jobId) {
+        return extractCheckpointCounter(getCheckpointOverview(jobId), "completed");
+    }
+
+    public Map<String, Object> getCheckpointOverview(String jobId) {
         HttpGet get =
                 new HttpGet(
                         String.format(
@@ -1043,13 +1047,11 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
         try (CloseableHttpClient client = HttpClients.createDefault()) {
             CloseableHttpResponse response = client.execute(get);
             if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                return 0L;
+                return Collections.emptyMap();
             }
             String checkpointOverview = EntityUtils.toString(response.getEntity());
-            Map<String, Object> overview =
-                    OBJECT_MAPPER.readValue(
-                            checkpointOverview, new TypeReference<Map<String, Object>>() {});
-            return extractCheckpointCounter(overview, "completed");
+            return OBJECT_MAPPER.readValue(
+                    checkpointOverview, new TypeReference<Map<String, Object>>() {});
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

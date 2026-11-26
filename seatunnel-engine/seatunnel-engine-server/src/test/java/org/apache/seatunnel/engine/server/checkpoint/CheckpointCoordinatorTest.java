@@ -17,6 +17,19 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
@@ -25,23 +38,43 @@ import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
+import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.TaskExecutionService;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
+import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointFinishedOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskRestoreOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
+import org.apache.seatunnel.engine.server.dag.physical.config.SinkConfig;
+import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
+import org.apache.seatunnel.engine.server.dag.physical.flow.Flow;
+import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.ProgressState;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
+import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
+import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.flow.SinkFlowLifeCycle;
+import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
@@ -59,6 +92,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -73,6 +107,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.common.Constant.IMAP_RUNNING_JOB_STATE;
@@ -1331,6 +1366,222 @@ public class CheckpointCoordinatorTest
                             Mockito.any(CheckpointType.class), Mockito.anyLong());
         } finally {
             executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void readyTaskReplaysRestoredBeforeCheckpointAfterStart() throws Exception {
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        TaskLocation task = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 1);
+        CheckpointPlan plan =
+                CheckpointPlan.builder()
+                        .pipelineId(1)
+                        .pipelineSubtasks(Collections.singleton(task))
+                        .startingSubtasks(Collections.singleton(task))
+                        .build();
+        CheckpointConfig config = new CheckpointConfig();
+        config.setStorage(new CheckpointStorageConfig());
+        CompletedCheckpoint checkpoint =
+                new CompletedCheckpoint(
+                        1L,
+                        1,
+                        7L,
+                        100L,
+                        CheckpointType.SCHEMA_CHANGE_BEFORE_POINT_TYPE,
+                        101L,
+                        new HashMap<>(),
+                        new HashMap<>());
+        PipelineState restoredState =
+                PipelineState.builder()
+                        .jobId("1")
+                        .pipelineId(1)
+                        .checkpointId(7L)
+                        .states(new ProtoStuffSerializer().serialize(checkpoint))
+                        .build();
+        CheckpointManager manager = Mockito.mock(CheckpointManager.class);
+        @SuppressWarnings("unchecked")
+        IMap<Object, Object> stateMap = Mockito.mock(IMap.class);
+        CheckpointCoordinator coordinator =
+                Mockito.spy(
+                        new CheckpointCoordinator(
+                                manager,
+                                Mockito.mock(CheckpointStorage.class),
+                                config,
+                                1L,
+                                plan,
+                                Mockito.mock(CheckpointIDCounter.class),
+                                restoredState,
+                                executorService,
+                                stateMap,
+                                true,
+                                null));
+        try {
+            Mockito.doReturn(new InvocationFuture[0]).when(coordinator).notifyTaskStart();
+            Mockito.doReturn(new InvocationFuture[0])
+                    .when(coordinator)
+                    .notifyCheckpointEnd(Mockito.any());
+            Mockito.doAnswer(
+                            invocation -> {
+                                invocation.callRealMethod();
+                                return new InvocationFuture[0];
+                            })
+                    .when(coordinator)
+                    .notifyCheckpointCompleted(Mockito.any());
+            Mockito.doNothing()
+                    .when(coordinator)
+                    .scheduleTriggerPendingCheckpoint(
+                            Mockito.any(CheckpointType.class), Mockito.anyLong());
+
+            coordinator.reportedTask(
+                    new TaskReportStatusOperation(task, SeaTunnelTaskState.READY_START));
+            executorService.submit(() -> {}).get(5, TimeUnit.SECONDS);
+
+            ArgumentCaptor<TaskOperation> operation = ArgumentCaptor.forClass(TaskOperation.class);
+            InOrder order = Mockito.inOrder(coordinator, manager);
+            order.verify(coordinator).notifyTaskStart();
+            order.verify(manager).sendOperationToMemberNode(operation.capture());
+
+            CheckpointFinishedOperation restored =
+                    nodeEngine
+                            .getSerializationService()
+                            .toObject(
+                                    nodeEngine
+                                            .getSerializationService()
+                                            .toData(operation.getValue()));
+            Assertions.assertEquals(task, restored.getTaskLocation());
+            Assertions.assertEquals(7L, restored.getCheckpointId());
+            Assertions.assertTrue(restored.isSuccessful());
+            Assertions.assertEquals(
+                    CheckpointType.SCHEMA_CHANGE_BEFORE_POINT_TYPE, restored.getCheckpointType());
+            assertRestoredBeforeOpReleasesSinkDdl(task, restored);
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void assertRestoredBeforeOpReleasesSinkDdl(
+            TaskLocation location, CheckpointFinishedOperation restored) throws Exception {
+        SeaTunnelSink<SeaTunnelRow, String, String, String> sink =
+                Mockito.mock(SeaTunnelSink.class);
+        SinkWriter<SeaTunnelRow, String, String> writer = Mockito.mock(SinkWriter.class);
+        Mockito.when(sink.getWriteCatalogTable()).thenReturn(Optional.empty());
+        Mockito.when(sink.createWriter(Mockito.any())).thenReturn(writer);
+        SinkAction<SeaTunnelRow, String, String, String> action =
+                new SinkAction<>(7L, "sink", sink, Collections.emptySet(), Collections.emptySet());
+        PhysicalExecutionFlow<SinkAction<SeaTunnelRow, String, String, String>, SinkConfig> flow =
+                new PhysicalExecutionFlow<>(action);
+        flow.setConfig(new SinkConfig());
+        RestoredSinkTask task = new RestoredSinkTask(location, flow);
+        TaskExecutionContext taskContext = Mockito.mock(TaskExecutionContext.class);
+        Mockito.when(taskContext.getOrCreateMetricsContext(location))
+                .thenReturn(new SeaTunnelMetricsContext());
+        task.setTaskExecutionContext(taskContext);
+        task.init();
+        task.restoreState(Collections.emptyList());
+
+        SeaTunnelServer worker = Mockito.mock(SeaTunnelServer.class);
+        TaskExecutionService execution = Mockito.mock(TaskExecutionService.class);
+        TaskGroupContext group = Mockito.mock(TaskGroupContext.class);
+        Mockito.when(worker.getTaskExecutionService()).thenReturn(execution);
+        Mockito.when(execution.getExecutionContext(location.getTaskGroupLocation()))
+                .thenReturn(group);
+        Mockito.when(group.getTaskGroup())
+                .thenReturn(
+                        new TaskGroupDefaultImpl(
+                                location.getTaskGroupLocation(),
+                                "sink",
+                                Collections.singleton(task)));
+        Mockito.when(group.getClassLoader(location.getTaskID()))
+                .thenReturn(getClass().getClassLoader());
+        restored.setService(worker);
+
+        TableIdentifier table = TableIdentifier.of("", "test_db", "test_table");
+        RestoreTableSchemaEvent refresh =
+                new RestoreTableSchemaEvent(
+                        CatalogTable.of(
+                                table,
+                                TableSchema.builder()
+                                        .column(
+                                                PhysicalColumn.of(
+                                                        "id",
+                                                        BasicType.LONG_TYPE,
+                                                        20L,
+                                                        false,
+                                                        null,
+                                                        ""))
+                                        .build(),
+                                Collections.emptyMap(),
+                                Collections.emptyList(),
+                                ""));
+        SchemaChangeEvent ddl =
+                AlterTableAddColumnEvent.add(
+                        table,
+                        PhysicalColumn.of(
+                                "name", BasicType.STRING_TYPE, (Long) null, true, null, null));
+        task.receive(refresh);
+        Mockito.verify(writer).applySchemaChange(refresh);
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        Thread apply =
+                new Thread(
+                        () -> {
+                            try {
+                                task.receive(ddl);
+                            } catch (Throwable error) {
+                                failure.set(error);
+                            }
+                        },
+                        "restored-sink-ddl");
+        apply.start();
+        try {
+            Awaitility.await()
+                    .atMost(5, TimeUnit.SECONDS)
+                    .until(() -> apply.getState() == Thread.State.TIMED_WAITING);
+            Mockito.verify(writer, Mockito.never()).applySchemaChange(ddl);
+            restored.runInternal();
+            apply.join(TimeUnit.SECONDS.toMillis(5));
+            Assertions.assertFalse(apply.isAlive(), "typed BEFORE replay must release sink DDL");
+            Assertions.assertNull(failure.get(), "released sink DDL must succeed");
+            InOrder writes = Mockito.inOrder(writer);
+            writes.verify(writer).applySchemaChange(refresh);
+            writes.verify(writer).applySchemaChange(ddl);
+        } finally {
+            apply.interrupt();
+            apply.join(TimeUnit.SECONDS.toMillis(5));
+        }
+    }
+
+    private static final class RestoredSinkTask extends SeaTunnelTask {
+        private RestoredSinkTask(TaskLocation location, Flow flow) {
+            super(
+                    location.getJobId(),
+                    location,
+                    location.getTaskIndex(),
+                    flow,
+                    Collections.emptyMap());
+        }
+
+        private void receive(SchemaChangeEvent event) {
+            ((SinkFlowLifeCycle<?, ?, ?, ?>) startFlowLifeCycle).received(new Record<>(event));
+        }
+
+        @Override
+        protected SourceFlowLifeCycle<?, ?> createSourceFlowLifeCycle(
+                SourceAction<?, ?, ?> action,
+                SourceConfig config,
+                CompletableFuture<Void> completion,
+                MetricsContext metrics) {
+            throw new UnsupportedOperationException("This task only contains a sink");
+        }
+
+        @Override
+        protected void collect() {
+            throw new UnsupportedOperationException("The test supplies sink records directly");
+        }
+
+        @Override
+        public ProgressState call() {
+            return progress.toState();
         }
     }
 

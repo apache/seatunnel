@@ -4,6 +4,16 @@
 
 ## dev
 
+### Zeta：Schema Change 检查点通知要求引擎节点版本一致
+
+Schema Change 检查点完成通知现在携带检查点类型，确保 Sink 在恢复后仅在前置
+Schema Change 检查点提交之后继续执行结构变更。此 Zeta 节点间操作的序列化格式
+与旧版本不兼容。请协调升级全部 Zeta 节点，跨越此变更时不要在滚动升级过程中
+混用新旧版本。本变更不修改持久化检查点或保存点的格式。
+
+Sink 只在前置 Schema Change 检查点完成到后置检查点完成之间执行常规结构变更。
+仅用于恢复的 Schema 刷新事件仍可在该窗口之外刷新 Writer 元数据。
+
 ### MongoDB Sink：未配置的缓冲与重试选项使用文档中的默认值
 
 - **行为变更：未设置 `buffer-flush.*` 或 `retry.*` 选项的非事务 MongoDB Sink 会按批写入，并重试失败的写入**
