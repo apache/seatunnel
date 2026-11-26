@@ -82,6 +82,42 @@ public class SlotRatioStrategy implements SlotAllocationStrategy {
         workerAssignedSlotsByJob.remove(jobId);
     }
 
+    /**
+     * Returns the strategy's legacy, job-agnostic slot bookkeeping.
+     *
+     * <p>Kept so existing compiled extensions and direct callers do not lose the accessor that the
+     * former {@code @Getter} field generated. The engine itself records placement counters per job
+     * through {@link #selectWorker(List, long)} and {@link #resetJobState(long)}; this view only
+     * exposes the unscoped entry used by {@link #selectWorker(List)}.
+     *
+     * @return mutable map of the unscoped {@code -1} job entry
+     * @deprecated use the job-aware {@code selectWorker(List, long)} and {@code
+     *     resetJobState(long)}
+     */
+    @Deprecated
+    public Map<Address, SlotAssignedProfile> getWorkerAssignedSlots() {
+        return assignedSlotsForJob(UNSCOPED_JOB_ID);
+    }
+
+    /**
+     * Replaces the strategy's legacy, job-agnostic slot bookkeeping.
+     *
+     * <p>Kept for compatibility with the former {@code @Setter} field. The supplied map is copied
+     * into the unscoped entry, so a caller cannot swap the per-job bookkeeping of another job.
+     *
+     * @param workerAssignedSlots slot counters to install for the unscoped job entry
+     * @deprecated use the job-aware {@code selectWorker(List, long)} and {@code
+     *     resetJobState(long)}
+     */
+    @Deprecated
+    public void setWorkerAssignedSlots(Map<Address, SlotAssignedProfile> workerAssignedSlots) {
+        ConcurrentMap<Address, SlotAssignedProfile> replacement = new ConcurrentHashMap<>();
+        if (workerAssignedSlots != null) {
+            replacement.putAll(workerAssignedSlots);
+        }
+        workerAssignedSlotsByJob.put(UNSCOPED_JOB_ID, replacement);
+    }
+
     private Map<Address, SlotAssignedProfile> assignedSlotsForJob(long jobId) {
         return workerAssignedSlotsByJob.computeIfAbsent(jobId, key -> new ConcurrentHashMap<>());
     }

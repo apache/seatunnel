@@ -521,9 +521,10 @@ public class JobMaster {
         // is used to record the slot application status
         //
         // The strategy instance is shared by every job on the master, and its bookkeeping is
-        // job-scoped, so this only drops the counters of the job being pre-applied. Replacing a
-        // global map here used to wipe the in-flight counters of every other job (and of a job's
-        // other pipelines during a single-pipeline restore).
+        // scoped per job, so this only drops the counters of the job being pre-applied. Replacing
+        // a global map here used to wipe the in-flight counters of every other job. The key is the
+        // job, not the pipeline: a single-pipeline pre-apply still drops the provisional counters
+        // this job's other pipelines recorded, which is the pre-existing behavior.
         resourceManager.resetSlotAllocationState(jobImmutableInformation.getJobId());
 
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =

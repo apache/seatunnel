@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy;
 
 import org.apache.seatunnel.shade.com.google.common.collect.EvictingQueue;
 
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotAssignedProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SystemLoadInfo;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
@@ -129,6 +130,47 @@ class SlotAllocationStrategyTest {
         strategy.resetJobState(JOB_ONE);
         assertEquals(0, recordedSlots(strategy, JOB_ONE));
         assertEquals(selectionsPerJob, recordedSlots(strategy, JOB_TWO));
+    }
+
+    @Test
+    @SuppressWarnings("deprecation")
+    void slotRatioKeepsTheLegacyUnscopedAccessorsWorking() {
+        SlotRatioStrategy strategy = new SlotRatioStrategy();
+        SlotAssignedProfile legacyProfile = new SlotAssignedProfile(0.0, 2, SLOTS_PER_WORKER);
+        Map<Address, SlotAssignedProfile> legacy = new ConcurrentHashMap<>();
+        legacy.put(workerOneAddress, legacyProfile);
+        strategy.setWorkerAssignedSlots(legacy);
+
+        assertSame(legacyProfile, strategy.getWorkerAssignedSlots().get(workerOneAddress));
+
+        // The compatibility accessors address the unscoped entry only; a real job keeps its own
+        // counters and cannot observe the legacy two slots.
+        assertSame(workerOne, strategy.selectWorker(workers, JOB_ONE).orElseThrow());
+        assertEquals(
+                2,
+                strategy.getWorkerAssignedSlots()
+                        .get(workerOneAddress)
+                        .getCurrentTaskAssignedSlotsNum());
+        assertEquals(1, strategy.recordedAssignedSlots(JOB_ONE, workerOneAddress));
+        assertEquals(0, strategy.recordedAssignedSlots(JOB_ONE, workerTwoAddress));
+    }
+
+    @Test
+    @SuppressWarnings("deprecation")
+    void systemLoadKeepsTheLegacyUnscopedAccessorsWorking() {
+        SystemLoadStrategy strategy = new SystemLoadStrategy(loadMap(0.2, 0.45));
+        SlotAssignedProfile legacyProfile = new SlotAssignedProfile(0.0, 3, SLOTS_PER_WORKER);
+        Map<Address, SlotAssignedProfile> legacy = new ConcurrentHashMap<>();
+        legacy.put(workerOneAddress, legacyProfile);
+        strategy.setWorkerAssignedSlots(legacy);
+
+        assertSame(legacyProfile, strategy.getWorkerAssignedSlots().get(workerOneAddress));
+        assertSame(workerOne, strategy.selectWorker(workers, JOB_ONE).orElseThrow());
+        assertEquals(
+                3,
+                strategy.getWorkerAssignedSlots()
+                        .get(workerOneAddress)
+                        .getCurrentTaskAssignedSlotsNum());
     }
 
     @Test
