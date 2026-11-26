@@ -55,6 +55,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -719,5 +720,61 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
         Assertions.assertNull(runningJobStateTimestampsIMap.get(pipelineLocation));
         Assertions.assertNull(runningJobStateTimestampsIMap.get(taskGroupLocation));
         Assertions.assertFalse(pendingJobCleanupIMap.containsKey(jobId));
+    }
+
+    @Test
+    void testSavepointRestoreDoesNotProceedWhileJobStateLockIsHeld() throws Exception {
+        CoordinatorService coordinatorService = server.getCoordinatorService();
+        long jobId = System.currentTimeMillis();
+        long initializationTimestamp = 100L;
+
+        IMap<Long, JobInfo> runningJobInfoIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Long[]> runningJobStateTimestampsIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+
+        runningJobInfoIMap.put(jobId, new JobInfo(initializationTimestamp, null));
+        runningJobStateIMap.put(jobId, JobStatus.FINISHED);
+        runningJobStateTimestampsIMap.put(jobId, new Long[JobStatus.values().length]);
+        pendingJobCleanupIMap.put(
+                jobId,
+                new JobCleanupRecord(
+                        initializationTimestamp,
+                        JobStatus.FINISHED,
+                        stateKeys(jobId),
+                        stateKeys(jobId),
+                        System.currentTimeMillis()));
+
+        // A late checkpoint callback holds the job state lock, so the cleanup before the restore
+        // cannot remove the terminal job key. The submission must wait instead of dropping the
+        // running job info and building a JobMaster on top of that stale key.
+        runningJobStateIMap.lock(jobId);
+        try {
+            CompletableFuture<Void> submission =
+                    coordinatorService.submitJob(
+                            jobId, createJobData(jobId, true, "stream_fake_to_console.conf"), true);
+            Thread.sleep(1000);
+            Assertions.assertTrue(
+                    runningJobInfoIMap.containsKey(jobId),
+                    "restore must not drop the running job info while the state cleanup is skipped");
+            Assertions.assertTrue(
+                    pendingJobCleanupIMap.containsKey(jobId),
+                    "the pending cleanup record is the retry trigger and must survive a skip");
+            Assertions.assertEquals(JobStatus.FINISHED, runningJobStateIMap.get(jobId));
+            Assertions.assertFalse(submission.isDone());
+        } finally {
+            runningJobStateIMap.unlock(jobId);
+        }
+        coordinatorService
+                .submitJob(jobId, createJobData(jobId, true, "stream_fake_to_console.conf"), true)
+                .join();
+        Assertions.assertFalse(
+                pendingJobCleanupIMap.containsKey(jobId),
+                "the retried restore consumes the pending cleanup record");
+        Assertions.assertNotEquals(JobStatus.FINISHED, runningJobStateIMap.get(jobId));
     }
 }

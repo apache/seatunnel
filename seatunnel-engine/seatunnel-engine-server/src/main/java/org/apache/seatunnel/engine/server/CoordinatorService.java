@@ -996,8 +996,13 @@ public class CoordinatorService {
      *
      * <p>The job key and the {@code checkpoint_state_*} keys are removed while holding the per job
      * lock of {@code runningJobStateIMap}, pairing with {@code CheckpointCoordinator#updateStatus}:
-     * both sides do their check-and-write under the same lock, so a late coordinator callback can
+     * both sides do their check-and-write under the same lock, so a late status transition can
      * never recreate a {@code checkpoint_state_*} key that this cleanup already removed.
+     *
+     * <p>The {@code checkpoint_state_*_ready_to_close} key matches the same prefix but is written
+     * by {@code CheckpointCoordinator#updateReadyToCloseStartingTask} without this lock, so it is
+     * not covered by that pairing: a late ready-to-close write can still recreate that single key
+     * after this cleanup. The effect is bounded and does not resurrect the job key.
      *
      * <p>The remaining keys (pipeline/task-group locations and the state timestamps) are not
      * written under that lock, so they are removed outside of it to keep the critical section
@@ -1016,6 +1021,13 @@ public class CoordinatorService {
             locked =
                     runningJobStateIMap.tryLock(
                             jobId, JOB_STATE_LOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.warning(
+                    String.format(
+                            "Acquire the job state lock of job %s was interrupted: %s",
+                            jobId, ExceptionUtils.getMessage(e)),
+                    e);
         } catch (Exception e) {
             logger.warning(
                     String.format(
@@ -1035,8 +1047,9 @@ public class CoordinatorService {
             if (record.getStateKeys() != null) {
                 for (Object key : record.getStateKeys()) {
                     if (key instanceof Long || key instanceof String) {
-                        // The job key and the checkpoint_state_* keys: they are the only keys
-                        // also written under the job lock by the checkpoint coordinator.
+                        // The job key and the checkpoint_state_* status keys written under the
+                        // job lock by the checkpoint coordinator. The ready_to_close key matches
+                        // the same prefix but is written without that lock.
                         runningJobStateIMap.remove(key);
                     } else {
                         lockFreeKeys.add(key);
@@ -1279,19 +1292,32 @@ public class CoordinatorService {
         runningJobInfoIMap.remove(jobId);
     }
 
-    private void cleanupPendingJobStateForRestore(long jobId, JobCleanupRecord record) {
-        if (cleanupPendingJobStateMaps(jobId, record)) {
-            removePendingJobCleanupRecord(jobId, record);
-        } else {
-            // Keep the record so the leftover state keys of the previous job instance are
-            // removed when the record fires again; the restarted job reuses the same state
-            // keys and overwrites the stale values with its own transitions anyway.
+    /**
+     * Removes the leftover terminal state of the previous job instance before a savepoint restart.
+     *
+     * <p>The restart reuses the same job id, so the new {@code JobMaster} must not be built while
+     * the terminal job key of the previous instance survives: {@code PhysicalPlan} only writes
+     * {@code JobStatus.CREATED} when the job key is absent, and a terminal key makes the first
+     * transition of the new job illegal. The caller therefore aborts the submission when this
+     * cleanup is skipped.
+     *
+     * @return {@code true} when the state was cleaned and the pending record removed, {@code false}
+     *     when the job state lock was not available and both the record and the running job info
+     *     were kept for the next attempt
+     */
+    private boolean cleanupPendingJobStateForRestore(long jobId, JobCleanupRecord record) {
+        if (!cleanupPendingJobStateMaps(jobId, record)) {
+            // Keep both the record and the running job info: the leftover terminal job key would
+            // otherwise wedge the restarted job, and the record is the only retry trigger.
             logger.warning(
                     String.format(
-                            "The state cleanup before restore of job %s is skipped because the job state lock is not available now, the leftover state is cleaned later by the pending cleanup record",
+                            "The state cleanup before restore of job %s is skipped because the job state lock is not available now, the restore is rejected and the leftover state is cleaned later by the pending cleanup record",
                             jobId));
+            return false;
         }
+        removePendingJobCleanupRecord(jobId, record);
         runningJobInfoIMap.remove(jobId);
+        return true;
     }
 
     /**
@@ -1544,7 +1570,13 @@ public class CoordinatorService {
                         if (pendingCleanupRecord != null
                                 && isCleanupOwnedByCurrentJob(jobId, pendingCleanupRecord)) {
                             if (isStartWithSavePoint) {
-                                cleanupPendingJobStateForRestore(jobId, pendingCleanupRecord);
+                                if (!cleanupPendingJobStateForRestore(
+                                        jobId, pendingCleanupRecord)) {
+                                    throw new JobException(
+                                            String.format(
+                                                    "The job id %s is waiting for terminal state cleanup, please retry later.",
+                                                    jobId));
+                                }
                             } else {
                                 throw new JobException(
                                         String.format(

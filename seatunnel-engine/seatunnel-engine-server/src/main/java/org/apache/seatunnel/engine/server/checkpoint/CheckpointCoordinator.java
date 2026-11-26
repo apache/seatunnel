@@ -1604,9 +1604,11 @@ public class CheckpointCoordinator {
      *
      * <p>The check and the write run while holding the per job lock of {@code runningJobStateIMap},
      * pairing with {@code CoordinatorService#cleanupPendingJobStateMaps}: the job state cleanup
-     * removes the job key and the {@code checkpoint_state_*} keys under the same lock, so a
+     * removes the job key and the {@code checkpoint_state_*} status keys under the same lock, so a
      * transition either happens before the cleanup or observes the cleaned job key and is skipped.
      * It can never recreate a {@code checkpoint_state_*} key that the cleanup already removed.
+     * {@link #updateReadyToCloseStartingTask} writes the {@code *_ready_to_close} key without that
+     * lock and is therefore outside this guarantee.
      *
      * <p>The wait for the lock is bounded; when the lock cannot be acquired the transition is
      * skipped, which degrades the same way as the "job already cleaned" skip and never blocks the
@@ -1623,6 +1625,13 @@ public class CheckpointCoordinator {
                                             jobId,
                                             JOB_STATE_LOCK_TIMEOUT_SECONDS,
                                             TimeUnit.SECONDS);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            LOG.warn(
+                                    String.format(
+                                            "Acquire the job state lock of job %s was interrupted, skip persisting %s transition to %s",
+                                            jobId, checkpointStateImapKey, targetStatus),
+                                    e);
                         } catch (Exception e) {
                             LOG.warn(
                                     String.format(
