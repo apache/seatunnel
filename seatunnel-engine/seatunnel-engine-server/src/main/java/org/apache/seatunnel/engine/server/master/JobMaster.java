@@ -603,6 +603,10 @@ public class JobMaster {
                 // Adequate resources, pass on resources to the plan
                 physicalPlan.setPreApplyResourceFutures(preApplyResourceFutures);
             }
+            // Persist the ownership now, before any pipeline reaches SCHEDULED and starts
+            // deploying. Otherwise a master failure in this window leaves the workers holding
+            // slots that the new master cannot reuse or release, because it never recorded them.
+            persistPreAppliedSlotProfiles(preApplyResourceFutures);
             // Retained slots are valid only for the first successful allocation after failover.
             // A later pipeline retry must obtain a fresh allocation instead of reusing them.
             masterFailoverRestore = false;
@@ -657,6 +661,56 @@ public class JobMaster {
             }
         }
         return enoughResource;
+    }
+
+    /**
+     * Persists the task-group to slot mapping of a successful pre-apply before the pipelines are
+     * deployed.
+     *
+     * <p>The mapping used to be written only when a pipeline reached {@code SCHEDULED}. A master
+     * failure between the allocation and that transition left the workers holding slots that the
+     * new master had no profile for, so it could neither reuse nor release them. Writing the exact
+     * profiles here closes that window; the profiles keep their allocation sequence, so releasing
+     * them later cannot affect a slot reassigned to another attempt.
+     *
+     * <p>The write is best effort: the {@code SCHEDULED} transition still persists the mapping and
+     * remains the enforcing write, so a transient IMap failure here is logged instead of failing
+     * the job after its slots were already allocated.
+     *
+     * @param preApplyResourceFutures successfully completed allocation futures of this pre-apply
+     *     round
+     */
+    private void persistPreAppliedSlotProfiles(
+            Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures) {
+        Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> profilesByPipeline =
+                new HashMap<>();
+        preApplyResourceFutures.forEach(
+                (taskGroupLocation, future) -> {
+                    if (future == null || future.isCompletedExceptionally()) {
+                        return;
+                    }
+                    SlotProfile slotProfile = future.getNow(null);
+                    if (slotProfile == null) {
+                        return;
+                    }
+                    profilesByPipeline
+                            .computeIfAbsent(
+                                    taskGroupLocation.getPipelineLocation(), key -> new HashMap<>())
+                            .put(taskGroupLocation, slotProfile);
+                });
+        profilesByPipeline.forEach(
+                (pipelineLocation, profiles) -> {
+                    try {
+                        setOwnedSlotProfiles(pipelineLocation, profiles);
+                    } catch (Exception e) {
+                        LOGGER.warning(
+                                String.format(
+                                        "Could not persist pre-applied slot ownership for pipeline %s of job %d: %s",
+                                        pipelineLocation,
+                                        jobImmutableInformation.getJobId(),
+                                        ExceptionUtils.getMessage(e)));
+                    }
+                });
     }
 
     /**

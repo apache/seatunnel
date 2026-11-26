@@ -87,6 +87,35 @@ public class JobMasterMasterFailoverResourceTest
     }
 
     @Test
+    void testPreApplyPersistsSlotOwnershipBeforePipelineDeployment() throws Exception {
+        long jobId = instance.getFlakeIdGenerator("master-failover-pre-apply-persistence").newId();
+        ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
+        Data jobImmutableInformationData = createJobImmutableInformationData(jobId);
+        JobMaster jobMaster = newJobMaster(jobId, jobImmutableInformationData);
+        jobMaster.init(System.currentTimeMillis(), false);
+        try {
+            Assertions.assertTrue(jobMaster.preApplyResources());
+
+            // No pipeline has been started, so this mapping can only come from the pre-apply.
+            IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
+                    nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
+            for (SubPlan subPlan : jobMaster.getPhysicalPlan().getPipelineList()) {
+                Map<TaskGroupLocation, SlotProfile> persisted =
+                        ownedSlotProfilesIMap.get(subPlan.getPipelineLocation());
+                Assertions.assertNotNull(
+                        persisted,
+                        "pre-applied slots must be persisted before the pipeline is scheduled");
+                Assertions.assertEquals(
+                        subPlan.getCoordinatorVertexList().size()
+                                + subPlan.getPhysicalVertexList().size(),
+                        persisted.size());
+            }
+        } finally {
+            releasePersistedSlots(resourceManager, jobMaster, jobId);
+        }
+    }
+
+    @Test
     void testSubPlanRestoreClearsFailoverSlotReuseFlag() throws Exception {
         long jobId = instance.getFlakeIdGenerator("master-failover-sub-plan").newId();
         ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
