@@ -99,7 +99,8 @@ public class TestEmbeddingIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testEmbedding(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/embedding_transform.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/embedding_transform/embedding_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -107,7 +108,7 @@ public class TestEmbeddingIT extends TestSuiteBase implements TestResource {
     public void testMultimodalEmbedding(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/embedding_transform_multimodal.conf");
+                container.executeJob("/embedding_transform/embedding_transform_multimodal.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -115,14 +116,15 @@ public class TestEmbeddingIT extends TestSuiteBase implements TestResource {
     public void testEmbeddingMultiTable(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/embedding_transform_multi_table.conf");
+                container.executeJob("/embedding_transform/embedding_transform_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
     public void testEmbeddingWithCustomModel(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/embedding_transform_custom.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/embedding_transform/embedding_transform_custom.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -130,14 +132,16 @@ public class TestEmbeddingIT extends TestSuiteBase implements TestResource {
     public void testBinaryEmbeddingWithCompleteMode(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/embedding_transform_binary_complete_file.conf");
+                container.executeJob(
+                        "/embedding_transform/embedding_transform_binary_complete_file.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
     public void testBinaryEmbedding(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/embedding_transform_binary.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/embedding_transform/embedding_transform_binary.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

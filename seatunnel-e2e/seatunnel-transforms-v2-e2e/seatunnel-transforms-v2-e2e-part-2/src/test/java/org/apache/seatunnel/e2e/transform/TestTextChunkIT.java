@@ -29,7 +29,8 @@ public class TestTextChunkIT extends TestSuiteBase {
 
     @TestTemplate
     public void testTextChunk(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/text_chunk_transform.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/text_chunk_transform/text_chunk_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
@@ -37,7 +38,7 @@ public class TestTextChunkIT extends TestSuiteBase {
     public void testTextChunkMultiTable(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/text_chunk_transform_multi_table.conf");
+                container.executeJob("/text_chunk_transform/text_chunk_transform_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
@@ -45,7 +46,7 @@ public class TestTextChunkIT extends TestSuiteBase {
     public void testTextChunkOverlapWithSeparatorsAndNonBmp(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/text_chunk_transform_overlap.conf");
+                container.executeJob("/text_chunk_transform/text_chunk_transform_overlap.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
@@ -54,7 +55,8 @@ public class TestTextChunkIT extends TestSuiteBase {
     public void testTextChunkTableTransformOnly(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/text_chunk_transform_table_transform_only.conf");
+                container.executeJob(
+                        "/text_chunk_transform/text_chunk_transform_table_transform_only.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 }

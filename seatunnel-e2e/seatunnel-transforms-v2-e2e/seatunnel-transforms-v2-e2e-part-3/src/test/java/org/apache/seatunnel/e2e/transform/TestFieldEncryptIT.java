@@ -29,13 +29,15 @@ public class TestFieldEncryptIT extends TestSuiteBase {
 
     @TestTemplate
     public void testEncryption(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/field_encrypt_transform.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/field_encrypt_transform/field_encrypt_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
     public void testDecryption(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/field_decrypt_transform.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/field_encrypt_transform/field_decrypt_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -43,7 +45,8 @@ public class TestFieldEncryptIT extends TestSuiteBase {
     public void testEncryptionMultiTable(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/field_encrypt_transform_multi_table.conf");
+                container.executeJob(
+                        "/field_encrypt_transform/field_encrypt_transform_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -51,7 +54,8 @@ public class TestFieldEncryptIT extends TestSuiteBase {
     public void testDecryptionMultiTable(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/field_decrypt_transform_multi_table.conf");
+                container.executeJob(
+                        "/field_encrypt_transform/field_decrypt_transform_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -60,7 +64,8 @@ public class TestFieldEncryptIT extends TestSuiteBase {
     public void testEncryptionTableTransformOnly(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/field_encrypt_transform_table_transform_only.conf");
+                container.executeJob(
+                        "/field_encrypt_transform/field_encrypt_transform_table_transform_only.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

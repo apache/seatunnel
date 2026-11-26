@@ -31,14 +31,15 @@ public class TestRenameIT extends TestSuiteBase {
     public void testRenameMultiTable(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/table_field_rename_multi_table.conf");
+                container.executeJob("/field_rename/table_field_rename_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
     public void testFieldRenameRegexDefault(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/field_rename_regex_default.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/field_rename/field_rename_regex_default.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

@@ -31,13 +31,13 @@ public class TestFilterRowKindIT extends TestSuiteBase {
     public void testFilterRowKind(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult1 =
-                container.executeJob("/filter_row_kind_exclude_delete.conf");
+                container.executeJob("/filter_row_kind/filter_row_kind_exclude_delete.conf");
         Assertions.assertEquals(0, execResult1.getExitCode());
         Container.ExecResult execResult2 =
-                container.executeJob("/filter_row_kind_exclude_insert.conf");
+                container.executeJob("/filter_row_kind/filter_row_kind_exclude_insert.conf");
         Assertions.assertEquals(0, execResult2.getExitCode());
         Container.ExecResult execResult3 =
-                container.executeJob("/filter_row_kind_include_insert.conf");
+                container.executeJob("/filter_row_kind/filter_row_kind_include_insert.conf");
         Assertions.assertEquals(0, execResult3.getExitCode());
 
         Container.ExecResult execResult4 =
@@ -50,7 +50,8 @@ public class TestFilterRowKindIT extends TestSuiteBase {
     public void testFilterRowKindMultiTable(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/filter_row_kind_exclude_insert_multi_table.conf");
+                container.executeJob(
+                        "/filter_row_kind/filter_row_kind_exclude_insert_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -59,7 +60,7 @@ public class TestFilterRowKindIT extends TestSuiteBase {
     public void testFilterRowKindTableTransformOnly(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/filter_row_kind_table_transform_only.conf");
+                container.executeJob("/filter_row_kind/filter_row_kind_table_transform_only.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

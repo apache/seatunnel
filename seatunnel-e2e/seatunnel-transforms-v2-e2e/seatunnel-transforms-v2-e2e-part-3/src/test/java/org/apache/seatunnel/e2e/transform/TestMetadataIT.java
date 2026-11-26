@@ -30,14 +30,16 @@ public class TestMetadataIT extends TestSuiteBase {
     @TestTemplate
     public void testMetadataMultiTable(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/metadata_multi_table.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/metadata/metadata_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
     public void testMetadataSingleTable(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/metadata_single_table.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/metadata/metadata_single_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -46,7 +48,7 @@ public class TestMetadataIT extends TestSuiteBase {
     public void testMetadataTableTransformOnly(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/metadata_table_transform_only.conf");
+                container.executeJob("/metadata/metadata_table_transform_only.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
