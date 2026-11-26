@@ -20,11 +20,14 @@ If the SeaTunnel Engine cluster responds slowly or hangs, it may be due to insuf
 ##### Troubleshooting Process
 
 1. Check JVM heap memory usage in real time
-   Use the `jcmd` command to check JVM heap memory usage, where `<pid>` is the PID of the SeaTunnel Engine process.
+   Use the `jcmd` command, where `<pid>` is the PID of the SeaTunnel Engine process. On JDK 9+ use `jcmd <pid> GC.heap_info`; on JDK 8 use `jmap -heap <pid>` (removed in JDK 9+).
    ```bash
+   # JDK 9+
+   jcmd <pid> GC.heap_info
+   # JDK 8
    jmap -heap <pid>
    ```
-   Example output:
+   Example output from a JDK 8 host (`jmap -heap` style):
    ```shell
     Attaching to process ID 2111950, please wait...
     Debugger attached successfully.
@@ -167,14 +170,17 @@ Use the following decision tree to narrow down the root cause of slow operations
 
 #### Step 1: Identify when slow operations occur
 
+> Log file names depend on the node role: the default master-and-worker deployment writes `seatunnel-engine-server.log`, while separated deployments write `seatunnel-engine-master.log` / `seatunnel-engine-worker.log`. Adjust the paths below accordingly.
+
 ```bash
 # Check the slow operation log frequency and timing
-grep "SlowOperationDetector" $SEATUNNEL_HOME/logs/seatunnel-server.log | tail -50
+grep "SlowOperationDetector" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log | tail -50
+# seatunnel-engine-server.log on the default hybrid deployment; -master.log / -worker.log when roles are separated
 ```
 
 Correlate the timestamps with:
 - Job submission events (REST API calls)
-- Checkpoint intervals (every 10s by default)
+- Checkpoint interval (`seatunnel.engine.checkpoint.interval`): the code default is 300000 ms (5 minutes); the shipped `config/seatunnel.yaml` sets 10000 ms.
 - High-load periods (peak data ingestion)
 
 #### Step 2: Check overall node health
@@ -190,7 +196,7 @@ free -h
 
 **REST submission latency:**
 - Symptom: Slow operations appear when jobs are submitted via REST API, and the submitting client experiences long response times.
-- Check: `grep "submitJob" $SEATUNNEL_HOME/logs/seatunnel-server.log` — look for elapsed time.
+- Check: `grep "submitJob" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log` — look for elapsed time.
 - Common cause: Master node is overloaded with concurrent submissions, or the job configuration is very large (many connectors/transforms).
 - Mitigation: Rate-limit concurrent submissions, increase master node resources, or use `hazelcast.operation.generic.thread.count` tuning.
 
@@ -208,16 +214,16 @@ free -h
 
 **Checkpoint storage latency:**
 - Symptom: Slow operations align with checkpoint intervals, and checkpoint duration exceeds the configured timeout.
-- Check: Enable DEBUG logging for `org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator`, then `grep "pending checkpoint completed" $SEATUNNEL_HOME/logs/seatunnel-server.log | grep -oP 'cost: \d+ms'` to see checkpoint durations.
+- Check: Enable DEBUG logging for `org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator`, then `grep "pending checkpoint completed" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log | grep -oP 'cost: \d+ms'` to see checkpoint durations.
 - If using S3: Run `aws s3api head-object --bucket <bucket> --key <checkpoint-path>` to measure latency, or check CloudWatch S3 metrics (`FirstByteLatency`, `TotalRequestLatency`).
 - Common cause: High network latency to S3/HDFS, small files causing many round trips, or S3 throttling.
 - Mitigation: See [Section 6](#6-s3-checkpointstate-storage-latency).
 
 **IMap / MapStore latency:**
 - Symptom: Slow operations during `PutOperation` or `GetOperation` on IMap keys.
-- Check: `du -sh $SEATUNNEL_HOME/imap/wal/` and `du -sh $SEATUNNEL_HOME/imap/maps/` — large WAL directories indicate write pressure.
+- Check: `du -sh <namespace>/<clusterName>/<businessName>/` on the IMap storage filesystem (`IMapFileStorage` writes under the configured MapStore `namespace`, not fixed `imap/wal` or `imap/maps` folders) — large directories indicate write pressure.
 - Common cause: Disk I/O saturation on the MapStore directory, aggressive WAL write frequency, or disk space exhaustion.
-- Mitigation: See [Section 6](#6-s3-checkpointstate-storage-latency), increase `write-behind-delay-seconds`, enable WAL compaction.
+- Mitigation: See [Section 6](#6-s3-checkpointstate-storage-latency) and the IMap persistence guidance in [State Storage and Recovery](state-storage-and-recovery.md); move the map-store `namespace` to faster/larger storage and watch disk headroom.
 
 ### 3. Sizing `hazelcast.operation.generic.thread.count`
 
@@ -307,7 +313,7 @@ SeaTunnel outputs health monitor logs periodically (every 60 seconds by default)
 
 ```bash
 # Extract slow operation warnings with their durations
-grep "SlowOperationDetector" $SEATUNNEL_HOME/logs/seatunnel-server.log | tail -20
+grep "SlowOperationDetector" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log | tail -20
 ```
 
 #### 4.3 Node Resource Metrics
@@ -373,7 +379,7 @@ curl -w "DNS: %{time_namelookup}s, Connect: %{time_connect}s, TTFB: %{time_start
 **Check checkpoint write performance:**
 ```bash
 # Monitor checkpoint duration from logs (requires DEBUG logging for CheckpointCoordinator)
-grep "pending checkpoint completed" $SEATUNNEL_HOME/logs/seatunnel-server.log | \
+grep "pending checkpoint completed" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log | \
   grep -oP 'cost: \d+ms' | sort -t: -k2 -nr | head -20
 ```
 
@@ -400,6 +406,7 @@ seatunnel:
       storage:
         type: hdfs
         plugin-config:
+          storage.type: s3
           namespace: /seatunnel/checkpoint/
           s3.bucket: s3a://<your-bucket>
           fs.s3a.endpoint: s3.<region>.amazonaws.com
@@ -413,6 +420,7 @@ seatunnel:
       storage:
         type: hdfs
         plugin-config:
+          storage.type: s3
           fs.s3a.fast.upload: true
           s3.bucket: s3a://<your-bucket>
           fs.s3a.fast.upload.buffer: disk
@@ -428,6 +436,7 @@ seatunnel:
       storage:
         type: hdfs
         plugin-config:
+          storage.type: s3
           fs.s3a.attempts.maximum: 10
           s3.bucket: s3a://<your-bucket>
           fs.s3a.connection.timeout: 30000
@@ -517,14 +526,17 @@ loggers:
     level: WARN
 ```
 
-#### 7.6 Storage for MapStore and WAL
+#### 7.6 Storage for IMap State
 
-Use persistent volumes for MapStore and WAL directories to survive pod restarts:
+If you enable IMap persistence via the Hazelcast MapStore (see
+[state-storage-and-recovery](state-storage-and-recovery.md)), mount the IMap storage directory
+(the `namespace` property in the MapStore configuration, e.g. `/seatunnel-imap`) on a persistent
+volume so it survives pod restarts:
 
 ```yaml
 volumeMounts:
   - name: imap-storage
-    mountPath: /tmp/seatunnel/imap
+    mountPath: /seatunnel-imap
 volumes:
   - name: imap-storage
     persistentVolumeClaim:
@@ -533,7 +545,7 @@ volumes:
 
 Monitor PVC usage with:
 ```bash
-kubectl exec <pod> -- du -sh /tmp/seatunnel/imap/
+kubectl exec <pod> -- du -sh /seatunnel-imap/
 ```
 
 ### Quick Reference Troubleshooting Table
@@ -547,5 +559,5 @@ kubectl exec <pod> -- du -sh /tmp/seatunnel/imap/
 | Slow operations + high GC | JVM heap pressure | Increase `-Xmx`, reduce concurrent tasks |
 | `executor.q.operations.size` > 0 | Operation thread pool saturated | Increase `generic.thread.count` |
 | `operations.pending.invocations.percentage` > 10% | Remote invocation backlog | Check network, increase `generic.thread.count` |
-| WAL directory growing, slow IMap operations | MapStore write pressure | Increase `write-behind-delay-seconds`, add disk IOPS |
+| IMap storage directory growing, slow IMap operations | MapStore write pressure | Move the map-store `namespace` to faster/larger storage, add disk IOPS |
 | Checkpoint duration > 60s | Large state or slow storage | Reduce checkpoint state size, optimize storage |

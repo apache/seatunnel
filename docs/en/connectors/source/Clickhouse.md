@@ -40,13 +40,17 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 |                                                             Clickhouse Data Type                                                              | SeaTunnel Data Type |
 |-----------------------------------------------------------------------------------------------------------------------------------------------|---------------------|
 | String / Int128 / UInt128 / Int256 / UInt256 / Point / Ring / Polygon MultiPolygon                                                            | STRING              |
-| Int8 / UInt8 / Int16 / UInt16 / Int32                                                                                                         | INT                 |
-| UInt64 / Int64 / IntervalYear / IntervalQuarter / IntervalMonth / IntervalWeek / IntervalDay / IntervalHour / IntervalMinute / IntervalSecond | BIGINT              |
+| Int8                                                                                                                                          | TINYINT             |
+| Int16 / UInt8                                                                                                                                 | SMALLINT            |
+| Int32 / UInt16                                                                                                                                | INT                 |
+| Int64 / UInt32 / UInt64 / IntervalYear / IntervalQuarter / IntervalMonth / IntervalWeek / IntervalDay / IntervalHour / IntervalMinute / IntervalSecond | BIGINT       |
+| Bool                                                                                                                                          | BOOLEAN             |
 | Float64                                                                                                                                       | DOUBLE              |
 | Decimal                                                                                                                                       | DECIMAL             |
 | Float32                                                                                                                                       | FLOAT               |
 | Date                                                                                                                                          | DATE                |
-| DateTime                                                                                                                                      | TIME                |
+| DateTime / DateTime32 / DateTime64                                                                                                            | TIMESTAMP           |
+| UUID / IPv4 / IPv6                                                                                                                            | STRING              |
 | Array                                                                                                                                         | ARRAY               |
 | Map                                                                                                                                           | MAP                 |
 
@@ -74,6 +78,8 @@ Table list configuration:
 | batch_size        | int    | NO       | 1024                   | The maximum rows of data that can be obtained by reading from Clickhouse once.                                                                                                                                                                                                                              |
 
 Note: When this configuration corresponds to a single table, you can flatten the configuration items in table_list to the outer layer. In that flattened form, configure `split.size` instead of `split_size`.
+
+Note: Each `table_list` entry (or the flattened outer-level configuration) must set at least one of `table_path` or `sql`. The connector fails with `table_path` and `sql` parameter cannot be both empty when both are missing.
 
 ## Parallel Reader
 The Clickhouse source connector supports parallel reading of data.

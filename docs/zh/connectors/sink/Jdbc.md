@@ -12,11 +12,27 @@ JDBC Sink 通过数据库厂商提供的 JDBC 驱动写入数据。它支持批�
 
 生成的 DB2 upsert 会在传入字段发生变化时更新匹配行，包括 NULL 变为非 NULL 和非 NULL 变为 NULL。相等值（包括两端均为 NULL）不会触发多余的匹配更新。
 
+### SAP HANA 版本兼容
+
+生成的 upsert 通过不带目标表别名的 SQL 兼容 SAP HANA 2.00.033 等较早版本，无需额外配置。全字段均为键的表仍会插入未匹配行，并保持匹配行不变。
+
 ## MySQL 时间值
 
 MySQL `DATETIME` 映射为 SeaTunnel `TIMESTAMP`（`LocalDateTime`）。MySQL JDBC Sink 直接绑定本地日期和时间字段，即使 Worker JVM 与 JDBC 连接使用不同的时区，也会保留目标列支持的小数秒精度。MySQL `TIMESTAMP` 映射为 `TIMESTAMP_TZ`，仍按时间点处理。
 
 从受 [#13024](https://github.com/apache/seatunnel/issues/13024) 影响的版本升级时，请移除为补偿 `DATETIME` 写入偏移而手动添加的小时偏移。已经写入的数据不会自动修复；修正或重新加载之前，请先与原始数据进行比较。
+
+## GoldenDB
+
+使用 GoldenDB 驱动以及兼容 MySQL 的 JDBC 方言和 catalog 时，请显式设置 `dialect = "GoldenDB"`，并配置与驱动匹配的驱动类和 URL，例如：
+
+```hocon
+url = "jdbc:goldendb://goldendb-host:3306/example"
+driver = "com.goldendb.jdbc.Driver"
+dialect = "GoldenDB"
+```
+
+请自行安装与数据库版本兼容的 GoldenDB JDBC 驱动；驱动类名和支持的 URL 格式以实际版本为准。提供 MySQL 协议的 GoldenDB 部署也可以使用兼容的 MySQL JDBC 驱动和 `jdbc:mysql://` URL，此时会选择现有的 MySQL 方言。未显式指定方言的既有 `jdbc:goldendb:` 配置仍使用通用方言。MySQL catalog 要求配置 `username` 和 `password`，且不会将 JDBC `properties` 映射传给 catalog 连接。生产使用前请针对实际 GoldenDB 版本验证 SQL、数据类型和事务行为；MySQL 测试不能代替 GoldenDB 数据库及驱动的验证。
 
 ## 使用依赖
 
@@ -44,6 +60,30 @@ sh bin/install-plugin.sh
 把 JDBC 驱动放到每个 SeaTunnel 节点的 `${SEATUNNEL_HOME}/lib/`，然后重启受影响的 SeaTunnel 进程，让驱动进入类路径。
 
 常用驱动类名和下载地址见[驱动参考](#驱动参考)。
+
+## CockroachDB
+
+使用 `driver = "org.postgresql.Driver"`、PostgreSQL JDBC URL，并显式配置 `dialect = "CockroachDB"`。作业启动前必须创建目标表；本方言不提供用于自动建表或 schema save mode 的 Catalog。
+
+```hocon
+Jdbc {
+  url = "jdbc:postgresql://cockroachdb:26257/app?sslmode=verify-full"
+  driver = "org.postgresql.Driver"
+  dialect = "CockroachDB"
+  username = "seatunnel"
+  password = ${DB_PASSWORD}
+  database = "app"
+  table = "public.orders"
+  generate_sink_sql = true
+  primary_keys = ["id"]
+}
+```
+
+请为驱动配置集群的受信任根证书。生产环境不要禁用 TLS。
+
+生成的 upsert 使用 CockroachDB 原生 `INSERT ... ON CONFLICT (keys) DO UPDATE`，保留 `primary_keys` 指定的冲突目标，也支持匹配的非主键唯一约束。不使用简写 `UPSERT`，因为它始终选择数据库实际主键，可能改变非主键唯一键配置的语义。更新仅修改输入中的非键列，未输入的列保留已有值；仅包含键的记录使用 `DO NOTHING`。重复写入相同的非空键值不会新增记录；可为空的唯一键包含 `NULL` 时不会产生冲突，可能新增记录。配置的键必须匹配目标表的主键或唯一约束。
+
+首期支持对现有表进行插入、upsert、更新和删除，不包含 CockroachDB Catalog、自动 DDL/模式演变、XA exactly-once 或新的事务重试策略。模式变更事件会在刷新缓冲数据或执行 DDL 前被拒绝。仅支持 `data_save_mode = APPEND_DATA`；`schema_save_mode` 可以保持默认值或设为 `IGNORE`，但这两种配置都不会创建或检查目标表。其他 save mode 会被拒绝，而不会被静默忽略。`table_options` 会被拒绝，避免误接受 PostgreSQL 专有设置。现有 PostgreSQL 作业和 URL 匹配规则不变。
 
 ## 选择写入模式
 
@@ -180,13 +220,14 @@ Exactly-once 依赖 XA 事务，因此数据库和 JDBC 驱动都必须支持 XA
 | password                                  | String  | 否    | -                            |
 | query                                     | String  | 否    | -                            |
 | compatible_mode                           | String  | 否    | -                            |
-| dialect                                   | String  | 否    | -                            | 
+| dialect                                   | String  | 否    | -                            |
 | database                                  | String  | 否    | -                            |
 | table                                     | String  | 否    | -                            |
 | schema                                    | String  | 否    | -                            |
 | tablePrefix                               | String  | 否    | -                            |
 | tableSuffix                               | String  | 否    | -                            |
 | primary_keys                              | Array   | 否    | -                            |
+| multi_table_sink_replica                  | Int     | 否    | 1                            |
 | connection_check_timeout_sec              | Int     | 否    | 30                           |
 | connect_timeout_ms                        | Int     | 否    | 86400000                     |
 | socket_timeout_ms                         | Int     | 否    | 86400000                     |
@@ -254,28 +295,33 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 
 ### dialect [string]
 
-指定的方言，如果不存在，仍然按照url获取，优先级高于url。例如，当使用 starrocks 时，你需要将其值设置为 starrocks，同理，当使用mysql时，你需要将其值设置为mysql。
+指定的方言。设置后，取值必须是下方方言列表中的名称（不区分大小写），并优先于根据 url 推断的方言；未设置时根据 url 推断方言。例如，当使用 mysql 时，你需要将其值设置为 `mysql`。注意：StarRocks 不是方言名称，使用 StarRocks 时请保持 `dialect` 不设置，并将 `compatible_mode` 设置为 `starrocks`。Inceptor 也不是方言名称，使用 Inceptor 时请保持 `dialect` 不设置或将 `dialect` 设置为 `HIVE`，并将 `compatible_mode` 设置为 `inceptor`。
 
-如果 SeaTunnel 不支持某种方言，它将使用默认方言 `GenericDialect`。请确保您提供的驱动程序支持您想要连接的数据库。
+如果未设置 `dialect` 且 url 无法被任何方言识别，SeaTunnel 会使用默认方言 `GenericDialect`；如果 `dialect` 设置了无法匹配任何受支持方言名称的值，任务初始化会直接失败而不是回退。请确保您提供的驱动程序支持您想要连接的数据库。
 
-#### 示例可选
+#### 方言列表
 
 |           | 方言名称       |          |
 |-----------|------------|----------|
 | Greenplum | DB2        | Dameng   |
 | Gbase8a   | HIVE       | KingBase |
-| MySQL     | StarRocks  | Oracle   |
+| MySQL     | OpenGauss  | Oracle   |
 | Phoenix   | Postgres   | Redshift |
 | SapHana   | Snowflake  | Sqlite   |
 | SqlServer | Tablestore | Teradata |
 | Vertica   | OceanBase  | XUGU     |
-| IRIS      | Inceptor   | Highgo   |
+| IRIS      | Presto   | Highgo   |
 | DSQL      |            |          |
-| YashanDB  |            |          |
+| YashanDB  | CockroachDB |          |
+| DuckDB    |              |          |
 
 ### database [string]
 
 自动生成 SQL 模式下的目标 database 或 catalog。`generate_sink_sql = true` 时必填，不能与 `query` 同时使用。
+
+### multi_table_sink_replica [int]
+
+多表 sink writer 的副本数，仅在多表作业中生效。
 
 ### table [string]
 
@@ -314,17 +360,19 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 
 生成数据库原生 UPSERT、UPDATE 和 DELETE 语句时使用的目标键列。未配置时，SeaTunnel 会尝试从上游 catalog 元数据继承主键或第一组唯一键；仍无可用键时，自动生成的 SQL 退回普通 INSERT。
 
+当 `multi_table_sink_replica` 大于 1 且 `is_exactly_once = false` 时，Sink 按表主键的第一列把每一行发往该表的某个写入器；表没有主键时，按 `primary_keys`（配置的，或从唯一键继承的）的第一列发送。这样同一个键的变更会按顺序到达同一个写入器。当该键列是二进制类型（SeaTunnel 类型 `BYTES`，例如 `BINARY`、`VARBINARY` 或 `BYTEA`）时，写入器按每一行键值对象的标识而不是内容选择，因此同一个键的变更仍可能到达不同的写入器；对于这类表，请将 `multi_table_sink_replica` 保持为 1。没有这类键的表的行，以及 `is_exactly_once = true` 时的所有行，会不考虑键地分散到各写入器。修改键值的更新可能把该记录移到另一个写入器，不同写入器中的行之间没有顺序。
+
 ### connection_check_timeout_sec [int]
 
 用于验证数据库连接的有效性时等待数据库操作完成所需的时间，单位是秒
 
 ### connect_timeout_ms [int]
 
-建立 JDBC 连接时的连接超时时间，单位毫秒。默认值为 24 小时。设置为 `0` 表示不超时。
+建立 JDBC 连接时的连接超时时间，单位毫秒。默认值为 24 小时。设置为 `0` 表示使用驱动默认值（不显式设置超时）。当前该参数仅 Hive 方言生效，其他方言会忽略。
 
 ### socket_timeout_ms [int]
 
-JDBC 连接建立后的 socket 读取超时时间，单位毫秒。默认值为 24 小时。设置为 `0` 表示不超时。
+JDBC 连接建立后的 socket 读取超时时间，单位毫秒。默认值为 24 小时。设置为 `0` 表示使用驱动默认值（不显式设置超时）。当前该参数仅 Hive 方言生效，其他方言会忽略。
 
 ### max_retries [int]
 
@@ -663,6 +711,8 @@ Amazon Aurora DSQL 所在的区域。 该参考仅适用于 dialect="dsql"
 | Highgo     | com.highgo.jdbc.Driver                       | jdbc:highgo://localhost:5866/highgo                                | /                                                  | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                        |
 | Dsql       | org.postgresql.Driver                        | jdbc:postgresql://Amazon Aurora DSQL Cluster Endpoint:5432/postgres | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                       |
 | YashanDB   | com.yashandb.jdbc.Driver                     | jdbc:yasdb://localhost:1688/SYS                                    | /                                                  | https://repo1.maven.org/maven2/com/yashandb/yashandb-jdbc/1.10.7/yashandb-jdbc-1.10.7.jar          |
+| xugu       | com.xugu.cloudjdbc.Driver                    | jdbc:xugu://localhost:5138                                         | /                                                  | https://repo1.maven.org/maven2/com/xugudb/xugu-jdbc/12.2.0/xugu-jdbc-12.2.0.jar |
+| InterSystems IRIS | com.intersystems.jdbc.IRISDriver      | jdbc:IRIS://localhost:1972/%SYS                                    | /                                                  | https://repo1.maven.org/maven2/com/intersystems/intersystems-jdbc/3.10.3/intersystems-jdbc-3.10.3.jar |
 
 ## 常用模式
 
@@ -832,6 +882,48 @@ sink {
 }
 ```
 
+#### SqlServer CDC Source
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["column_type_test"]
+    table-names = [
+      "column_type_test.dbo.full_types",
+      "column_type_test.dbo.full_types_2"
+    ]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test"
+  }
+}
+
+sink {
+  Jdbc {
+    plugin_input = "customers"
+    driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test;encrypt=false"
+    user = "sa"
+    password = "Password!"
+    generate_sink_sql = true
+    database = "column_type_test"
+    schema = "dbo"
+    table = "sink_${table_name}"
+    batch_size = 1
+    primary_keys = ["id"]
+  }
+}
+```
+
+`table` 中的 `${table_name}` 占位符会使用上游记录中的表元数据填充，因此每个源表（`full_types`、`full_types_2`）会分别写入各自的目标表（`sink_full_types`、`sink_full_types_2`）。配合 `generate_sink_sql = true` 和预先配置的 `primary_keys`，SeaTunnel 可以为每张上游表生成正确的 INSERT/UPSERT 语句。
+
 #### JDBC Source
 
 ```hocon
@@ -875,6 +967,48 @@ sink {
   }
 }
 ```
+
+#### SqlServer CDC source
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["column_type_test"]
+    table-names = [
+      "column_type_test.dbo.full_types",
+      "column_type_test.dbo.full_types_2"
+    ]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test"
+  }
+}
+
+sink {
+  Jdbc {
+    plugin_input = "customers"
+    driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test;encrypt=false"
+    user = "sa"
+    password = "Password!"
+    generate_sink_sql = true
+    database = "column_type_test"
+    schema = "dbo"
+    table = "sink_${table_name}"
+    batch_size = 1
+    primary_keys = ["id"]
+  }
+}
+```
+
+`table` 中的 `${table_name}` 占位符会使用上游记录的表元数据填充，因此每张源表（`full_types`、`full_types_2`）都会写入各自的 sink 表（`sink_full_types`、`sink_full_types_2`）。请配合 `generate_sink_sql = true` 并预先配置 `primary_keys`，这样 SeaTunnel 才能为每张上游表生成正确的 INSERT/UPSERT 语句。
 
 #### Amazon Aurora DSQL
 
@@ -923,6 +1057,14 @@ sink {
     }
 }
 ```
+
+`dialect = "Dsql"` 表示选择 Amazon Aurora DSQL。`username` 填写数据库角色名。连接器使用
+`access_key_id`、`secret_access_key` 和 `region` 生成 IAM token，作为 JDBC 密码。
+Aurora DSQL 不支持 XA，因此请将 `is_exactly_once` 保持为默认值 `false`。
+
+### multi_table_sink_replica [int]
+
+多表 Sink 写入器的副本数，必须至少为 1。默认值为 `1`。
 
 ## 故障排查
 

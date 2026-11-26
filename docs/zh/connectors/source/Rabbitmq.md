@@ -12,7 +12,13 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 ## 描述
 
-用于从 RabbitMQ 队列读取数据。
+RabbitMQ 源连接器从一个或多个 RabbitMQ 队列中读取消息，并将每条 AMQP 消息转换为一行
+SeaTunnel 数据。它以流处理模式运行，既可以消费单个队列，也可以通过多表选项 `tables_configs`
+同时消费多个队列。
+
+使用手动确认时，连接器在检查点完成后确认消息。开启 `use_correlation_id` 后，
+连接器通过消息发布方提供的 correlation ID 对尚未确认的消息去重。每个配置的队列
+只分配给一个 reader；通过 `tables_configs` 配置的不同队列可以分配到多个 reader。
 
 ## 主要特性
 
@@ -26,7 +32,8 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 :::tip
 
-为了实现精确一次，源必须是非并行的（并行度设置为 1）。这个限制主要是由于 RabbitMQ 从单个队列向多个消费者分派消息的方式。
+单个队列只由一个 reader 读取，提高并行度不会拆分该队列。需要使用多个 reader 时，
+请通过 `tables_configs` 配置不同的队列。
 
 :::
 
@@ -55,7 +62,7 @@ Source 支持连接、身份认证及已有队列的元数据检查。预检查�
 | queue_name                 | string  | 否  | -     | 要消费消息的队列                                                                    |
 | schema                     | config  | 否  | -     | 上游数据的模式。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
 | tables_configs             | array   | 否  | -     | 用于同时从多个队列读取消息。数组中的每个对象必须包含 queue_name 和 schema。                            |
-| format                     | string  | 否  | json  | 消息体格式，支持 json 和 protobuf                                                       |
+| format                     | enum    | 否  | json  | 消息体格式，支持 json 和 protobuf                                                       |
 | protobuf_schema            | string  | 否  | -     | 当 format 为 protobuf 时生效，用于解析消息体的 Protobuf Schema                              |
 | protobuf_message_name      | string  | 否  | -     | 当 format 为 protobuf 时生效，指定要解析的 Protobuf Message 名称                            |
 | url                        | string  | 否  | -     | 便捷方法，用于设置 AMQP URI 中的字段：主机、端口、用户名、密码和虚拟主机                                   |
@@ -71,7 +78,7 @@ Source 支持连接、身份认证及已有队列的元数据检查。预检查�
 | requested_frame_max        | int     | 否  | -     | 请求的最大帧大小                                                                    |
 | requested_heartbeat        | int     | 否  | -     | 设置请求的心跳超时。**注意：值必须在 0 到 65535 之间（AMQP 0-9-1 中的无符号短整数）。**                     |
 | prefetch_count             | int     | 否  | -     | 预取计数，无需确认即可接收的最大消息数                                                         |
-| delivery_timeout           | int     | 否  | -     | 交付超时，等待下一条消息交付的最大时间（毫秒）                                                     |
+| delivery_timeout           | int     | 否  | -     | 交付超时，等待下一条消息交付的最大时间（毫秒）。注意：该参数目前未被连接器实际使用，配置后无运行时效果。                                                     |
 | use_correlation_id         | boolean | 否  | -     | 消息是否带有可用于去重的唯一 correlation id                                                 |
 | durable                    | boolean | 否  | true  | 队列是否在服务器重启时保留                                                               |
 | exclusive                  | boolean | 否  | false | 队列是否仅由当前连接使用                                                                |
@@ -185,7 +192,7 @@ RabbitMQ 共享配置中的可选 exchange。普通队列消费不需要配置�
 
 ### delivery_timeout [int]
 
-交付超时，等待下一条消息交付的最大时间（毫秒）
+交付超时，等待下一条消息交付的最大时间（毫秒）。注意：该参数目前仅为向后兼容而保留，连接器并未实际使用它——配置后不会产生任何运行时效果。
 
 ### use_correlation_id [boolean]
 

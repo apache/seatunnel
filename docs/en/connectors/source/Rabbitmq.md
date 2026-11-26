@@ -12,7 +12,14 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 ## Description
 
-Used to read data from RabbitMQ queues.
+The RabbitMQ source connector reads messages from one or more RabbitMQ queues and turns
+each AMQP message into a SeaTunnel row. It runs in streaming mode and can consume from a
+single queue or from several queues at once with the multi-table `tables_configs` option.
+
+With manual acknowledgement, messages are acknowledged after a checkpoint completes.
+When `use_correlation_id` is enabled, the connector uses publisher-provided correlation IDs
+to deduplicate unacknowledged messages. Each configured queue is assigned to one reader;
+`tables_configs` can distribute different queues across multiple readers.
 
 ## Key features
 
@@ -26,7 +33,8 @@ Used to read data from RabbitMQ queues.
 
 :::tip
 
-The source must be non-parallel (parallelism set to 1) in order to achieve exactly-once. This limitation is mainly due to RabbitMQ’s approach to dispatching messages from a single queue to multiple consumers.
+A single queue is read by one reader. Increasing parallelism does not split that queue;
+configure distinct queues through `tables_configs` to use multiple readers.
 
 :::
 
@@ -66,7 +74,7 @@ This source supports connection/authentication and existing-queue metadata check
 | requested_frame_max        | int     | no       | -             | The requested maximum frame size.                                                                                           |
 | requested_heartbeat        | int     | no       | -             | The requested heartbeat timeout. Must be between 0 and 65535.                                                                |
 | prefetch_count             | int     | no       | -             | The maximum number of messages to receive without acknowledgement.                                                          |
-| delivery_timeout           | int     | no       | -             | Maximum wait time, in milliseconds, for the next message delivery.                                                          |
+| delivery_timeout           | int     | no       | -             | Maximum wait time, in milliseconds, for the next message delivery. Note: the connector does not currently apply this option; configuring it has no runtime effect. |
 | use_correlation_id         | boolean | no       | -             | Whether the consumed messages provide a unique correlation id that can be used to deduplicate messages when acknowledgments fail. |
 | common-options             |         | no       | -             | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md).                  |
 | durable                    | boolean | no       | true          | Whether the queue survives a server restart.                                                                                |
@@ -187,7 +195,9 @@ The maximum number of messages to receive without acknowledgement.
 
 ### delivery_timeout [int]
 
-Maximum wait time, in milliseconds, for the next message delivery.
+Maximum wait time, in milliseconds, for the next message delivery. Note: this option is parsed for
+backward compatibility, but the connector does not currently apply it — configuring it has no
+runtime effect.
 
 ### use_correlation_id [boolean]
 

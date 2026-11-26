@@ -16,6 +16,11 @@ The GraphQL sink connector writes SeaTunnel rows to a GraphQL service by sending
 `mutation` over HTTP POST. For each input row, the sink adds row fields to GraphQL `variables`
 with the same field names, then sends the configured mutation.
 
+A write fails when the server answers with a status other than 200, or with a non-empty `errors`
+array. GraphQL servers usually report a rejected mutation with HTTP 200 and an `errors` array, so
+the sink checks both. Date and time fields are sent as ISO 8601 strings, for example
+`2020-02-02T02:02:00`. When `variables` is not set, the row fields are sent in a new object.
+
 ## Key Features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
@@ -43,12 +48,12 @@ It can be downloaded via install-plugin.sh or from Maven central repository.
 | timeout       | Long    | No       | -       | Request timeout value passed to the HTTP client parameter map. |
 | headers       | Map     | No       | -       | HTTP request headers, such as authentication headers. |
 | params        | Map     | No       | -       | HTTP request parameters. |
-| retry         | Int     | No       | -       | Maximum retry times when an HTTP request returns an IOException. |
-| retry_backoff_multiplier_ms | Int | No | 100 | HTTP retry backoff multiplier in milliseconds. |
-| retry_backoff_max_ms | Int | No | 10000 | Maximum HTTP retry backoff in milliseconds. |
+| retry         | Int     | No       | -       | Maximum request attempts for the connector's I/O retry policy, including the initial attempt. |
+| retry_backoff_multiplier_ms | Int | No | 100 | Fibonacci backoff multiplier in milliseconds. |
+| retry_backoff_max_ms | Int | No | 10000 | Maximum delay before each retry, in milliseconds. |
 | connect_timeout_ms | Int | No | 12000 | HTTP connection timeout in milliseconds. |
 | socket_timeout_ms | Int | No | 60000 | HTTP socket timeout in milliseconds. |
-| multi_table_sink_replica | Int | No | - | Sink common option. It controls sink replica count in multi-table runtime. The same GraphQL mutation is still used for all rows routed to this sink. |
+| multi_table_sink_replica | Int | No | 1 | Sink common option. It controls sink replica count in multi-table runtime. The same GraphQL mutation is still used for all rows routed to this sink. |
 | common-options | Config | No | - | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ## Notes
@@ -161,8 +166,9 @@ sink {
 ### Stream Mutations to a GraphQL Service
 
 Run the same mutation continuously in streaming mode. The sink sends one mutation
-per row and uses `retry` plus exponential backoff to absorb transient HTTP
-failures.
+per row. With retries enabled by `retry`, the connector retries `IOException` failures
+during HTTP request execution using Fibonacci backoff. Each delay is capped by
+`retry_backoff_max_ms`.
 
 ```hocon
 env {
@@ -194,6 +200,7 @@ sink {
     headers = {
       Authorization = "Bearer ${secret}"
     }
+    variables = {}
     query = """
       mutation MyMutation($id: Int!, $val_string: String!) {
         insert_event(objects: {id: $id, val_string: $val_string}) {

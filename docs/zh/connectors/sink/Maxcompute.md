@@ -33,7 +33,7 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 | table_name                | string  | 是   | -                            | 目标 MaxCompute 表名，例如 `fake`。                                                                |
 | schema_name               | string  | 否   | -                            | MaxCompute Schema 名称；仅当表位于非默认 Schema 时需要设置。                                       |
 | partition_spec            | string  | 否   | -                            | MaxCompute 分区表的规范，例如 `ds='20220101'`。                                                    |
-| overwrite                 | boolean | 否   | false                        | 是否覆盖整张表或单个分区。                                                                          |
+| overwrite                 | boolean | 否   | false                        | 是否覆盖整张表或单个分区。已废弃：请改用 `data_save_mode = DROP_DATA`；设置为 `true` 时按 `DROP_DATA` 处理。        |
 | schema_save_mode          | enum    | 否   | CREATE_SCHEMA_WHEN_NOT_EXIST | 写入前如何处理目标表结构，例如 `RECREATE_SCHEMA` 或 `CREATE_SCHEMA_WHEN_NOT_EXIST`。                |
 | data_save_mode            | enum    | 否   | APPEND_DATA                  | 写入前如何处理已有数据，例如 `DROP_DATA`、`APPEND_DATA`、`ERROR_WHEN_DATA_EXISTS`。                |
 | custom_sql                | string  | 否   | -                            | 当 `data_save_mode = CUSTOM_PROCESSING` 时执行的 SQL。                                              |
@@ -96,11 +96,13 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 `overwrite` 是否覆盖表或分区，默认值：false。
 
+**已废弃**：该配置已废弃，请使用 `data_save_mode = "DROP_DATA"` 代替。设置为 `true` 时，连接器会输出警告日志并按 `data_save_mode = "DROP_DATA"` 处理。
+
 ### save_mode_create_template
 
 我们使用模板来自动创建 MaxCompute 表，
 它将根据上游数据和模式类型的类型创建相应的表创建语句，
-默认模板可以根据情况进行修改。目前仅在多表模式下工作。
+默认模板可以根据情况进行修改。无论是单表还是多表模式，只要 SaveMode 处理器需要创建目标表，就会应用该模板。
 
 默认模板：
 
@@ -126,7 +128,7 @@ CREATE TABLE IF NOT EXISTS `${table}`
 您可以使用以下占位符
 
 - database：用于获取上游模式中的数据库
-- table_name：用于获取上游模式中的表名
+- table：用于获取上游模式中的表名
 - rowtype_fields：用于获取上游模式中的所有字段，我们将自动映射到 MaxCompute 的字段描述
 - rowtype_primary_key：用于获取上游模式中的主键（可能是列表）
 - rowtype_unique_key：用于获取上游模式中的唯一键（可能是列表）
@@ -224,7 +226,7 @@ Tunnel Quota 允许您使用专用的计算资源进行 MaxCompute Tunnel 数据
 
 ### retry_times [int]
 
-`retry_times` ODPS REST 客户端在瞬态失败时的最大重试次数。默认 `4`。
+`retry_times` ODPS REST 客户端在瞬态失败时的最大重试次数。必须为非负整数，允许设置为 `0`。负数会在配置校验阶段被拒绝。默认 `4`。
 
 ### tunnel_connect_timeout_ms [long]
 
@@ -236,7 +238,7 @@ Tunnel Quota 允许您使用专用的计算资源进行 MaxCompute Tunnel 数据
 
 ### tunnel_retry_times [int]
 
-`tunnel_retry_times` Tunnel 客户端在瞬态失败时的最大重试次数。默认 `4`。
+`tunnel_retry_times` Tunnel 客户端在瞬态失败时的最大重试次数。必须为非负整数，允许设置为 `0`。负数会在配置校验阶段被拒绝。默认 `4`。
 
 ### insert_strategy [string]
 

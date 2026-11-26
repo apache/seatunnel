@@ -64,6 +64,14 @@ downloaded from Maven Central.
 | keys           | string | yes when tables_configs is absent | -   | Redis key pattern to scan. Supports fuzzy matching; users need to ensure the matched keys have the same type. Mutually exclusive with `tables_configs`. |
 | data_type      | string | yes when tables_configs is absent | -   | Redis data type of the matched keys: `key`, `string`, `hash`, `list`, `set`, `zset`. Required together with `keys` for single key pattern reading. |
 | tables_configs | list   | no                      | -             | List of table configurations for multi-table reading |
+| hash_key_parse_mode | string | no                | all           | Parse mode for HASH data (also honored per `tables_configs` entry): `all` emits the whole hash value as a single JSON string column, `kv` maps the hash fields (plus the key under `key_field_name`) onto the configured `schema`, one row per Redis hash key |
+| read_key_enabled | boolean | no                      | false         | If set to true, the source reads Redis values together with their keys. When enabled, `single_field_name` must be set |
+| key_field_name | string | no                      | key (`hash_key` for `data_type = hash`) | Field name used for the Redis key in the output row; always applied to `hash` data, and used when `read_key_enabled = true` |
+| single_field_name | string | yes when read_key_enabled=true | -      | Field name used for the value in the output row when reading single-value types (`string`, `list`, `set`, `zset`) |
+| batch_size     | int    | no                      | 10            | Batch size used to control the number of items fetched from Redis per round |
+| format         | string | no                      | json          | The format of upstream data: `json` or `text` |
+| schema         | config | no                      | -             | Schema of the produced rows; required for `format = text` and for `hash_key_parse_mode = kv` |
+| field_delimiter | string | no                      | ,             | The separator between columns in a row of data. Only needed for `text` format |
 | common-options |        | no                      | -             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details |
 
 Use `keys` and `data_type` for a single key pattern. Use `tables_configs` for multiple key patterns; `keys` and
@@ -83,7 +91,7 @@ When using `tables_configs` to read multiple key patterns, each table configurat
 | hash_key_parse_mode | string | no       | all           | Hash key parse mode: `all` or `kv` |
 | read_key_enabled    | boolean| no       | false         | Include Redis key in output |
 | key_field_name      | string | no       | -             | Field name for Redis key |
-| single_field_name   | string | no       | -             | Field name for single-value types |
+| single_field_name   | string | yes for single-value types (string, list, set, zset) when read_key_enabled = true | -  | Field name for the Redis value |
 | field_delimiter     | string | no       | ','           | Delimiter for text format |
 
 **Note:** When this configuration corresponds to a single table, configure these table-level options at the outer layer instead of using `tables_configs`. For example, put `keys`, `data_type`, `format`, and `schema` directly under `Redis`.
@@ -100,47 +108,22 @@ redis port
 
 ### hash_key_parse_mode [string]
 
-hash key parse mode, support `all` `kv`, used to tell connector how to parse hash key.
+hash key parse mode, support `all` `kv`, used to tell connector how to parse hash keys.
 
-when setting it to `all`, connector will treat the value of hash key as a row and use the schema config to parse it, when setting it to `kv`, connector will treat each kv in hash key as a row and use the schema config to parse it:
+For every Redis hash key matched by `keys` (the option is honored by every `tables_configs` entry as well), the
+connector fetches the whole hash map and injects the Redis key under `key_field_name` (`hash_key` by default for
+`hash` data). When the mode is `kv`, the hash fields of that map are mapped onto the configured `schema`, producing
+one row per Redis hash key. When the mode is `all`, the whole hash value is emitted as a single JSON string column.
 
-for example, if the value of hash key is the following shown:
+For example, `keys` matches two hash keys `001` and `002`:
 
 ```text
-{ 
-  "001": {
-    "name": "tyrantlucifer",
-    "age": 26
-  },
-  "002": {
-    "name": "Zongwen",
-    "age": 26
-  }
-}
-
+001 -> {"name": "tyrantlucifer", "age": 26}
+002 -> {"name": "Zongwen", "age": 26}
 ```
 
-if hash_key_parse_mode is `all` and schema config as the following shown, it will generate the following data:
-
-```hocon
-schema {
-  fields {
-    001 {
-      name = string
-      age = int
-    }
-    002 {
-      name = string
-      age = int
-    }
-  }
-}
-
-```
-
-| 001                             | 002                       |
-| ------------------------------- | ------------------------- |
-| Row(name=tyrantlucifer, age=26) | Row(name=Zongwen, age=26) |
+if hash_key_parse_mode is `all`, each matched hash key produces one row whose column holds the JSON string of the
+whole hash map (together with the key field).
 
 if hash_key_parse_mode is `kv` and schema config as the following shown, it will generate the following data:
 
@@ -160,9 +143,7 @@ schema {
 | 001      | tyrantlucifer | 26   |
 | 002      | Zongwen       | 26   |
 
-each kv that in hash key it will be treated as a row and send it to upstream.
-
-**Tips: connector will use the first field in the schema config as the field name for each key in each hash kv pair.**
+**Tips: the Redis key of each hash is stored in the column named by `key_field_name` (`hash_key` by default for `hash` data).**
 
 ### keys [string]
 
@@ -176,8 +157,12 @@ When set to `true`, both the key and its associated value are included in the re
 
 By default (`false`), only the value is read and included.
 
-If you are using a single-value Redis data type (such as `string`, `list`, `set`, or `zset`) with `read_key_enabled = true`,
-you must specify `single_field_name` to map the value to a schema column. `key_field_name` is optional and defaults to `key`.
+If you set `read_key_enabled = true` in a single-table configuration, you must
+also specify `single_field_name`, regardless of the data type. For single-value
+Redis data types (such as `string`, `list`, `set`, or `zset`) it maps the value
+to a schema column, and reading fails without it. `key_field_name` is optional
+and defaults to `key`. Entries of `tables_configs` are not affected by this
+validation: there `single_field_name` is only needed for single-value types.
 
 When you configure a schema, include the actual output field names, including the default `key` field or the name set by `key_field_name`.
 
@@ -357,11 +342,15 @@ The schema fields of redis data. For more details, please refer to [Schema Featu
 
 ### single_field_name [string]
 
-Specifies the field name for Redis values when `read_key_enabled = true` and the value is a single primitive (e.g., `string`, `int`).
+Specifies the field name for Redis values when `read_key_enabled = true`. In a
+single-table configuration this option is required whenever
+`read_key_enabled = true`, no matter which `data_type` is configured. For single
+primitive values (e.g., `string`, `int`) it names the schema column the value is
+mapped to, and reading fails without it.
 
-This name is used in the schema to map the value field.
-
-**Note:** This option has no effect when reading complex Redis data types such as hashes or objects that can be directly mapped to a schema.
+**Note:** For complex Redis data types such as hashes, the value fields come
+from the hash structure and the option is only enforced by the single-table
+configuration validation described above.
 
 Example :
 ```hocon
@@ -410,7 +399,7 @@ Redis {
 }
 ```
 
-read string type keys write append to list
+read string type keys and write them to a list (LPUSH)
 
 ```hocon
 source {

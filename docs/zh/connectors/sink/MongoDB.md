@@ -31,8 +31,9 @@ MongoDB Sink 连接器将 SeaTunnel 行记录写入 MongoDB 集合。每行记�
 连接器支持两种写入语义：
 
 - **追加写入**：每行生成一条新文档。性能最好，但在失败重试场景下不幂等。
-- **Upsert 写入**：当 `upsert-enable = true` 且配置了 `primary-key` 时，连接器会把主键作为
-  MongoDB 的 `_id`（或复合 `_id`）并以 upsert 方式写入。结合 checkpoint 恢复机制，可以实现
+- **Upsert 写入**：当 `upsert-enable = true` 且配置了 `primary-key` 时，连接器会把主键字段作为
+  upsert 的匹配过滤条件并以 upsert 方式写入。插入新文档时，仅当主键不包含 `_id` 的情况下文档
+  `_id` 才由 MongoDB 自动生成；若主键为 `_id`，则沿用过滤条件中传入的 `_id` 值。结合 checkpoint 恢复机制，可以实现
   at-least-once + 幂等重试，这是把 exactly-once 落到 MongoDB 的标准做法。
 
 缓存、重试以及可选的事务都可以通过下文的配置项进行调节。
@@ -67,7 +68,6 @@ MongoDB Sink 连接器将 SeaTunnel 行记录写入 MongoDB 集合。每行记�
 
 | SeaTunnel 数据类型 | MongoDB BSON 类型 |
 |--------------------|-------------------|
-| STRING             | ObjectId          |
 | STRING             | String            |
 | BOOLEAN            | Boolean           |
 | BINARY             | Binary            |
@@ -79,16 +79,19 @@ MongoDB Sink 连接器将 SeaTunnel 行记录写入 MongoDB 集合。每行记�
 | FLOAT              | Double            |
 | DECIMAL            | Decimal128        |
 | Date               | Date              |
-| Timestamp          | Timestamp / Date  |
+| Timestamp          | Date              |
 | ROW                | Object            |
 | ARRAY              | Array             |
 
 **提示**
 
-> 1. 使用 SeaTunnel 将 `Date` 和 `Timestamp` 类型写入 MongoDB 时，结果都是 `Date` 类型，但
->    精度不同：SeaTunnel 的 `Date` 为秒级精度，`Timestamp` 为毫秒级精度。
+> 1. 使用 SeaTunnel 将 `Date` 和 `Timestamp` 类型写入 MongoDB 时，都会写入为 MongoDB 的 `Date`
+>    类型（BsonDateTime，毫秒精度）。SeaTunnel 的 `Date` 会存储为当天零点，`Timestamp` 则保留时分秒信息。
 > 2. 在 SeaTunnel 中使用 `DECIMAL` 类型时，最大精度不能超过 34 位。建议使用
 >    `decimal(34, 18)` 以满足支持的精度与标度。
+> 3. SeaTunnel 的 `STRING` 值始终写为 BSON `String`，写入时不会转换为 `ObjectId`——即使是 `_id`
+>    字段也一样。如需写入 Extended JSON 值，请将值编码为 `{"_value": <extended-json>}`
+>    （参见 source 的「数据类型映射」说明）。
 
 ## Sink 参数说明
 
@@ -105,6 +108,7 @@ MongoDB Sink 连接器将 SeaTunnel 行记录写入 MongoDB 集合。每行记�
 | primary-key           | List     | 否       | -              | 用于 upsert 或更新的主键，格式为 `["id","name",...]`。 |
 | transaction           | Boolean  | 否       | false          | 是否在 MongoSink 中启用事务（需要 MongoDB 4.2+）。 |
 | data_save_mode        | Enum     | 否       | APPEND_DATA    | MongoDB 集合的数据写入模式：`DROP_DATA` 表示写入前清空集合；`APPEND_DATA` 表示追加写入；`ERROR_WHEN_DATA_EXISTS` 表示集合已有数据时直接报错。 |
+| tls_ca_file           | String   | 否       | -              | PEM 格式的 CA 证书文件路径，TLS 连接只信任该文件中的证书，且只对本作业生效。设置后会启用 TLS。详见 [使用私有 CA 的 TLS 连接](#使用私有-ca-的-tls-连接)。 |
 | multi_table_sink_replica | Int   | 否       | 1              | 多表写入作业中每张表使用的写入器副本数，最小为 1。 |
 | common-options        | -        | 否       | -              | 通用 Sink 插件参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。 |
 
@@ -273,6 +277,28 @@ mongodb://192.168.0.1:27017,192.168.0.2:27017,192.168.0.3:27017/mydb
 
 > 注意：URI 中的用户名与密码在拼接前必须进行 URL 编码。
 
+### 使用私有 CA 的 TLS 连接
+
+MongoDB Java 驱动会忽略连接串中的 `tlsCAFile`。因此，如果服务端证书由 JDK 信任库之外的 CA 签发（例如使用 Amazon RDS CA 的 Amazon DocumentDB，或者使用企业内部 CA 的自建 MongoDB），在 `uri` 中设置 `tlsCAFile` 无法连接。请改用 `tls_ca_file`：
+
+```hocon
+sink {
+  MongoDB {
+    uri = "mongodb://user:password@docdb-cluster.cluster-xxxx.us-west-2.docdb.amazonaws.com:27017/?replicaSet=rs0&retryWrites=false"
+    database = "test_db"
+    collection = "test_collection"
+    tls_ca_file = "/opt/seatunnel/certs/global-bundle.pem"
+  }
+}
+```
+
+- 该文件在每个运行 Sink 的节点上读取，因此每个节点的相同路径下都必须有这个文件。文件中可以包含多个证书（证书包），其中的证书都会被信任。
+- 只信任该文件中的证书，并且只对本 Sink 生效。不会使用或修改 `javax.net.ssl.trustStore` 等 JVM 全局信任设置，同一集群上的其他作业和连接器不受影响。
+- 设置 `tls_ca_file` 会启用 TLS，不能与 `uri` 中的 `tls=false` 或 `ssl=false` 同时使用。
+- 主机名校验保持开启，只能像未设置 `tls_ca_file` 时一样，通过在 `uri` 中显式设置 `tlsAllowInvalidHostnames=true` 来关闭。
+- 数据写入、事务提交、保存模式（`data_save_mode`）和连通性 Dry Run 都使用同一套设置。
+- Amazon DocumentDB 不支持 retryable writes，请在 `uri` 中保留 `retryWrites=false`。
+
 ### Buffer Flush 示例
 
 ```hocon
@@ -298,8 +324,9 @@ sink {
 通过定义明确的主键并启用 `upsert` 模式，可以实现精准一次写入（exactly-once）语义。
 
 当配置中定义了 `primary-key` 且启用了 `upsert-enable`，MongoDB Sink 将使用 Upsert 语义而非
-普通 INSERT 语句。SeaTunnel 会将定义的主键作为 MongoDB 的复合主键，在 Upsert 模式下写入，
-以确保幂等性。
+普通 INSERT 语句。SeaTunnel 会将定义的主键作为 Upsert 的匹配过滤条件，在 Upsert 模式下写入
+以确保幂等性；插入新文档时，仅当主键不包含 `_id` 的情况下 `_id` 才由 MongoDB 自动生成
+（若主键为 `_id`，则新文档沿用该 `_id` 值）。
 
 若作业在运行过程中失败，SeaTunnel 会从上一个成功的 checkpoint 恢复并重新处理数据，这可能
 导致重复数据。强烈建议启用 Upsert 模式，以避免主键冲突或重复插入。

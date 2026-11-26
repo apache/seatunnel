@@ -52,13 +52,16 @@ Read external data source data through JDBC.
 | FLOAT                                                                                                    | DECIMAL(38, 18)     |
 | NUMBER(precision <= 9, scale == 0)                                                                       | INT                 |
 | NUMBER(9 < precision <= 18, scale == 0)                                                                  | BIGINT              |
-| NUMBER(18 < precision, scale == 0)                                                                       | DECIMAL(38, 0)      |
-| NUMBER(scale != 0)                                                                                       | DECIMAL(38, 18)     |
+| NUMBER(18 < precision < 38, scale == 0)                                                                  | DECIMAL(precision, 0) |
+| NUMBER(precision >= 38, scale == 0)                                                                      | DECIMAL(38, 0)      |
+| NUMBER(scale > 0)                                                                                       | DECIMAL(precision, min(scale, 18)) |
+| NUMBER(scale < 0)                                                                                        | Normalized to `DECIMAL(precision - scale, 0)`, or `LONG`/`INT`/`BOOLEAN` when decimal narrowing applies. Missing precision/scale default to 38/18. |
 | BINARY_DOUBLE                                                                                            | DOUBLE              |
 | BINARY_FLOAT<br/>REAL                                                                                    | FLOAT               |
 | CHAR<br/>NCHAR<br/>VARCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/>XML<br/>INTERVAL | STRING              |
 | DATE                                                                                                     | TIMESTAMP           |
-| TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE                                                             | TIMESTAMP           |
+| TIMESTAMP                                                                                                | TIMESTAMP           |
+| TIMESTAMP WITH TIME ZONE<br/>TIMESTAMP WITH LOCAL TIME ZONE                                              | TIMESTAMP_TZ        |
 | BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                                                                      | BYTES               |
 
 ## Source Options
@@ -71,9 +74,9 @@ Read external data source data through JDBC.
 | password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                      |
 | query                        | String     | No       | -               | Query statement. Required when neither `table_path` nor `table_list` is configured.                                                                                                                                                                                |
 | connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                |
-| partition_column             | String     | No       | -               | The column name for parallelism's partition, only support numeric type,Only support numeric type primary key, and only can config one column.                                                                                                                     |
-| partition_lower_bound        | BigDecimal | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                  |
-| partition_upper_bound        | BigDecimal | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                  |
+| partition_column             | String     | No       | -               | Column used to split data for parallel reading. Supports numeric and string columns; Oracle `DATE` and `TIMESTAMP` columns are read as `TIMESTAMP` and cannot be used. Only one column can be configured. |
+| partition_lower_bound        | String     | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                  |
+| partition_upper_bound        | String     | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                  |
 | partition_num                | Int        | No       | 10              | The number of partition count, only support positive integer. default value is 10                                                                                                                                                                                 |
 | fetch_size                   | Int        | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
 | properties                   | Map        | No       | -               | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in Oracle, properties take precedence over the URL.                    |
@@ -84,7 +87,7 @@ Read external data source data through JDBC.
 | split.size                                 | Int        | No       | 8096            | The split size (number of rows) of table, captured tables are split into multiple splits when read of table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | split.even-distribution.factor.lower-bound | Double     | No       | 0.05            | The lower bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be greater than or equal to this lower bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is less, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 0.05.  |
 | split.even-distribution.factor.upper-bound | Double     | No       | 100             | The upper bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be less than or equal to this upper bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is greater, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 100.0. |
-| split.sample-sharding.threshold            | Int        | No       | 1000            | This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.                                                                                   |
+| split.sample-sharding.threshold            | Int        | No       | 1000            | This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `split.even-distribution.factor.upper-bound` and `split.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.                                                                                   |
 | split.allow-sampling                       | Boolean    | No       | true            | Whether to allow sampling-based sharding for uneven split keys. When set to `false`, SeaTunnel falls back to iterative uneven chunk splitting.                                                                                                                                                                                                                                                                                                                                                                                                          |
 | use_select_count                           | Boolean    | No       | false           | Whether to use `select count(*)` to estimate table row count before splitting.                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | skip_analyze                               | Boolean    | No       | false           | Whether to skip table row-count analysis before splitting.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -126,7 +129,8 @@ The JDBC Source connector supports parallel reading of data from tables. SeaTunn
 **Supported split data type:**
 * String
 * Number(int, bigint, decimal, ...)
-* Date
+
+Oracle `DATE` and `TIMESTAMP` columns are mapped to SeaTunnel `TIMESTAMP` (see the type mapping above), which is not a supported split type.
 
 ### Options Related To Split
 
@@ -148,7 +152,7 @@ The upper bound of the chunk key distribution factor. This factor is used to det
 
 #### split.sample-sharding.threshold
 
-This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.
+This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `split.even-distribution.factor.upper-bound` and `split.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.
 
 #### split.inverse-sampling.rate
 
@@ -158,11 +162,11 @@ The inverse of the sampling rate used in the sample sharding strategy. For examp
 
 The column name for split data.
 
-#### partition_upper_bound [BigDecimal]
+#### partition_upper_bound [string]
 
 The partition_column max value for scan, if not set SeaTunnel will query database get max value.
 
-#### partition_lower_bound [BigDecimal]
+#### partition_lower_bound [string]
 
 The partition_column min value for scan, if not set SeaTunnel will query database get min value.
 
@@ -333,7 +337,7 @@ sink {
 
 ### Streaming With Incremental ID Range
 
-The Oracle Source connector is batch-oriented. Setting `job.mode = "STREAMING"` only enables checkpointing so the job can resume on failure; the source itself is bounded and reads the configured `[partition_lower_bound, partition_upper_bound)` range exactly once per job run. To pick up new rows repeatedly you must externally resubmit the job (for example on a schedule, with a sliding window), or use Oracle-CDC for continuous change capture.
+The Oracle Source connector is batch-oriented. Setting `job.mode = "STREAMING"` only enables checkpointing so the job can resume on failure; the source itself is bounded and reads the configured `[partition_lower_bound, partition_upper_bound]` range exactly once per job run. To pick up new rows repeatedly you must externally resubmit the job (for example on a schedule, with a sliding window), or use Oracle-CDC for continuous change capture.
 
 ```hocon
 env {
@@ -348,7 +352,7 @@ source {
     driver = "oracle.jdbc.OracleDriver"
     username = "root"
     password = "123456"
-    query = "SELECT * FROM ORDERS WHERE ORDER_ID >= ? AND ORDER_ID < ?"
+    query = "SELECT * FROM ORDERS"
     partition_column = "ORDER_ID"
     partition_lower_bound = 1
     partition_upper_bound = 1000000
