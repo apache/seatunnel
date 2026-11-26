@@ -70,7 +70,6 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
 
     private Long checkpointIdToFinish;
     private final DataSourceDialect<C> dialect;
-    private final boolean restored;
 
     SnapshotSplitAssigner(
             SplitAssigner.Context<C> context,
@@ -89,8 +88,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
                 remainingTables,
                 isTableIdCaseSensitive,
                 true,
-                dialect,
-                false);
+                dialect);
     }
 
     SnapshotSplitAssigner(
@@ -109,8 +107,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
                 checkpoint.getRemainingTables(),
                 checkpoint.isTableIdCaseSensitive(),
                 checkpoint.isRemainingTablesCheckpointed(),
-                dialect,
-                true);
+                dialect);
     }
 
     private SnapshotSplitAssigner(
@@ -124,8 +121,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
             List<TableId> remainingTables,
             boolean isTableIdCaseSensitive,
             boolean isRemainingTablesCheckpointed,
-            DataSourceDialect<C> dialect,
-            boolean restored) {
+            DataSourceDialect<C> dialect) {
         this.context = context;
         this.sourceConfig = context.getSourceConfig();
         this.currentParallelism = currentParallelism;
@@ -138,7 +134,6 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
         this.isRemainingTablesCheckpointed = isRemainingTablesCheckpointed;
         this.isTableIdCaseSensitive = isTableIdCaseSensitive;
         this.dialect = dialect;
-        this.restored = restored;
 
         LOG.info("SnapshotSplitAssigner created with remaining tables: {}", this.remainingTables);
         LOG.info(
@@ -153,20 +148,19 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
 
     @Override
     public void open() {
-        try {
-            dialect.openEnumerator(sourceConfig, restored);
-            chunkSplitter = dialect.createChunkSplitter(sourceConfig);
+        chunkSplitter = dialect.createChunkSplitter(sourceConfig);
 
-            // the legacy state didn't snapshot remaining tables, discovery remaining table here
-            if (!isRemainingTablesCheckpointed && !assignerCompleted) {
+        // the legacy state didn't snapshot remaining tables, discovery remaining table here
+        if (!isRemainingTablesCheckpointed && !assignerCompleted) {
+            try {
                 final List<TableId> discoverTables = dialect.discoverDataCollections(sourceConfig);
                 context.getCapturedTables().addAll(discoverTables);
                 discoverTables.removeAll(alreadyProcessedTables);
                 this.remainingTables.addAll(discoverTables);
                 this.isTableIdCaseSensitive = dialect.isDataCollectionIdCaseSensitive(sourceConfig);
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to discover remaining tables to capture", e);
             }
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to open snapshot split assigner", e);
         }
     }
 

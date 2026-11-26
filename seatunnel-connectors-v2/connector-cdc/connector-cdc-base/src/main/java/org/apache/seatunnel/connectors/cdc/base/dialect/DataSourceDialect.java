@@ -40,7 +40,7 @@ public interface DataSourceDialect<C extends SourceConfig> extends Serializable 
     String getName();
 
     /**
-     * Acquires resources that must exist before the enumerator assigns its first snapshot split.
+     * Acquires or validates resources that must exist before the enumerator resolves its splits.
      *
      * @param restored whether the enumerator is being restored from checkpoint state
      */
