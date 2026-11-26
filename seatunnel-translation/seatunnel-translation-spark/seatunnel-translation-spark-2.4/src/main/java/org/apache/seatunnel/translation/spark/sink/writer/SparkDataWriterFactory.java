@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.translation.spark.sink.writer;
 
+import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
+import org.apache.seatunnel.api.sink.DirtyDataAwareSinkWriter;
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
+import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -50,22 +54,40 @@ public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFa
     private final CatalogTable[] catalogTables;
     private final String jobId;
     private final int parallelism;
+    private final DirtyRecordCollector dirtyRecordCollector;
 
     SparkDataWriterFactory(
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink,
             CatalogTable[] catalogTables,
             String jobId,
             int parallelism) {
+        this(sink, catalogTables, jobId, parallelism, NoOpDirtyRecordCollector.INSTANCE);
+    }
+
+    SparkDataWriterFactory(
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink,
+            CatalogTable[] catalogTables,
+            String jobId,
+            int parallelism,
+            DirtyRecordCollector dirtyRecordCollector) {
         this.sink = sink;
         this.catalogTables = catalogTables;
         this.jobId = jobId;
         this.parallelism = parallelism;
+        this.dirtyRecordCollector =
+                dirtyRecordCollector != null
+                        ? dirtyRecordCollector
+                        : NoOpDirtyRecordCollector.INSTANCE;
     }
 
     @Override
     public DataWriter<InternalRow> createDataWriter(int partitionId, long taskId, long epochId) {
         org.apache.seatunnel.api.sink.SinkWriter.Context context =
-                new DefaultSinkWriterContext(jobId, (int) taskId, parallelism);
+                new DefaultSinkWriterContext(
+                        (int) taskId,
+                        parallelism,
+                        new DefaultEventProcessor(jobId),
+                        dirtyRecordCollector);
         SinkWriter<SeaTunnelRow, CommitInfoT, StateT> writer;
         SinkCommitter<CommitInfoT> committer;
         try {
@@ -73,6 +95,15 @@ public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFa
         } catch (IOException e) {
             throw new RuntimeException("Failed to create SinkWriter.", e);
         }
+        writer =
+                DirtyDataAwareSinkWriter.wrap(
+                        writer,
+                        dirtyRecordCollector,
+                        context.getIndexOfSubtask(),
+                        catalogTables != null && catalogTables.length == 1
+                                ? catalogTables[0]
+                                : null,
+                        context);
         try {
             committer = sink.createCommitter().orElse(null);
         } catch (IOException e) {
