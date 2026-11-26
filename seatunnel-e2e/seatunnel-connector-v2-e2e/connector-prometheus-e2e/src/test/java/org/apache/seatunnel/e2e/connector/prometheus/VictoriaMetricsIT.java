@@ -57,7 +57,10 @@ public class VictoriaMetricsIT extends TestSuiteBase implements TestResource {
 
     private static final String HOST = "victoria-metrics-host";
 
-    private static final long METRICS_QUERY_TIMEOUT_SECONDS = 60L;
+    // VictoriaMetrics hides samples newer than its -search.latencyOffset (30s by default)
+    // from instant queries without an explicit time, so keep the same headroom as the
+    // sibling PrometheusTimerFlushIT instead of a ceiling only just above that offset.
+    private static final long METRICS_QUERY_TIMEOUT_SECONDS = 120L;
 
     @BeforeAll
     @Override
@@ -97,38 +100,62 @@ public class VictoriaMetricsIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/victoriaMetrics_remote_write.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        CloseableHttpClient httpClient = HttpClients.createDefault();
-        HttpGet httpGet =
-                new HttpGet(
-                        "http://"
-                                + victoriaMetricsContainer.getHost()
-                                + ":"
-                                + victoriaMetricsContainer.getMappedPort(8428)
-                                + "/api/v1/query?query=metric_1");
+        String queryUrl =
+                "http://"
+                        + victoriaMetricsContainer.getHost()
+                        + ":"
+                        + victoriaMetricsContainer.getMappedPort(8428)
+                        + "/api/v1/query?query=metric_1";
         // Poll until the remote-written samples are queryable, instead of a fixed
         // sleep that fails when ingestion is slower than expected under CI load.
-        Awaitility.await()
-                .atMost(METRICS_QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                .pollInterval(2, TimeUnit.SECONDS)
-                .ignoreExceptions()
-                .untilAsserted(
-                        () -> {
-                            CloseableHttpResponse response = httpClient.execute(httpGet);
-                            String responseContent = EntityUtils.toString(response.getEntity());
-                            List<Metric> metrics =
-                                    JsonUtils.toList(
-                                            JsonPath.read(responseContent, "$.data.result.*")
-                                                    .toString(),
-                                            Metric.class);
+        // Every attempt closes its response and the shared client, and a timeout
+        // carries the last response body so the failure stays diagnosable.
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+            Awaitility.await()
+                    .atMost(METRICS_QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
+                    .ignoreExceptions()
+                    .untilAsserted(
+                            () -> {
+                                String responseContent;
+                                int statusCode;
+                                try (CloseableHttpResponse response =
+                                        httpClient.execute(new HttpGet(queryUrl))) {
+                                    statusCode = response.getStatusLine().getStatusCode();
+                                    responseContent = EntityUtils.toString(response.getEntity());
+                                }
 
-                            Metric metric = metrics.get(0);
+                                Assertions.assertEquals(
+                                        200,
+                                        statusCode,
+                                        "victoriaMetrics query failed, response="
+                                                + responseContent);
 
-                            log.info("response:{},metric:{}", responseContent, metrics);
-                            Assertions.assertEquals(response.getStatusLine().getStatusCode(), 200);
+                                List<Metric> metrics =
+                                        JsonUtils.toList(
+                                                JsonPath.read(responseContent, "$.data.result.*")
+                                                        .toString(),
+                                                Metric.class);
+                                log.debug(
+                                        "victoriaMetrics query returned {} metric(s): {}",
+                                        metrics.size(),
+                                        responseContent);
+                                Assertions.assertFalse(
+                                        metrics.isEmpty(),
+                                        "metric_1 not queryable yet, response=" + responseContent);
 
-                            Assertions.assertEquals(metric.getMetric().get("__name__"), "metric_1");
-                            Assertions.assertEquals(metric.getValue().get(1), "1.23");
-                        });
+                                Metric metric = metrics.get(0);
+                                Assertions.assertEquals(
+                                        "metric_1",
+                                        metric.getMetric().get("__name__"),
+                                        "unexpected metric name, response=" + responseContent);
+                                Assertions.assertEquals(
+                                        "1.23",
+                                        metric.getValue().get(1),
+                                        "unexpected metric value, response=" + responseContent);
+                            });
+        }
+        log.info("metric_1 is queryable in victoriaMetrics");
 
         Container.ExecResult execResultForInstant =
                 container.executeJob("/VictoriaMetrics_instant_json_to_assert.conf");
