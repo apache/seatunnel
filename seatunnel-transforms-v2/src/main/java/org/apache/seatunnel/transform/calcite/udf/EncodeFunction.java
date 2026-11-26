@@ -35,6 +35,13 @@ public class EncodeFunction implements CalciteUdf {
         return "ENCODE";
     }
 
+    /**
+     * Encodes {@code value} into raw bytes using the shared contract of {@link
+     * StringFunction#encode(String, String)}: the name must match one of the six documented
+     * charsets, ignoring case and with no aliases; a blank or unknown name is rejected with an
+     * unsupported-encoding error; unmappable characters become {@code '?'}. Returns null when
+     * either argument is null, before charset validation.
+     */
     public static byte[] eval(String value, String charset) {
         if (value == null || charset == null) {
             return null;

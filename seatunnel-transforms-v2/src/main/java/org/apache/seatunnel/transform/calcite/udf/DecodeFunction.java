@@ -35,6 +35,13 @@ public class DecodeFunction implements CalciteUdf {
         return "DECODE";
     }
 
+    /**
+     * Decodes {@code value} into a string using the shared contract of {@link
+     * StringFunction#decode(byte[], String)}: the name must match one of the six documented
+     * charsets, ignoring case and with no aliases; a blank or unknown name is rejected with an
+     * unsupported-encoding error; malformed byte sequences are replaced with U+FFFD. Returns null
+     * when either argument is null, before charset validation.
+     */
     public static String eval(byte[] value, String charset) {
         if (value == null || charset == null) {
             return null;
