@@ -360,6 +360,8 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 
 生成数据库原生 UPSERT、UPDATE 和 DELETE 语句时使用的目标键列。未配置时，SeaTunnel 会尝试从上游 catalog 元数据继承主键或第一组唯一键；仍无可用键时，自动生成的 SQL 退回普通 INSERT。
 
+当 `multi_table_sink_replica` 大于 1 且 `is_exactly_once = false` 时，Sink 按表主键的第一列把每一行发往该表的某个写入器；表没有主键时，按 `primary_keys`（配置的，或从唯一键继承的）的第一列发送。这样同一个键的变更会按顺序到达同一个写入器。当该键列是二进制类型（SeaTunnel 类型 `BYTES`，例如 `BINARY`、`VARBINARY` 或 `BYTEA`）时，写入器按每一行键值对象的标识而不是内容选择，因此同一个键的变更仍可能到达不同的写入器；对于这类表，请将 `multi_table_sink_replica` 保持为 1。没有这类键的表的行，以及 `is_exactly_once = true` 时的所有行，会不考虑键地分散到各写入器。修改键值的更新可能把该记录移到另一个写入器，不同写入器中的行之间没有顺序。
+
 ### connection_check_timeout_sec [int]
 
 用于验证数据库连接的有效性时等待数据库操作完成所需的时间，单位是秒

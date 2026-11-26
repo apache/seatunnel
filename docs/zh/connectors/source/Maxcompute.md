@@ -30,7 +30,7 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 | accesskey       | string | 否                                 | -      | 访问 MaxCompute 的 AccessKey Secret。                                                                       |
 | sts_token       | string | 否                                 | -      | MaxCompute 临时认证 STS Token。配置 `sts_token` 时，`accessId` 与 `accesskey` 必填。                          |
 | endpoint        | string | 是                                 | -      | MaxCompute 端点，以 `http` 开头。                                                                            |
-| project         | string | 是                                 | -      | 在阿里云中创建的 MaxCompute 项目。                                                                           |
+| project         | string | 否                                 | -      | 在阿里云中创建的 MaxCompute 项目。选项规则不强制要求：`table_list` 的每一项都可以单独配置 `project` 覆盖外层值，因此外层配置是可选的。除非每个 `table_list` 条目都自带 `project`，否则请配置该参数。 |
 | table_name      | string | 未配置 `table_list` 时必填          | -      | 目标 MaxCompute 表名，例如 `fake`。                                                                          |
 | schema_name     | string | 否                                 | -      | MaxCompute Schema 名称（Project 与 Table 之间的命名空间）。仅当表位于非默认 Schema 时需要设置。               |
 | partition_spec  | string | 否                                 | -      | MaxCompute 分区表的规范，例如 `ds='20220101'`。                                                              |

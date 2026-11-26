@@ -359,6 +359,8 @@ Deprecated. Use `table` with table placeholders instead. For example, use `table
 
 The target key columns used to generate database-native UPSERT, UPDATE, and DELETE statements. If omitted, SeaTunnel attempts to inherit a primary key or the first unique key from upstream catalog metadata. If no key is available, generated SQL uses plain INSERT.
 
+With `multi_table_sink_replica` above 1 and `is_exactly_once = false`, the sink sends each row to one of the writers of its table by the first column of the table's primary key, or, when the table has none, by the first column of `primary_keys`, configured or inherited from a unique key. The changes of one key then reach the same writer, in order. When that key column holds binary values (SeaTunnel type `BYTES`, for example `BINARY`, `VARBINARY` or `BYTEA`), the writer is chosen by the identity of each row's value instead of its content, so the changes of one key can still reach different writers; keep `multi_table_sink_replica` at 1 for such tables. Rows of a table without such a key, and all rows with `is_exactly_once = true`, are spread over the writers without regard to the key. An update that changes the key value can move the record to another writer, and rows in different writers have no order.
+
 ### connection_check_timeout_sec [int]
 
 The time in seconds to wait for the database operation used to validate the connection to complete.
