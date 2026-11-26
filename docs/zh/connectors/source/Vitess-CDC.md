@@ -55,6 +55,8 @@ JDBC 做验证或示例下游，请额外准备 MySQL JDBC 驱动。
 | 名称 | 类型 | 必填 | 默认值 | 描述 |
 | --- | --- | --- | --- | --- |
 | hostname | String | 是 | - | Vitess VTGate gRPC 服务的主机名或 IP 地址。 |
+| username | String | 否 | - | 当集群开启认证时，Vitess VTGate gRPC 连接使用的用户名。 |
+| password | String | 否 | - | 当集群开启认证时，Vitess VTGate gRPC 连接使用的密码。 |
 | port | Int | 否 | 15991 | Vitess VTGate gRPC 端口。 |
 | keyspace | String | 是 | - | 当前连接器采集的 Vitess keyspace。 |
 | schema | Config | 是* | - | 单表 schema 定义。schema 中必须提供 `table`，并且至少提供 `columns` 或 `metadata_table_id` 之一。 |
@@ -80,6 +82,8 @@ JDBC 做验证或示例下游，请额外准备 MySQL JDBC 驱动。
 
 ## 说明
 
+- schema 元数据契约会在作业提交时校验：`schema` 块必须声明 `columns` 或 `metadata_table_id`，每个 `tables_configs` 元素都必须包含自己的 `schema` 块，`table-names` 与 `table-pattern` 互斥。
+- 需要访问 catalog 的检查（声明的表在 schema 元数据中不存在、正则未匹配到任何表）仍在创建 source 时执行。
 - 第一版不支持初始快照读取。
 - 第一版不支持运行时动态发现新表。
 - 第一版不发送 schema evolution 事件。

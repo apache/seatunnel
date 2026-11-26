@@ -15,7 +15,7 @@ import ChangeLog from '../changelog/connector-databend.md';
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
-- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
 
@@ -66,7 +66,6 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | CHAR | STRING |
 | TIMESTAMP | TIMESTAMP |
 | DATE | DATE |
-| TIME | TIME |
 | BINARY | BYTES |
 
 ## Source Options

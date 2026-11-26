@@ -81,6 +81,7 @@ public class DorisSinkFactory implements TableSinkFactory {
                         DorisSinkOptions.SINK_BUFFER_SIZE,
                         DorisSinkOptions.SINK_BUFFER_COUNT,
                         DorisSinkOptions.DEFAULT_DATABASE,
+                        DorisSinkOptions.SINK_DATETIME_TIMEZONE,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .conditional(
                         DorisSinkOptions.DATA_SAVE_MODE,
@@ -103,13 +104,17 @@ public class DorisSinkFactory implements TableSinkFactory {
     public TableSink<SeaTunnelRow, DorisSinkState, DorisCommitInfo, DorisCommitInfo> createSink(
             TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
+        CatalogTable sourceCatalogTable = context.getCatalogTable();
         CatalogTable catalogTable =
                 config.get(NEEDS_UNSUPPORTED_TYPE_CASTING)
-                        ? UnsupportedTypeConverterUtils.convertCatalogTable(
-                                context.getCatalogTable())
-                        : context.getCatalogTable();
+                        ? UnsupportedTypeConverterUtils.convertCatalogTable(sourceCatalogTable)
+                        : sourceCatalogTable;
         final CatalogTable finalCatalogTable = this.renameCatalogTable(config, catalogTable);
-        return () -> new DorisSink(config, finalCatalogTable);
+        // The writer needs the source table identity before the target table is renamed: a
+        // multi-table sink creates one writer per source table, and all of those writers share
+        // the same target table, job id and subtask index.
+        String sourceTableId = sourceCatalogTable.getTablePath().getFullName();
+        return () -> new DorisSink(config, finalCatalogTable, sourceTableId);
     }
 
     private CatalogTable renameCatalogTable(ReadonlyConfig options, CatalogTable catalogTable) {

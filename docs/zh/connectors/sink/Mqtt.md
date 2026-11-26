@@ -40,7 +40,7 @@ import ChangeLog from '../changelog/connector-mqtt.md';
 | password           | string  | 否    | -    | MQTT broker 认证密码。匿名访问时可以不配置。                                   |
 | qos                | int     | 否    | 1    | 发布消息时使用的 MQTT QoS 等级。`0` 表示最多一次，`1` 表示至少一次。                  |
 | format             | string  | 否    | json | 输出消息的序列化格式。`json` 把每一行序列化为 JSON 对象；`text` 按分隔符拼接为纯文本。          |
-| field_delimiter    | string  | 否    | ,    | 当 `format = "text"` 时使用的字段分隔符，例如 `,`、`|`、`\t`。                  |
+| field_delimiter    | string  | 否    | ,    | 当 `format = "text"` 时使用的字段分隔符，例如 `,`、`\|`、`\t`。                  |
 | batch_size         | int     | 否    | 1    | 发送到 broker 前缓存的消息数量；每个 checkpoint 和 writer 关闭时也会自动 flush。        |
 | retry_timeout      | int     | 否    | 5000 | 发布消息遇到临时网络故障时，最多重试多久，单位为毫秒。                                  |
 | connection_timeout | int     | 否    | 30   | 建立 MQTT 连接的超时时间，单位为秒。                                          |

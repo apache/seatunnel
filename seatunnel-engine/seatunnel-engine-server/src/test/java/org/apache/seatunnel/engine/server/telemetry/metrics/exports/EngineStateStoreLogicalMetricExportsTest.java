@@ -85,58 +85,75 @@ class EngineStateStoreLogicalMetricExportsTest {
         seedFinishedJobStores();
         seedConnectorJarRefCounters();
 
-        List<MetricFamilySamples> metrics =
-                new EngineStateStoreLogicalMetricExports(instance.node).collect();
+        // Logical counters are updated asynchronously by Hazelcast entry listeners.
+        await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            List<MetricFamilySamples> metrics =
+                                    new EngineStateStoreLogicalMetricExports(instance.node)
+                                            .collect();
 
-        Assertions.assertEquals(
-                3d,
-                findSampleValue(
-                        metrics, "engine_state_store_running_job_metrics_task_contexts", null));
-        Assertions.assertEquals(
-                2d,
-                findSampleValue(
-                        metrics,
-                        "engine_state_store_running_job_metrics_active_partition_keys",
-                        null));
-        Assertions.assertEquals(
-                1d, findSampleValue(metrics, "engine_state_store_checkpoint_monitor_jobs", null));
-        Assertions.assertEquals(
-                1d,
-                findSampleValue(
-                        metrics,
-                        "engine_state_store_checkpoint_monitor_in_progress_checkpoints",
-                        null));
-        Assertions.assertEquals(
-                2d,
-                findSampleValue(
-                        metrics,
-                        "engine_state_store_checkpoint_monitor_retained_history_entries",
-                        null));
-        Assertions.assertEquals(
-                1d,
-                findSampleValue(
-                        metrics,
-                        "engine_state_store_finished_job_records",
-                        Constant.IMAP_FINISHED_JOB_STATE));
-        Assertions.assertEquals(
-                1d,
-                findSampleValue(
-                        metrics,
-                        "engine_state_store_finished_job_records",
-                        Constant.IMAP_FINISHED_JOB_METRICS));
-        Assertions.assertEquals(
-                1d,
-                findSampleValue(
-                        metrics,
-                        "engine_state_store_finished_job_records",
-                        Constant.IMAP_FINISHED_JOB_VERTEX_INFO));
-        Assertions.assertEquals(
-                1d,
-                findSampleValue(metrics, "engine_state_store_connector_jar_tracked_jars", null));
-        Assertions.assertEquals(
-                2d,
-                findSampleValue(
-                        metrics, "engine_state_store_connector_jar_total_references", null));
+                            Assertions.assertEquals(
+                                    3d,
+                                    findSampleValue(
+                                            metrics,
+                                            "engine_state_store_running_job_metrics_task_contexts",
+                                            null));
+                            Assertions.assertEquals(
+                                    2d,
+                                    findSampleValue(
+                                            metrics,
+                                            "engine_state_store_running_job_metrics_active_partition_keys",
+                                            null));
+                            Assertions.assertEquals(
+                                    1d,
+                                    findSampleValue(
+                                            metrics,
+                                            "engine_state_store_checkpoint_monitor_jobs",
+                                            null));
+                            Assertions.assertEquals(
+                                    1d,
+                                    findSampleValue(
+                                            metrics,
+                                            "engine_state_store_checkpoint_monitor_in_progress_checkpoints",
+                                            null));
+                            Assertions.assertEquals(
+                                    2d,
+                                    findSampleValue(
+                                            metrics,
+                                            "engine_state_store_checkpoint_monitor_retained_history_entries",
+                                            null));
+                            Assertions.assertEquals(
+                                    1d,
+                                    findSampleValue(
+                                            metrics,
+                                            "engine_state_store_finished_job_records",
+                                            Constant.IMAP_FINISHED_JOB_STATE));
+                            Assertions.assertEquals(
+                                    1d,
+                                    findSampleValue(
+                                            metrics,
+                                            "engine_state_store_finished_job_records",
+                                            Constant.IMAP_FINISHED_JOB_METRICS));
+                            Assertions.assertEquals(
+                                    1d,
+                                    findSampleValue(
+                                            metrics,
+                                            "engine_state_store_finished_job_records",
+                                            Constant.IMAP_FINISHED_JOB_VERTEX_INFO));
+                            Assertions.assertEquals(
+                                    1d,
+                                    findSampleValue(
+                                            metrics,
+                                            "engine_state_store_connector_jar_tracked_jars",
+                                            null));
+                            Assertions.assertEquals(
+                                    2d,
+                                    findSampleValue(
+                                            metrics,
+                                            "engine_state_store_connector_jar_total_references",
+                                            null));
+                        });
     }
 
     @Test

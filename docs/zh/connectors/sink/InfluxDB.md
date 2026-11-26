@@ -32,7 +32,7 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 | BIGINT             | 写为 InfluxDB field；配置为 `key_time` 时也可以作为时间戳。 |
 | FLOAT              | 写为 InfluxDB field。 |
 | DOUBLE             | 写为 InfluxDB field。 |
-| STRING             | 可写为 InfluxDB field、tag 值，或在配置为 `key_time` 时作为时间戳字符串。 |
+| STRING             | 可写为 InfluxDB field、tag 值，或在配置为 `key_time` 时作为数字时间戳字符串。 |
 | TIMESTAMP          | 可用于 `key_time`，连接器会按 UTC 时区转换成 epoch 毫秒。 |
 
 当前 InfluxDB sink 序列化器不支持其他 SeaTunnel 类型。
@@ -50,7 +50,7 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 | key_tags                    | array  | 否  | -            | 写为 InfluxDB tag 的字段名。其他字段会写为 point field。               |
 | batch_size                  | int    | 否  | 1024         | 缓存多少个 point 后写入 InfluxDB。                                |
 | max_retries                 | int    | 否  | -            | 写入失败时的最大重试次数。                                            |
-| write_timeout               | int    | 否  | 5            | InfluxDB 客户端写入超时时间。                                      |
+| write_timeout               | int    | 否  | 5            | 已废弃。当前仅向后兼容地解析该参数，InfluxDB 客户端并未真正使用它；请改用 `connect_timeout_ms` 和 `query_timeout_sec`。 |
 | retry_backoff_multiplier_ms | int    | 否  | -            | 重试等待时间的倍数，单位毫秒。                                          |
 | max_retry_backoff_ms        | int    | 否  | -            | 两次重试之间的最大等待时间，单位毫秒。                                     |
 | rp                          | string | 否  | -            | 写入时使用的 retention policy。                                  |
@@ -85,7 +85,9 @@ InfluxDB 用户密码。
 ### key_time [string]
 
 指定 SeaTunnelRow 中作为 InfluxDB measurement 时间戳的字段名。
-如果未指定，则使用处理时间作为时间戳；支持数值类型或 ISO-8601 时间戳字符串。
+如果未指定，则使用处理时间作为时间戳，处理时间按毫秒精度写入；该字段必须是 `BIGINT` 或内容为数字的 `STRING`
+（数值按 `epoch` 选项配置的精度解释，默认 `n` 即纳秒），或 `TIMESTAMP` 类型
+（按 UTC 时区转换为 epoch 毫秒并按毫秒精度写入，因此对任意 `epoch` 取值都能得到正确的时间戳），不支持 ISO-8601 时间戳字符串。
 
 ### key_tags [array]
 
@@ -113,7 +115,8 @@ InfluxDB 用户密码。
 
 ### write_timeout [int]
 
-InfluxDB 客户端写入超时时间，单位秒。
+已废弃。该参数目前仍会被解析（仅为向后兼容），但 InfluxDB 客户端从未使用它，修改该值
+不会有任何运行时效果。请使用 `connect_timeout_ms` 和 `query_timeout_sec` 控制客户端超时。
 
 ### rp [string]
 
@@ -231,6 +234,41 @@ sink {
     database = "test"
     key_time = "time"
     batch_size = 1
+  }
+}
+```
+
+### 每个 Measurement 独立写入并使用多副本 Writer
+
+当上游表数量很大时，可以通过 `multi_table_sink_replica` 把多表写入分散到更多的 writer 实例上。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Mysql-CDC {
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    table-names = ["seatunnel.role", "seatunnel.user", "galileo.Bucket"]
+  }
+}
+
+sink {
+  InfluxDB {
+    url = "http://influxdb-host:8086"
+    database = "test"
+    key_time = "time"
+    key_tags = ["label"]
+    batch_size = 2048
+    max_retries = 3
+    retry_backoff_multiplier_ms = 100
+    max_retry_backoff_ms = 5000
+    multi_table_sink_replica = 2
   }
 }
 ```

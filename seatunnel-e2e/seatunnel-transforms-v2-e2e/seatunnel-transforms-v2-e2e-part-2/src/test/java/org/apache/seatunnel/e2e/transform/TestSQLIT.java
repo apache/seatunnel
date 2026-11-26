@@ -51,6 +51,9 @@ public class TestSQLIT extends TestSuiteBase {
         Container.ExecResult sqlFuncFromUnixtime =
                 container.executeJob("/sql_transform/func_from_unixtime.conf");
         Assertions.assertEquals(0, sqlFuncFromUnixtime.getExitCode());
+        Container.ExecResult sqlFuncUnixTimestamp =
+                container.executeJob("/sql_transform/func_unix_timestamp.conf");
+        Assertions.assertEquals(0, sqlFuncUnixTimestamp.getExitCode());
         Container.ExecResult sqlCriteriaFilter =
                 container.executeJob("/sql_transform/criteria_filter.conf");
         Assertions.assertEquals(0, sqlCriteriaFilter.getExitCode());
@@ -129,5 +132,14 @@ public class TestSQLIT extends TestSuiteBase {
         Container.ExecResult nestedTypeSql =
                 container.executeJob("/sql_transform/nested_type.conf");
         Assertions.assertEquals(0, nestedTypeSql.getExitCode());
+    }
+
+    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    @TestTemplate
+    public void testTableTransformOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/sql_transform_table_transform_only.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

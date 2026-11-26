@@ -22,6 +22,7 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit.IcebergFilesCommitter;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.HadoopStreamFileIO;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -62,14 +63,15 @@ import static org.awaitility.Awaitility.given;
 
 /**
  * E2E regression test for the fix that ensures the {@code IcebergAggregatedCommitter} produces
- * exactly one Iceberg snapshot per checkpoint, regardless of sink parallelism.
+ * exactly one Iceberg snapshot per append-only checkpoint, regardless of sink parallelism.
  *
  * <p>Tests verify:
  *
  * <ol>
  *   <li>The total row count in the Iceberg table equals the source row count — no duplicate rows.
- *   <li>Exactly one Iceberg snapshot is produced per checkpoint barrier regardless of how many
- *       parallel sink writers participated.
+ *   <li>Without schema-change/equality-delete generation boundaries, exactly one Iceberg snapshot
+ *       is produced per checkpoint barrier regardless of how many parallel sink writers
+ *       participated.
  *   <li>After a savepoint → restore cycle, already-committed checkpoints are not re-committed.
  * </ol>
  */
@@ -203,7 +205,7 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
 
                             Assertions.assertTrue(
                                     snapshots.size() >= 2,
-                                    "Expected at least 2 Iceberg snapshots (one per checkpoint)"
+                                    "Expected at least 2 Iceberg snapshots (one per append-only checkpoint)"
                                             + " but got "
                                             + snapshots.size()
                                             + " — data may have been flushed in a single"
@@ -243,12 +245,15 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
      * <ol>
      *   <li>Start a streaming job with {@code parallelism=2}. {@code split.read-interval} keeps
      *       FakeSource alive long enough to trigger several checkpoints.
-     *   <li>Wait 9 s — at least 3 checkpoints complete and their snapshots land in Iceberg.
+     *   <li>Wait until at least one checkpoint has been committed and its snapshots have landed in
+     *       Iceberg — bounded polling on committed state, not a fixed sleep.
      *   <li>Savepoint the job (stops it and persists the last committed state).
      *   <li>Record the set of {@code seatunnel.checkpoint-id} values already present in the table.
      *   <li>Restore the job from the savepoint. {@code IcebergAggregatedCommitter.restoreCommit()}
      *       must detect the already-committed checkpoint via the snapshot summary and skip it.
-     *   <li>Let the restored job run and produce additional checkpoints, then verify:
+     *   <li>Wait until the restored job commits a checkpoint-id that was absent before the
+     *       savepoint — this proves the restored run is live before any uniqueness claims — then
+     *       verify:
      *       <ul>
      *         <li>Every snapshot in the table has a <em>unique</em> checkpoint-id — no checkpoint
      *             was committed more than once.
@@ -277,8 +282,18 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
                             }
                         });
 
-        // checkpoint.interval=3s × 3 = 9 s
-        Thread.sleep(9_000);
+        // Wait until at least one checkpoint has been committed to the table instead of
+        // waiting a fixed number of checkpoint intervals, so the savepoint always happens
+        // after real commits even when checkpoints run slower under CI load.
+        given().ignoreExceptions()
+                .await()
+                .atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertFalse(
+                                        collectCheckpointIds(loadRecoveryTable()).isEmpty(),
+                                        "At least one checkpoint must have been committed"
+                                                + " before the savepoint"));
 
         Assertions.assertEquals(
                 0,
@@ -293,14 +308,37 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
                 "At least one checkpoint must have been committed before the savepoint");
         log.info("Checkpoint-ids committed before savepoint: {}", checkpointIdsBefore);
 
-        CompletableFuture.supplyAsync(
-                () -> {
-                    try {
-                        return container.restoreJob(recoveryConf, String.valueOf(jobId));
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+        CompletableFuture<Container.ExecResult> restoreRun =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.restoreJob(recoveryConf, String.valueOf(jobId));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        // The pre-savepoint snapshot set already satisfies every uniqueness and occurrence
+        // assertion below, so those checks alone cannot prove the restored run did anything.
+        // Wait until the restored job commits a checkpoint-id that was absent before the
+        // savepoint before making any recovery claims. The restored job is streaming, so the
+        // restore command only returns once the job stops — it must never be joined here;
+        // only a non-blocking fail-fast on an already-failed restore is done.
+        given().ignoreExceptions()
+                .await()
+                .atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertFalse(
+                                    restoreRun.isDone() && restoreRun.isCompletedExceptionally(),
+                                    "restoreJob must not fail while waiting for its commits");
+                            Set<String> current = collectCheckpointIds(loadRecoveryTable());
+                            current.removeAll(checkpointIdsBefore);
+                            Assertions.assertFalse(
+                                    current.isEmpty(),
+                                    "The restored job must commit at least one new checkpoint-id"
+                                            + " before recovery can be verified");
+                        });
 
         // Wait long enough for the restored job to finish (4 splits × 3 s + buffer)
         given().ignoreExceptions()
@@ -488,6 +526,8 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
         Map<String, Object> catalogProps = new HashMap<>();
         catalogProps.put("type", HADOOP.getType());
         catalogProps.put("warehouse", "file://" + CATALOG_DIR);
+        // Parquet 1.16 needs Hadoop 3.3+ to open Hadoop files itself, see HadoopStreamFileIO
+        catalogProps.put("io-impl", HadoopStreamFileIO.class.getName());
         configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), "seatunnel_test");
         configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), "seatunnel_namespace");
         configs.put(IcebergCommonOptions.KEY_TABLE.key(), "iceberg_parallel_row_delta_table");
@@ -505,6 +545,8 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
         Map<String, Object> catalogProps = new HashMap<>();
         catalogProps.put("type", HADOOP.getType());
         catalogProps.put("warehouse", "file://" + CATALOG_DIR);
+        // Parquet 1.16 needs Hadoop 3.3+ to open Hadoop files itself, see HadoopStreamFileIO
+        catalogProps.put("io-impl", HadoopStreamFileIO.class.getName());
         configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), "seatunnel_test");
         configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), "seatunnel_namespace");
         configs.put(IcebergCommonOptions.KEY_TABLE.key(), "iceberg_parallel_batch_table");
@@ -522,6 +564,8 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
         Map<String, Object> catalogProps = new HashMap<>();
         catalogProps.put("type", HADOOP.getType());
         catalogProps.put("warehouse", "file://" + CATALOG_DIR);
+        // Parquet 1.16 needs Hadoop 3.3+ to open Hadoop files itself, see HadoopStreamFileIO
+        catalogProps.put("io-impl", HadoopStreamFileIO.class.getName());
         configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), "seatunnel_test");
         configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), "seatunnel_namespace");
         configs.put(IcebergCommonOptions.KEY_TABLE.key(), "iceberg_parallel_streaming_table");
@@ -539,6 +583,8 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
         Map<String, Object> catalogProps = new HashMap<>();
         catalogProps.put("type", HADOOP.getType());
         catalogProps.put("warehouse", "file://" + CATALOG_DIR);
+        // Parquet 1.16 needs Hadoop 3.3+ to open Hadoop files itself, see HadoopStreamFileIO
+        catalogProps.put("io-impl", HadoopStreamFileIO.class.getName());
         configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), "seatunnel_test");
         configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), "seatunnel_namespace");
         configs.put(IcebergCommonOptions.KEY_TABLE.key(), "iceberg_parallel_recovery_table");

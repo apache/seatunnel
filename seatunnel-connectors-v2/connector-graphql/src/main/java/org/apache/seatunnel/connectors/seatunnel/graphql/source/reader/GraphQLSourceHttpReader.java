@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.graphql.config.GraphQLSourceParameter;
+import org.apache.seatunnel.connectors.seatunnel.graphql.exception.GraphQLConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.graphql.util.GraphQLUtil;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
@@ -83,6 +84,13 @@ public class GraphQLSourceHttpReader extends AbstractSingleSplitReader<SeaTunnel
         synchronized (output.getCheckpointLock()) {
             internalPollNext(output);
         }
+        // Wait out the poll interval only after the checkpoint lock is
+        // released. Sleeping while holding it kept the checkpoint barrier
+        // out for the whole interval, so a streaming job's checkpoint expired.
+        if (!Boundedness.BOUNDED.equals(context.getBoundedness())
+                && httpParameter.getPollIntervalMillis() > 0) {
+            Thread.sleep(httpParameter.getPollIntervalMillis());
+        }
     }
 
     @Override
@@ -94,10 +102,6 @@ public class GraphQLSourceHttpReader extends AbstractSingleSplitReader<SeaTunnel
                 // signal to the source that we have reached the end of the data.
                 log.info("Closed the bounded http source");
                 context.signalNoMoreElement();
-            } else {
-                if (httpParameter.getPollIntervalMillis() > 0) {
-                    Thread.sleep(httpParameter.getPollIntervalMillis());
-                }
             }
         }
     }
@@ -119,9 +123,13 @@ public class GraphQLSourceHttpReader extends AbstractSingleSplitReader<SeaTunnel
                     BufferedReader bufferedReader = new BufferedReader(stringReader);
                     String lineStr;
                     while ((lineStr = bufferedReader.readLine()) != null) {
+                        GraphQLUtil.checkNoErrors(
+                                lineStr, GraphQLConnectorErrorCode.GRAPHQL_SOURCE_OPERATION_ERROR);
                         GraphQLUtil.collect(deserializationCollector, lineStr, contentJson, output);
                     }
                 } else {
+                    GraphQLUtil.checkNoErrors(
+                            content, GraphQLConnectorErrorCode.GRAPHQL_SOURCE_OPERATION_ERROR);
                     GraphQLUtil.collect(deserializationCollector, content, contentJson, output);
                 }
             }

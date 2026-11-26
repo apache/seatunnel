@@ -48,6 +48,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -63,6 +64,10 @@ import java.util.stream.Collectors;
 public class DatabendSinkWriter
         implements SinkWriter<SeaTunnelRow, DatabendSinkCommitterInfo, Void>,
                 SupportSchemaEvolutionSinkWriter {
+
+    // Databend keeps a TIMESTAMP to the microsecond.
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER =
+            DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSSSS");
 
     private final Connection connection;
     private final Context context;
@@ -88,6 +93,9 @@ public class DatabendSinkWriter
     private String streamName;
     private String targetTableName;
     private PreparedStatement cdcPreparedStatement;
+    // Set once a CDC batch reaches the raw table, cleared after it is merged into the target table.
+    // executeBatch() resets batchCount, so batchCount cannot tell whether a merge is still needed.
+    private boolean hasUnmergedCdcRows = false;
     private String conflictKey;
     private boolean enableDelete;
 
@@ -224,7 +232,7 @@ public class DatabendSinkWriter
     }
 
     private void performMerge() {
-        if (batchCount <= 0) {
+        if (!hasUnmergedCdcRows) {
             log.debug("No data to merge, skipping");
             return;
         }
@@ -235,7 +243,7 @@ public class DatabendSinkWriter
         try (Statement stmt = connection.createStatement()) {
             stmt.execute(mergeSql);
             log.info("Merge operation completed successfully");
-            batchCount = 0; // Reset batch count after successful merge
+            hasUnmergedCdcRows = false;
         } catch (SQLException e) {
             log.error("Failed to execute merge operation: {}", e.getMessage(), e);
         }
@@ -683,7 +691,19 @@ public class DatabendSinkWriter
                         i + 1,
                         field,
                         field.getClass().getSimpleName());
-                preparedStatement.setObject(i + 1, field);
+                if (field instanceof LocalTime) {
+                    // A TIME column is created as STRING, since Databend has no TIME type, and
+                    // databend-jdbc's setObject rejects a LocalTime. Write the time of day as text.
+                    preparedStatement.setString(
+                            i + 1, ((LocalTime) field).format(DateTimeFormatter.ISO_LOCAL_TIME));
+                } else if (field instanceof LocalDateTime) {
+                    // databend-jdbc's setObject also rejects a LocalDateTime, and its setTimestamp
+                    // keeps only milliseconds. Write the timestamp as text.
+                    preparedStatement.setString(
+                            i + 1, ((LocalDateTime) field).format(TIMESTAMP_FORMATTER));
+                } else {
+                    preparedStatement.setObject(i + 1, field);
+                }
             }
         }
         preparedStatement.addBatch();
@@ -738,6 +758,7 @@ public class DatabendSinkWriter
                     log.info(
                             "CDC batch executed successfully, total affected rows: {}",
                             totalAffected);
+                    hasUnmergedCdcRows = true;
                     verifyRawTableData(rawTableName, sinkTablePath.getDatabaseName());
                 } else {
                     int[] results = preparedStatement.executeBatch();

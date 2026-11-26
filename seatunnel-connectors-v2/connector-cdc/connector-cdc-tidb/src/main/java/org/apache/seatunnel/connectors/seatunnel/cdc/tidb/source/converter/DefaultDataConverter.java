@@ -52,7 +52,11 @@ public class DefaultDataConverter implements DataConverter<Object[]> {
             String fieldName = rowType.getFieldName(fieldIndex);
             TiColumnInfo columnInfo = tableInfo.getColumn(fieldName);
             if (columnInfo == null) {
+                // The planned schema can contain a column that the live TiKV table info no
+                // longer has (e.g. dropped/renamed after job planning); emit null for it
+                // instead of dereferencing the missing column info below.
                 fields[fieldIndex] = null;
+                continue;
             }
             DataType dataType = columnInfo.getType();
             Object value = values[columnInfo.getOffset()];

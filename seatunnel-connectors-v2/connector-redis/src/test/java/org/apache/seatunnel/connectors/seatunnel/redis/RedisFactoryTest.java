@@ -51,9 +51,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 class RedisFactoryTest {
 
@@ -235,6 +241,95 @@ class RedisFactoryTest {
                 tableSchema, serializer.deserialize(serializer.serialize(tableSchema)));
     }
 
+    // connect dry-run
+
+    @Test
+    void sourceDryRunInfersConfiguredSchemaForSingleTable() {
+        Map<String, Object> config = singleSourceConfig();
+        config.put("format", "JSON");
+        config.put("schema", schema("db.users"));
+        TableSourceFactoryContext context =
+                new TableSourceFactoryContext(
+                        ReadonlyConfig.fromMap(config),
+                        Thread.currentThread().getContextClassLoader());
+
+        // No Redis instance is running, so passing here proves no value is read.
+        List<CatalogTable> tables = new RedisSourceFactory().inferSchemaForDryRun(context);
+
+        Assertions.assertEquals(1, tables.size());
+        Assertions.assertEquals(
+                Arrays.asList("id", "name"),
+                Arrays.asList(tables.get(0).getTableSchema().getFieldNames()));
+    }
+
+    @Test
+    void sourceDryRunInfersOneTablePerTableConfig() {
+        Map<String, Object> first = tableEntry("key_a*");
+        first.put("schema", schema("db.a"));
+        Map<String, Object> second = tableEntry("key_b*");
+        second.put("schema", schema("db.b"));
+        Map<String, Object> config = multiTableSourceConfig();
+        config.put("tables_configs", Arrays.asList(first, second));
+        TableSourceFactoryContext context =
+                new TableSourceFactoryContext(
+                        ReadonlyConfig.fromMap(config),
+                        Thread.currentThread().getContextClassLoader());
+
+        List<CatalogTable> tables = new RedisSourceFactory().inferSchemaForDryRun(context);
+
+        Assertions.assertEquals(
+                Arrays.asList("db.a", "db.b"),
+                tables.stream()
+                        .map(table -> table.getTablePath().toString())
+                        .collect(Collectors.toList()));
+        for (CatalogTable table : tables) {
+            Assertions.assertEquals(
+                    Arrays.asList("id", "name"),
+                    Arrays.asList(table.getTableSchema().getFieldNames()));
+        }
+    }
+
+    @Test
+    void sourceDryRunValidatesConnectionWithoutReadingKeys() throws Exception {
+        TableSourceFactoryContext context =
+                new TableSourceFactoryContext(
+                        ReadonlyConfig.fromMap(singleSourceConfig()),
+                        Thread.currentThread().getContextClassLoader());
+        try (MockedConstruction<Jedis> clients = mockConstruction(Jedis.class)) {
+            new RedisSourceFactory().validateConnectionForDryRun(context, Collections.emptyList());
+
+            Jedis jedis = clients.constructed().get(0);
+            verify(jedis).select(0);
+            verify(jedis).ping();
+            verify(jedis).close();
+            verifyNoMoreInteractions(jedis);
+        }
+    }
+
+    @Test
+    void sinkDryRunIgnoresFieldOptionsMissingFromUpstreamSchema() {
+        // Missing field names are literal values at runtime, so they must not fail the dry run.
+        Map<String, Object> config = singleSinkConfig();
+        config.put("data_type", "HASH");
+        config.put("key", "missing_key_field");
+        config.put("hash_key_field", "missing_hash_key");
+        config.put("hash_value_field", "missing_hash_value");
+        TableSinkFactoryContext context =
+                new TableSinkFactoryContext(
+                        catalogTable(),
+                        ReadonlyConfig.fromMap(config),
+                        Thread.currentThread().getContextClassLoader());
+        try (MockedConstruction<Jedis> clients = mockConstruction(Jedis.class)) {
+            new RedisSinkFactory().validateConnectionForDryRun(context);
+
+            Jedis jedis = clients.constructed().get(0);
+            verify(jedis).select(0);
+            verify(jedis).ping();
+            verify(jedis).close();
+            verifyNoMoreInteractions(jedis);
+        }
+    }
+
     // parameterized-case providers
 
     static Stream<Arguments> invalidSingleConnections() {
@@ -330,6 +425,16 @@ class RedisFactoryTest {
                 new ArrayList<>(),
                 null,
                 "catalog");
+    }
+
+    private static Map<String, Object> schema(String table) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("id", "bigint");
+        fields.put("name", "string");
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("table", table);
+        schema.put("fields", fields);
+        return schema;
     }
 
     private static Map<String, Object> singleSourceConfig() {

@@ -45,11 +45,21 @@ public class TestFilterRowKindIT extends TestSuiteBase {
         Assertions.assertEquals(0, execResult4.getExitCode());
     }
 
+    /** Verifies exact per-table totals with one assertion writer across engine parallelisms. */
     @TestTemplate
     public void testFilterRowKindMultiTable(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/filter_row_kind_exclude_insert_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    @TestTemplate
+    public void testFilterRowKindTableTransformOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/filter_row_kind_table_transform_only.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

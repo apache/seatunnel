@@ -13,19 +13,23 @@ Embedding 转换插件利用 embedding 模型将文本和多模态数据转换�
 | 名称                             | 类型     | 是否必填 | 默认值    | 描述                                                               |
 |--------------------------------|--------|------|--------|------------------------------------------------------------------|
 | model_provider                 | enum   | 是    | -      | embedding模型的提供商。可选项包括 `AMAZON`、`QIANFAN`、`OPENAI` 等。             |
-| api_key                        | string | 是    | -      | 用于验证embedding服务的API密钥。                                           |
-| secret_key                     | string | 是    | -      | 用于额外验证的密钥。一些提供商可能需要此密钥进行安全的API请求。                                |
-| aws_region                     | string | 否    |        | 用于使用Amazon Bedrock 模型，需要指定模型请求区域.                                |
+| api_key                        | string | 条件必填 | -      | 用于验证embedding服务的API密钥。当 `model_provider` 为 `AMAZON`、`OPENAI`、`DOUBAO` 或 `QIANFAN` 时必填；`CUSTOM` 不使用。注意 `ZHIPU` 运行时会读取该参数，但选项规则仅校验 `dimension`。|
+| secret_key                     | string | 否    | -      | 用于额外验证的密钥。仅 `AMAZON` 和 `QIANFAN` 需要此密钥。                          |
+| aws_region                     | string | 条件必填 |        | 当 `model_provider` 为 `AMAZON`（Amazon Bedrock）时必填。                 |
 | single_vectorized_input_number | int    | 否    | 1      | 单次请求向量化的输入数量。默认值为1。                                              |
 | vectorization_fields           | map    | 是    | -      | 输入字段和相应的输出向量字段之间的映射。                                             |
 | model                          | string | 是    | -      | 要使用的具体embedding模型。例如，如果提供商为OPENAI，可以指定 `text-embedding-3-small`。 |
-| api_path                       | string | 否    | -      | embedding服务的API。通常由模型提供商提供。                                      |
-| dimension                      | int    | 否    | 2048   | 向量维度默认为 2048，Embedding-3模型支持自定义向量维度，建议选择256、512、1024或2048维度。     |
-| oauth_path                     | string | 否    | -      | oauth 服务的 API 。                                                  |
-| custom_config                  | map    | 否    |        | 模型的自定义配置。                                                        |
-| custom_response_parse          | string | 否    |        | 使用 JsonPath 解析模型响应的方式。示例：`$.choices[*].message.content`。         |
-| custom_request_headers         | map    | 否    |        | 发送到模型的请求的自定义头信息。                                                 |
-| custom_request_body            | map    | 否    |        | 请求体的自定义配置。支持占位符如 `${model}`、`${input}`。                          |
+| api_path                       | string | 否    | -      | embedding服务的API。通常由模型提供商提供。旧别名：`openai.api_path`。                |
+| dimension                      | int    | 条件必填 | 2048   | 向量维度默认为 2048。当 `model_provider` 为 `AMAZON` 或 `ZHIPU` 时必填。Embedding-3模型支持自定义向量维度，建议选择256、512、1024或2048维度。     |
+| oauth_path                     | string | 条件必填 | -      | oauth 服务的 API。当 `model_provider` 为 `QIANFAN` 时必填。                |
+| custom_config                  | map    | 条件必填 |        | 模型的自定义配置。当 `model_provider` 为 `CUSTOM` 时必填。                      |
+| custom_response_parse          | string | 否    |        | 使用 JsonPath 解析模型响应的方式。示例：`$.choices[*].message.content`。仅从 `custom_config` 块内读取，写在顶层无效。 |
+| custom_request_headers         | map    | 否    |        | 发送到模型的请求的自定义头信息。仅从 `custom_config` 块内读取，写在顶层无效。                 |
+| custom_request_body            | map    | 否    |        | 请求体的自定义配置。支持占位符如 `${model}`、`${input}`。仅从 `custom_config` 块内读取，写在顶层无效。 |
+| process_batch_size             | int    | 否    | 100    | 每轮处理批量向量化的行数，即每轮处理多少条 SeaTunnel row。旧别名：`inference_batch_size`。 |
+| table_transform                | array  | 否    | -      | 多表处理的按表规则，参见 [多表转换](transform-multi-table.md)。                  |
+| table_match_regex              | string | 否    | `.*`   | 转换级规则生效的表路径正则。                                                  |
+| rule_match_mode                | enum   | 否    | `FIRST_MATCH` | 多个 `table_transform` 条目命中同一 `table_path` 时的评估方式。         |
 | model_retry_max_attempts       | int    | 否    | 1      | 单个远程模型请求的最大尝试次数。默认值 `1` 表示保持原有不自动重试行为。                         |
 | model_retry_backoff_ms         | long   | 否    | 1000   | 远程模型请求重试前的初始退避时间，单位毫秒。                                          |
 | model_retry_max_backoff_ms     | long   | 否    | 10000  | 远程模型请求重试前的最大退避时间，单位毫秒。                                          |
@@ -40,16 +44,18 @@ Embedding 转换插件利用 embedding 模型将文本和多模态数据转换�
 
 ### model_provider
 
-用于生成 embedding 的模型提供商。常见选项包括 `AMAZON`、 `DOUBAO`、`QIANFAN`、`OPENAI` 等，同时可选择 `CUSTOM` 实现自定义 embedding
+用于生成 embedding 的模型提供商。常见选项包括 `AMAZON`、 `DOUBAO`、`QIANFAN`、`ZHIPU`、`OPENAI` 等，同时可选择 `CUSTOM` 实现自定义 embedding
 模型的请求以及获取。
 
 ### api_key
 
 用于验证 embedding 服务请求的API密钥。通常由模型提供商在你注册他们的服务时提供，对于使用`AMAZON` 模型则对应IAM access key。
+当 `model_provider` 为 `AMAZON`、`OPENAI`、`DOUBAO` 或 `QIANFAN` 时该选项必填。`ZHIPU` 虽不在选项规则中校验该参数，但运行时会读取它，实际使用时也必须配置。`CUSTOM` 不使用此选项。
 
 ### secret_key
 
 用于额外验证的密钥。一些提供商可能要求此密钥以确保API请求的安全性。
+当 `model_provider` 为 `AMAZON` 或 `QIANFAN` 时该选项必填。
 
 ### single_vectorized_input_number
 
@@ -221,7 +227,7 @@ vectorization_fields {
 
 ### custom_config
 
-`custom_config` 选项允许您为模型提供额外的自定义配置。这是一个映射，您可以在其中定义特定模型可能需要的各种设置。
+`custom_config` 选项允许您为模型提供额外的自定义配置。这是一个映射，您可以在其中定义特定模型可能需要的各种设置。当 `model_provider` 为 `CUSTOM` 时该选项必填，缺失时转换会在运行时报错。
 
 ### custom_response_parse
 
@@ -265,6 +271,17 @@ vectorization_fields {
 - `${model}`：用于模型名称的占位符。
 - `${input}`：用于确定输入值的占位符,同时根据 body value 的类型定义请求体请求类型。例如：`["${input}"]` -> ["input"] (
   list)。
+
+### process_batch_size
+
+每轮处理批量向量化的 SeaTunnel row 数量，默认值为 100。这是行级批处理，与 `single_vectorized_input_number` 不同，
+后者是对单行内的多个待向量化输入做请求级批处理。为了向后兼容，废弃的选项名 `inference_batch_size` 仍作为
+`process_batch_size` 的兜底别名被接受。
+
+### 多表处理
+
+与其他多表转换一样，`Embedding` 支持 `table_transform`、`table_match_regex` 和 `rule_match_mode` 选项，
+将规则应用到选定的表。完整语义参见 [多表转换](transform-multi-table.md)。
 
 ### common options
 
@@ -698,7 +715,7 @@ transform {
         custom_response_parse = "$.data[*].embedding"
         custom_request_headers = {
             "Content-Type"= "application/json"
-            "Authorization"= "Bearer xxxxxxx
+            "Authorization"= "Bearer xxxxxxx"
         }
         custom_request_body ={
             modelx = "${model}"

@@ -18,6 +18,9 @@ SeaTunnel 会为每个 Transform 实例维护一个长生命周期的 Python Wor
 | script_config | map | 否 | |
 | columns | array | 是 | |
 | row_error_handle_way | enum | 否 | FAIL |
+| table_match_regex | string | 否 | `.*` |
+| table_transform | array | 否 | - |
+| rule_match_mode | string | 否 | `FIRST_MATCH` |
 
 ### 通用选项 [string]
 
@@ -35,7 +38,7 @@ SeaTunnel Worker 运行节点上可见的 Python 脚本路径。`source_code` �
 
 启动 Worker 进程时使用的 Python 可执行文件，默认值为 `python3`。当使用默认值时，SeaTunnel 会先从 `PATH` 解析 `python3`，失败后再解析 `python` 作为回退。
 
-当该 Transform 被启用后，最终实际启动的解释器必须出现在服务端系统属性 `seatunnel.transform.python.allowed-executables` 中。生产环境建议把 `python_executable` 显式设置为绝对路径，例如 `/usr/bin/python3`。
+当该 Transform 被启用后，最终实际启动的解释器必须出现在服务端系统属性 `seatunnel.transform.python.allowed-executables` 中。除保持默认值 `python3` 外，`python_executable` 必须是绝对路径（例如 `/usr/bin/python3`），相对路径在运行时会被拒绝。
 
 ### script_config [map]
 
@@ -47,6 +50,8 @@ SeaTunnel Worker 运行节点上可见的 Python 脚本路径。`source_code` �
 
 - `FAIL`：终止任务，并抛出 Python 错误。
 - `SKIP`：跳过当前行，继续处理后续数据。
+
+其他取值（如 `ROUTE_TO_TABLE`）虽然能通过配置校验，但 Python transform 在运行期会直接报不支持错误；此处仅支持 `FAIL` 和 `SKIP`。
 
 ### columns [array]
 

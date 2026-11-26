@@ -161,13 +161,18 @@ public class JobLogIT extends SeaTunnelEngineContainer {
                         Tuple2.tuple2(false, "job-" + CUSTOM_JOB_ID2 + ".log"),
                         Tuple2.tuple2(false, "job-" + CUSTOM_JOB_ID3 + ".log"));
         assertFileLogClean(before);
-        Thread.sleep(90000);
+        // The retained log file of the finished batch job appears asynchronously; poll
+        // for it instead of a fixed sleep that fails when the retention task is slower
+        // than expected under CI load.
         List<Tuple2<Boolean, String>> after =
                 Lists.newArrayList(
                         Tuple2.tuple2(true, "job-" + CUSTOM_JOB_ID + ".log"),
                         Tuple2.tuple2(false, "job-" + CUSTOM_JOB_ID2 + ".log"),
                         Tuple2.tuple2(false, "job-" + CUSTOM_JOB_ID3 + ".log"));
-        assertFileLogClean(after);
+        Awaitility.await()
+                .atMost(3, TimeUnit.MINUTES)
+                .pollInterval(5, TimeUnit.SECONDS)
+                .untilAsserted(() -> assertFileLogClean(after));
     }
 
     private void assertConsoleLog() {

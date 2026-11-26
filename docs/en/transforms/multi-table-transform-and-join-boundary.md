@@ -51,7 +51,7 @@ flowchart LR
 |---|---|---|
 | Per-table field rename / map | ✅ Yes | Use `FieldMapper` with `plugin_input` and `table_match_regex` |
 | Per-table column filtering | ✅ Yes | Use `Filter` with `plugin_input` and `table_match_regex` |
-| Per-table type casting | ✅ Yes | Use `FieldMapper` with `define_sink_type` option |
+| Per-table type casting | ✅ Yes | Use the `DefineSinkType` transform with its `columns` option (optionally scoped per table via `table_transform`) |
 | Per-table SQL transform (single table) | ✅ Yes | Use `SQL` transform with `plugin_input`; scope it with `table_match_regex` when needed |
 | `TableMerge` — merge multiple tables into one | ✅ Yes | Tables must share compatible schema |
 | `TableRename` — rename tables in the stream | ✅ Yes | Works well for routing to Sink by table name |
@@ -79,7 +79,7 @@ input tables must have the same (or compatible) schema. Use it to route all tabl
   "plugin_name": "TableMerge",
   "plugin_input": ["orders_2023", "orders_2024"],
   "plugin_output": "all_orders",
-  "merge_by_field": true
+  "table": "all_orders"
 }
 ```
 
@@ -177,12 +177,18 @@ rules:
     {
       "plugin_name": "Kafka",
       "plugin_input": ["cdc_stream"],
-      "topic": "products",
-      "table_match_regex": "mydb\\.products"
+      "topic": "products"
     }
   ]
 }
 ```
+
+A transform with `table_match_regex` only rewrites the matching tables; every other table of its
+input stream is passed through unchanged, and a sink receives every table of the stream it
+subscribes to via `plugin_input` — sinks cannot filter by table name. In the example above each
+Kafka sink therefore still sees all three tables of its input stream. To deliver exactly one table
+to a sink, put a `TableFilter` transform (for example `database_pattern = "mydb"`,
+`table_pattern = "products"`) in front of it.
 
 ---
 
@@ -197,6 +203,7 @@ apply a single transform:
     "plugin_name": "TableMerge",
     "plugin_input": ["cdc_stream"],
     "plugin_output": "all_events",
+    "table": "all_events",
     "table_match_regex": "mydb\\.(orders|payments|refunds)"
   },
   {
@@ -266,8 +273,10 @@ JOINs, use an external SQL engine after loading the data into a sink.
 
 **Q: What happens to tables that are not matched by any transform?**
 
-Unmatched tables continue flowing through the pipeline and can be captured by a Sink that
-uses the right `plugin_input` and `table_match_regex`.
+Unmatched tables continue flowing through the pipeline unchanged. A sink receives every table of
+the stream it subscribes to via `plugin_input` — sinks have no `table_match_regex` option. If you
+need to select or route specific tables before the sink, use a transform with
+`table_match_regex`/`table_transform` (for example `TableFilter`, `TableRename` or `TableMerge`).
 
 **Q: Can I add a new table to an existing CDC pipeline without downtime?**
 

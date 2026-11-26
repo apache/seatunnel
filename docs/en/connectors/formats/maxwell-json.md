@@ -11,14 +11,25 @@ Seatunnel supports to interpret MaxWell JSON messages as INSERT/UPDATE/DELETE me
 
 Seatunnel also supports to encode the INSERT/UPDATE/DELETE messages in Seatunnel as MaxWell JSON messages, and emit to storage like Kafka. However, currently Seatunnel can’t combine UPDATE_BEFORE and UPDATE_AFTER into a single UPDATE message. Therefore, Seatunnel encodes UPDATE_BEFORE and UPDATE_AFTER as DELETE and INSERT MaxWell messages.
 
+## Limitations
+
+UPDATE messages must contain a complete row image; partial updates containing only changed fields are not supported.
+
 # Format Options
 
 |              Option              | Default | Required |                                                                                                 Description                                                                                                  |
 |----------------------------------|---------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| format                           | (none)  | yes      | Specify what format to use, here should be 'maxwell_json'.                                                                                                                                                   |
-| maxwell_json.ignore-parse-errors | false   | no       | Skip fields and rows with parse errors instead of failing. Fields are set to null in case of errors.                                                                                                         |
-| maxwell_json.database.include    | (none)  | no       | An optional regular expression to only read the specific databases changelog rows by regular matching the "database" meta field in the MaxWell record. The pattern string is compatible with Java's Pattern. |
-| maxwell_json.table.include       | (none)  | no       | An optional regular expression to only read the specific tables changelog rows by regular matching the "table" meta field in the MaxWell record. The pattern string is compatible with Java's Pattern.       |
+| format                           | json    | yes      | Specify what format to use, here should be 'maxwell_json'.                                                                                                                                                   |
+
+> **Note:** The prefixed keys `maxwell_json.ignore-parse-errors`, `maxwell_json.database.include`, and `maxwell_json.table.include` are not valid configuration keys and have no effect. Whether unparseable records are skipped is decided by each connector (for example, the Kafka source always skips them for Maxwell JSON), and the `database.include`/`table.include` filters of the format module are currently not wired to any connector.
+
+:::warning
+
+In the current SeaTunnel implementation, the options above (except `format`) are not read from the job
+configuration. Only the Kafka source supports `maxwell_json`, and it always skips rows with parse
+errors. The `maxwell_json.database.include` / `maxwell_json.table.include` filtering is not applied.
+
+:::
 
 # How To Use MaxWell format
 

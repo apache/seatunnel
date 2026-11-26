@@ -30,7 +30,11 @@
 #       --api-key sk-... --base-url https://api.deepseek.com/v1
 #   ./benchmark/run_benchmark.sh --models benchmark/models.json          # multi-model
 #
-# Extra args (--tiers, --tasks, --max-repairs, --level, --out) are passed through.
+# Extra args (--tiers, --tasks, --preset, --max-repairs, --level, --out) are
+# passed through. For a quick check use the 12-task fast lane:
+#
+#   ./benchmark/run_benchmark.sh --provider bedrock --model <id> \
+#       --preset smoke --level l1
 #
 # Preflight (informational, never blocks):
 #   - SEATUNNEL_HOME set + seatunnel.sh present?  → enables L2 dry-run

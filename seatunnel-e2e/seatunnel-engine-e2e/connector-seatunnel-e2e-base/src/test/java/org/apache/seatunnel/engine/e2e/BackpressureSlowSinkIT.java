@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.engine.e2e;
 
+import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.common.metrics.MetricNames;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
@@ -24,14 +27,20 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
+import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
+import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
+import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
@@ -121,22 +130,6 @@ public class BackpressureSlowSinkIT {
         config.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
         config.getEngineConfig().getSlotServiceConfig().setSlotNum(20);
         node = SeaTunnelServerStarter.createHazelcastInstance(config);
-
-        String filePath = TestUtils.getResource(CONF_FILE);
-        JobConfig jobConfig = new JobConfig();
-        jobConfig.setName("backpressure_slow_sink_it");
-
-        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        clientConfig.setClusterName(testClusterName);
-        engineClient = new SeaTunnelClient(clientConfig);
-        ClientJobExecutionEnvironment jobExecutionEnv =
-                engineClient.createExecutionContext(filePath, jobConfig, config);
-
-        jobProxy = jobExecutionEnv.execute();
-        Awaitility.await()
-                .atMost(2, TimeUnit.MINUTES)
-                .untilAsserted(
-                        () -> Assertions.assertEquals(JobStatus.RUNNING, jobProxy.getJobStatus()));
     }
 
     @AfterEach
@@ -167,8 +160,11 @@ public class BackpressureSlowSinkIT {
      *
      * @throws Exception if polling the cluster's REST endpoints fails unexpectedly
      */
-    @Test
-    public void testCheckpointsKeepCompletingUnderSustainedBackpressure() throws Exception {
+    @ParameterizedTest
+    @ValueSource(longs = {0L, 1000L})
+    public void testCheckpointsKeepCompletingUnderSustainedBackpressure(long flushIntervalMs)
+            throws Exception {
+        startJob(flushIntervalMs);
         String checkpointBaseUrl =
                 HOST
                         + config.getEngineConfig().getHttpConfig().getPort()
@@ -193,6 +189,8 @@ public class BackpressureSlowSinkIT {
                             Assertions.assertTrue(getLong(counts, "completed") >= 1L);
                         });
 
+        Counter flushSignals = sourceFlushCounter(jobId);
+        List<Long> flushSamples = new ArrayList<>();
         List<Long> completedSamples = new ArrayList<>();
         List<Long> queueCapacitySamples = new ArrayList<>();
         List<Long> blockedNsSamples = new ArrayList<>();
@@ -215,6 +213,7 @@ public class BackpressureSlowSinkIT {
                     getLong(counts, "failed"),
                     "no checkpoint should fail while the slow sink is applying backpressure");
             completedSamples.add(getLong(counts, "completed"));
+            flushSamples.add(flushSignals.getCount());
 
             Map<String, Object> edgesResp = getEdgesMetrics(jobId, metricsBaseUrl);
             List<Map<String, Object>> edges = castList(edgesResp.get("edges"));
@@ -279,8 +278,81 @@ public class BackpressureSlowSinkIT {
                         + "be > 0 for at least one sample); got "
                         + blockedNsSamples);
 
+        // A timer tick must also cross the busy reader monitor repeatedly; checkpoint progress
+        // alone would not detect an omitted timer registration. Keep the same sustained workload
+        // and conservative progress floor rather than avoiding long polls with smaller splits.
+        if (flushIntervalMs > 0) {
+            long additionalFlushes =
+                    flushSamples.get(flushSamples.size() - 1) - flushSamples.get(0);
+            Assertions.assertTrue(
+                    additionalFlushes >= 3L,
+                    "timer flush must keep progressing under sustained backpressure: "
+                            + flushSamples);
+        } else {
+            Assertions.assertEquals(
+                    0L, flushSignals.getCount(), "timer flushing is disabled by default");
+        }
+
         // 4. Final health check after sustaining backpressure for the whole window.
         Assertions.assertEquals(JobStatus.RUNNING, jobProxy.getJobStatus());
+    }
+
+    /**
+     * Starts the unchanged single-split long-poll workload with optional timer-flush contention.
+     *
+     * <p>The zero-interval variant retains the original barrier-only regression; the positive
+     * interval also exercises the shared timer worker against the same busy source monitor.
+     */
+    private void startJob(long flushIntervalMs) throws Exception {
+        String filePath = TestUtils.getResource(CONF_FILE);
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("backpressure_slow_sink_it_" + flushIntervalMs);
+        if (flushIntervalMs > 0) {
+            jobConfig
+                    .getEnvOptions()
+                    .put(EnvCommonOptions.SINK_FLUSH_INTERVAL.key(), flushIntervalMs);
+        }
+
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(config.getHazelcastConfig().getClusterName());
+        engineClient = new SeaTunnelClient(clientConfig);
+        ClientJobExecutionEnvironment jobExecutionEnv =
+                engineClient.createExecutionContext(filePath, jobConfig, config);
+
+        jobProxy = jobExecutionEnv.execute();
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () -> Assertions.assertEquals(JobStatus.RUNNING, jobProxy.getJobStatus()));
+    }
+
+    /**
+     * Reads the active worker source counter rather than a submitted or serialized task template.
+     *
+     * <p>The single-node test uses the physical plan only to resolve the stable source location;
+     * the TaskExecutionService supplies the actual running task and its live metric instance.
+     */
+    private Counter sourceFlushCounter(long jobId) {
+        SeaTunnelServer server = node.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        for (SubPlan pipeline :
+                server.getCoordinatorService()
+                        .getJobMaster(jobId)
+                        .getPhysicalPlan()
+                        .getPipelineList()) {
+            for (PhysicalVertex vertex : pipeline.getPhysicalVertexList()) {
+                for (Task template : vertex.getTaskGroup().getTasks()) {
+                    if (template instanceof SourceSeaTunnelTask) {
+                        SourceSeaTunnelTask<?, ?> source =
+                                server.getTaskExecutionService()
+                                        .getTask(
+                                                ((SourceSeaTunnelTask<?, ?>) template)
+                                                        .getTaskLocation());
+                        return source.getMetricsContext().counter(MetricNames.FLUSH_SIGNAL_TOTAL);
+                    }
+                }
+            }
+        }
+        throw new AssertionError("No active source task found for backpressure job " + jobId);
     }
 
     private Map<String, Object> getCheckpointOverview(long jobId, String baseUrl) {

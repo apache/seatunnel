@@ -17,7 +17,7 @@
 
 | 名称 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| sql | string | 是 | - | 要执行的 SQL 语句 |
+| sql | string | 条件必填 | - | 要执行的 SQL 语句 |
 | table_transform | list | 否 | [] | 多表 CDC 场景下的逐表 SQL 覆盖 |
 | table_match_regex | string | 否 | .* | 表路径匹配正则。不匹配的表直接透传 |
 | row_error_handle_way | enum | 否 | FAIL | 行级错误处理方式：`FAIL`、`SKIP`、`ROUTE_TO_TABLE` |
@@ -27,6 +27,8 @@
 ```hocon
 sql = "SELECT id, UPPER(name) AS name, age + 1 AS next_age FROM source_table WHERE age > 18"
 ```
+
+未配置 `table_transform` 时必须配置全局 `sql`（显式配置空的 `table_transform` 列表同样要求配置）。配置了 `table_transform` 后，每个条目必须自带 `sql`，此时全局 `sql` 变为可选：未列出的表在配置了全局 `sql` 且其表路径匹配 `table_match_regex`（默认 `.*`）时回退到该语句；不在正则范围内的表直接透传。
 
 ### table_transform [list]
 
@@ -54,8 +56,8 @@ table_transform = [
 行级 SQL 执行错误的处理方式：
 
 - `FAIL`（默认）-- 立即终止作业
-- `SKIP` -- 跳过错误行，继续处理
-- `ROUTE_TO_TABLE` -- 将错误行路由到独立的错误表
+- `SKIP` -- 仅为兼容性保留，Calcite 转换中当前行为等同 `FAIL`：SQL 执行错误以普通 `TransformException` 抛出，错误行不会被跳过
+- `ROUTE_TO_TABLE` -- 仅为兼容性保留，Calcite 转换尚未实现错误表路由，当前行为等同 `FAIL`
 
 ### 公共参数 [string]
 
@@ -115,6 +117,14 @@ SELECT DES_ENCRYPT('12345678', secret) AS encrypted FROM t
 ```sql
 SELECT DES_DECRYPT('12345678', encrypted_secret) AS original FROM t
 ```
+
+### JSON 函数
+
+#### GET_JSON_OBJECT
+
+```GET_JSON_OBJECT(json, path) -> STRING```
+
+使用 JSON 路径从 JSON 字符串中提取值并返回字符串。该函数与 Zeta 实现共享，路径语法与示例参见 [GET_JSON_OBJECT](sql-functions.md#get_json_object)。
 
 ### 向量函数
 
@@ -229,6 +239,24 @@ SELECT id, VECTOR_REDUCE(embedding, 64, 'SPARSE_RANDOM_PROJECTION') AS reduced F
 
 ```sql
 SELECT id, VECTOR_NORMALIZE(embedding) AS unit_vec FROM t
+```
+
+### JSON 函数
+
+#### GET_JSON_OBJECT
+
+```GET_JSON_OBJECT(json, path) -> STRING```
+
+使用 JSON 路径从 JSON 字符串中提取值并以字符串返回。任一参数为 `NULL` 时返回 `NULL`。
+
+**参数：**
+- `json`：要解析的 JSON 字符串（STRING）
+- `path`：JSON 路径，例如 `$.field.subfield[0]`（STRING）
+
+**示例：**
+
+```sql
+SELECT GET_JSON_OBJECT('{"a":{"b":[1,2,3]}}', '$.a.b[1]') AS value FROM t
 ```
 
 除上述 UDF 外，Apache Calcite 提供的所有标准 SQL 函数均可使用（字符串、数学、日期/时间、JSON、条件表达式等）。完整函数参考请见 [Apache Calcite SQL 参考文档](https://calcite.apache.org/docs/reference.html)。
@@ -388,6 +416,12 @@ transform {
 
 ### 向量运算
 
+`VECTOR_NORM`、`INNER_PRODUCT`、`COSINE_DISTANCE`、`L1_DISTANCE`、`L2_DISTANCE` 和
+`VECTOR_NORMALIZE` 对 float 向量元素使用 double 精度计算中间乘积和差值，
+避免有限输入的 float 中间运算溢出或下溢。归一化输出元素仍为 float，
+因此输出舍入或下溢仍可能发生。空输入和实际零向量的处理方式保持不变。
+未增加非有限输入的校验或清理策略；修正有限中间结果也可能影响与非有限元素混合时的结果。
+
 使用内置向量 UDF 在数据管线中计算距离、降维或归一化（例如 Milvus/Qdrant 源与目标之间的处理）。
 
 ```hocon
@@ -441,8 +475,8 @@ transform {
 行级 SQL 执行出错时：
 
 - `FAIL` -- 立即终止作业（默认，推荐用于数据质量要求高的场景）
-- `SKIP` -- 静默跳过错误行
-- `ROUTE_TO_TABLE` -- 将错误行路由到独立错误表，便于后续排查
+- `SKIP` -- 仅为兼容性保留，Calcite 转换中当前行为等同 `FAIL`：SQL 执行错误以普通 `TransformException` 抛出，错误行不会被静默跳过
+- `ROUTE_TO_TABLE` -- Calcite 转换未实现该方式，行为等同 `FAIL`
 
 ## 自定义 UDF
 

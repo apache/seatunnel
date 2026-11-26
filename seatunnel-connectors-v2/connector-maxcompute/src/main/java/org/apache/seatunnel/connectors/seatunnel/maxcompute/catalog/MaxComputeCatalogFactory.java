@@ -54,6 +54,9 @@ public class MaxComputeCatalogFactory implements CatalogFactory {
                         MaxcomputeBaseOptions.PARTITION_SPEC,
                         MaxcomputeBaseOptions.SPLIT_ROW,
                         MaxcomputeBaseOptions.SCHEMA_NAME,
+                        MaxcomputeBaseOptions.CONNECT_TIMEOUT_MS,
+                        MaxcomputeBaseOptions.READ_TIMEOUT_MS,
+                        MaxcomputeBaseOptions.RETRY_TIMES,
                         ConnectorCommonOptions.SCHEMA)
                 .build();
     }

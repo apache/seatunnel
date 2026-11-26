@@ -141,6 +141,10 @@ When a job contains multiple sources, transforms, or sinks, SeaTunnel needs a wa
 
 In simple one-source jobs, you can often omit them because SeaTunnel uses a default convention and passes the previous module's output forward automatically.
 
+### Config Keys And Path Expressions
+
+SeaTunnel's config path separator is `->`, so `a->b = 1` defines the nested `a.b`, while the dot in `job.mode` is part of the key name; every config file load runs keys through that path parser, including configs read by a config adapter and the internal re-parse that serves `-i` variable substitution even when no `-i` value is passed. A key that is a valid path expression is still parsed as a path (quotes are dropped and surrounding unquoted whitespace is trimmed), so a quoted `"a->b" = 1` is stored as the nested `a.b`; a key the parser rejects stays a single literal key instead of failing the load, for example the regex field name `^t_nova_.*$` or a key containing `$`, `:` or `${...}`. HOCON also treats some of those characters as syntax, so quote such keys in the file itself: write `"$systemId" = "string"`, not `$systemId = "string"`. REST submissions follow the same rules, see [REST API V2](../../engines/zeta/rest-api-v2.md).
+
 ## Multi-line Support
 
 In `hocon`, multiline strings are supported, which allows you to include extended passages of text without worrying about newline characters or special formatting. This is achieved by enclosing the text within triple quotes **`"""`** . For example:
@@ -305,7 +309,7 @@ transform {
     sql {
       plugin_input = "fake_test_table"
       plugin_output = "sql"
-      query = "select * from dual where name = 'abc' "
+      query = "select * from fake_test_table where name = 'abc' "
     }
 
 }
@@ -320,7 +324,20 @@ sink {
 ```
 
 ### Important Notes:
+- To avoid unexpected data synchronization errors, duplicate keys are not allowed in the `-i` parameters.
+- If a value contains commas, it must be wrapped with `\"`. For example: `-i read_cols=\"id,name\"`. However, array types do not require wrapping with `\"`; for example: `-i include_fields=[id,name]`.
 - If a value contains special characters like `(`, enclose it in single quotes (`'`).
+- If the value is a map type, you can pass it as a JSON string, which supports arrays and JSON objects nested to any depth. You can format the parameter value by enclosing in a pair of single quotes as follows:
+
+  `-i mysql_properties='{"connectTimeout":"5000","connectionTimeZone":"UTC","serverTimezone":"UTC","useSSL":"false","allowPublicKeyRetrieval":"true"}'`
+- JSON parameter values are compatible with HOCON syntax: an equals sign (`=`) can be used instead of a colon (`:`). For example, a='{"k1"="v1","k2"="v2"}' is equivalent to a='{"k1":"v1","k2":"v2"}', but using a colon is still recommended.
+- If the value is an array with map inside, json parameters should be enclosed in single quotes (`\'`):
+
+  `-i table_list=['{"table_path":"movie_lens.tags_test"}','{"table_path":"movie_lens.ml_*","use_regex":"true"}']`
+- If the value is a map with array inside, the array parameter format inside the JSON must adhere to JSON format specifications. Keys must be enclosed in double quotes, while elements within the array can be either quoted or unquoted, as they will be parsed automatically:
+  
+  `-i table_filter='{"plugin_input":"mysql_source","plugin_output":"filter","include_fields":["movie_id","unix_time"]}'`
+- Placeholders within the JSON content of parameter values will not be resolved or replaced; they will be preserved as-is as part of the content.
 - If the substitution variable contains double or single quotes (e.g., `"resName"` or `"nameVal"`), you need to include them with the value.
 - The value cannot contain spaces (`' '`). For example, `-i jobName='this is a job name'` will be replaced with `job.name = "this"`. You can use environment variables to pass values with spaces.
 - For dynamic parameters, you can use the following format: `-i date=$(date +"%Y%m%d")`.

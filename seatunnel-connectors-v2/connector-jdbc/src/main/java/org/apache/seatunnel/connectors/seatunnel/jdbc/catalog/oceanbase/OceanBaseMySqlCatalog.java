@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMySqlTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMysqlType;
 
@@ -142,12 +143,12 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
         // e.g. tinyint(1) unsigned
         String columnType = resultSet.getString("COLUMN_TYPE");
         // e.g. tinyint
-        String dataType = resultSet.getString("DATA_TYPE").toUpperCase();
+        String dataType = resultSet.getString("DATA_TYPE").toUpperCase(Locale.ROOT);
         String comment = resultSet.getString("COLUMN_COMMENT");
         Object defaultValue = resultSet.getObject("COLUMN_DEFAULT");
         String isNullableStr = resultSet.getString("IS_NULLABLE");
 
-        if (dataType.toUpperCase().startsWith("VECTOR")) {
+        if (dataType.startsWith("VECTOR")) {
             dataType = "VECTOR";
         }
 
@@ -167,7 +168,7 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
         Preconditions.checkArgument(!(numberScale > 0 && timePrecision > 0));
 
         OceanBaseMysqlType oceanbaseMysqlType = OceanBaseMysqlType.getByName(columnType);
-        boolean unsigned = columnType.toLowerCase(Locale.ROOT).contains("unsigned");
+        boolean unsigned = MySqlTypeConverter.isNumericUnsignedColumnType(dataType, columnType);
 
         BasicTypeDefine<OceanBaseMysqlType> typeDefine =
                 BasicTypeDefine.<OceanBaseMysqlType>builder()

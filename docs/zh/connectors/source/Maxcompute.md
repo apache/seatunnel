@@ -30,7 +30,7 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 | accesskey       | string | 否                                 | -      | 访问 MaxCompute 的 AccessKey Secret。                                                                       |
 | sts_token       | string | 否                                 | -      | MaxCompute 临时认证 STS Token。配置 `sts_token` 时，`accessId` 与 `accesskey` 必填。                          |
 | endpoint        | string | 是                                 | -      | MaxCompute 端点，以 `http` 开头。                                                                            |
-| project         | string | 是                                 | -      | 在阿里云中创建的 MaxCompute 项目。                                                                           |
+| project         | string | 否                                 | -      | 在阿里云中创建的 MaxCompute 项目。选项规则不强制要求：`table_list` 的每一项都可以单独配置 `project` 覆盖外层值，因此外层配置是可选的。除非每个 `table_list` 条目都自带 `project`，否则请配置该参数。 |
 | table_name      | string | 未配置 `table_list` 时必填          | -      | 目标 MaxCompute 表名，例如 `fake`。                                                                          |
 | schema_name     | string | 否                                 | -      | MaxCompute Schema 名称（Project 与 Table 之间的命名空间）。仅当表位于非默认 Schema 时需要设置。               |
 | partition_spec  | string | 否                                 | -      | MaxCompute 分区表的规范，例如 `ds='20220101'`。                                                              |
@@ -39,6 +39,12 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 | table_list      | Array  | 否                                 | -      | 要读取的表列表；可替代 `table_name` 一次读取多张 MaxCompute 表。                                              |
 | tunnel_endpoint | string | 否                                 | -      | MaxCompute Tunnel 服务的自定义端点；未配置时根据区域自动推断。                                                |
 | tunnel_name     | string | 否                                 | -      | Tunnel Quota 名称；需同时将 `endpoint` 与 `tunnel_endpoint` 配置为 VPC 端点。                                |
+| connect_timeout_ms        | long | 否 | 10000  | ODPS REST 客户端（元数据/catalog 调用）的 HTTP 连接超时，单位毫秒。默认 10000（10 秒）。            |
+| read_timeout_ms           | long | 否 | 120000 | ODPS REST 客户端（元数据/catalog 调用）的 HTTP 读超时，单位毫秒。默认 120000（120 秒）。           |
+| retry_times               | int  | 否 | 4      | ODPS REST 客户端最大重试次数。默认 4。                                                              |
+| tunnel_connect_timeout_ms | long | 否 | 180000 | Tunnel 客户端（批量数据下载）的 HTTP 连接超时，单位毫秒。默认 180000（180 秒）。                   |
+| tunnel_read_timeout_ms    | long | 否 | 300000 | Tunnel 客户端（批量数据下载）的 HTTP 读超时，单位毫秒。默认 300000（300 秒）。                     |
+| tunnel_retry_times        | int  | 否 | 4      | Tunnel 客户端最大重试次数。默认 4。                                                                |
 | schema          | config | 否                                 | -      | 源表结构；未配置 `read_columns` 时按 schema 中字段读取。                                                       |
 | common-options  |        | 否                                 | -      | Source 插件通用参数，例如 `plugin_output`。                                                                  |
 
@@ -59,7 +65,7 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 ### endpoint [string]
 
-`endpoint` 您的 Maxcompute 端点，以 http 开头。
+您的 MaxCompute 端点，以 `http` 开头。此选项必填，不能是空字符串或仅包含空白字符。空白值会在配置校验阶段被拒绝，不会进入 MaxCompute 连接阶段。
 
 ### project [string]
 
@@ -97,7 +103,7 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 要读取的表列表，您可以使用此配置代替 `table_name`。
 
-每个表配置项都必须包含 `table_name`，也可以单独覆盖 `project`、`schema_name`、`partition_spec`、`split_row` 和 `read_columns`。如果表配置项没有设置这些值，连接器会使用顶层配置。
+每个表配置项都必须包含 `table_name`，也可以单独覆盖 `project`、`schema_name`、`partition_spec`、`split_row` 和 `read_columns`。如果表配置项没有设置 `project`、`schema_name`、`partition_spec` 或 `split_row`，连接器会使用顶层配置。`split_row` 的顶层回退有一个例外：自带内联 `schema` 的表配置项只使用自身的 `split_row`，不会继承顶层的 `split_row`；此时若配置项未设置 `split_row`，则使用选项默认值 10000。注意 `read_columns` 是例外：它必须在每个 `table_list` 配置项中单独设置，顶层的 `read_columns` 不会应用到 `table_list` 的表上。
 
 当一个任务需要用同一组账号、endpoint 和默认 project 读取多张 MaxCompute 表时，可以使用该模式。
 
@@ -131,6 +137,36 @@ Tunnel Quota 允许您使用专用的计算资源进行 MaxCompute Tunnel 数据
 - `your_tunnel_quota_name`
 
 默认值：未设置（使用默认 quota）
+
+> **客户端超时与重试**
+> MaxCompute 有两个 HTTP 客户端。**ODPS REST 客户端**负责控制面（表/schema 查询、catalog 列表），
+> 用 `connect_timeout_ms`、`read_timeout_ms`、`retry_times` 调整；**Tunnel 客户端**负责数据面（批量行下载），
+> 用 `tunnel_*` 系列调整。单独设置 REST 参数**不会**改变 Tunnel 客户端的超时。
+> 毫秒值会被转换为整秒，最小值为 `1000`。
+
+### connect_timeout_ms [long]
+
+`connect_timeout_ms` MaxCompute ODPS REST 客户端的 HTTP 连接超时，该客户端处理元数据与 catalog 调用（表/schema 查询、表列表）。单位毫秒。默认 `10000`（10 秒）。
+
+### read_timeout_ms [long]
+
+`read_timeout_ms` ODPS REST 客户端（元数据/catalog 调用）的 HTTP 读超时，单位毫秒。默认 `120000`（120 秒）。当项目下表非常多或 schema 极宽导致拉取超时时调大。
+
+### retry_times [int]
+
+`retry_times` ODPS REST 客户端在瞬态失败时的最大重试次数。默认 `4`。
+
+### tunnel_connect_timeout_ms [long]
+
+`tunnel_connect_timeout_ms` Tunnel 客户端（执行批量数据下载）的 HTTP 连接超时，单位毫秒。默认 `180000`（180 秒）。
+
+### tunnel_read_timeout_ms [long]
+
+`tunnel_read_timeout_ms` Tunnel 客户端（批量数据下载）的 HTTP 读超时，单位毫秒。默认 `300000`（300 秒）。当单次读请求超过 5 分钟（大表或大分区）时调大。
+
+### tunnel_retry_times [int]
+
+`tunnel_retry_times` Tunnel 客户端在瞬态失败时的最大重试次数。默认 `4`。
 
 ### common options
 

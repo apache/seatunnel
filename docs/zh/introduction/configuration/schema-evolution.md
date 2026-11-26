@@ -1,10 +1,15 @@
 # 模式演进
 模式演进是指数据表的Schema可以改变，数据同步任务可以自动适应新的表结构的变化而无需其他操作。
 
+Schema restoration events replay metadata that was already accepted before recovery. They continue downstream under `STRICT`, `EVOLVE`, and `IGNORE`, including when the source advertises no live schema-change capabilities; the behavior policy applies to new DDL events. Comment-only column-event batches are ignored only when every child is metadata-only; mixed layout changes remain fatal. Sinks without an advertised capability trait retain their deprecated callback/no-op compatibility window for one release, while an explicitly empty capability list still rejects layout changes.
+
 ## 已支持的引擎
 
 - Zeta
+- Flink（受下述路由与连接器条件限制）
 
+`schema-changes.behavior` 目前仅在 Flink 上生效。Zeta 仍沿用该选项引入之前的模式演进行为，
+不执行该策略；Spark 完全不支持 schema evolution。Spark 作业请勿开启 `schema-changes.enabled`。
 ## 已支持的模式变更事件类型
 
 - `ADD COLUMN`
@@ -31,8 +36,16 @@
 [BigQuery](../../connectors/sink/BigQuery.md#schema-演进)（仅支持 `ADD COLUMN`）
 [Redis](../../connectors/sink/Redis.md#模式演变)
 
+### Transform
+
+| 状态 | Transform | 原因 |
+|------|-----------|------|
+| 支持，事件会被翻译 | [Sql](../../transforms/sql.md)、FieldRename、TableRename | 它们会把事件改写成描述自身输出的事件。 |
+| 支持，事件透传 | FilterRowKind、Replace、FieldEncrypt、DataValidator | 列集合、顺序和类型都不变，因此上游事件即可描述其输出。限制：当这类 transform 位于同一条链路中另一个 transform 之后时，列重命名会失败。 |
+| 不支持 | Filter、FieldMapper、Copy、Split、JsonPath、Metadata、RowKindExtractor、RegexExtract、Embedding、LLM、DynamicCompile、Python、TextChunk、Calcite、TableFilter、TableMerge、DefineSinkType | 它们会新增、删除或重排列、改变表标识或持有过期的表结构，却原样转发上游事件。在 `schema-changes.enabled = true` 时使用它们会导致 sink 表结构与数据行不一致。放在 Metadata 或 RowKindExtractor 之后的 Sql transform 会采用它们产出的列布局并发出正确的事件，见 [Sql transform](../../transforms/sql.md)。 |
+
 注意: 
-* 目前模式演进不支持transform。不同类型数据库(Oracle-CDC -> Jdbc-Mysql)的模式演进目前不支持ddl中列的默认值。
+* 不同类型数据库(Oracle-CDC -> Jdbc-Mysql)的模式演进目前不支持ddl中列的默认值。
 
 * 当你使用Oracle-CDC时，你不能使用用户名`SYS`或`SYSTEM`来修改表结构，否则ddl事件将被过滤，这可能导致模式演进不起作用；
 另外，如果你的表名以`ORA_TEMP_`开头，也会有相同的问题。
@@ -42,6 +55,34 @@
 ## 启用Schema evolution功能
 在CDC源连接器中模式演进默认是关闭的。你需要在CDC连接器中配置`schema-changes.enabled = true`来启用它。
 
+在 Flink 上启用模式演进时，`incremental.parallelism` 必须为 `1`（默认值）。如果配置多个增量读取器，Flink 会在任务启动阶段拒绝该任务。
+
+### Flink 路由与故障恢复
+
+Flink 将每张源表的数据发送到一个 Sink 子任务，不同表可以分布到不同子任务。
+提高 Sink 并行度不会提高单表的子任务并行度，哈希碰撞也可能让多张表落到同一个子任务。
+连接器内部的 writer 副本与 Flink 子任务并行度不同，仍需连接器自身同步 schema 变更。
+此 Flink 路由模式要求不同源表使用不同物理目标表；多张源表合并写入一张物理表时，
+不同 Flink 子任务之间没有共同的 DDL 切换屏障。
+
+Schema 控制消息与数据走同一个按表分区的通道。每张表的 schema 进度、最新结构和等待行
+保存在 keyed state 中，在 Flink 支持的扩缩容恢复中一起迁移。
+由于源端 schema 序号跨表递增，每条控制消息需要发送到所有已配置表，控制流量随表数量增长。
+等待行按表限制为 100,000 条、估算大小 64 MiB；仍需按子任务承载的全部表配置状态后端和内存，
+缩容时尤其需要注意。
+
+恢复后，翻译层在转发该表的数据前，通过 writer 的 `applySchemaChange` 发送
+`RestoreTableSchemaEvent`。连接器必须仅重建运行时 schema，不对此事件执行物理 DDL。
+其他 schema 变更可能在故障后重放：DDL 为至少一次投递，连接器必须同步应用变更、
+向上传播失败，并在变更已经执行过时安全收敛。
+
+Source 在输出 schema 变更以及分配 Split 后（包括恢复）暂停轮询，收到后续两次 checkpoint
+完成通知后继续，因此 checkpoint 必须持续开启并正常推进。这个流控不等于外部事务提交确认，
+连接器的 flush、commit 和 DDL 顺序仍需满足要求，特别是 XA prepare 不等于 commit。
+
+旧版 Flink schema evolution checkpoint 不会自动迁移到新的 keyed 协议。
+升级已有任务前请阅读[不兼容变更](../concepts/incompatible-changes.md)。
+
 ## 多库多表路由
 
 只要每张上游表都能稳定映射到一个明确的物理下游表，模式演进就可以和多库多表任务一起工作。SeaTunnel 会在连接器启动前完成 Sink 占位符替换，因此你可以结合 [Sink 参数占位符](./sink-options-placeholders.md) 中的 `${database_name}`、`${schema_name}`、`${table_name}` 做路由。
@@ -49,8 +90,8 @@
 推荐做法：
 
 - 如果希望不同上游库的表彼此隔离，请把它们路由到不同的物理下游表。
-- 如果需要并行写入，可继续开启 `multi_table_sink_replica`；模式变更会按最终渲染出的物理下游表维度协调执行。
-- 如果你有意把多张上游表写入同一张物理下游表，请自行保证这些表的 schema 兼容，并确保主键不会冲突。
+- `multi_table_sink_replica` 控制连接器内部 writer，不能解除上述 Flink 单表单子任务的限制。
+- 在上述 Flink 路由模式之外，如果你有意把多张上游表写入同一张物理下游表，请自行保证这些表的 schema 兼容，并确保主键不会冲突。
 
 ### 示例：不同源库中的同名表 -> 不同下游库中的同名表
 
@@ -127,6 +168,48 @@ sink {
 }
 ```
 
+## Schema 变更行为策略
+
+CDC Source 在配置 `schema-changes.enabled = true` 时，可以继续配置 `schema-changes.behavior`。
+默认值是 `evolve`，因此已有作业只配置 `schema-changes.enabled = true` 时，会保持最接近现有语义的行为。
+当 `schema-changes.enabled = false` 时，schema change event 不会发送到下游，该选项不会改变当前行为。
+配置值不区分大小写；下面使用的小写形式是配置示例中的规范写法。
+
+CDC 反序列化器会先应用 `schema-changes.include` 和 `schema-changes.exclude`，再执行 behavior
+策略。完全被过滤的事件既不会更新 Source 输出行结构，也不会进入 behavior 策略。因此，例如
+`strict` 不会因为一个已排除的事件而失败。
+
+| 值 | 运行时契约 |
+| --- | --- |
+| `strict` | 一旦观察到 schema change event，立即让作业失败，并且不会尝试下游 schema 协调或 Sink 侧 schema 变更。 |
+| `evolve` | 将受支持的 schema change event 转发到正常的 schema 协调路径。不支持的行结构变更和 Sink 侧 apply 失败都会让作业失败；不受支持的纯注释事件会在各 Sink 路径记录日志并丢弃，因为它们不影响行编码。 |
+| `ignore` | 只在下游 schema 协调和 Sink 侧 schema evolution 之前丢弃 `ALTER_TABLE_COMMENT` 和 `ALTER_COLUMN_COMMENT`。ADD、DROP、RENAME、MODIFY COLUMN 会改变运行时行结构，因此会失败而不是被忽略。 |
+
+行为矩阵：
+
+| 场景 | `strict` | `evolve` | `ignore` |
+| --- | --- | --- | --- |
+| Source 发出受支持的 schema change 类型 | 在下游传播前失败 | 通过 Sink 协调并应用 | 仅在可以安全忽略时，在下游传播前丢弃 |
+| Source 发出不支持的 schema change 类型 | 在下游传播前失败 | Flink 在协调前的策略门禁记录并丢弃纯注释事件；其他事件在 Sink 侧 apply 前失败 | 在协调前丢弃 `ALTER_TABLE_COMMENT` 和 `ALTER_COLUMN_COMMENT`；行结构变更失败 |
+| Sink 支持 schema evolution | 不会到达 Sink | 通过 `SupportSchemaEvolutionSinkWriter` 应用 | 不会到达 Sink |
+| Sink 不支持 schema evolution | 不会到达 Sink | 纯注释事件记录日志后丢弃；在一个版本的兼容窗口内，调用显式覆写的 deprecated 方法，继承默认 no-op 时记录告警并丢弃 | 不会到达 Sink |
+| Sink apply 在运行时抛出异常 | 不会到达 Sink | 使用 Sink apply 错误让作业失败 | 不会到达 Sink |
+
+升级说明：在 `evolve` 模式下，Sink writer 应实现 `SupportSchemaEvolutionSinkWriter` 来接收并应用
+schema change event。在 deprecated 兼容窗口内，两个 Flink sink 路径仍会调用 Sink writer 显式覆写的
+`SinkWriter.applySchemaChange`，并记录迁移告警。为避免升级后直接破坏已有作业，在一个版本的兼容窗口内，
+继承的默认 no-op 也会记录告警并丢弃事件；该兜底将在下一个版本移除。请将 Sink writer 迁移到
+`SupportSchemaEvolutionSinkWriter`、关闭 `schema-changes.enabled`，或排除 Sink 不应接收的事件类型。
+`schema-changes.behavior = ignore` 只适用于纯注释变更。
+
+策略拒绝是确定性失败。Flink 会用 `SuppressRestartsException` 包装，
+因此从同一 checkpoint 恢复时不会反复重放同一条被拒绝的 DDL。请修改为 `evolve` 并使用兼容的
+Sink、关闭 `schema-changes.enabled`，或调整过滤规则后重新提交作业。
+
+在 `evolve` 模式下，如果外部 DDL 已成功但随后的 checkpoint 未完成，恢复后 schema change event
+可能再次投递。因此 `SupportSchemaEvolutionSinkWriter` 实现必须幂等应用事件。JDBC 实现会在重放
+ADD、DROP、RENAME COLUMN 前检查当前 Sink schema；其他 Sink 必须为其声明支持的事件类型提供等价保证。
+
 ## 示例
 
 ### Mysql-CDC -> Jdbc-Mysql
@@ -149,6 +232,7 @@ source {
     url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
     
     schema-changes.enabled = true
+    schema-changes.behavior = evolve
   }
 }
 
@@ -280,7 +364,7 @@ sink {
     password = ""
     database = "shop"
     table = "${table_name}"
-    url = "jdbc:mysql://starrocks_cdc_e2e:9030/shop"
+    base-url = "jdbc:mysql://starrocks_cdc_e2e:9030/shop"
     max_retries = 3
     enable_upsert_delete = true
     schema_save_mode="RECREATE_SCHEMA"
@@ -303,6 +387,8 @@ sink {
   }
 }
 ```
+
+> **注意（schema 演进 + 批量写入）：** 在应用 DDL 之前，StarRocks sink 会先把按旧 schema 缓冲的数据（`batch_max_rows` / `batch_max_bytes`）加载到 StarRocks，因此 schema 变更不会丢弃未写完的批次。如果这次加载失败，DDL 不会执行并抛出错误：引擎会从上一次 checkpoint 重放数据，多表重试则会用同一个 label 重新发送该批次。
 
 ### Mysql-CDC -> Doris
 ```
