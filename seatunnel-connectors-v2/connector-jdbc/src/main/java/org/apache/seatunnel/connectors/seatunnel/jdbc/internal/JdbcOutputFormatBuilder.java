@@ -120,7 +120,23 @@ public class JdbcOutputFormatBuilder {
                 connectionProvider,
                 jdbcSinkConfig.getJdbcConnectionConfig(),
                 statementExecutorFactory,
-                commitOnFlush);
+                commitOnFlush,
+                buildTableIdentifier(database, table));
+    }
+
+    /**
+     * Builds the {@code database.table} label used to identify the target table in sink failure
+     * messages. Returns {@code null} when neither option is configured, so calls without a target
+     * table (for example a custom SQL sink) keep the previous messages unchanged.
+     */
+    private static String buildTableIdentifier(String database, String table) {
+        if (StringUtils.isBlank(table)) {
+            return StringUtils.isBlank(database) ? null : database;
+        }
+        if (StringUtils.isBlank(database)) {
+            return table;
+        }
+        return database + "." + table;
     }
 
     private static JdbcBatchStatementExecutor<SeaTunnelRow> createSimpleBufferedExecutor(
