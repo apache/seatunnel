@@ -32,6 +32,7 @@ import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
+import org.apache.seatunnel.engine.server.CheckpointService;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
@@ -353,7 +354,8 @@ public class CheckpointManager {
                         "Job {} has retain-after-job-cancelled enabled, retaining checkpoint data",
                         jobId);
             } else {
-                checkpointStorage.deleteCheckpoint(jobId + "");
+                CheckpointService.deleteCheckpointDataKeepingSavepoints(
+                        checkpointStorage, jobId + "");
             }
         }
         if (checkpointMonitorService != null
