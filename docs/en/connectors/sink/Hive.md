@@ -12,13 +12,13 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ## Description
 
-Write data to Apache Hive tables. The connector uses Hive Metastore for table management and writes data files (text, parquet, ORC) to HDFS (or S3/OSS when configured). The file format is detected from the Hive table's storage format (`STORED AS`) and cannot be configured on the connector. By default it uses two-phase commit so each checkpoint either commits the whole batch or rolls it back.
+Write data to Apache Hive tables. The connector uses Hive Metastore for table management and writes data files (text, parquet, ORC) to HDFS (or S3/OSS when configured). The file format is detected from the Hive table's storage format (`STORED AS`) and cannot be configured on the connector. By default it uses a two-phase commit protocol: data files are staged in temporary transaction directories during writing and finalized at checkpoint commit, when the staged files are renamed into place and partition metadata is registered with Hive Metastore. Files are published one by one, so a checkpoint commit is not an atomic all-files transaction and does not automatically roll back files that were already published; failed commits are retried from the restored checkpoint state.
 
 :::tip
 
 In order to use this connector, You must ensure your spark/flink cluster already integrated hive. The tested hive version is 2.3.9 and 3.1.3 .
 
-If you use SeaTunnel Engine, You need put seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar and hive-exec-3.1.3.jar and libfb303-0.9.3.jar in $SEATUNNEL_HOME/lib/ dir.
+If you use SeaTunnel Engine, use the `seatunnel-shade-hadoop3-uber-*.jar` bundled in `$SEATUNNEL_HOME/lib/`. Add `hive-exec-3.1.3.jar` and `libfb303-0.9.3.jar` to the same directory.
 :::
 
 ## Key features
@@ -41,7 +41,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 |---------------------------------------|---------|----------|----------------|-------------|
 | table_name                            | string  | yes      | -              | Target Hive table name, e.g. `db1.table1`. For multi-table mode, you can use `${database_name}.${table_name}` and SeaTunnel will substitute the upstream values. |
 | metastore_uri                         | string  | no       | -              | Hive metastore URI. Required unless `hive.metastore.client.factory.class` is configured through `hive_site_path`, `hive.hadoop.conf-path`, or `hive.hadoop.conf`. Comma-separated values enable HA failover. |
-| compress_codec                        | string  | no       | none           | Output compression codec. `lzo` and `none` are supported. Parquet / ORC auto-detect compression. |
+| compress_codec                        | string  | no       | none           | Explicit output compression codec. ORC supports `NONE`, `SNAPPY`, `ZLIB`, `LZ4` and `LZO`. Defaults to `none`; see `use_table_compression` to inherit compression from an existing ORC or Parquet table. |
+| use_table_compression                 | boolean | no       | false          | Inherit `orc.compress` or `parquet.compression` from an existing table when no explicit codec is configured. |
 | hdfs_site_path                        | string  | no       | -              | Local path of `hdfs-site.xml`. Deprecated for new jobs — prefer `hive.hadoop.conf` or `hive.hadoop.conf-path`. |
 | hive_site_path                        | string  | no       | -              | Local path of `hive-site.xml`. |
 | hive.hadoop.conf                      | Map     | no       | -              | Inline Hadoop configuration properties. |
@@ -55,8 +56,33 @@ By default, we use 2PC commit to ensure `exactly-once`
 | overwrite                             | boolean | no       | false          | Replace existing data before commit. Equivalent to `data_save_mode = "DROP_DATA"`. |
 | data_save_mode                        | enum    | no       | APPEND_DATA    | How to handle existing data before writing. `APPEND_DATA` (default), `DROP_DATA`, `CUSTOM_PROCESSING`, `ERROR_WHEN_DATA_EXISTS`. |
 | schema_save_mode                      | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target table schema before writing. `RECREATE_SCHEMA`, `CREATE_SCHEMA_WHEN_NOT_EXIST`, `ERROR_WHEN_SCHEMA_NOT_EXIST`, `IGNORE`. |
-| save_mode_create_template             | string  | no       | -              | Custom DDL template used when auto-creating the target Hive table. Variables: `${database}`, `${table}`, `${rowtype_fields}`, `${rowtype_partition_fields}`, `${table_location}`. |
+| save_mode_create_template             | string  | no       | -              | Custom DDL template used when auto-creating the target Hive table. Variables: `${database}`, `${table}`, `${rowtype_fields}`, `${rowtype_partition_fields}`, `${table_location}`, `${current_timestamp}`. |
 | common-options                        |         | no       | -              | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
+
+### use_table_compression [boolean]
+
+Default: `false`. Enable this option to inherit compression from an **existing ORC or Parquet table** when the sink is initialized. The property is `orc.compress` for ORC and `parquet.compression` for Parquet. Table metadata is not modified.
+
+Priority: explicit `compress_codec` (including `NONE`) > the format-specific table property when enabled > the existing default `NONE`. Values are trimmed and matched without case sensitivity. Missing, null or blank properties retain the default. Parquet accepts `NONE`, `UNCOMPRESSED` (an alias for `NONE`), `SNAPPY`, `GZIP`, `LZO`, `LZ4`, `BROTLI` and `ZSTD`. Inherited `ZLIB` is rejected for Parquet because it maps to uncompressed output. Unknown or incompatible inherited codecs fail during sink initialization; explicit codecs retain their existing validation behavior. Native codec dependencies and downstream readers must support the chosen codec.
+
+Other formats are skipped without validating either property. When the table does not exist at initialization and follows automatic creation, inheritance is also skipped, including properties in `save_mode_create_template`. Enabling this option alone does not cause these skip cases to fail; explicit codec handling and normal configuration/table-creation validation still apply.
+
+ORC behavior remains unchanged: codecs without a supported ORC mapping are rejected. In versions where ORC ZSTD maps to NONE, inherited ZSTD is rejected; verify your SeaTunnel version supports ORC ZSTD before using it.
+
+For an existing table created with `STORED AS PARQUET TBLPROPERTIES ('parquet.compression'='SNAPPY')`:
+
+```hocon
+sink {
+  Hive {
+    table_name = "default.existing_parquet_table"
+    metastore_uri = "thrift://metastore:9083"
+    use_table_compression = true
+    # Optional: compress_codec = "NONE" overrides the table property.
+  }
+}
+```
+
+The same option applies to an existing ORC table with `TBLPROPERTIES ('orc.compress'='SNAPPY')`.
 
 ### table_name [string]
 
@@ -168,15 +194,19 @@ Option values:
 
 ### save_mode_create_template [string]
 
-We use templates to automatically create Hive tables, which will create corresponding table creation statements based on the type of upstream data and schema type, and the default template can be modified according to the situation. Available template variables: ${database}, ${table}, ${rowtype_fields}, ${rowtype_partition_fields}, ${table_location}.
+We use templates to automatically create Hive tables, which will create corresponding table creation statements based on the type of upstream data and schema type, and the default template can be modified according to the situation. Available template variables: ${database}, ${table}, ${rowtype_fields}, ${rowtype_partition_fields}, ${table_location}, ${current_timestamp}.
 
-**Default value**: When not specified, uses a default PARQUET non-partitioned table template:
+**Default value**: When not specified, table creation goes through the Hive metastore client and produces a PARQUET non-partitioned managed table. The equivalent default template is (the metastore path stamps `seatunnel.creation.mode = default_template`, so the template below keeps that same value; `${current_timestamp}` is replaced with creation epoch milliseconds):
 ```sql
 CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
   ${rowtype_fields}
 )
 STORED AS PARQUET
 LOCATION '${table_location}'
+TBLPROPERTIES (
+  'seatunnel.creation.mode' = 'default_template',
+  'seatunnel.created.time' = '${current_timestamp}'
+)
 ```
 
 ### common options
@@ -279,6 +309,7 @@ sink {
       bucket = "s3a://mybucket"
       fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
     }
+  }
 }
 ```
 
@@ -518,7 +549,7 @@ sink {
 }
 ```
 
-### example 2
+### example 3
 
 We have multiple source table like this:
 

@@ -22,14 +22,19 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -37,13 +42,17 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.math.BigDecimal;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -56,6 +65,10 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
     private static final String SQLSERVER_DATABASE = "master";
     private static final String SQLSERVER_SCHEMA = "dbo";
     private static final String SQLSERVER_CATALOG_DATABASE = "catalog_test";
+    private static final String VIEW_SOURCE = "e2e_view_source";
+    private static final String VIEW_SINK = "e2e_view_sink";
+    private static final List<String> VIEW_COLUMNS =
+            Arrays.asList("BIGINT_TEST", "INT_TEST", "DATE_TEST");
     private static final int SQLSERVER_CONTAINER_PORT = 1433;
     private static final String SQLSERVER_URL =
             "jdbc:sqlserver://"
@@ -145,6 +158,43 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
     private String username;
 
     private String password;
+
+    /** A source {@code table_path} may name a view, not only a table. */
+    @TestTemplate
+    public void testViewAsSourceTablePath(TestContainer container) throws Exception {
+        assertViewReadThroughTablePath(
+                container,
+                "/jdbc_sqlserver_view_source_to_sink.conf",
+                createViewSql(),
+                buildTableInfoWithSchema(SQLSERVER_SCHEMA, VIEW_SOURCE),
+                buildTableInfoWithSchema(SQLSERVER_SCHEMA, VIEW_SINK));
+    }
+
+    @Test
+    public void testCatalogResolvesView() throws Exception {
+        assertCatalogResolvesView(
+                new SqlServerCatalog(
+                        "sqlserver",
+                        jdbcCase.getUserName(),
+                        jdbcCase.getPassword(),
+                        SqlServerURLParser.parse(
+                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())),
+                        SQLSERVER_SCHEMA,
+                        null),
+                createViewSql(),
+                buildTableInfoWithSchema(SQLSERVER_SCHEMA, VIEW_SOURCE),
+                TablePath.of(SQLSERVER_DATABASE, SQLSERVER_SCHEMA, VIEW_SOURCE),
+                VIEW_COLUMNS);
+    }
+
+    private String createViewSql() {
+        return "CREATE OR ALTER VIEW "
+                + buildTableInfoWithSchema(SQLSERVER_SCHEMA, VIEW_SOURCE)
+                + " AS SELECT "
+                + String.join(", ", VIEW_COLUMNS)
+                + " FROM "
+                + buildTableInfoWithSchema(SQLSERVER_SCHEMA, SQLSERVER_SOURCE);
+    }
 
     @Override
     JdbcCase getJdbcCase() {
@@ -383,5 +433,76 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
             sqlServerCatalog.dropDatabase(specialTablePath, true);
         }
         sqlServerCatalog.close();
+    }
+
+    /**
+     * SQL Server reports type names in lower case, for example {@code int} or {@code datetime2}.
+     * Under {@code tr-TR} and {@code az-AZ}, upper casing them with the default locale gave {@code
+     * İNT}, which matched no type, so reading the table from the catalog failed. The catalog is
+     * created under the locale too, so the URL is also parsed there.
+     */
+    @Test
+    public void testCatalogReadsColumnTypesUnderTurkishLocale() throws SQLException {
+        String tableName = "locale_type_source";
+        Locale[] saved = {
+            Locale.getDefault(),
+            Locale.getDefault(Locale.Category.FORMAT),
+            Locale.getDefault(Locale.Category.DISPLAY)
+        };
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE [dbo].["
+                            + tableName
+                            + "] ([c_int] int, [c_bigint] bigint, [c_datetime2] datetime2)");
+            // The shared connection does not auto commit, and the catalog reads the table
+            // through its own connection, which waits on an uncommitted CREATE TABLE.
+            connection.commit();
+            try {
+                for (Locale locale :
+                        new Locale[] {new Locale("tr", "TR"), new Locale("az", "AZ")}) {
+                    // Upper casing "i" gives a dotted capital I under these locales.
+                    Locale.setDefault(locale);
+                    try (SqlServerCatalog localeCatalog =
+                            new SqlServerCatalog(
+                                    "sqlserver",
+                                    jdbcCase.getUserName(),
+                                    jdbcCase.getPassword(),
+                                    SqlServerURLParser.parse(
+                                            jdbcCase.getJdbcUrl()
+                                                    .replace(HOST, dbServer.getHost())),
+                                    SQLSERVER_SCHEMA,
+                                    null)) {
+                        localeCatalog.open();
+                        TableSchema tableSchema =
+                                localeCatalog
+                                        .getTable(
+                                                TablePath.of(
+                                                        SQLSERVER_DATABASE,
+                                                        SQLSERVER_SCHEMA,
+                                                        tableName))
+                                        .getTableSchema();
+                        Assertions.assertEquals(
+                                BasicType.INT_TYPE,
+                                tableSchema.getColumn("c_int").getDataType(),
+                                locale.toString());
+                        Assertions.assertEquals(
+                                BasicType.LONG_TYPE,
+                                tableSchema.getColumn("c_bigint").getDataType(),
+                                locale.toString());
+                        Assertions.assertEquals(
+                                LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                tableSchema.getColumn("c_datetime2").getDataType(),
+                                locale.toString());
+                    }
+                }
+            } finally {
+                // The base locale first, because setting it overwrites both category defaults.
+                Locale.setDefault(saved[0]);
+                Locale.setDefault(Locale.Category.FORMAT, saved[1]);
+                Locale.setDefault(Locale.Category.DISPLAY, saved[2]);
+                statement.execute("DROP TABLE IF EXISTS [dbo].[" + tableName + "]");
+                connection.commit();
+            }
+        }
     }
 }

@@ -53,16 +53,22 @@ Clickhouse source 和 ClickhouseFile sink 的行为不变。
 
 ## 数据类型映射
 
+下表列出 ClickHouse 写入类型。自动建表时，`ClickhouseTypeConverter.reconvert` 会把 SeaTunnel 的 `STRING`、`INT`、`BIGINT` 分别映射为 `String`、`Int32`、`Int64`。这三行列出的其余类型适用于已存在的目标列。
+
 | SeaTunnel 数据类型 |                                                                Clickhouse 数据类型                                                                |
 |----------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
 | STRING         | String / Int128 / UInt128 / Int256 / UInt256 / Point / Ring / Polygon MultiPolygon                                                            |
+| TINYINT        | Int8                                                                                                                                          |
+| SMALLINT       | Int16                                                                                                                                         |
 | INT            | Int8 / UInt8 / Int16 / UInt16 / Int32                                                                                                         |
-| BIGINT         | UInt64 / Int64 / IntervalYear / IntervalQuarter / IntervalMonth / IntervalWeek / IntervalDay / IntervalHour / IntervalMinute / IntervalSecond |
+| BIGINT         | Int64 / UInt32 / UInt64 / IntervalYear / IntervalQuarter / IntervalMonth / IntervalWeek / IntervalDay / IntervalHour / IntervalMinute / IntervalSecond |
+| BOOLEAN        | Bool                                                                                                                                          |
 | DOUBLE         | Float64                                                                                                                                       |
 | DECIMAL        | Decimal                                                                                                                                       |
 | FLOAT          | Float32                                                                                                                                       |
 | DATE           | Date                                                                                                                                          |
-| TIME           | DateTime                                                                                                                                      |
+| TIMESTAMP      | DateTime64                                                                                                                                    |
+| TIME           | String                                                                                                                                        |
 | ARRAY          | Array                                                                                                                                         |
 | MAP            | Map                                                                                                                                           |
 
@@ -190,6 +196,53 @@ sink {
 }
 ```
 
+## ClickhouseFile Sink
+
+除了上面的 `Clickhouse` sink 插件外，本连接器还提供 `ClickhouseFile` sink 插件（工厂标识符为
+`ClickhouseFile`）。它不通过 JDBC 逐行写入，而是把数据交给本地的 `clickhouse-local` 程序生成
+ClickHouse part 文件，再将生成的文件复制（`scp` 或 `rsync`）到目标 ClickHouse 服务节点并 attach 到
+目标表。对于大批量写入，这种方式通常比逐行插入快得多。
+
+`table` 必须指向已存在的 ClickHouse `Distributed` 表。写入前，Sink 会从该表的定义中读取集群和底层本地表。
+
+`ClickhouseFile` sink 只会读取上方 [Sink 选项](#sink-选项) 中的这些选项：`host`、`database`、`table`、
+`username`、`password`、`clickhouse.config`、`sharding_key` 和 `server_time_zone`。其他 sink 选项
+（如 `bulk_size`、`split_mode`、`primary_key`、`support_upsert`、`schema_save_mode`、`data_save_mode`）
+不在其选项规则内，在此处不生效。该插件特有的选项如下：
+
+| 名称                  | 类型    | 是否必须 | 默认值                               | 描述                                                                                          |
+|-----------------------|---------|------|--------------------------------------|-----------------------------------------------------------------------------------------------|
+| clickhouse_local_path | String  | 是   | -                                    | ClickhouseFile sink 使用的 `clickhouse-local` 程序路径。                                            |
+| copy_method           | Enum    | 否   | scp                                  | 将生成的 part 文件复制到 ClickHouse 服务节点的方式，支持 `scp`、`rsync`。                              |
+| compatible_mode       | Boolean | 否   | false                                | 低版本 ClickHouse 的 `clickhouse-local` 程序不支持 `--path` 参数，需要启用此模式用其他方式实现 `--path` 的功能。 |
+| node_free_password    | Boolean | 否   | false                                | SeaTunnel 节点与 ClickHouse 服务节点之间是否配置了免密登录。文件传输使用 `scp`/`rsync`，因此 SeaTunnel 需要访问 ClickHouse 服务节点；已配置免密登录时设为 `true`，否则需在 `node_pass` 中配置对应节点的密码。 |
+| node_pass | Array | 是 | - | 分片节点的 SSH 配置。`node_address` 使用 `system.clusters` 返回的分片主机名。每项都必须填写 `node_address` 和 `password`。`username` 默认为 `root`。使用 `root` 免密登录时，设置 `node_free_password = true` 和 `node_pass = []`。 |
+| key_path              | String  | 否   | -                                    | 文件传输使用的 `rsync`/`ssh` 密钥文件路径。                                                                 |
+| file_fields_delimiter | String  | 否   | `\t`                                 | ClickhouseFile 以 CSV 格式临时保存数据。如果行数据中包含该分隔符，可能导致生成的文件异常，可通过该选项更换分隔符。值必须恰好为一个字符。 |
+| file_temp_path        | String  | 否   | /tmp/seatunnel/clickhouse-local/file | ClickhouseFile 本地临时文件目录。                                                                            |
+
+### ClickhouseFile Sink 配置示例
+
+将以下 Sink 配置与作业的 Source 一起使用。请填写集群各分片的主机名和 SSH 凭据。
+
+```hocon
+sink {
+  ClickhouseFile {
+    host = "localhost:8123"
+    database = "default"
+    table = "seatunnel_table_dist"
+    username = "default"
+    password = ""
+    clickhouse_local_path = "/usr/local/clickhouse/clickhouse"
+    copy_method = "rsync"
+    node_pass = [
+      { node_address = "shard1.example.com", username = "ssh_user", password = "ssh_password" }
+    ]
+    file_temp_path = "/tmp/seatunnel/clickhouse-local/file"
+  }
+}
+```
+
 ## 示例配置与案例
 
 ### 如何创建一个clickhouse 同步任务
@@ -221,7 +274,7 @@ source {
 
 sink {
   Clickhouse {
-    host = "127.0.0.1:9092"
+    host = "127.0.0.1:8123"
     database = "default"
     table = "test"
     username = "xxxxx"
@@ -309,6 +362,50 @@ sink {
     primary_key = "id"
     support_upsert = true
     allow_experimental_lightweight_delete = true
+  }
+}
+```
+
+### CDC 变更日志写入
+
+当上游是变更日志类数据源（例如 MySQL CDC、PostgreSQL CDC）时，行中会包含 `INSERT`、`UPDATE_BEFORE`/`UPDATE_AFTER`
+和 `DELETE` 事件。需要配置 `primary_key`，让接收端能够把 `UPDATE`、`DELETE` 行映射到正确的目标行；当目标表自身
+没有去重引擎时，配合 `support_upsert = true` 可以改为查询主键后再写入。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        pk_id = bigint
+        name = string
+        score = int
+      }
+    }
+    rows = [
+      { kind = INSERT,        fields = [1, "A",   100] }
+      { kind = INSERT,        fields = [2, "B",   100] }
+      { kind = INSERT,        fields = [3, "C",   100] }
+      { kind = UPDATE_BEFORE, fields = [1, "A",   100] }
+      { kind = UPDATE_AFTER,  fields = [1, "A_1", 100] }
+      { kind = DELETE,        fields = [2, "B",   100] }
+    ]
+  }
+}
+
+sink {
+  Clickhouse {
+    host = "localhost:8123"
+    database = "default"
+    table = "sink_table"
+    username = "default"
+    password = ""
+    primary_key = "pk_id"
   }
 }
 ```

@@ -11,7 +11,7 @@
 ```java
 package org.apache.seatunnel.transform.sql.zeta;
 
-public interface ZetaUDF {
+public interface ZetaUDF extends Serializable {
     /**
      * Function name
      *
@@ -130,7 +130,8 @@ public class ExampleUDF implements ZetaUDF {
 }
 ```
 
-打包UDF项目并将jar文件复制到路径：${SEATUNNEL_HOME}/lib
+打包UDF项目并将jar文件复制到路径：`${SEATUNNEL_HOME}/lib`。如果您的 UDF 使用了第三方库，也需要将其放入 `${SEATUNNEL_HOME}/lib`。  
+如果使用集群模式，您需要将相关 jar 放到所有节点的 `${SEATUNNEL_HOME}/lib` 目录下，并重启集群。
 
 ## 支持上下文与生命周期的 UDF 示例
 

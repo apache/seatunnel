@@ -42,7 +42,9 @@ public class CoordinatedEnumeratorContext<SplitT extends SourceSplit>
 
     @Override
     public int currentParallelism() {
-        return coordinatedSource.currentReaderCount();
+        // The enumerator is created before the readers, so report the configured parallelism
+        // rather than the number of readers that exist at the time of the call.
+        return coordinatedSource.parallelism;
     }
 
     @Override

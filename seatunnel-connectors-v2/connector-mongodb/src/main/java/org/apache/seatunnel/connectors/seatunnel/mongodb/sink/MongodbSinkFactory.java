@@ -60,6 +60,7 @@ public class MongodbSinkFactory implements TableSinkFactory, SupportSinkDryRunVa
                         MongodbSinkOptions.UPSERT_ENABLE,
                         MongodbSinkOptions.PRIMARY_KEY,
                         MongodbSinkOptions.DATA_SAVE_MODE,
+                        MongodbSinkOptions.TLS_CA_FILE,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
@@ -75,13 +76,10 @@ public class MongodbSinkFactory implements TableSinkFactory, SupportSinkDryRunVa
                         .withConnectString(connection)
                         .withDatabase(database)
                         .withCollection(collection);
-        if (readonlyConfig.getOptional(MongodbSinkOptions.BUFFER_FLUSH_MAX_ROWS).isPresent()) {
-            builder.withFlushSize(readonlyConfig.get(MongodbSinkOptions.BUFFER_FLUSH_MAX_ROWS));
-        }
-        if (readonlyConfig.getOptional(MongodbSinkOptions.BUFFER_FLUSH_INTERVAL).isPresent()) {
-            builder.withBatchIntervalMs(
-                    readonlyConfig.get(MongodbSinkOptions.BUFFER_FLUSH_INTERVAL));
-        }
+        // Always read buffer and retry options: an omitted option must fall back to the default
+        // declared in MongodbSinkOptions, not to the builder's zero value.
+        builder.withFlushSize(readonlyConfig.get(MongodbSinkOptions.BUFFER_FLUSH_MAX_ROWS));
+        builder.withBatchIntervalMs(readonlyConfig.get(MongodbSinkOptions.BUFFER_FLUSH_INTERVAL));
         if (readonlyConfig.getOptional(MongodbSinkOptions.PRIMARY_KEY).isPresent()) {
             builder.withPrimaryKey(
                     readonlyConfig.get(MongodbSinkOptions.PRIMARY_KEY).toArray(new String[0]));
@@ -89,17 +87,15 @@ public class MongodbSinkFactory implements TableSinkFactory, SupportSinkDryRunVa
         if (readonlyConfig.getOptional(MongodbSinkOptions.UPSERT_ENABLE).isPresent()) {
             builder.withUpsertEnable(readonlyConfig.get(MongodbSinkOptions.UPSERT_ENABLE));
         }
-        if (readonlyConfig.getOptional(MongodbSinkOptions.RETRY_MAX).isPresent()) {
-            builder.withRetryMax(readonlyConfig.get(MongodbSinkOptions.RETRY_MAX));
-        }
-        if (readonlyConfig.getOptional(MongodbSinkOptions.RETRY_INTERVAL).isPresent()) {
-            builder.withRetryInterval(readonlyConfig.get(MongodbSinkOptions.RETRY_INTERVAL));
-        }
+        builder.withRetryMax(readonlyConfig.get(MongodbSinkOptions.RETRY_MAX));
+        builder.withRetryInterval(readonlyConfig.get(MongodbSinkOptions.RETRY_INTERVAL));
 
         if (readonlyConfig.getOptional(MongodbSinkOptions.TRANSACTION).isPresent()) {
             builder.withTransaction(readonlyConfig.get(MongodbSinkOptions.TRANSACTION));
         }
         builder.withDataSaveMode(readonlyConfig.get(MongodbSinkOptions.DATA_SAVE_MODE));
+        builder.withTlsCaFile(
+                readonlyConfig.getOptional(MongodbSinkOptions.TLS_CA_FILE).orElse(null));
         CatalogTable catalogTable = context.getCatalogTable();
         // sourceCatalogTable to sinkCatalogTable
         TableIdentifier tableIdentifier =

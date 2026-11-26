@@ -19,8 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.databend.sink;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendSinkConfig;
@@ -34,10 +38,15 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.doCallRealMethod;
@@ -310,6 +319,104 @@ public class DatabendSinkWriterTest {
         sinkWriter.close();
 
         verify(statement, never()).execute(startsWith("MERGE INTO"));
+    }
+
+    @Test
+    public void testProcessRowWritesTimeAsText() throws Exception {
+        // databend-jdbc's setObject throws "Unsupported object type" for a LocalTime, so a TIME
+        // value has to reach the driver as text, the type the column is created with.
+        DatabendSinkWriter sinkWriter = mock(DatabendSinkWriter.class);
+        PreparedStatement preparedStatement = mock(PreparedStatement.class);
+        setPrivateField(sinkWriter, "preparedStatement", preparedStatement);
+        SeaTunnelRow row =
+                new SeaTunnelRow(
+                        new Object[] {
+                            1, LocalTime.of(8, 0), LocalTime.of(10, 15, 30, 123_000_000)
+                        });
+
+        Method processRow =
+                DatabendSinkWriter.class.getDeclaredMethod("processRow", SeaTunnelRow.class);
+        processRow.setAccessible(true);
+        processRow.invoke(sinkWriter, row);
+
+        verify(preparedStatement).setObject(1, 1);
+        verify(preparedStatement).setString(2, "08:00:00");
+        verify(preparedStatement).setString(3, "10:15:30.123");
+        verify(preparedStatement, never()).setObject(anyInt(), any(LocalTime.class));
+        verify(preparedStatement).addBatch();
+    }
+
+    /**
+     * Goes through write() of a real writer in traditional mode to the insert statement it
+     * prepared. databend-jdbc's setObject throws "Unsupported object type" for a LocalDateTime, and
+     * its setTimestamp keeps only milliseconds, so a TIMESTAMP value is bound as text with its
+     * microseconds.
+     */
+    @Test
+    public void testWriteBindsTimestampAsTextWithMicroseconds() throws Exception {
+        Connection connection = mock(Connection.class);
+        PreparedStatement preparedStatement = mock(PreparedStatement.class);
+        when(connection.prepareStatement(startsWith("INSERT INTO test_db.target_table")))
+                .thenReturn(preparedStatement);
+        DatabendSinkWriter sinkWriter =
+                traditionalWriter(
+                        connection,
+                        new SeaTunnelRowType(
+                                new String[] {"id", "whole_hour", "micros", "nanos", "day"},
+                                new SeaTunnelDataType<?>[] {
+                                    BasicType.INT_TYPE,
+                                    LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                    LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                    LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                    LocalTimeType.LOCAL_DATE_TYPE
+                                }));
+        LocalDate date = LocalDate.of(2024, 3, 10);
+
+        sinkWriter.write(
+                new SeaTunnelRow(
+                        new Object[] {
+                            1,
+                            LocalDateTime.of(2024, 3, 10, 10, 0),
+                            LocalDateTime.of(2024, 3, 11, 10, 15, 30, 123_456_000),
+                            LocalDateTime.of(2024, 3, 12, 10, 15, 30, 123_456_789),
+                            date
+                        }));
+
+        verify(preparedStatement).setObject(1, 1);
+        verify(preparedStatement).setString(2, "2024-03-10 10:00:00.000000");
+        verify(preparedStatement).setString(3, "2024-03-11 10:15:30.123456");
+        verify(preparedStatement).setString(4, "2024-03-12 10:15:30.123456");
+        verify(preparedStatement, never()).setObject(anyInt(), any(LocalDateTime.class));
+        verify(preparedStatement, never()).setTimestamp(anyInt(), any());
+        verify(preparedStatement, never()).setTimestamp(anyInt(), any(), any());
+        // The driver accepts a LocalDate, so a DATE value is still passed as is.
+        verify(preparedStatement).setObject(5, date);
+        verify(preparedStatement).addBatch();
+        // One row is below the batch size, so nothing is executed yet.
+        verify(preparedStatement, never()).executeBatch();
+    }
+
+    /**
+     * A real writer in traditional mode, with its insert statement prepared on {@code connection}.
+     */
+    private static DatabendSinkWriter traditionalWriter(
+            Connection connection, SeaTunnelRowType rowType) {
+        DatabendSinkConfig config = mock(DatabendSinkConfig.class);
+        when(config.isCdcMode()).thenReturn(false);
+        CatalogTable catalogTable = mock(CatalogTable.class);
+        when(catalogTable.getSeaTunnelRowType()).thenReturn(rowType);
+        return new DatabendSinkWriter(
+                mock(SinkWriter.Context.class),
+                connection,
+                catalogTable,
+                config,
+                null,
+                "test_db",
+                "target_table",
+                null,
+                null,
+                10,
+                30);
     }
 
     private DatabendSinkWriter mockCdcWriter(Statement statement) throws Exception {

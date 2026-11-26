@@ -53,7 +53,7 @@ public class CouchbaseConfig extends ConnectorCommonOptions {
             Options.key("bucket")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("The name of the Couchbase bucket to write to.");
+                    .withDescription("The name of the Couchbase bucket to read from or write to.");
 
     /** Target scope name. Defaults to the default scope. */
     public static final Option<String> SCOPE =
@@ -68,5 +68,6 @@ public class CouchbaseConfig extends ConnectorCommonOptions {
             Options.key("collection")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("The name of the Couchbase collection to write to.");
+                    .withDescription(
+                            "The name of the Couchbase collection to read from or write to.");
 }

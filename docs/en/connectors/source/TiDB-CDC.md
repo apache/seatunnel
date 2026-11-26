@@ -11,7 +11,7 @@ import ChangeLog from '../changelog/connector-cdc-tidb.md';
 
 ## Description
 
-The TiDB CDC connector reads snapshot data and incremental change events from TiDB by talking to its TiKV placement-driver (PD) and TiKV nodes through the `tikv-client-java` Java client. It supports parallel snapshot reads and exactly-once streaming, and is the recommended way to bring TiDB tables into a SeaTunnel pipeline.
+The TiDB CDC connector reads snapshot data and incremental change events from TiDB by talking to its TiKV placement-driver (PD) and TiKV nodes through the `tikv-client-java` Java client. It supports parallel snapshot reads and streaming consumption, and is the recommended way to bring TiDB tables into a SeaTunnel pipeline.
 
 ## Supported DataSource Info
 
@@ -38,8 +38,8 @@ Please download and put the MySQL driver and `tikv-client-java` in the directory
 
 - [ ] [batch](../../introduction/concepts/connector-v2-features.md)
 - [x] [stream](../../introduction/concepts/connector-v2-features.md)
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
@@ -74,6 +74,7 @@ The connector uses the existing JDBC connection options to read the table's `TID
 |-------------------------------|---------|----------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                           | String  | Yes      | -        | MySQL-compatible JDBC URL used to discover table metadata. Example: `jdbc:mysql://tidb0:4000/inventory`.                                                                                                                                                                                                                  |
 | username                      | String  | Yes      | -        | Username used to connect to the TiDB server.                                                                                                                                                                                                                                                                             |
+| driver                        | String  | No       | -        | JDBC driver class used for table metadata discovery, for example `com.mysql.cj.jdbc.Driver`. The examples in this document set it explicitly.                                                                                                                                                                              |
 | password                      | String  | Yes      | -        | Password used to connect to the TiDB server.                                                                                                                                                                                                                                                                             |
 | pd-addresses                  | String  | Yes      | -        | TiKV placement-driver (PD) endpoints, comma-separated, e.g. `pd0:2379,pd1:2379`.                                                                                                                                                                                                                                          |
 | database-name                 | String  | Yes      | -        | Name of the TiDB database to monitor.                                                                                                                                                                                                                                                                                     |
