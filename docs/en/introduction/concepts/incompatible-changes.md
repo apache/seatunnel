@@ -5,6 +5,23 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### HBase sink: DELETE rows remove mapped data
+
+`DELETE` rows now remove all cell versions up to the mutation timestamp in the column families
+mapped by this sink. Previously these rows were written as Put mutations of the old values.
+Unmapped families remain intact. If the sink projects only row-key and version columns, it
+rejects DELETE rows because no family is mapped. Include a payload column for the family you
+intend to delete.
+Jobs that need the previous append-only behavior must filter DELETE rows before the sink.
+`UPDATE_BEFORE` rows are now ignored instead of written as Put mutations. Key-changing updates
+require explicit old-key DELETE/new-key
+INSERT events upstream. Use `version_column` to supply correctly ordered timestamps: an equal- or
+older-timestamp Put cannot override a delete tombstone. Checkpoint flushes wait for region-server
+acceptance when the HBase client periodic flush is disabled (the default). Keep it disabled when
+relying on checkpoint flushes. `wal_write = false` still does not protect against a region-server
+crash.
+No configuration or checkpoint-format migration is required.
+
 ### MongoDB sink: omitted buffer and retry options now use their documented defaults
 
 - **Behavior change: a non-transactional MongoDB sink without `buffer-flush.*` or `retry.*` options writes in batches and retries failed writes**
