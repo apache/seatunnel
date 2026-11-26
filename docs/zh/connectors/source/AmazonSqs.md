@@ -37,7 +37,7 @@ Amazon SQS 源连接器用于从一个 Amazon SQS 队列 URL 读取消息。连�
 | schema                         | Config  | 是    | -     | 消息体结构，包含字段名和字段类型。更多说明请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                  |
 | access_key_id                  | String  | 否    | -     | AWS access key ID。和 `secret_access_key` 一起配置时使用静态凭证；两者都不配置时使用 AWS 默认凭证链。                                      |
 | secret_access_key              | String  | 否    | -     | AWS secret access key。和 `access_key_id` 一起配置时使用静态凭证。                                                              |
-| format                         | String  | 否    | json  | 消息体格式。支持 `json`、`text`、`canal_json`、`debezium_json`。                                                               |
+| format                         | enum    | 否    | json  | 消息体格式。支持 `json`、`text`、`canal_json`、`debezium_json`。                                                               |
 | field_delimiter                | String  | 否    | ,     | 当 `format = text` 时使用的字段分隔符。                                                                                         |
 | ignore_parse_errors            | Boolean | 否    | false | 是否跳过无法解析的消息并继续处理，而不是让本次轮询失败。                                                                                         |
 | delete_message                 | Boolean | 否    | false | 读取并成功解析消息后，是否从队列中删除该消息。                                                                                              |

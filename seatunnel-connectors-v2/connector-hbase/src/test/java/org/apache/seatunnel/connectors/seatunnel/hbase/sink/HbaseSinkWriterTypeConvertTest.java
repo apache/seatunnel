@@ -29,6 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.hbase.format.HBaseDeserializati
 
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellUtil;
+import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -87,7 +88,7 @@ public class HbaseSinkWriterTypeConvertTest {
         writer.write(row);
 
         ArgumentCaptor<Put> putCaptor = ArgumentCaptor.forClass(Put.class);
-        verify(hbaseClient).mutate(putCaptor.capture());
+        verify(hbaseClient).mutate((Mutation) putCaptor.capture());
         Put put = putCaptor.getValue();
 
         assertArrayEquals(Bytes.toBytes("row1"), put.getRow());
