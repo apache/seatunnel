@@ -58,19 +58,25 @@ public class HdfsWriter implements IFileWriter<IMapFileData> {
         this.write(bytes);
     }
 
+    /**
+     * Forces the appended WAL record to durable storage with exactly one sync path.
+     *
+     * <p>Write-through MapStore waits on every append, so duplicate {@code hsync}/{@code hflush}
+     * calls only add latency variance without improving durability. Prefer the HDFS-aware sync when
+     * available; otherwise fall back to a single {@link FSDataOutputStream#hsync()}.
+     */
     public void flush() throws IOException {
-        // hsync to flag
         if (out instanceof HdfsDataOutputStream) {
             ((HdfsDataOutputStream) out)
                     .hsync(EnumSet.of(HdfsDataOutputStream.SyncFlag.UPDATE_LENGTH));
+            return;
         }
         if (out.getWrappedStream() instanceof DFSOutputStream) {
             ((DFSOutputStream) out.getWrappedStream())
                     .hsync(EnumSet.of(HdfsDataOutputStream.SyncFlag.UPDATE_LENGTH));
-        } else {
-            out.hsync();
+            return;
         }
-        this.out.hflush();
+        out.hsync();
     }
 
     private void write(byte[] bytes) throws IOException {
