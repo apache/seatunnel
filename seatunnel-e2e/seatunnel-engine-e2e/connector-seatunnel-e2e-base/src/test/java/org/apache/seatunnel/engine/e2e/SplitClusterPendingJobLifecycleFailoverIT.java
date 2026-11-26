@@ -66,7 +66,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 
@@ -1150,10 +1154,7 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             // accepted and then repaired after the physical plan has already left PENDING.
             long requestStartNanos = System.nanoTime();
             Throwable rejection =
-                    Assertions.assertThrows(
-                            Exception.class,
-                            () -> finalEngineClient.savePointJob(pendingJobId),
-                            "A savepoint request must be rejected while the job is still queued");
+                    rejectedSavepointWithinBudget(finalEngineClient, pendingJobId, 120);
             long requestMillis =
                     TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - requestStartNanos);
             String rejectionTrace =
@@ -1184,8 +1185,7 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             // A repeated request (clients and UIs retry) must behave the same and must not leave a
             // deferred savepoint behind that fires as soon as the job is scheduled.
             Throwable repeatedRejection =
-                    Assertions.assertThrows(
-                            Exception.class, () -> finalEngineClient.savePointJob(pendingJobId));
+                    rejectedSavepointWithinBudget(finalEngineClient, pendingJobId, 120);
             Assertions.assertTrue(
                     ExceptionUtils.getMessage(ExceptionUtils.getRootException(repeatedRejection))
                             .contains("not running"));
@@ -1209,14 +1209,12 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
 
             // Free the slots. If the rejection had left a savepoint request or a RUNNING state
             // behind, the job would not go through the normal pending dispatch path here.
-            holderJob.cancelJob();
-            assertEventuallyCanceled(holderJob);
+            cancelAndAwaitTerminalWithinBudget(holderJob, 120);
             assertJobStatusWithTimeout(pendingJob, JobStatus.RUNNING, 120);
             assertPendingQueueNotContainsJob(activeMaster, pendingJobId);
             assertSlotOwnership(activeMaster, pendingJobId, true);
 
-            pendingJob.cancelJob();
-            assertEventuallyCanceled(pendingJob);
+            cancelAndAwaitTerminalWithinBudget(pendingJob, 120);
             assertSlotOwnership(activeMaster, pendingJobId, false);
         } finally {
             if (engineClient != null) {
@@ -1228,6 +1226,113 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             if (workerNode != null) {
                 workerNode.shutdown();
             }
+        }
+    }
+
+    /**
+     * Calls a savepoint request that must be rejected and returns the rejection cause, with a
+     * test-owned deadline covering the remote join inside {@code JobClient#savePointJob}.
+     *
+     * @param engineClient client used to request the savepoint
+     * @param jobId job the request targets
+     * @param timeoutSeconds deadline for the remote rejection
+     * @return the rejection thrown by the engine
+     * @throws InterruptedException when the bounded wait is interrupted
+     */
+    private static Throwable rejectedSavepointWithinBudget(
+            SeaTunnelClient engineClient, long jobId, long timeoutSeconds)
+            throws InterruptedException {
+        ExecutorService savepointExecutor =
+                Executors.newSingleThreadExecutor(
+                        runnable -> {
+                            Thread thread = new Thread(runnable, "pending-job-savepoint-probe");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
+        try {
+            Future<?> request = savepointExecutor.submit(() -> engineClient.savePointJob(jobId));
+            try {
+                request.get(timeoutSeconds, TimeUnit.SECONDS);
+            } catch (ExecutionException expected) {
+                return expected.getCause() == null ? expected : expected.getCause();
+            } catch (TimeoutException timeout) {
+                request.cancel(true);
+                throw new AssertionError(
+                        "The savepoint request for unscheduled job "
+                                + jobId
+                                + " was not rejected within "
+                                + timeoutSeconds
+                                + " s",
+                        timeout);
+            }
+            throw new AssertionError(
+                    "A savepoint request must be rejected while job " + jobId + " is still queued");
+        } finally {
+            savepointExecutor.shutdownNow();
+        }
+    }
+
+    /**
+     * Cancels a job and waits for its terminal result with test-owned deadlines.
+     *
+     * @param clientJobProxy job to cancel
+     * @param timeoutSeconds deadline for each remote step
+     * @throws InterruptedException when a bounded wait is interrupted
+     */
+    private static void cancelAndAwaitTerminalWithinBudget(
+            ClientJobProxy clientJobProxy, long timeoutSeconds) throws InterruptedException {
+        ExecutorService cancelExecutor =
+                Executors.newSingleThreadExecutor(
+                        runnable -> {
+                            Thread thread = new Thread(runnable, "pending-job-terminal-cancel");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
+        try {
+            Future<?> cancel = cancelExecutor.submit(clientJobProxy::cancelJob);
+            try {
+                cancel.get(timeoutSeconds, TimeUnit.SECONDS);
+            } catch (ExecutionException cancelFailure) {
+                throw new AssertionError(
+                        "Cancelling job " + clientJobProxy.getJobId() + " failed", cancelFailure);
+            } catch (TimeoutException timeout) {
+                cancel.cancel(true);
+                throw new AssertionError(
+                        "The cancel request for job "
+                                + clientJobProxy.getJobId()
+                                + " did not acknowledge within "
+                                + timeoutSeconds
+                                + " s",
+                        timeout);
+            }
+            Future<JobResult> terminal =
+                    cancelExecutor.submit(clientJobProxy::waitForJobCompleteV2);
+            JobResult jobResult;
+            try {
+                jobResult = terminal.get(timeoutSeconds, TimeUnit.SECONDS);
+            } catch (ExecutionException terminalFailure) {
+                throw new AssertionError(
+                        "Waiting for job " + clientJobProxy.getJobId() + " to complete failed",
+                        terminalFailure);
+            } catch (TimeoutException timeout) {
+                terminal.cancel(true);
+                throw new AssertionError(
+                        "Job "
+                                + clientJobProxy.getJobId()
+                                + " did not report its terminal result within "
+                                + timeoutSeconds
+                                + " s after the cancel",
+                        timeout);
+            }
+            Assertions.assertEquals(JobStatus.CANCELED, jobResult.getStatus());
+            Awaitility.await()
+                    .atMost(timeoutSeconds, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.CANCELED, clientJobProxy.getJobStatus()));
+        } finally {
+            cancelExecutor.shutdownNow();
         }
     }
 
