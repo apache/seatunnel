@@ -78,6 +78,15 @@ sink {
 }
 ```
 
+## 并行度
+
+Transform 没有独立的并行度。
+
+- 在 Zeta 引擎中，Transform 与其上游运行在同一个任务里，因此按 Source 的并行度运行，其后的 Sink 也是如此。在 Transform 上配置的 `parallelism` 会被忽略，作业日志会输出一条警告，写明 Transform 名称、配置的值以及实际运行的并行度。
+- Flink 与 Spark 引擎同样不读取 Transform 上的 `parallelism`。
+
+如需调整 Transform 运行的实例数，请在 Source 或 `env` 中设置 `parallelism`。
+
 ## 实践建议
 
 - 数据集命名尽量短且语义明确

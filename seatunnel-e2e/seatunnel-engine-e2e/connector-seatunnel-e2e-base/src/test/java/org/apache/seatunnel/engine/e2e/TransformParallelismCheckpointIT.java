@@ -17,11 +17,9 @@
 
 package org.apache.seatunnel.engine.e2e;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
@@ -46,21 +44,38 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
- * A transform may declare a smaller parallelism than its source. It then runs chained into every
- * source subtask, each of which acknowledges checkpoints with its own index, so the checkpoint
- * state of the transform must cover all of them. Before that, the first checkpoint failed with an
- * index out of bounds: the job failed, or, with retries, was restarted and wrote rows twice.
+ * On Zeta a transform runs chained into the task of its source, so it runs once per source subtask
+ * whatever {@code parallelism} it declares, and so does the sink behind it. These cases check that
+ * such a job still checkpoints and commits the output of every subtask when the transform declares
+ * a smaller or a larger parallelism than its source. The sink has an aggregated committer, which
+ * counts the writers it waits for by the sink parallelism.
+ *
+ * <p>Before the fix for #13421 the smaller case failed at the first checkpoint with an {@code
+ * ArrayIndexOutOfBoundsException}. The template sets {@code job.retry.times = 0}, so a job either
+ * finishes or fails and is never restarted.
  */
 @Slf4j
 public class TransformParallelismCheckpointIT {
 
     private static final String CLUSTER_NAME = "TransformParallelismCheckpointIT";
 
+    private static final long ROWS_PER_SUBTASK = 20;
+
     @Test
     public void testTransformWithSmallerParallelismThanSource() throws Exception {
-        String testCaseName = "testTransformWithSmallerParallelismThanSource";
-        long rowsPerSubtask = 20;
-        int sourceParallelism = 2;
+        runAndCheckCommittedRows("testTransformWithSmallerParallelismThanSource", 2, 1);
+    }
+
+    @Test
+    public void testTransformWithLargerParallelismThanSource() throws Exception {
+        runAndCheckCommittedRows("testTransformWithLargerParallelismThanSource", 1, 2);
+    }
+
+    private void runAndCheckCommittedRows(
+            String testCaseName, int sourceParallelism, int transformParallelism) throws Exception {
+        String targetDir =
+                String.join(File.separator, "", "tmp", "hive", "warehouse", testCaseName);
+        FileUtils.createNewDir(targetDir);
 
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(TestUtils.getClusterName(CLUSTER_NAME));
@@ -69,6 +84,7 @@ public class TransformParallelismCheckpointIT {
         DeployMode previousDeployMode = Common.getDeployMode();
         HazelcastInstanceImpl node = null;
         SeaTunnelClient engineClient = null;
+        ClientJobProxy clientJobProxy = null;
         try {
             node = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
             Common.setDeployMode(DeployMode.CLIENT);
@@ -76,10 +92,12 @@ public class TransformParallelismCheckpointIT {
             String configFile =
                     String.join(File.separator, "", "tmp", "test_conf", testCaseName + ".conf");
             Map<String, String> values = new HashMap<>();
-            values.put("dynamic_test_row_num_per_parallelism", String.valueOf(rowsPerSubtask));
+            values.put("dynamic_test_case_name", testCaseName);
+            values.put("dynamic_test_row_num_per_parallelism", String.valueOf(ROWS_PER_SUBTASK));
             values.put("dynamic_test_parallelism", String.valueOf(sourceParallelism));
+            values.put("dynamic_transform_parallelism", String.valueOf(transformParallelism));
             TestUtils.createTestConfigFileFromTemplate(
-                    "batch_fake_to_console_transform_parallelism_template.conf",
+                    "batch_fake_to_localfile_transform_parallelism_template.conf",
                     values,
                     configFile);
 
@@ -90,7 +108,7 @@ public class TransformParallelismCheckpointIT {
             engineClient = new SeaTunnelClient(clientConfig);
             ClientJobExecutionEnvironment jobExecutionEnv =
                     engineClient.createExecutionContext(configFile, jobConfig, seaTunnelConfig);
-            ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            clientJobProxy = jobExecutionEnv.execute();
             CompletableFuture<JobStatus> jobResult =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
@@ -100,36 +118,29 @@ public class TransformParallelismCheckpointIT {
                     .untilAsserted(() -> Assertions.assertTrue(jobResult.isDone()));
             Assertions.assertEquals(JobStatus.FINISHED, jobResult.get());
 
-            // Every row is read and written exactly once.
-            JsonNode metrics =
-                    JsonUtils.parseObject(engineClient.getJobMetrics(clientJobProxy.getJobId()));
+            // Rows in the target directory are the committed output: a writer whose commit info
+            // the aggregated committer drops leaves its rows out of it.
             Assertions.assertEquals(
-                    rowsPerSubtask * sourceParallelism, sum(metrics, "SourceReceivedCount"));
-            Assertions.assertEquals(
-                    rowsPerSubtask * sourceParallelism, sum(metrics, "SinkWriteCount"));
+                    ROWS_PER_SUBTASK * sourceParallelism,
+                    FileUtils.getFileLineNumberFromDir(targetDir));
         } finally {
             try {
-                if (engineClient != null) {
-                    engineClient.close();
-                }
-                if (node != null) {
-                    node.shutdown();
+                if (clientJobProxy != null && !clientJobProxy.getJobStatus().isEndState()) {
+                    clientJobProxy.cancelJob();
                 }
             } finally {
-                // The deploy mode is JVM-wide; restore it for the tests that share this JVM.
-                Common.setDeployMode(previousDeployMode);
+                try {
+                    if (engineClient != null) {
+                        engineClient.close();
+                    }
+                    if (node != null) {
+                        node.shutdown();
+                    }
+                } finally {
+                    // The deploy mode is JVM-wide; restore it for the tests that share this JVM.
+                    Common.setDeployMode(previousDeployMode);
+                }
             }
         }
-    }
-
-    /** Sums a job metric over the subtasks that report it. */
-    private static long sum(JsonNode metrics, String name) {
-        JsonNode values = metrics.get(name);
-        Assertions.assertNotNull(values, name + " is missing from " + metrics);
-        long total = 0;
-        for (JsonNode value : values) {
-            total += value.get("value").asLong();
-        }
-        return total;
     }
 }

@@ -37,6 +37,7 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
+import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
@@ -116,8 +117,55 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
         Assertions.assertEquals(2, checkpointPlans.get(2).getPipelineActions().size());
     }
 
+    @Test
+    public void testRejectActionDeclaringFewerSubtasksThanRunIt() {
+        final IdGenerator idGenerator = new IdGenerator();
+        JobConfig config = new JobConfig();
+        config.setName("test");
+        final LogicalDag logicalDag = new LogicalDag(config, idGenerator);
+        // The sink runs in both source subtasks but declares a parallelism of 1.
+        fillVirtualVertex(idGenerator, logicalDag, 2, 1);
+
+        JobImmutableInformation jobInfo =
+                new JobImmutableInformation(
+                        2,
+                        "Test",
+                        nodeEngine.getSerializationService(),
+                        logicalDag,
+                        Collections.emptyList(),
+                        Collections.emptyList());
+        IMap<Object, Object> runningJobState =
+                nodeEngine.getHazelcastInstance().getMap("testRejectRunningJobState");
+        IMap<Object, Long[]> runningJobStateTimestamp =
+                nodeEngine.getHazelcastInstance().getMap("testRejectRunningJobStateTimestamp");
+
+        JobDefineCheckException exception =
+                Assertions.assertThrows(
+                        JobDefineCheckException.class,
+                        () ->
+                                PlanUtils.fromLogicalDAG(
+                                        logicalDag,
+                                        nodeEngine,
+                                        jobInfo,
+                                        System.currentTimeMillis(),
+                                        Executors.newCachedThreadPool(),
+                                        server.getClassLoaderService(),
+                                        instance.getFlakeIdGenerator(
+                                                Constant.SEATUNNEL_ID_GENERATOR_NAME),
+                                        runningJobState,
+                                        runningJobStateTimestamp,
+                                        QueueType.BLOCKINGQUEUE,
+                                        new EngineConfig()));
+        Assertions.assertTrue(exception.getMessage().contains("console"), exception.getMessage());
+    }
+
     private static void fillVirtualVertex(
             IdGenerator idGenerator, LogicalDag logicalDag, int parallelism) {
+        fillVirtualVertex(idGenerator, logicalDag, parallelism, parallelism);
+    }
+
+    private static void fillVirtualVertex(
+            IdGenerator idGenerator, LogicalDag logicalDag, int parallelism, int sinkParallelism) {
         JobContext jobContext = new JobContext();
         jobContext.setJobMode(JobMode.BATCH);
         Config fakeSourceConfig =
@@ -160,8 +208,8 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
                         consoleSink,
                         Collections.emptySet(),
                         Collections.emptySet());
-        console.setParallelism(parallelism);
-        LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, parallelism);
+        console.setParallelism(sinkParallelism);
+        LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, sinkParallelism);
 
         LogicalEdge edge = new LogicalEdge(fakeVertex, consoleVertex);
 

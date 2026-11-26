@@ -117,10 +117,8 @@ public class CheckpointCoordinator {
     /**
      * Current parallelism of every action in this pipeline, keyed by {@link ActionStateKey}.
      *
-     * <p>Used by the checkpoint-state remap in {@link #restoreTaskState(TaskLocation)} and to size
-     * the action states of a checkpoint in {@link #getActionStates()}, which must hold a slot for
-     * every subtask running an action even when it declares a smaller parallelism. It is
-     * intentionally kept separate from {@link #pipelineTasks}: that map is keyed by {@link
+     * <p>Used exclusively by the checkpoint-state remap in {@link #restoreTaskState(TaskLocation)}.
+     * It is intentionally kept separate from {@link #pipelineTasks}: that map is keyed by {@link
      * TaskLocation#getTaskVertexId()}, which encodes the subtask's own parallelism index and is
      * therefore unique per subtask (see the {@link TaskLocation} constructor), so grouping by it
      * can never recover how many subtasks currently run a given action. See {@link
@@ -1181,21 +1179,11 @@ public class CheckpointCoordinator {
                         .collect(Collectors.toSet());
         pipelineActions.keySet().removeAll(closedActionKeys);
 
-        // Size each state by the subtasks that actually run the action as well: a transform
-        // chained into a source task runs in every source subtask, whatever parallelism it
-        // declares, and each of those subtasks acknowledges with its own index. Sizing by the
-        // declared parallelism alone made the acknowledgement fail with an index out of bounds.
         return pipelineActions.entrySet().stream()
                 .collect(
                         Collectors.toMap(
                                 Map.Entry::getKey,
-                                entry ->
-                                        new ActionState(
-                                                entry.getKey(),
-                                                Math.max(
-                                                        entry.getValue(),
-                                                        actionParallelism.getOrDefault(
-                                                                entry.getKey(), 0)))));
+                                entry -> new ActionState(entry.getKey(), entry.getValue())));
     }
 
     private Map<Long, TaskStatistics> getTaskStatistics() {
