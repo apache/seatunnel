@@ -25,8 +25,14 @@ import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.service.slot.SlotService;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
@@ -39,6 +45,79 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 public class SeaTunnelSlotIT {
+    @Test
+    public void testFixedSlotHeartbeatsUpdateARemoteMaster() {
+        String cluster = TestUtils.getClusterName("fixed-slot-heartbeat");
+        int slotCount = 512;
+        HazelcastInstanceImpl master = null;
+        HazelcastInstanceImpl worker = null;
+        try {
+            master =
+                    SeaTunnelServerStarter.createMasterHazelcastInstance(
+                            heartbeatConfig(cluster, slotCount));
+            worker =
+                    SeaTunnelServerStarter.createWorkerHazelcastInstance(
+                            heartbeatConfig(cluster, slotCount));
+            SeaTunnelServer masterServer =
+                    master.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            SeaTunnelServer workerServer =
+                    worker.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            Awaitility.await()
+                    .ignoreException(SeaTunnelEngineRetryableException.class)
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            slotCount,
+                                            masterServer
+                                                    .getCoordinatorService()
+                                                    .getResourceManager()
+                                                    .getUnassignedSlots(null)
+                                                    .size()));
+            ResourceManager resources = masterServer.getCoordinatorService().getResourceManager();
+            SlotService workerSlots = workerServer.getSlotService();
+            long jobId = 13355L;
+            SlotProfile grant =
+                    workerSlots.requestSlot(jobId, new ResourceProfile()).getSlotProfile();
+            Assertions.assertNotNull(grant);
+            Awaitility.await()
+                    .atMost(20, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(1, resources.getAssignedSlots(null).size());
+                                SlotProfile observed = resources.getAssignedSlots(null).get(0);
+                                Assertions.assertEquals(grant, observed);
+                                Assertions.assertEquals(jobId, observed.getOwnerJobID());
+                            });
+
+            workerSlots.releaseSlot(jobId, grant);
+            Awaitility.await()
+                    .atMost(20, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(resources.getAssignedSlots(null).isEmpty());
+                                Assertions.assertEquals(
+                                        slotCount, resources.getUnassignedSlots(null).size());
+                            });
+        } finally {
+            if (worker != null) {
+                worker.shutdown();
+            }
+            if (master != null) {
+                master.shutdown();
+            }
+        }
+    }
+
+    private static SeaTunnelConfig heartbeatConfig(String cluster, int slotCount) {
+        SeaTunnelConfig config = ConfigProvider.locateAndGetSeaTunnelConfig();
+        config.getHazelcastConfig().setClusterName(cluster);
+        config.getEngineConfig().getHttpConfig().setEnabled(false);
+        config.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
+        config.getEngineConfig().getSlotServiceConfig().setSlotNum(slotCount);
+        return config;
+    }
+
     @Test
     public void testSlotNotEnough() throws Exception {
         HazelcastInstanceImpl node1 = null;

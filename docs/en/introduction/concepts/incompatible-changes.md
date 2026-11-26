@@ -5,6 +5,10 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Zeta fixed-slot heartbeat format
+
+Workers configured with `dynamic-slot: false` send compact heartbeats. Upgrade or roll back all Zeta masters and workers together. An older master cannot decode a fixed-slot heartbeat from a newer worker. Existing job configuration and checkpoint formats remain compatible with this change.
+
 ### MongoDB sink: omitted buffer and retry options now use their documented defaults
 
 - **Behavior change: a non-transactional MongoDB sink without `buffer-flush.*` or `retry.*` options writes in batches and retries failed writes**

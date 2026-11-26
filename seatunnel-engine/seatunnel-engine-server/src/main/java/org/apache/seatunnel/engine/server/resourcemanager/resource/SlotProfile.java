@@ -144,6 +144,36 @@ public class SlotProfile implements IdentifiedDataSerializable {
                 + '}';
     }
 
+    /** Writes a slot's state using the worker address shared by the heartbeat. */
+    public void writeFixedHeartbeatData(ObjectDataOutput out, String defaultSequence)
+            throws IOException {
+        out.writeInt(slotID);
+        out.writeLong(ownerJobID);
+        out.writeBoolean(assigned);
+        out.writeInt(resourceProfile.getCpu().getCore());
+        out.writeLong(resourceProfile.getHeapMemory().getBytes());
+        boolean useDefault = Objects.equals(sequence, defaultSequence);
+        out.writeBoolean(useDefault);
+        if (!useDefault) {
+            out.writeString(sequence);
+        }
+    }
+
+    /** Reconstructs the slot, including the last owner of an unassigned slot. */
+    public static SlotProfile readFixedHeartbeatData(
+            ObjectDataInput in, Address worker, String defaultSequence) throws IOException {
+        int slotId = in.readInt();
+        long owner = in.readLong();
+        boolean assigned = in.readBoolean();
+        ResourceProfile resource =
+                new ResourceProfile(CPU.of(in.readInt()), Memory.of(in.readLong()));
+        String sequence = in.readBoolean() ? defaultSequence : in.readString();
+        SlotProfile slot = new SlotProfile(worker, slotId, resource, sequence);
+        slot.ownerJobID = owner;
+        slot.assigned = assigned;
+        return slot;
+    }
+
     @Override
     public int getFactoryId() {
         return ResourceDataSerializerHook.FACTORY_ID;

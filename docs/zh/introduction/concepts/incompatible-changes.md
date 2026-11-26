@@ -4,6 +4,10 @@
 
 ## dev
 
+### Zeta 固定 slot 心跳格式
+
+配置 `dynamic-slot: false` 的 Worker 会发送紧凑心跳。请同时升级或回退集群中所有 Zeta Master 和 Worker，旧版 Master 无法解析新版 Worker 的固定 slot 心跳。此改动保持作业配置和 checkpoint 格式兼容。
+
 ### MongoDB Sink：未配置的缓冲与重试选项使用文档中的默认值
 
 - **行为变更：未设置 `buffer-flush.*` 或 `retry.*` 选项的非事务 MongoDB Sink 会按批写入，并重试失败的写入**
