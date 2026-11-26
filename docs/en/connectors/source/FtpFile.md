@@ -73,6 +73,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | skip_header_row_number      | long    | no       | 0                           |
 | schema                      | config  | no       | -                           |
 | sheet_name                  | string  | no       | -                           |
+| excel_use_header_line      | boolean | no       | false                       |
 | excel_engine                | string  | no       | POI                         |
 | poi_excel_max_file_size     | long    | no       | 52428800                    |
 | xml_row_tag                 | string  | no       | -                           |
@@ -742,6 +743,10 @@ FtpFile {
         }
       }
       path = "/apps/hive/demo/student"
+      host = "192.168.31.48"
+      port = 21
+      user = tyrantlucifer
+      password = tianchao
       file_format_type = "json"
     },
     {
@@ -752,8 +757,13 @@ FtpFile {
         }
       }
       path = "/apps/hive/demo/teacher"
+      host = "192.168.31.48"
+      port = 21
+      user = tyrantlucifer
+      password = tianchao
       file_format_type = "json"
     }
+  ]
 }
 
 ```

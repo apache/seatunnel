@@ -19,18 +19,19 @@ package org.apache.seatunnel.api.configuration.util;
 
 import org.apache.seatunnel.api.configuration.Option;
 
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * A compatibility wrapper for composing a chain of {@link Condition conditions}.
  *
  * @deprecated {@link Condition} provides the preferred condition-chain composition API through
  *     {@link Condition#and(Condition)} and {@link Condition#or(Condition)}. Use {@link Condition}
- *     directly for new code. Existing {@code Expression} chains that mix AND and OR should be
- *     reviewed when migrating because the two representations are currently evaluated through
- *     different validation paths. This class is retained temporarily for source compatibility with
- *     downstream extensions and may be removed in a future API cleanup after the compatibility
- *     window.
+ *     directly for new code. Rule constructors and factories snapshot expression operands into a
+ *     single condition chain in declaration order. AND binds more tightly than OR across the entire
+ *     chain, including links between expression nodes.
  */
 @Deprecated
 public class Expression {
@@ -48,6 +49,57 @@ public class Expression {
 
     public static Expression of(Condition<?> condition) {
         return new Expression(condition);
+    }
+
+    /** Flattens the legacy wrapper links without appending to any caller-owned condition. */
+    Condition<?> toCondition() {
+        Condition<?> head = Objects.requireNonNull(condition, "condition").copyChain();
+        Condition<?> tail = head;
+        Set<Expression> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        visited.add(this);
+        for (Expression node = this; node.hasNext(); node = node.next) {
+            if (!visited.add(node.next)) {
+                throw new IllegalArgumentException("Circular expression chain");
+            }
+            Condition<?> operand =
+                    Objects.requireNonNull(node.next.condition, "condition").copyChain();
+            tail = tail.getTailCondition();
+            if (Boolean.TRUE.equals(node.and)) {
+                tail.and(operand);
+            } else {
+                tail.or(operand);
+            }
+            tail = operand;
+        }
+        return head;
+    }
+
+    /** Presents a detached legacy expression with one node for each OR-separated AND group. */
+    static Expression fromCondition(Condition<?> condition) {
+        Condition<?> tail = copyOperand(condition);
+        Expression head = of(tail);
+        Expression group = head;
+        for (Condition<?> node = condition; node.hasNext(); node = node.getNext()) {
+            Condition<?> operand = copyOperand(node.getNext());
+            if (Boolean.TRUE.equals(node.and())) {
+                tail.and(operand);
+            } else {
+                group.and = false;
+                group.next = of(operand);
+                group = group.next;
+            }
+            tail = operand;
+        }
+        return head;
+    }
+
+    private static <T> Condition<T> copyOperand(Condition<T> condition) {
+        return new Condition<>(
+                condition.getOption(),
+                condition.getOperator(),
+                condition.getExpectValue(),
+                condition.getCompareOption(),
+                condition.getExtension());
     }
 
     public Expression and(Expression next) {

@@ -30,14 +30,29 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import com.sun.net.httpserver.HttpServer;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.reflect.Field;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -105,6 +120,123 @@ class Mem0SinkWriterTest {
                                                 new Object[] {
                                                     new String[] {"hello"}, "u-1", null
                                                 })));
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(
+            strings = {
+                "{\"event_id\":123}",
+                "{\"event_id\":true}",
+                "{\"event_id\":false}",
+                "{\"event_id\":[]}",
+                "{\"event_id\":{}}",
+                "{\"event_id\":null}",
+                "{\"event_id\":\"  \"}",
+                "[]",
+                "null"
+            })
+    void rejectsInvalidAcceptancePayload(String responseBody) throws Exception {
+        when(httpClient.doPost(anyString(), any(), anyString()))
+                .thenReturn(new HttpResponse(202, responseBody));
+
+        Mem0SinkWriter writer = writer();
+        try {
+            assertThrows(IOException.class, () -> writer.write(row()));
+        } finally {
+            writer.close();
+        }
+        verify(httpClient).doPost(anyString(), any(), anyString());
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "mem0_response_private_marker",
+                "{\"private\":\"mem0_response_private_marker\",",
+                "{\"event_id\":\"evt-1\"} mem0_response_private_marker"
+            })
+    void malformedAcceptanceDoesNotExposeResponseBody(String responseBody) throws Exception {
+        when(httpClient.doPost(anyString(), any(), anyString()))
+                .thenReturn(new HttpResponse(202, responseBody));
+
+        Mem0SinkWriter writer = writer();
+        try {
+            IOException error = assertThrows(IOException.class, () -> writer.write(row()));
+            StringWriter trace = new StringWriter();
+            error.printStackTrace(new PrintWriter(trace));
+            assertFalse(trace.toString().contains("mem0_response_private_marker"));
+        } finally {
+            writer.close();
+        }
+        verify(httpClient).doPost(anyString(), any(), anyString());
+    }
+
+    private SeaTunnelRow row() {
+        return new SeaTunnelRow(new Object[] {new String[] {"hello"}, "u-1", null});
+    }
+
+    @Test
+    void validatesAcceptanceOverHttpWithoutRetryingInvalidPayload() throws Exception {
+        AtomicInteger requests = new AtomicInteger();
+        List<List<String>> received = new CopyOnWriteArrayList<>();
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext(
+                "/v3/memories/add/",
+                exchange -> {
+                    received.add(
+                            Arrays.asList(
+                                    exchange.getRequestMethod(),
+                                    exchange.getRequestURI().toString(),
+                                    exchange.getRequestHeaders().getFirst("Authorization"),
+                                    exchange.getRequestHeaders().getFirst("Content-Type"),
+                                    exchange.getRequestHeaders().getFirst("Accept")));
+                    exchange.getRequestBody().readAllBytes();
+                    String response =
+                            requests.incrementAndGet() == 1
+                                    ? "{\"event_id\":123}"
+                                    : "{\"event_id\":\"evt-accepted\"}";
+                    byte[] body = response.getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders().set("Content-Type", "application/json");
+                    exchange.sendResponseHeaders(202, body.length);
+                    try {
+                        exchange.getResponseBody().write(body);
+                    } finally {
+                        exchange.close();
+                    }
+                });
+        server.start();
+        try {
+            HttpParameter parameter = parameter();
+            parameter.setUrl(
+                    "http://127.0.0.1:" + server.getAddress().getPort() + "/v3/memories/add/");
+            parameter.setRetry(2);
+            parameter.setConnectTimeoutMs(2000);
+            parameter.setSocketTimeoutMs(2000);
+            parameter.setRetryBackoffMultiplierMillis(1);
+            parameter.setRetryBackoffMaxMillis(2);
+            Mem0SinkWriter writer =
+                    new Mem0SinkWriter(
+                            rowType, parameter, "messages", "user_id", null, null, null, null);
+            try {
+                assertThrows(IOException.class, () -> writer.write(row()));
+                assertEquals(1, requests.get());
+                writer.write(row());
+                assertEquals(2, requests.get());
+                List<String> expected =
+                        List.of(
+                                "POST",
+                                "/v3/memories/add/",
+                                "Token secret",
+                                "application/json",
+                                "application/json");
+                assertEquals(List.of(expected, expected), received);
+            } finally {
+                writer.close();
+            }
+        } finally {
+            server.stop(0);
+        }
     }
 
     @Test

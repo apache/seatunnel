@@ -54,16 +54,12 @@ import java.util.stream.Collectors;
  *     .build();
  *
  * // complex conditional rule
- * Expression expression = Expression.of(TOPIC_DISCOVERY_INTERVAL, 200)
- *     .and(Expression.of(Condition.of(CURSOR_STARTUP_MODE, StartMode.EARLIEST)
- *         .or(CURSOR_STARTUP_MODE, StartMode.LATEST)))
- *     .or(Expression.of(Condition.of(TOPIC_DISCOVERY_INTERVAL, 100)));
- *
  * OptionRule complexRule = OptionRule.builder()
  *     .optional(POLL_TIMEOUT, POLL_INTERVAL, CURSOR_STARTUP_MODE)
  *     .required(CLIENT_SERVICE_URL, ADMIN_SERVICE_URL)
  *     .exclusive(TOPIC_PATTERN, TOPIC)
- *     .conditional(expression, CURSOR_RESET_MODE)
+ *     .conditional(CURSOR_STARTUP_MODE,
+ *         Arrays.asList(StartMode.EARLIEST, StartMode.LATEST), CURSOR_RESET_MODE)
  *     .build();
  *
  * // value constraints — attach Condition to required / optional / conditional
@@ -169,7 +165,7 @@ public class OptionRule {
     public static class Builder {
         private final List<Option<?>> optionalOptions = new ArrayList<>();
         private final List<RequiredOption> requiredOptions = new ArrayList<>();
-        private final Map<Expression, OptionRule> conditionRulesMap = new HashMap<>();
+        private final Map<Condition<?>, OptionRule> conditionRulesMap = new HashMap<>();
         private final List<Condition<?>> valueConstraints = new ArrayList<>();
 
         private Builder() {}
@@ -224,18 +220,13 @@ public class OptionRule {
                                 conditionalOption.key()));
             }
 
-            Expression expression =
+            Condition<T> condition =
                     expectValues.stream()
-                            .map(v -> Expression.of(Condition.of(conditionalOption, v)))
-                            .reduce(Expression::or)
+                            .map(v -> Condition.of(conditionalOption, v))
+                            .reduce(Condition::or)
                             .get();
 
-            RequiredOption.ConditionalRequiredOptions option =
-                    RequiredOption.ConditionalRequiredOptions.of(
-                            expression, new ArrayList<>(Arrays.asList(requiredOptions)));
-            verifyRequiredOptionDuplicate(option, true);
-            this.requiredOptions.add(option);
-            return this;
+            return addConditionalRequiredOptions(condition, requiredOptions);
         }
 
         public <T> Builder conditional(
@@ -243,14 +234,29 @@ public class OptionRule {
                 @NonNull T expectValue,
                 @NonNull Option<?>... requiredOptions) {
             verifyConditionalExists(conditionalOption);
+            return addConditionalRequiredOptions(
+                    Condition.of(conditionalOption, expectValue), requiredOptions);
+        }
 
-            Expression expression = Expression.of(Condition.of(conditionalOption, expectValue));
-            RequiredOption.ConditionalRequiredOptions conditionalRequiredOption =
+        /**
+         * Requires the given options when the trigger matches. Declare every option referenced by
+         * the trigger first, including cross-field operands. The builder snapshots the chain so
+         * appending conditions to it later does not change this rule. A trigger that references
+         * multiple options may share its target with other triggers. Two single-option triggers
+         * that require the same target must refer to the same option.
+         */
+        public Builder conditional(
+                @NonNull Condition<?> trigger, @NonNull Option<?>... requiredOptions) {
+            verifyTriggerOptions(trigger);
+            return addConditionalRequiredOptions(trigger.copyChain(), requiredOptions);
+        }
+
+        private Builder addConditionalRequiredOptions(Condition<?> condition, Option<?>[] options) {
+            RequiredOption.ConditionalRequiredOptions required =
                     RequiredOption.ConditionalRequiredOptions.of(
-                            expression, new ArrayList<>(Arrays.asList(requiredOptions)));
-
-            verifyRequiredOptionDuplicate(conditionalRequiredOption, true);
-            this.requiredOptions.add(conditionalRequiredOption);
+                            condition, new ArrayList<>(Arrays.asList(options)));
+            verifyRequiredOptionDuplicate(required, true);
+            this.requiredOptions.add(required);
             return this;
         }
 
@@ -276,26 +282,41 @@ public class OptionRule {
                                 conditionalOption.key()));
             }
 
+            Condition<T> condition =
+                    expectValues.stream()
+                            .map(v -> Condition.of(conditionalOption, v))
+                            .reduce(Condition::or)
+                            .get();
+
+            return addConditionalRule(condition, conditionalOptionRule);
+        }
+
+        /**
+         * Applies the nested rule when the trigger matches. The trigger has the same declaration
+         * and snapshot semantics as {@link #conditional(Condition, Option[])}.
+         */
+        public Builder conditionalRule(
+                @NonNull Condition<?> trigger, @NonNull OptionRule conditionalOptionRule) {
+            verifyTriggerOptions(trigger);
+            return addConditionalRule(trigger.copyChain(), conditionalOptionRule);
+        }
+
+        private Builder addConditionalRule(
+                Condition<?> condition, OptionRule conditionalOptionRule) {
             if (!conditionalOptionRule.hasOptions()) {
                 throw new OptionValidationException(
                         String.format(
                                 "conditional option rule for '%s' must have options.",
-                                conditionalOption.key()));
+                                condition.getOption().key()));
             }
 
-            Expression expression =
-                    expectValues.stream()
-                            .map(v -> Expression.of(Condition.of(conditionalOption, v)))
-                            .reduce(Expression::or)
-                            .get();
-
-            if (conditionRulesMap.containsKey(expression)) {
+            if (conditionRulesMap.containsKey(condition)) {
                 throw new OptionValidationException(
                         String.format(
                                 "conditional option rule for '%s' with expression '%s' already exists.",
-                                conditionalOption.key(), expression.toString()));
+                                condition.getOption().key(), condition.toString()));
             }
-            this.conditionRulesMap.put(expression, conditionalOptionRule);
+            this.conditionRulesMap.put(condition, conditionalOptionRule);
             return this;
         }
 
@@ -382,11 +403,11 @@ public class OptionRule {
                 @NonNull Condition<?> condition1,
                 @NonNull Condition<?>... conditions) {
             verifyConditionalExists(conditionalOption);
-            Expression expression = Expression.of(Condition.of(conditionalOption, expectValue));
+            Condition<T> condition = Condition.of(conditionalOption, expectValue);
             List<Condition<?>> allConditions = new ArrayList<>();
             allConditions.add(condition1);
             Collections.addAll(allConditions, conditions);
-            mergeConditionalRule(expression, Collections.emptyList(), allConditions);
+            mergeConditionalRule(condition, Collections.emptyList(), allConditions);
             return this;
         }
 
@@ -402,28 +423,28 @@ public class OptionRule {
                 @NonNull Condition<?> condition1,
                 @NonNull Condition<?>... conditions) {
             verifyConditionalExists(conditionalOption);
-            Expression expression = Expression.of(Condition.of(conditionalOption, expectValue));
+            Condition<T> condition = Condition.of(conditionalOption, expectValue);
             List<Condition<?>> allConditions = new ArrayList<>();
             allConditions.add(condition1);
             Collections.addAll(allConditions, conditions);
             List<RequiredOption> reqList = new ArrayList<>();
             reqList.add(RequiredOption.AbsolutelyRequiredOptions.of(option1, option2));
-            mergeConditionalRule(expression, reqList, allConditions);
+            mergeConditionalRule(condition, reqList, allConditions);
             return this;
         }
 
         private void mergeConditionalRule(
-                Expression expression,
+                Condition<?> condition,
                 List<RequiredOption> newRequired,
                 List<Condition<?>> newConditions) {
-            if (conditionRulesMap.containsKey(expression)) {
-                OptionRule existing = conditionRulesMap.get(expression);
+            if (conditionRulesMap.containsKey(condition)) {
+                OptionRule existing = conditionRulesMap.get(condition);
                 List<RequiredOption> mergedReq = new ArrayList<>(existing.getRequiredOptions());
                 mergedReq.addAll(newRequired);
                 List<Condition<?>> mergedCond = new ArrayList<>(existing.getValueConstraints());
                 mergedCond.addAll(newConditions);
                 conditionRulesMap.put(
-                        expression,
+                        condition,
                         new OptionRule(
                                 existing.getOptionalOptions(),
                                 mergedReq,
@@ -431,7 +452,7 @@ public class OptionRule {
                                 mergedCond));
             } else {
                 conditionRulesMap.put(
-                        expression,
+                        condition,
                         new OptionRule(
                                 Collections.emptyList(),
                                 newRequired,
@@ -443,7 +464,7 @@ public class OptionRule {
         public OptionRule build() {
             List<ConditionRule> conditionRuleList =
                     conditionRulesMap.entrySet().stream()
-                            .map(e -> new ConditionRule(e.getKey(), e.getValue()))
+                            .map(e -> ConditionRule.of(e.getKey(), e.getValue()))
                             .collect(Collectors.toList());
             return new OptionRule(
                     optionalOptions, requiredOptions, conditionRuleList, valueConstraints);
@@ -484,65 +505,49 @@ public class OptionRule {
         private void verifyRequiredOptionDuplicate(
                 @NonNull RequiredOption requiredOption,
                 @NonNull Boolean ignoreVerifyDuplicateOptions) {
-            requiredOption
-                    .getOptions()
-                    .forEach(
-                            option -> {
-                                if (!ignoreVerifyDuplicateOptions) {
-                                    // Check if required option that duplicate with option options
-                                    verifyDuplicateWithOptionOptions(
-                                            option, requiredOption.getClass().getSimpleName());
-                                }
-                                requiredOptions.forEach(
-                                        ro -> {
-                                            if (ro
-                                                            instanceof
-                                                            RequiredOption
-                                                                    .ConditionalRequiredOptions
-                                                    && requiredOption
-                                                            instanceof
-                                                            RequiredOption
-                                                                    .ConditionalRequiredOptions) {
-                                                Option<?> requiredOptionCondition =
-                                                        ((RequiredOption.ConditionalRequiredOptions)
-                                                                        requiredOption)
-                                                                .getExpression()
-                                                                .getCondition()
-                                                                .getOption();
+            for (Option<?> option : requiredOption.getOptions()) {
+                if (!ignoreVerifyDuplicateOptions) {
+                    verifyDuplicateWithOptionOptions(
+                            option, requiredOption.getClass().getSimpleName());
+                }
+                for (RequiredOption existing : requiredOptions) {
+                    if (existing.getOptions().contains(option)
+                            && !canShareConditionalTarget(requiredOption, existing)) {
+                        throw new OptionValidationException(
+                                String.format(
+                                        "%s '%s' duplicate in %s options.",
+                                        requiredOption.getClass().getSimpleName(),
+                                        option.key(),
+                                        existing.getClass().getSimpleName()));
+                    }
+                }
+            }
+        }
 
-                                                Option<?> roOptionCondition =
-                                                        ((RequiredOption.ConditionalRequiredOptions)
-                                                                        ro)
-                                                                .getExpression()
-                                                                .getCondition()
-                                                                .getOption();
+        private boolean canShareConditionalTarget(RequiredOption first, RequiredOption second) {
+            if (!(first instanceof RequiredOption.ConditionalRequiredOptions)
+                    || !(second instanceof RequiredOption.ConditionalRequiredOptions)) {
+                return false;
+            }
+            Condition<?> firstTrigger =
+                    ((RequiredOption.ConditionalRequiredOptions) first).getCondition();
+            Condition<?> secondTrigger =
+                    ((RequiredOption.ConditionalRequiredOptions) second).getCondition();
+            return firstTrigger.getOption().equals(secondTrigger.getOption())
+                    || referencesMultipleOptions(firstTrigger)
+                    || referencesMultipleOptions(secondTrigger);
+        }
 
-                                                if (ro.getOptions().contains(option)
-                                                        && !requiredOptionCondition.equals(
-                                                                roOptionCondition)) {
-                                                    throw new OptionValidationException(
-                                                            String.format(
-                                                                    "%s '%s' duplicate in %s options.",
-                                                                    requiredOption
-                                                                            .getClass()
-                                                                            .getSimpleName(),
-                                                                    option.key(),
-                                                                    ro.getClass().getSimpleName()));
-                                                }
-                                            } else {
-                                                if (ro.getOptions().contains(option)) {
-                                                    throw new OptionValidationException(
-                                                            String.format(
-                                                                    "%s '%s' duplicate in %s options.",
-                                                                    requiredOption
-                                                                            .getClass()
-                                                                            .getSimpleName(),
-                                                                    option.key(),
-                                                                    ro.getClass().getSimpleName()));
-                                                }
-                                            }
-                                        });
-                            });
+        private boolean referencesMultipleOptions(Condition<?> trigger) {
+            Option<?> firstOption = trigger.getOption();
+            for (Condition<?> node = trigger; node != null; node = node.getNext()) {
+                if (!firstOption.equals(node.getOption())
+                        || (node.getCompareOption() != null
+                                && !firstOption.equals(node.getCompareOption()))) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private void verifyOptionOptionsDuplicate(
@@ -569,6 +574,15 @@ public class OptionRule {
                                             requiredOption.getClass().getSimpleName()));
                         }
                     });
+        }
+
+        private void verifyTriggerOptions(Condition<?> trigger) {
+            for (Condition<?> node = trigger; node != null; node = node.getNext()) {
+                verifyConditionalExists(node.getOption());
+                if (node.getCompareOption() != null) {
+                    verifyConditionalExists(node.getCompareOption());
+                }
+            }
         }
 
         private void verifyConditionalExists(@NonNull Option<?> option) {

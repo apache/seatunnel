@@ -21,6 +21,7 @@ from types import SimpleNamespace
 from seatunnel_cli.llm_provider import (
     LLMProvider,
     OpenAIProvider,
+    TruncatedOutputError,
     format_llm_error,
 )
 
@@ -252,6 +253,171 @@ class OpenAIProviderReasoningContentTest(unittest.TestCase):
         self.assertIn("reasoning_content", message)
         self.assertIn("OpenAI-compatible reasoning model", message)
         self.assertIn("OPENAI_ECHO_REASONING_CONTENT", message)
+
+    def test_openai_stream_accepts_the_reasoning_field_alias(self):
+        """vLLM's reasoning parser names the field `reasoning` from 0.34 on.
+
+        Reading only `reasoning_content` dropped the whole block, and for a
+        server that requires it to be replayed after a tool call that became a
+        400 on the following request.
+        """
+        provider = OpenAIProvider.__new__(OpenAIProvider)
+        provider._model_id = "reasoning-model"
+        provider._client = _FakeOpenAIClient(
+            [
+                _chunk(SimpleNamespace(
+                    content=None, tool_calls=None, model_extra={"reasoning": "weighing sinks"},
+                )),
+                _chunk(SimpleNamespace(content="env {}", tool_calls=None), finish_reason="stop"),
+            ]
+        )
+
+        events = list(provider.chat_stream([{"role": "user", "content": [{"text": "hi"}]}]))
+
+        self.assertIn({"type": "reasoning_delta", "text": "weighing sinks"}, events)
+        self.assertIn({"type": "text_delta", "text": "env {}"}, events)
+
+    def test_openai_response_accepts_the_reasoning_field_alias(self):
+        message = SimpleNamespace(
+            content="done", model_extra={"reasoning": "checked"}, tool_calls=None,
+        )
+        response = SimpleNamespace(
+            choices=[SimpleNamespace(message=message, finish_reason="stop")]
+        )
+
+        self.assertEqual(
+            OpenAIProvider._from_openai_response(response)["output"]["message"]["content"],
+            [{"reasoningContent": "checked"}, {"text": "done"}],
+        )
+
+    def test_reasoning_content_wins_when_a_server_sends_both_names(self):
+        message = SimpleNamespace(
+            content="done",
+            model_extra={"reasoning_content": "canonical", "reasoning": "alias"},
+            tool_calls=None,
+        )
+        response = SimpleNamespace(
+            choices=[SimpleNamespace(message=message, finish_reason="stop")]
+        )
+
+        self.assertEqual(
+            OpenAIProvider._from_openai_response(response)["output"]["message"]["content"],
+            [{"reasoningContent": "canonical"}, {"text": "done"}],
+        )
+
+
+class OpenAIProviderStopReasonTest(unittest.TestCase):
+    """Every finish reason used to collapse to `end_turn` except tool_calls.
+
+    That made a response truncated at the token limit indistinguishable from a
+    completed one, so the caller went on to parse a config that was cut in half
+    -- or absent entirely -- and reported a generic failure instead of the real
+    cause.
+    """
+
+    @staticmethod
+    def _response(finish_reason, content="env {}", tool_calls=None, reasoning=None):
+        message = SimpleNamespace(
+            content=content,
+            tool_calls=tool_calls,
+            model_extra={"reasoning_content": reasoning} if reasoning else {},
+        )
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=message, finish_reason=finish_reason)]
+        )
+
+    def test_finish_reasons_are_translated_rather_than_collapsed(self):
+        for finish_reason, expected in [
+            ("stop", "end_turn"),
+            ("length", "max_tokens"),
+            ("content_filter", "content_filtered"),
+        ]:
+            with self.subTest(finish_reason=finish_reason):
+                result = OpenAIProvider._from_openai_response(
+                    self._response(finish_reason)
+                )
+                self.assertEqual(result["stopReason"], expected)
+
+    def test_tool_calls_still_map_to_tool_use(self):
+        tool_call = SimpleNamespace(
+            id="t1",
+            function=SimpleNamespace(name="get_connector_detail", arguments="{}"),
+        )
+        result = OpenAIProvider._from_openai_response(
+            self._response("tool_calls", content=None, tool_calls=[tool_call])
+        )
+
+        self.assertEqual(result["stopReason"], "tool_use")
+
+    def test_an_unknown_finish_reason_still_ends_the_turn(self):
+        """OpenAI-compatible servers add their own values.
+
+        An unfamiliar one is not a reason to fail a call that returned usable
+        content, so the previous default is kept.
+        """
+        result = OpenAIProvider._from_openai_response(self._response("eos_token"))
+
+        self.assertEqual(result["stopReason"], "end_turn")
+
+    def test_truncated_with_no_content_raises_rather_than_returning_an_empty_turn(self):
+        with self.assertRaises(TruncatedOutputError) as caught:
+            OpenAIProvider._from_openai_response(
+                self._response("length", content=None, reasoning="thinking at length")
+            )
+
+        self.assertIn("reasoning", str(caught.exception))
+
+    def test_truncated_with_partial_content_is_reported_not_raised(self):
+        """A half-written config is still the caller's to judge.
+
+        Only the case with nothing at all to act on is failed here, so this
+        change cannot turn a usable short answer into an error.
+        """
+        result = OpenAIProvider._from_openai_response(
+            self._response("length", content="env {\n  parallelism = 1")
+        )
+
+        self.assertEqual(result["stopReason"], "max_tokens")
+        self.assertEqual(
+            result["output"]["message"]["content"], [{"text": "env {\n  parallelism = 1"}]
+        )
+
+    def test_streaming_truncation_with_no_content_raises(self):
+        provider = OpenAIProvider.__new__(OpenAIProvider)
+        provider._model_id = "reasoning-model"
+        provider._client = _FakeOpenAIClient(
+            [
+                _chunk(SimpleNamespace(
+                    content=None, tool_calls=None, model_extra={"reasoning": "..."},
+                )),
+                _chunk(SimpleNamespace(content=None, tool_calls=None), finish_reason="length"),
+            ]
+        )
+
+        with self.assertRaises(TruncatedOutputError):
+            list(provider.chat_stream([{"role": "user", "content": [{"text": "hi"}]}]))
+
+    def test_streaming_truncation_after_text_reports_max_tokens_without_raising(self):
+        provider = OpenAIProvider.__new__(OpenAIProvider)
+        provider._model_id = "m"
+        provider._client = _FakeOpenAIClient(
+            [
+                _chunk(SimpleNamespace(content="env {", tool_calls=None)),
+                _chunk(SimpleNamespace(content=None, tool_calls=None), finish_reason="length"),
+            ]
+        )
+
+        events = list(provider.chat_stream([{"role": "user", "content": [{"text": "hi"}]}]))
+
+        self.assertEqual(events[-1], {"type": "message_stop", "stop_reason": "max_tokens"})
+
+    def test_truncated_output_error_gets_an_actionable_hint(self):
+        message = format_llm_error(
+            TruncatedOutputError("The model stopped at the output token limit.")
+        )
+
+        self.assertIn("max_tokens", message)
+        self.assertIn("disable thinking", message)
 
 
 if __name__ == "__main__":

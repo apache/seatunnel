@@ -34,7 +34,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 |--------|------|----------|--------|------|
 | name.srv.addr | String | 是 | - | RocketMQ NameServer 地址，例如 `localhost:9876`。 |
 | topics | String | 否 | - | topic 名称，多个 topic 使用逗号分隔，例如 `"topic_a,topic_b"`。`topics`、`tables_configs` 和 `table_list` 只能配置其中一个。 |
-| tables_configs | List | 否 | - | 多表读取配置。每一项必须包含 `topics`，并可配置 `format`、`schema`、`tags`、`start.mode`、`start.mode.timestamp`、`start.mode.offsets` 和 `ignore_parse_errors`。 |
+| tables_configs | List | 否 | - | 多表读取配置。每一项必须包含 `topics`，并可配置 `format`、`schema`、`tags`、`start.mode`、`start.mode.timestamp`、`start.mode.offsets`、`ignore_parse_errors` 和 `field.delimiter`。 |
 | table_list | List | 否 | - | 已废弃，请使用 `tables_configs`。 |
 | tags | String | 否 | - | tag 名称，多个 tag 使用逗号分隔。只消费 RocketMQ tag 与配置值完全匹配的消息。 |
 | acl.enabled | Boolean | 否 | false | 是否启用 RocketMQ ACL 鉴权。 |

@@ -65,11 +65,17 @@ public class DorisSink
     private final DorisSinkConfig dorisSinkConfig;
     private final ReadonlyConfig config;
     private final CatalogTable catalogTable;
+    private final String sourceTableId;
     private String jobId;
 
     public DorisSink(ReadonlyConfig config, CatalogTable catalogTable) {
+        this(config, catalogTable, catalogTable.getTablePath().getFullName());
+    }
+
+    public DorisSink(ReadonlyConfig config, CatalogTable catalogTable, String sourceTableId) {
         this.config = config;
         this.catalogTable = catalogTable;
+        this.sourceTableId = sourceTableId;
         this.dorisSinkConfig = DorisSinkConfig.of(config);
         // Load the JDBC driver in to DriverManager
         try {
@@ -98,7 +104,12 @@ public class DorisSink
             log.warn("Failed to load JDBC driver com.mysql.cj.jdbc.Driver ", e);
         }
         return new DorisSinkWriter(
-                context, Collections.emptyList(), catalogTable, dorisSinkConfig, jobId);
+                context,
+                Collections.emptyList(),
+                catalogTable,
+                dorisSinkConfig,
+                jobId,
+                sourceTableId);
     }
 
     @Override
@@ -110,7 +121,8 @@ public class DorisSink
         } catch (Exception e) {
             log.warn("Failed to load JDBC driver com.mysql.cj.jdbc.Driver ", e);
         }
-        return new DorisSinkWriter(context, states, catalogTable, dorisSinkConfig, jobId);
+        return new DorisSinkWriter(
+                context, states, catalogTable, dorisSinkConfig, jobId, sourceTableId);
     }
 
     @Override
