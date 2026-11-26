@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.converter.DataC
 import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.converter.DefaultDataConverter;
 
 import org.tikv.common.key.RowKey;
+import org.tikv.common.meta.Collation;
 import org.tikv.common.meta.TiColumnInfo;
 import org.tikv.common.meta.TiTableInfo;
 import org.tikv.kvproto.Cdcpb;
@@ -114,6 +115,27 @@ public class SeaTunnelRowStreamingRecordDeserializer
         if (clusteredPrimaryKey && !tableInfo.isPkHandle()) {
             // A key-only common-handle delete can still recover every primary-key column below.
             // Non-key columns intentionally remain null, as on the integer-handle delete path.
+            // String key components under a non-binary collation hold collation weights instead
+            // of the stored value, so fail fast rather than emit a wrong identity.
+            TiColumnInfo unrecoverableColumn =
+                    CommonHandleDecoder.unrecoverableKeyOnlyColumn(tableInfo);
+            if (unrecoverableColumn != null) {
+                throw new IllegalStateException(
+                        String.format(
+                                "Cannot deserialize TiDB DELETE CDC row because both value and"
+                                        + " oldValue are empty, and primary-key column %s of table"
+                                        + " %s(%s) uses collation %s, which needs the row value to"
+                                        + " restore the stored string. key=%s, startTs=%s,"
+                                        + " commitTs=%s",
+                                unrecoverableColumn.getName(),
+                                tableInfo.getName(),
+                                tableInfo.getId(),
+                                Collation.translate(
+                                        unrecoverableColumn.getType().getCollationCode()),
+                                row.getKey(),
+                                row.getStartTs(),
+                                row.getCommitTs()));
+            }
             return new Object[tableInfo.getColumns().size()];
         }
         TiColumnInfo handleColumn = tableInfo.getPKIsHandleColumn();

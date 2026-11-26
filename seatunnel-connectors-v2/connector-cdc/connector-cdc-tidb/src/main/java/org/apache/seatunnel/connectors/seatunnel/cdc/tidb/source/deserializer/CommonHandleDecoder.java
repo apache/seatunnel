@@ -18,10 +18,14 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.deserializer;
 
 import org.tikv.common.codec.CodecDataInput;
+import org.tikv.common.meta.Collation;
 import org.tikv.common.meta.TiColumnInfo;
 import org.tikv.common.meta.TiIndexColumn;
 import org.tikv.common.meta.TiIndexInfo;
 import org.tikv.common.meta.TiTableInfo;
+import org.tikv.common.types.StringType;
+
+import java.util.Locale;
 
 /**
  * Restores omitted clustered primary-key columns after the TiKV row-value decoder has run. Already
@@ -71,6 +75,43 @@ final class CommonHandleDecoder {
                 values[column.getOffset()] = decoded;
             }
         }
+    }
+
+    /**
+     * Returns the first primary-key column whose key encoding cannot reproduce the stored value
+     * when a delete row carries no row image, or {@code null} when every key component is
+     * reversible.
+     *
+     * <p>A string column under a collation that is neither binary nor a {@code *_bin} collation
+     * stores collation weights in the key, so decoding the key alone yields bytes that are not the
+     * stored string.
+     */
+    static TiColumnInfo unrecoverableKeyOnlyColumn(TiTableInfo tableInfo) {
+        TiIndexInfo primaryIndex = primaryIndex(tableInfo);
+        if (primaryIndex == null) {
+            return null;
+        }
+        for (TiIndexColumn indexColumn : primaryIndex.getIndexColumns()) {
+            TiColumnInfo column = tableInfo.getColumn(indexColumn.getOffset());
+            if (column.getType() instanceof StringType
+                    && !isBinaryCollation(column.getType().getCollationCode())) {
+                return column;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Resolves whether a collation orders by code point, in which case key bytes round-trip the
+     * stored string. Unknown or unspecified collations are treated as not reversible.
+     */
+    static boolean isBinaryCollation(int collationCode) {
+        String collationName = Collation.translate(collationCode);
+        if (collationName == null || collationName.isEmpty()) {
+            return false;
+        }
+        String normalized = collationName.toLowerCase(Locale.ROOT);
+        return "binary".equals(normalized) || normalized.endsWith("_bin");
     }
 
     private static TiIndexInfo primaryIndex(TiTableInfo tableInfo) {

@@ -38,9 +38,11 @@ import org.tikv.common.meta.TiColumnInfo;
 import org.tikv.common.meta.TiIndexColumn;
 import org.tikv.common.meta.TiIndexInfo;
 import org.tikv.common.meta.TiTableInfo;
+import org.tikv.common.types.DataType;
 import org.tikv.common.types.DataType.EncodeType;
 import org.tikv.common.types.DecimalType;
 import org.tikv.common.types.IntegerType;
+import org.tikv.common.types.MySQLType;
 import org.tikv.common.types.StringType;
 import org.tikv.kvproto.Cdcpb;
 import org.tikv.kvproto.Kvrpcpb;
@@ -55,6 +57,7 @@ import java.util.List;
 
 import static org.apache.seatunnel.api.table.catalog.SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -313,6 +316,145 @@ class CommonHandleDecoderTest {
         assertEquals(
                 new BigDecimal("17"), new BigDecimal(collector.rows.get(0).getField(0).toString()));
         assertNull(collector.rows.get(0).getField(1));
+    }
+
+    @Test
+    void imageLessDeleteStillRestoresBinaryCollatedStringKey() throws Exception {
+        TiColumnInfo code = stringPrimaryKeyColumn("utf8mb4_bin");
+        TiTableInfo table = stringKeyTableInfo(code, "utf8mb4_bin");
+        String value = "bob@example.com";
+        byte[] key = stringRecordKey(table, code, value);
+        ListCollector collector = new ListCollector();
+        new SeaTunnelRowStreamingRecordDeserializer(table, stringKeyCatalogTable(), true)
+                .deserialize(
+                        Cdcpb.Event.Row.newBuilder()
+                                .setOpType(Cdcpb.Event.Row.OpType.DELETE)
+                                .setKey(ByteString.copyFrom(key))
+                                .build(),
+                        collector);
+
+        assertEquals(1, collector.rows.size());
+        SeaTunnelRow row = collector.rows.get(0);
+        assertEquals(RowKind.DELETE, row.getRowKind());
+        assertEquals(value, row.getField(0));
+        assertNull(row.getField(1));
+    }
+
+    @Test
+    void imageLessDeleteFailsFastForNonBinaryCollatedStringKey() throws Exception {
+        TiColumnInfo code = stringPrimaryKeyColumn("utf8mb4_general_ci");
+        TiTableInfo table = stringKeyTableInfo(code, "utf8mb4_general_ci");
+        byte[] key = stringRecordKey(table, code, "bob@example.com");
+        ListCollector collector = new ListCollector();
+        SeaTunnelRowStreamingRecordDeserializer deserializer =
+                new SeaTunnelRowStreamingRecordDeserializer(table, stringKeyCatalogTable(), true);
+
+        IllegalStateException error =
+                assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                deserializer.deserialize(
+                                        Cdcpb.Event.Row.newBuilder()
+                                                .setOpType(Cdcpb.Event.Row.OpType.DELETE)
+                                                .setKey(ByteString.copyFrom(key))
+                                                .build(),
+                                        collector));
+
+        assertTrue(error.getMessage().contains("code"), error.getMessage());
+        assertTrue(error.getMessage().contains("utf8mb4_general_ci"), error.getMessage());
+        assertTrue(collector.rows.isEmpty());
+    }
+
+    @Test
+    void binaryCollationClassificationMatchesKeyReversibility() {
+        assertTrue(CommonHandleDecoder.isBinaryCollation(63));
+        assertTrue(CommonHandleDecoder.isBinaryCollation(46));
+        assertTrue(CommonHandleDecoder.isBinaryCollation(83));
+        assertFalse(CommonHandleDecoder.isBinaryCollation(45));
+        assertFalse(CommonHandleDecoder.isBinaryCollation(224));
+        assertFalse(CommonHandleDecoder.isBinaryCollation(0));
+    }
+
+    private TiColumnInfo stringPrimaryKeyColumn(String collation) {
+        DataType type =
+                new StringType(
+                        new TiColumnInfo.InternalTypeHolder(
+                                MySQLType.TypeVarchar.getTypeCode(),
+                                0,
+                                320L,
+                                0,
+                                "utf8mb4",
+                                collation,
+                                Collections.<String>emptyList()));
+        return new TiColumnInfo(1L, "code", 0, type, true);
+    }
+
+    private TiTableInfo stringKeyTableInfo(TiColumnInfo primaryKey, String collation) {
+        TiColumnInfo name = new TiColumnInfo(2, "name", 1, StringType.VARCHAR, false);
+        TiIndexInfo primaryIndex =
+                new TiIndexInfo(
+                        1,
+                        CIStr.newCIStr("primary"),
+                        CIStr.newCIStr("users"),
+                        Collections.singletonList(
+                                new TiIndexColumn(
+                                        CIStr.newCIStr("code"), primaryKey.getOffset(), -1)),
+                        true,
+                        true,
+                        SchemaState.StatePublic.getStateCode(),
+                        "",
+                        IndexType.IndexTypeBtree.getTypeCode(),
+                        false);
+        return new TiTableInfo(
+                103,
+                CIStr.newCIStr("users"),
+                "utf8mb4",
+                collation,
+                false,
+                Arrays.asList(primaryKey, name),
+                Collections.singletonList(primaryIndex),
+                "",
+                0,
+                2,
+                1,
+                0,
+                null,
+                null,
+                null,
+                0,
+                0,
+                0,
+                null);
+    }
+
+    private CatalogTable stringKeyCatalogTable() {
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "code", BasicType.STRING_TYPE, 64L, false, null, ""))
+                        .column(
+                                PhysicalColumn.of(
+                                        "name", BasicType.STRING_TYPE, 64L, true, null, ""))
+                        .primaryKey(PrimaryKey.of("primary", Collections.singletonList("code")))
+                        .build();
+        return CatalogTable.of(
+                TableIdentifier.of("tidb", "test", "users"),
+                schema,
+                new HashMap<>(),
+                Collections.emptyList(),
+                "");
+    }
+
+    private byte[] stringRecordKey(TiTableInfo tableInfo, TiColumnInfo primaryKey, String value)
+            throws Exception {
+        CodecDataOutput output = new CodecDataOutput();
+        output.writeByte('t');
+        IntegerCodec.writeLong(output, tableInfo.getId());
+        output.writeByte('_');
+        output.writeByte('r');
+        primaryKey.getType().encode(output, EncodeType.KEY, value);
+        return output.toBytes();
     }
 
     private void assertCompositeHandleFields(SeaTunnelRow row) {

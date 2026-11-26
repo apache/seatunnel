@@ -49,6 +49,8 @@ For TiDB clustered non-integer or composite primary keys, missing primary-key va
 
 The connector uses the existing JDBC connection options to read the table's `TIDB_PK_TYPE` metadata once during source creation; no additional configuration is required. TiDB versions before 5.0 do not support common handles and retain the integer-handle behavior.
 
+A streaming `DELETE` that carries neither `value` nor `oldValue` can only rebuild primary-key components that the record key encodes reversibly. When such a component is a string column whose collation is neither `binary` nor `*_bin`, the key holds collation weights rather than the stored string, so the connector fails the row with an explicit error naming the table, column, collation and record key instead of emitting a wrong primary key.
+
 ## Data Type Mapping
 
 | MySQL Data Type                                                                              | SeaTunnel Data Type |

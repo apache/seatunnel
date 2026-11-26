@@ -49,6 +49,8 @@ TiDB CDC 连接器通过 `tikv-client-java` 客户端与 TiKV 的 Placement Driv
 
 连接器在创建数据源时使用现有 JDBC 连接配置读取一次表的 `TIDB_PK_TYPE` 元数据，无需增加配置。TiDB 5.0 之前的版本不支持 common handle，继续使用整数句柄路径。
 
+当流式 `DELETE` 既不带 `value` 也不带 `oldValue` 时，只能从记录键还原可逆的主键分量。若该分量是排序规则既不是 `binary` 也不是 `*_bin` 的字符串列，记录键中保存的是排序权重而不是原始字符串，连接器会抛出包含表名、列名、排序规则和记录键的明确错误，而不是输出错误的主键。
+
 ## 数据类型映射
 
 | MySQL 数据类型                                                                                     | SeaTunnel 数据类型 |
