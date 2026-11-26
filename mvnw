@@ -248,12 +248,41 @@ else
         return 1
     }
 
+    # Maven Central sometimes answers every attempt with 429 or 404 (#13461). Only then, and only
+    # for the default Maven Central URL, the jar is taken from Google's mirror of Maven Central,
+    # and it is kept only if it is the jar published on Maven Central.
+    centralJarUrl="https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-wrapper/3.1.0/maven-wrapper-3.1.0.jar"
+    mirrorJarUrl="https://maven-central.storage-download.googleapis.com/maven2/org/apache/maven/wrapper/maven-wrapper/3.1.0/maven-wrapper-3.1.0.jar"
+    wrapperJarSha256="46b0acdfe3da08b3f40d25bd135858b6014ee62b92883768995c946a3b446bd6"
+
+    use_mirror() {
+        [ "$jarUrl" = "$centralJarUrl" ] || return 1
+        echo "Maven wrapper download from Maven Central failed, trying $mirrorJarUrl ..." >&2
+    }
+
+    check_mirror_jar() {
+        if command -v sha256sum > /dev/null; then
+            actualSha256=`sha256sum "$wrapperJarPath" | cut -d' ' -f1`
+        elif command -v shasum > /dev/null; then
+            actualSha256=`shasum -a 256 "$wrapperJarPath" | cut -d' ' -f1`
+        else
+            echo "Cannot check the Maven wrapper jar from the mirror: no sha256sum or shasum" >&2
+            rm -f "$wrapperJarPath"
+            return 1
+        fi
+        [ "$actualSha256" = "$wrapperJarSha256" ] && return 0
+        echo "The Maven wrapper jar from the mirror has SHA-256 $actualSha256, expected $wrapperJarSha256" >&2
+        rm -f "$wrapperJarPath"
+        return 1
+    }
+
     if command -v wget > /dev/null; then
         if [ "$MVNW_VERBOSE" = true ]; then
           echo "Found wget ... using wget"
         fi
         if [ -z "$MVNW_USERNAME" ] || [ -z "$MVNW_PASSWORD" ]; then
-            download_with_retries wget "$jarUrl" -O "$wrapperJarPath"
+            download_with_retries wget "$jarUrl" -O "$wrapperJarPath" \
+                || { use_mirror && download_with_retries wget "$mirrorJarUrl" -O "$wrapperJarPath" && check_mirror_jar; }
         else
             download_with_retries wget --http-user="$MVNW_USERNAME" --http-password="$MVNW_PASSWORD" "$jarUrl" -O "$wrapperJarPath"
         fi
@@ -262,7 +291,8 @@ else
           echo "Found curl ... using curl"
         fi
         if [ -z "$MVNW_USERNAME" ] || [ -z "$MVNW_PASSWORD" ]; then
-            download_with_retries curl -o "$wrapperJarPath" "$jarUrl" -f
+            download_with_retries curl -o "$wrapperJarPath" "$jarUrl" -f \
+                || { use_mirror && download_with_retries curl -o "$wrapperJarPath" "$mirrorJarUrl" -f && check_mirror_jar; }
         else
             download_with_retries curl --user "$MVNW_USERNAME:$MVNW_PASSWORD" -o "$wrapperJarPath" "$jarUrl" -f
         fi
