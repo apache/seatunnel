@@ -314,6 +314,40 @@ public class DynamicChunkSplitterTest {
     }
 
     /**
+     * The hash-shard parallelism cap is on by default and must bound the chunk count at the reader
+     * parallelism that the source plugin sets explicitly, without changing the count in any other
+     * configuration.
+     */
+    @Test
+    public void testHashShardParallelismCapIsOnByDefaultAndOnlyCapsExplicitParallelism() {
+        assertTrue(JdbcSourceOptions.SPLIT_HASH_SHARD_PARALLELISM_CAP.defaultValue());
+        TablePath tablePath = TablePath.of("db", "tbl", "orders");
+
+        assertEquals(
+                4, splitterWithHashShardCap(4, true).capHashShardCount(tablePath, "code", 100));
+        assertEquals(
+                100, splitterWithHashShardCap(4, false).capHashShardCount(tablePath, "code", 100));
+        assertEquals(
+                100,
+                splitterWithHashShardCap(null, true).capHashShardCount(tablePath, "code", 100));
+        assertEquals(3, splitterWithHashShardCap(8, true).capHashShardCount(tablePath, "code", 3));
+        assertEquals(1, splitterWithHashShardCap(4, true).capHashShardCount(tablePath, "code", 1));
+    }
+
+    private DynamicChunkSplitter splitterWithHashShardCap(Integer parallelism, boolean cap) {
+        return new DynamicChunkSplitter(
+                JdbcSourceConfig.builder()
+                        .jdbcConnectionConfig(
+                                JdbcConnectionConfig.builder()
+                                        .url("jdbc:mysql://localhost:3306/test")
+                                        .driverName("com.mysql.cj.jdbc.Driver")
+                                        .build())
+                        .explicitReaderParallelism(parallelism)
+                        .hashShardParallelismCap(cap)
+                        .build());
+    }
+
+    /**
      * Covers bounded range fallback when the approximate row count is zero or negative. Verifies
      * integer, short, and byte ranges split correctly, oversized ranges collapse to one chunk,
      * unsafe numeric ranges collapse to one chunk, and bad arguments throw.
