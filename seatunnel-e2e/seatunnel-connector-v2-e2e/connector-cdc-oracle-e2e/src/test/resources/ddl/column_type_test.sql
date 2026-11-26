@@ -366,3 +366,40 @@ CREATE TABLE DEBEZIUM.PARTITION_SINK_TABLE (
     PARTITION p3 VALUES LESS THAN (3000),
     PARTITION p4 VALUES LESS THAN (MAXVALUE)
 );
+
+-- XMLTYPE is captured as STRING. The E2E sink column is CLOB.
+create table DEBEZIUM.XML_TYPES (
+    ID          NUMBER(9) not null,
+    VAL_VARCHAR VARCHAR2(100),
+    VAL_XML     XMLTYPE,
+    primary key (ID)
+);
+
+ALTER TABLE DEBEZIUM.XML_TYPES ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+
+create table DEBEZIUM.SINK_XML_TYPES (
+    ID          NUMBER(9) not null,
+    VAL_VARCHAR VARCHAR2(100),
+    VAL_XML     CLOB,
+    primary key (ID)
+);
+
+create table DEBEZIUM.LOB_TYPES (
+    ID          NUMBER(9) not null,
+    VAL_VARCHAR VARCHAR2(100),
+    VAL_CLOB    CLOB,
+    VAL_NCLOB   NCLOB,
+    VAL_BLOB    BLOB,
+    primary key (ID)
+);
+
+ALTER TABLE DEBEZIUM.LOB_TYPES ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+
+create table DEBEZIUM.SINK_LOB_TYPES (
+    ID          NUMBER(9) not null,
+    VAL_VARCHAR VARCHAR2(100),
+    VAL_CLOB    CLOB,
+    VAL_NCLOB   NCLOB,
+    VAL_BLOB    BLOB,
+    primary key (ID)
+);

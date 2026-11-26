@@ -31,6 +31,8 @@
     <properties>
         <debezium.version>1.9.8.Final</debezium.version>
         <oracle.version>19.18.0.0</oracle.version>
+        <!-- Appended to CI -Dsurefire.jvm.args so xmlparserv2 does not override the JDK SAX factory. -->
+        <surefire.module.args>-Djavax.xml.parsers.SAXParserFactory=com.sun.org.apache.xerces.internal.jaxp.SAXParserFactoryImpl</surefire.module.args>
     </properties>
 
     <dependencyManagement>
@@ -64,6 +66,13 @@
             <dependency>
                 <groupId>com.oracle.database.xml</groupId>
                 <artifactId>xdb</artifactId>
+                <version>${oracle.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- Oracle XML parser used by xdb. Provided: users copy it next to ojdbc8. -->
+            <dependency>
+                <groupId>com.oracle.database.xml</groupId>
+                <artifactId>xmlparserv2</artifactId>
                 <version>${oracle.version}</version>
                 <scope>provided</scope>
             </dependency>
@@ -106,6 +115,62 @@
             <groupId>com.oracle.database.xml</groupId>
             <artifactId>xdb</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.oracle.database.xml</groupId>
+            <artifactId>xmlparserv2</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>oracle-xe</artifactId>
+            <version>${testcontainer.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>${surefire.jvm.args} ${surefire.module.args}</argLine>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <configuration>
+                    <!--
+                      infinispan-commons is a Multi-Release jar. Shade copies
+                      META-INF/services/java.net.spi.URLStreamHandlerProvider and the
+                      Java 11 provider under META-INF/versions/11, but the shaded
+                      connector jar is not Multi-Release. Java 11 DriverManager then
+                      fails with ServiceConfigurationError and LogMiner JDBC cannot
+                      start. The classpath: handler is not required for the default
+                      memory LogMiner buffer.
+                    -->
+                    <filters>
+                        <filter>
+                            <artifact>*:*</artifact>
+                            <excludes>
+                                <exclude>META-INF/*.SF</exclude>
+                                <exclude>META-INF/*.DSA</exclude>
+                                <exclude>META-INF/*.RSA</exclude>
+                                <exclude>META-INF/services/java.net.spi.URLStreamHandlerProvider</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
+                    <transformers combine.children="append">
+                        <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                            <manifestEntries>
+                                <Multi-Release>true</Multi-Release>
+                            </manifestEntries>
+                        </transformer>
+                    </transformers>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>
