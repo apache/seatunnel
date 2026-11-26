@@ -241,10 +241,14 @@ class SQLNumericComparisonTest {
 
     @Test
     void preservesDecimalCastScaleRounding() {
+        // A STRING or DECIMAL source rounds half away from zero when CAST reduces the scale, so
+        // negating before or after CAST gives the same result.
         assertEquals(
-                true, matches("a = CAST('1.231' AS DECIMAL(10, 2))", new BigDecimal("1.24"), 0L));
+                true, matches("a = CAST('1.231' AS DECIMAL(10, 2))", new BigDecimal("1.23"), 0L));
         assertEquals(
-                true, matches("a = CAST('-1.239' AS DECIMAL(10, 2))", new BigDecimal("-1.23"), 0L));
+                true, matches("a = CAST('-1.239' AS DECIMAL(10, 2))", new BigDecimal("-1.24"), 0L));
+        assertEquals(
+                true, matches("a = -CAST('1.239' AS DECIMAL(10, 2))", new BigDecimal("-1.24"), 0L));
         assertEquals(
                 true, matches("a = CAST(1.231 AS DECIMAL(10, 2))", new BigDecimal("1.23"), 0L));
         assertEquals(
