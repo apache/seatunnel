@@ -25,6 +25,14 @@ import java.util.stream.Collectors;
 
 public class OpenGaussDialect extends PostgresDialect {
 
+    public OpenGaussDialect() {
+        super();
+    }
+
+    public OpenGaussDialect(String fieldIde, boolean numericSpecialValueAsNull) {
+        super(fieldIde, numericSpecialValueAsNull);
+    }
+
     @Override
     public Optional<String> getUpsertStatement(
             String database, String tableName, String[] fieldNames, String[] pkNames) {

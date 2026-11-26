@@ -90,7 +90,7 @@ also exist in the upstream SeaTunnel row.
 
 Use this option when the upstream row has extra fields that should not be written to Cassandra.
 
-### batch_size [number]
+### batch_size [int]
 
 The number of rows written through [Cassandra-Java-Driver](https://github.com/datastax/java-driver) each time,
 default is `5000`.
@@ -111,7 +111,7 @@ Sink plugin common parameters. For details, see [Sink Common Options](../common-
 
 - The target keyspace and table must already exist before the job starts.
 - `fields` is useful when the upstream row has extra columns. It is not a schema creation option.
-- `async_write = true` (default) sends each row as an individual async statement, while `batch_size` controls how often the buffer is flushed. With `async_write = false`, rows are grouped into one `batch_type` batch of at most `batch_size` statements per flush.
+- `async_write = true` (default) sends each row as an individual async statement, while `batch_size` controls how often the buffer is flushed. With `async_write = false`, rows are grouped into one `batch_type` batch that is flushed once it holds `batch_size + 1` statements, because the size check runs after each row is already appended to the batch.
 - The sink uses the Cassandra Java driver. Authentication options match the driver's terminology.
   Note that `consistency_level` is currently accepted but not applied to write statements; to
   change the write consistency level, adjust the driver default in your cluster/client setup.

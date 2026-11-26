@@ -86,6 +86,7 @@ The explicit `service_account_key_file` option takes precedence over the corresp
 | quote_char | string | no | `"` | CSV quote character. |
 | escape_char | string | no | - | CSV escape character. |
 | sheet_name | string | no | - | Excel worksheet to read. |
+| excel_use_header_line | boolean | no | false | Use the first Excel row as column headers for name-based mapping. Only used when file_format_type is excel. |
 | excel_engine | string | no | `POI` | Excel reader: `POI` or `EasyExcel`. |
 | poi_excel_max_file_size | long | no | `52428800` | Maximum Excel file size in bytes for the POI engine. |
 | xml_row_tag | string | conditional | - | XML element representing one row. |

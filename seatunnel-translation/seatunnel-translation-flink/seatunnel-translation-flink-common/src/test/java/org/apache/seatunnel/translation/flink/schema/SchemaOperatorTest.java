@@ -17,14 +17,19 @@
 
 package org.apache.seatunnel.translation.flink.schema;
 
+import org.apache.seatunnel.api.source.SupportSchemaChangeBehavior;
 import org.apache.seatunnel.api.source.SupportSchemaEvolution;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.SchemaChangeBehavior;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
+import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
@@ -37,6 +42,7 @@ import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.state.MapStateDescriptor;
 import org.apache.flink.api.common.state.OperatorStateStore;
+import org.apache.flink.runtime.execution.SuppressRestartsException;
 import org.apache.flink.runtime.state.StateInitializationContext;
 import org.apache.flink.runtime.state.StateSnapshotContext;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
@@ -76,14 +82,15 @@ public class SchemaOperatorTest {
     void testRestoreSchemaEventIsAlwaysSupported() throws Exception {
         CatalogTable restoredTable = createRestoredTable("table");
 
-        OperatorTestContext context =
-                createOperator(new OperatorStateStoreStub(), Collections.emptyList(), false, true);
-        context.operator.processElement(
-                new StreamRecord<>(
-                        createSchemaRow(new RestoreTableSchemaEvent(restoredTable)), 1L));
+        for (SchemaChangeBehavior behavior : SchemaChangeBehavior.values()) {
+            OperatorTestContext context = createOperator(Collections.emptyList(), behavior, false);
+            context.operator.processElement(
+                    new StreamRecord<>(
+                            createSchemaRow(new RestoreTableSchemaEvent(restoredTable)), 1L));
 
-        assertTrue(getBooleanField(context.operator, "schemaChangePending"));
-        assertEquals(1, getPendingQueue(context.operator).size());
+            assertTrue(getBooleanField(context.operator, "schemaChangePending"));
+            assertEquals(1, getPendingQueue(context.operator).size());
+        }
     }
 
     @Test
@@ -479,6 +486,148 @@ public class SchemaOperatorTest {
         assertEquals(1, getPendingQueue(restoredContext.operator).size());
     }
 
+    @Test
+    void testEvolveBehaviorDropsUnsupportedCommentEvent() throws Exception {
+        OperatorTestContext context =
+                createOperator(
+                        Collections.singletonList(SchemaChangeType.ADD_COLUMN),
+                        SchemaChangeBehavior.EVOLVE,
+                        false);
+        AlterTableCommentEvent event =
+                AlterTableCommentEvent.of(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        "old comment",
+                        "new comment");
+        SeaTunnelRow row = createDataRow("row-after-unsupported-comment");
+
+        context.operator.processElement(new StreamRecord<>(createSchemaRow(event), 450L));
+        context.operator.processElement(new StreamRecord<>(row, 451L));
+
+        assertEquals(1, context.output.records.size());
+        assertEquals(row, context.output.records.get(0).getValue());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+    }
+
+    @Test
+    void testStrictBehaviorFailsWhenSchemaChangeDetected() throws Exception {
+        OperatorTestContext context =
+                createOperator(
+                        Collections.singletonList(SchemaChangeType.ADD_COLUMN),
+                        SchemaChangeBehavior.STRICT,
+                        false);
+
+        SuppressRestartsException error =
+                assertThrows(
+                        SuppressRestartsException.class,
+                        () ->
+                                context.operator.processElement(
+                                        new StreamRecord<>(
+                                                createSchemaRow(createSchemaChangeEvent()))));
+        assertTrue(error.getCause() instanceof SchemaEvolutionException);
+        assertTrue(context.output.records.isEmpty());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+    }
+
+    @Test
+    void testEvolveBehaviorFailsForUnsupportedSchemaChange() throws Exception {
+        OperatorTestContext context =
+                createOperator(
+                        Collections.singletonList(SchemaChangeType.DROP_COLUMN),
+                        SchemaChangeBehavior.EVOLVE,
+                        false);
+
+        assertThrows(
+                SuppressRestartsException.class,
+                () ->
+                        context.operator.processElement(
+                                new StreamRecord<>(createSchemaRow(createSchemaChangeEvent()))));
+        assertTrue(context.output.records.isEmpty());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+    }
+
+    @Test
+    void testIgnoreBehaviorDropsSafeCommentSchemaChange() throws Exception {
+        OperatorTestContext context =
+                createOperator(
+                        Collections.singletonList(SchemaChangeType.ALTER_TABLE_COMMENT),
+                        SchemaChangeBehavior.IGNORE,
+                        false);
+        AlterTableCommentEvent event =
+                AlterTableCommentEvent.of(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        "old comment",
+                        "new comment");
+        SeaTunnelRow row = createDataRow("row-after-ignored-comment");
+
+        context.operator.processElement(new StreamRecord<>(createSchemaRow(event), 500L));
+        context.operator.processElement(new StreamRecord<>(row, 501L));
+        AlterTableColumnsEvent columnComment =
+                new AlterTableColumnsEvent(
+                        event.tableIdentifier(),
+                        Collections.singletonList(
+                                AlterColumnCommentEvent.of(
+                                        event.tableIdentifier(), "name", "old", "new")));
+        context.operator.processElement(new StreamRecord<>(createSchemaRow(columnComment), 502L));
+        context.operator.processElement(new StreamRecord<>(row, 503L));
+
+        assertEquals(2, context.output.records.size());
+        assertEquals(row, context.output.records.get(0).getValue());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+    }
+
+    /**
+     * Regression test for the composite {@link AlterTableColumnsEvent} capability check.
+     *
+     * <p>When a sink only advertises {@link SchemaChangeType#ADD_COLUMN}, a composite DDL event
+     * containing both ADD and DROP sub-events must be rejected at the {@link SchemaOperator} policy
+     * gate. Before the fix, the OR-based check in {@code SchemaChangePolicy.isSupported()} returned
+     * {@code true} as long as any one capability matched, allowing mixed DDL to pass the gate and
+     * fail later inside the sink writer.
+     */
+    @Test
+    void testEvolveBehaviorFailsMixedCompositeEventAgainstPartiallySupportedSink()
+            throws Exception {
+        OperatorTestContext context =
+                createOperator(
+                        Collections.singletonList(SchemaChangeType.ADD_COLUMN),
+                        SchemaChangeBehavior.EVOLVE,
+                        false);
+
+        TableIdentifier tableId = TableIdentifier.of("catalog", "database", "table");
+        AlterTableColumnsEvent mixedEvent = new AlterTableColumnsEvent(tableId);
+        mixedEvent.addEvent(
+                AlterTableAddColumnEvent.add(
+                        tableId,
+                        PhysicalColumn.of(
+                                "new_col", BasicType.STRING_TYPE, 64L, true, null, null)));
+        mixedEvent.addEvent(new AlterTableDropColumnEvent(tableId, "old_col"));
+
+        assertThrows(
+                SuppressRestartsException.class,
+                () ->
+                        context.operator.processElement(
+                                new StreamRecord<>(createSchemaRow(mixedEvent))));
+        assertTrue(context.output.records.isEmpty());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+    }
+
+    @Test
+    void testIgnoreBehaviorFailsForUnsafeSchemaChange() throws Exception {
+        OperatorTestContext context =
+                createOperator(
+                        Collections.singletonList(SchemaChangeType.ADD_COLUMN),
+                        SchemaChangeBehavior.IGNORE,
+                        false);
+
+        assertThrows(
+                SuppressRestartsException.class,
+                () ->
+                        context.operator.processElement(
+                                new StreamRecord<>(createSchemaRow(createSchemaChangeEvent()))));
+        assertTrue(context.output.records.isEmpty());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+    }
+
     /**
      * Verifies that {@link SchemaOperator#handleFallbackTimerOnTaskThread()} correctly respects the
      * checkpoint-completion safety fence even when called from a stall-detection timer.
@@ -665,8 +814,27 @@ public class SchemaOperatorTest {
             boolean restored,
             boolean exactlyOnceMode)
             throws Exception {
-        SupportSchemaEvolution source = Mockito.mock(SupportSchemaEvolution.class);
+        return createOperator(
+                stateStore, supportedTypes, SchemaChangeBehavior.EVOLVE, restored, exactlyOnceMode);
+    }
+
+    private static OperatorTestContext createOperator(
+            List<SchemaChangeType> supportedTypes, SchemaChangeBehavior behavior, boolean restored)
+            throws Exception {
+        return createOperator(
+                new OperatorStateStoreStub(), supportedTypes, behavior, restored, true);
+    }
+
+    private static OperatorTestContext createOperator(
+            OperatorStateStoreStub stateStore,
+            List<SchemaChangeType> supportedTypes,
+            SchemaChangeBehavior behavior,
+            boolean restored,
+            boolean exactlyOnceMode)
+            throws Exception {
+        SupportSchemaEvolutionSource source = Mockito.mock(SupportSchemaEvolutionSource.class);
         Mockito.when(source.supports()).thenReturn(supportedTypes);
+        Mockito.when(source.getSchemaChangeBehavior()).thenReturn(behavior);
 
         SchemaOperator operator = createSchemaOperator(source, exactlyOnceMode);
 
@@ -875,6 +1043,9 @@ public class SchemaOperatorTest {
             this.output = output;
         }
     }
+
+    private interface SupportSchemaEvolutionSource
+            extends SupportSchemaEvolution, SupportSchemaChangeBehavior {}
 
     private static final class CollectingOutput implements Output<StreamRecord<SeaTunnelRow>> {
         private final List<StreamRecord<SeaTunnelRow>> records = new ArrayList<>();
