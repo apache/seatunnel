@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ## Description
 
-Write data to Apache Hive tables. The connector uses Hive Metastore for table management and writes data files (text, parquet, ORC) to HDFS (or S3/OSS when configured). The file format is detected from the Hive table's storage format (`STORED AS`) and cannot be configured on the connector. By default it uses two-phase commit so each checkpoint either commits the whole batch or rolls it back.
+Write data to Apache Hive tables. The connector uses Hive Metastore for table management and writes data files (text, parquet, ORC) to HDFS (or S3/OSS when configured). The file format is detected from the Hive table's storage format (`STORED AS`) and cannot be configured on the connector. By default it uses a two-phase commit protocol: data files are staged in temporary transaction directories during writing and finalized at checkpoint commit, when the staged files are renamed into place and partition metadata is registered with Hive Metastore. Files are published one by one, so a checkpoint commit is not an atomic all-files transaction and does not automatically roll back files that were already published; failed commits are retried from the restored checkpoint state.
 
 :::tip
 
@@ -192,13 +192,17 @@ Option values:
 
 We use templates to automatically create Hive tables, which will create corresponding table creation statements based on the type of upstream data and schema type, and the default template can be modified according to the situation. Available template variables: ${database}, ${table}, ${rowtype_fields}, ${rowtype_partition_fields}, ${table_location}, ${current_timestamp}.
 
-**Default value**: When not specified, uses a default PARQUET non-partitioned table template:
+**Default value**: When not specified, table creation goes through the Hive metastore client and produces a PARQUET non-partitioned managed table. The equivalent default template is (the metastore path stamps `seatunnel.creation.mode = default_template`, so the template below keeps that same value; `${current_timestamp}` is replaced with creation epoch milliseconds):
 ```sql
 CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
   ${rowtype_fields}
 )
 STORED AS PARQUET
 LOCATION '${table_location}'
+TBLPROPERTIES (
+  'seatunnel.creation.mode' = 'default_template',
+  'seatunnel.created.time' = '${current_timestamp}'
+)
 ```
 
 ### common options

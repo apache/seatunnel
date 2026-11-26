@@ -456,11 +456,35 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
 
     protected abstract DdlParser createDdlParser(TablePath tablePath);
 
+    /**
+     * Returns and clears parsed table events through the released downstream extension hook.
+     *
+     * <p>Dispatch remains through this method so existing overrides keep receiving DDL callbacks.
+     */
     protected List<AlterTableEvent> getAndClearParsedSchemaChangeEvents() {
-        return Lists.newArrayList(getAndClearParsedEvents());
+        return new ArrayList<>(getAndClearAlterTableEvents());
     }
 
-    protected abstract List<AlterTableColumnEvent> getAndClearParsedEvents();
+    /**
+     * Returns and clears parsed column events.
+     *
+     * @deprecated Override {@link #getAndClearAlterTableEvents()} to emit table-level events. This
+     *     method remains as a compatibility extension point for downstream CDC connectors.
+     */
+    @Deprecated
+    protected List<AlterTableColumnEvent> getAndClearParsedEvents() {
+        return new ArrayList<>();
+    }
+
+    /**
+     * Returns and clears all parsed alter-table events.
+     *
+     * <p>The default delegates to the legacy column-only extension point so existing downstream
+     * resolvers continue to work without source changes.
+     */
+    protected List<? extends AlterTableEvent> getAndClearAlterTableEvents() {
+        return getAndClearParsedEvents();
+    }
 
     protected abstract String getSourceDialectName();
 }
