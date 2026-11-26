@@ -44,7 +44,11 @@ import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * End-to-end regression coverage for a client that retries a savepoint restore submission while the
@@ -97,6 +101,13 @@ public class SavepointRestoreRetryIT {
     /** Upper bound to wait for the terminal cleanup of the stopped source job. */
     private static final long JOB_CLEANUP_TIMEOUT_SECONDS = 120L;
 
+    /**
+     * Upper bound for a stop-with-savepoint call. {@link JobClient#savePointJob(long)} joins its
+     * remote future synchronously, so a stuck request would otherwise consume the workflow timeout
+     * instead of failing this test.
+     */
+    private static final long SAVEPOINT_CALL_TIMEOUT_SECONDS = 180L;
+
     @Test
     public void testRetriedRestoreSubmissionKeepsTheRunningJob() throws Exception {
         String testClusterName = "SavepointRestoreRetryIT_" + System.currentTimeMillis();
@@ -135,7 +146,7 @@ public class SavepointRestoreRetryIT {
 
             // Establish a real recovery point, then wait until the stopped job's master is gone so
             // that the restore below is a genuine new submission instead of the duplicate guard.
-            engineClient.savePointJob(jobId);
+            savepointWithinBudget(engineClient, jobId);
             awaitJobStatus(sourceProxy, JobStatus.SAVEPOINT_DONE);
             long savepointId = awaitLatestSavepointId(jobClient, jobId);
             log.warn("Source job {} completed its savepoint {}", jobId, savepointId);
@@ -197,7 +208,7 @@ public class SavepointRestoreRetryIT {
 
             // The retried proxy must be a real handle to that same instance: stopping through it
             // has to produce a savepoint newer than everything observed before the retry.
-            engineClient.savePointJob(jobId);
+            savepointWithinBudget(engineClient, jobId);
             awaitJobStatus(retryProxy, JobStatus.SAVEPOINT_DONE);
             long retriedSavepointId = awaitLatestSavepointId(jobClient, jobId);
             Assertions.assertTrue(
@@ -207,15 +218,59 @@ public class SavepointRestoreRetryIT {
                             + " vs "
                             + latestCheckpointAfterRetry);
         } finally {
-            if (engineClient != null) {
-                engineClient.close();
+            // Nested finally blocks keep a throwing close from skipping the remaining owned
+            // members, so a failed recovery assertion still tears the whole fixture down.
+            try {
+                if (engineClient != null) {
+                    engineClient.close();
+                }
+            } finally {
+                try {
+                    if (workerNode != null) {
+                        workerNode.shutdown();
+                    }
+                } finally {
+                    if (masterNode != null) {
+                        masterNode.shutdown();
+                    }
+                }
             }
-            if (workerNode != null) {
-                workerNode.shutdown();
+        }
+    }
+
+    /**
+     * Runs a stop-with-savepoint request on a daemon executor so it cannot hang the test.
+     *
+     * @param engineClient client used to request the savepoint
+     * @param jobId job whose savepoint is requested
+     * @throws Exception when the savepoint fails, or an assertion error when it exceeds the budget
+     */
+    private static void savepointWithinBudget(SeaTunnelClient engineClient, long jobId)
+            throws Exception {
+        ExecutorService savepointExecutor =
+                Executors.newSingleThreadExecutor(
+                        runnable -> {
+                            Thread thread =
+                                    new Thread(runnable, "savepoint-restore-retry-savepoint");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
+        try {
+            Future<?> savepoint = savepointExecutor.submit(() -> engineClient.savePointJob(jobId));
+            try {
+                savepoint.get(SAVEPOINT_CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            } catch (TimeoutException timeout) {
+                savepoint.cancel(true);
+                throw new AssertionError(
+                        "The stop-with-savepoint for job "
+                                + jobId
+                                + " did not return within "
+                                + SAVEPOINT_CALL_TIMEOUT_SECONDS
+                                + " s",
+                        timeout);
             }
-            if (masterNode != null) {
-                masterNode.shutdown();
-            }
+        } finally {
+            savepointExecutor.shutdownNow();
         }
     }
 
