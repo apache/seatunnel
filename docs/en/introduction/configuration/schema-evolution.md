@@ -412,6 +412,9 @@ sink {
   }
 }
 ```
+
+> **Note (schema evolution + batching):** Before a DDL is applied, the StarRocks sink loads the rows it has buffered under the previous schema (`batch_max_rows` / `batch_max_bytes`), so a schema change cannot drop a partial batch. If that load fails, the DDL is not applied and the error is raised: the engine replays the rows from the last checkpoint, or the multi-table retry resends the batch under the same label.
+
 ### Mysql-CDC -> Doris
 ```
 env {
