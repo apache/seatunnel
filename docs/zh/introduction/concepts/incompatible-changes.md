@@ -183,6 +183,27 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
   - **影响**：使用默认配置时，时间戳写成 `yyyy-MM-dd HH:mm:ss`（`T` 改为空格，丢弃小数秒），时间写成 `HH:mm:ss`。依赖原 ISO 格式的下游需要调整。
   - **迁移指南**：如需保留 ISO 格式，请在 Sink 上配置 `datetime_format`，例如 `YYYY_MM_DD_HH_MM_SS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss`），或使用 `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss.SSS`）保留毫秒，并在读取时为 Source 配置对应的 `datetime_format`。
 
+### 条件选项规则按 AND 优先于 OR 的顺序求值
+
+SeaTunnel 使用 `Condition` 校验条件选项规则，并通过 Zeta REST API 和元数据导出 CLI 描述这些规则。3.1.0 中已废弃的 `Expression` 类及相关公共构造器、工厂方法、getter 和校验方法仍可供已有插件 jar 调用。
+
+升级后，运行时会将旧表达式展开为一条条件链，按 AND 优先于 OR 的顺序求值。这个变化也适用于已编译的插件。例如，3.1.0 将 `A.and(B).or(C)` 求值为 `A && (B || C)`，现在则是 `(A && B) || C`。当 A、B 为假且 C 为真时，现在会触发必填校验。多个旧表达式节点内部的分组边界也会被展开。如果规则依赖原有分组，请明确改写，例如将 `A && (B || C)` 写成 `(A && B) || (A && C)`。
+
+新规则可使用 `conditional(trigger, requiredOptions...)` 添加条件必填项，或使用 `conditionalRule(trigger, nestedRule)` 添加嵌套规则。先声明触发条件引用的选项，再通过 `getCondition()` 读取触发条件。旧的 `getExpression()` 返回独立副本。每个 OR 分支对应一个外层节点，分支内的 AND 条件保存在该节点中。如需修改规则，请使用新的触发条件重新构建。
+
+```java
+Condition<?> trigger = Condition.of(MODE, "snapshot").or(REPLAY, true);
+OptionRule rule = OptionRule.builder()
+        .optional(MODE, REPLAY)
+        .conditional(trigger, START_TIME)
+        .conditionalRule(trigger, OptionRule.builder().bundled(USERNAME, PASSWORD).build())
+        .build();
+```
+
+依赖校验报错或导出元数据的工具，请按 AND 优先于 OR 的规则解读表达式文本。遍历条件规则导出的触发条件树时，请读取表达式节点上的 `operator` 和 `next`。每个节点的 `condition` 描述一个谓词。
+
+`Condition.equals` 和 `hashCode` 会计入每个节点的 `ConditionExtension`。如果工厂要求等价规则比较相等，可以复用扩展实例，或为扩展实现按值比较的 `equals` 和 `hashCode`。
+
 ### 原生 CLI 帮助退出码
 
 `seatunnel.sh -h` 现在以 `0` 而非 `234` 退出。
