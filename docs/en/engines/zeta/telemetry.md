@@ -21,9 +21,23 @@ seatunnel:
 
 ## Metrics
 
+> [!NOTE]
+> The metrics endpoints are served through the Hazelcast REST API, which is **disabled by default** in the shipped
+> `config/hazelcast.yaml`. Before scraping, enable it in `hazelcast.yaml` on every node:
+>
+> ```yaml
+> hazelcast:
+>   network:
+>     rest-api:
+>       enabled: true
+> ```
+
 The metric text of prometheus can be obtained from `http://{instanceHost}:5801/hazelcast/rest/instance/metrics`.
 
-The metric text of openMetrics can be obtained from `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics`.
+The metric text of openMetrics can be obtained from `http://{instanceHost}:8080/openmetrics`.
+
+The Hazelcast REST API also serves OpenMetrics at `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics`.
+Set `hazelcast.network.rest-api.enabled: true` in `hazelcast.yaml` to use the Hazelcast endpoints.
 
 Available metrics include the following categories.
 
@@ -146,7 +160,7 @@ These metrics are exported by the active master only; scraping a worker node's e
 | job_thread_pool_queueTaskCount      | Gauge   | **address**, server instance address,for example: "127.0.0.1:5801" | The queueTaskCount of seatunnel coordinator job's executor cached thread pool  |
 | job_thread_pool_completedTask_total | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The completedTask of seatunnel coordinator job's executor cached thread pool   |
 | job_thread_pool_task_total          | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The taskCount of seatunnel coordinator job's executor cached thread pool       |
-| job_thread_pool_rejection_total     | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The rejectionCount of seatunnel coordinator job's executor cached thread pool  |                                                                        |
+| job_thread_pool_rejection_total     | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The rejectionCount of seatunnel coordinator job's executor cached thread pool  |
 
 ### Report Metrics Operation
 
@@ -196,7 +210,7 @@ This metric is exported by the active master only. It reports only an aggregate 
 
 | MetricName | Type  | Labels                                                                                                                      | DESCRIPTION                         |
 |------------|-------|-----------------------------------------------------------------------------------------------------------------------------|-------------------------------------|
-| job_count  | Gauge | **type**, the type of job, including: "canceled" "cancelling" "created" "failed" "failing" "finished" "running" "scheduled" | All job counts of seatunnel cluster |
+| job_count  | Gauge | **type**, the type of job, including: "canceled" "cancelling" "created" "failed" "failing" "finished" "pending" "running" "scheduled" | All job counts of seatunnel cluster |
 
 ### JVM Metrics
 
@@ -257,12 +271,13 @@ scrape_configs:
   # The job name assigned to scraped metrics by default.
   - job_name: 'seatunnel'
     scrape_interval: 5s
-    # Metrics export path 
-    metrics_path: /hazelcast/rest/instance/metrics
+    # Metrics export path (served by the Jetty HTTP server; use /hazelcast/rest/instance/metrics
+    # on port 5801 only if Hazelcast rest-api is enabled)
+    metrics_path: /metrics
     # List of labeled statically configured targets for this job.
     static_configs:
       # The targets specified by the static config.
-      - targets: [ 'localhost:5801' ]
+      - targets: [ 'localhost:8080' ]
       # Labels assigned to all metrics scraped from the targets.
       # labels: [<labelName>:<labelValue>]
 ```

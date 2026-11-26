@@ -23,19 +23,19 @@ connector-file-s3
 ```bash
 cd "${SEATUNNEL_HOME}"
 sh bin/install-plugin.sh
-ls connectors | rg 'connector-(jdbc|file-s3)'
+ls connectors | grep -E 'connector-(jdbc|file-s3)'
 ```
 
 3. 把源端数据库 JDBC 驱动放进 `${SEATUNNEL_HOME}/lib`，并确认 jar 已经落盘：
 
 ```bash
-ls "${SEATUNNEL_HOME}/lib" | rg 'mysql-connector'
+ls "${SEATUNNEL_HOME}/lib" | grep -E 'mysql-connector'
 ```
 
 4. 把 S3 连接器依赖的 `hadoop-aws` 和 AWS SDK bundle 也放进 `${SEATUNNEL_HOME}/lib`，然后确认这两个依赖都能看到：
 
 ```bash
-ls "${SEATUNNEL_HOME}/lib" | rg 'hadoop-aws|aws-java-sdk-bundle'
+ls "${SEATUNNEL_HOME}/lib" | grep -E 'hadoop-aws|aws-java-sdk-bundle'
 ```
 
 5. 先准备源端数据库表。这个示例使用 MySQL，并从 `analytics.orders` 导出两条数据：

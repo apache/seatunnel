@@ -32,7 +32,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [CDC](../../introduction/concepts/connector-v2-features.md)
-- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 > 通用 JDBC Sink 通过 XA 事务实现精确一次；DuckDB JDBC 驱动没有 XA 数据源。DuckDB 作业不要设置 `is_exactly_once = true`。
 
@@ -47,17 +47,21 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | SeaTunnel 数据类型                  | DuckDB 数据类型    |
 |---------------------------------|----------------|
 | BOOLEAN                         | BOOLEAN        |
-| TINYINT<br/>SMALLINT<br/>INT    | INTEGER        |
+| TINYINT                         | TINYINT        |
+| SMALLINT                        | SMALLINT       |
+| INT                             | INTEGER        |
 | BIGINT                          | BIGINT         |
 | DECIMAL(x,y)(获取指定列的指定列大小.<38)   | DECIMAL(x,y)   |
-| DECIMAL(x,y)(获取指定列的指定列大小.>38)   | DECIMAL(38,18) |
+| DECIMAL(x,y)(获取指定列的指定列大小.>38)   | DECIMAL(38,y)  |
 | FLOAT                           | FLOAT          |
 | DOUBLE                          | DOUBLE         |
 | STRING                          | VARCHAR        |
 | DATE                            | DATE           |
 | TIME                            | TIME           |
 | TIMESTAMP                       | TIMESTAMP      |
-| BYTES<br/>ARRAY<br/>ROW<br/>MAP | BLOB           |
+| TIMESTAMP_TZ                    | TIMESTAMP WITH TIME ZONE |
+| BYTES                           | BLOB           |
+| ARRAY<br/>ROW<br/>MAP           | 不支持           |
 
 JDBC 连接器读取和写入 DuckDB `TIME` 时保留微秒精度。该类型表示不带时区的本地时刻。
 
@@ -93,7 +97,8 @@ JDBC 连接器读取和写入 DuckDB `TIME` 时保留微秒精度。该类型表
 
 ### 提示
 
-> 如果未设置 partition_column，它将以单一并发运行，如果设置了 partition_column，它将根据任务的并发度并行执行。
+> Sink 的写入并发度由作业或管道的并行度决定。`partition_column` 是 JDBC Source
+> 用于拆分读取的选项，不控制 Sink 的写入分配。
 
 ## 任务示例
 
@@ -109,7 +114,7 @@ env {
 source {
   FakeSource {
     parallelism = 1
-    row_num = 1000
+    row.num = 1000
     schema = {
       fields {
         id = "int"

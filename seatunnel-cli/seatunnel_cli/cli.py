@@ -870,16 +870,9 @@ class SeaTunnelCLI:
                 self._handle_command(user_input)
                 continue
 
-            # If previous turn was a clarification question, merge the
-            # original request with the user's answer so the planner and
-            # slot-checker see the full context.
-            if self._pending_request:
-                user_input = (
-                    f"{self._pending_request}\n\n"
-                    f"Additional details from user: {user_input}"
-                )
-                self._pending_request = None
-
+            # The Orchestrator merges a clarification reply with the request it
+            # answers; it owns `pending_question`, so doing it here as well
+            # would prepend the requirement twice.
             # Process natural language request
             self._process_request(user_input)
 
@@ -1582,7 +1575,9 @@ _SEVERITY_STYLE = {"error": "error", "warning": "warning", "info": "info"}
 # typo or a mangled copy-paste. Catching it here turns "1/2" -- which would
 # otherwise be sent as the URL path `/job-info/1/2` and come back as a 404 --
 # into a message that names the actual problem.
-_JOB_ID_RE = re.compile(r"-?\d+$")
+# `\Z`, not `$`: `$` also matches just before a trailing newline, so a job
+# id pasted with the newline still got interpolated into the URL path.
+_JOB_ID_RE = re.compile(r"-?\d+\Z")
 
 # An engine error body is bounded only by rest.MAX_RESPONSE_BYTES (8 MiB).
 # That is the right limit for a response being parsed; it is the wrong amount
@@ -1603,12 +1598,13 @@ def run_diagnose(job_id: str, console: Console) -> int:
     and no network beyond the cluster -- which is exactly the situation someone
     is in when a job is stuck in production and they want an answer now.
 
-    It is also read-only: two GETs, no submit, no stop, no savepoint. That is
+    It is also read-only: GETs only, no submit, no stop, no savepoint. That is
     what makes it safe to point at a live production job.
     """
     from .connectors import _ENGINE_API_BASE
     from .diagnostics.checkpoints import diagnose_checkpoints
     from .diagnostics.jobs import as_int, diagnose_job, is_non_terminal, sort_findings
+    from .diagnostics.realtime import diagnose_realtime
     from .memory import redact_credentials
 
     if not _JOB_ID_RE.match(job_id):
@@ -1742,6 +1738,18 @@ def run_diagnose(job_id: str, console: Console) -> int:
         findings = sort_findings(
             findings + diagnose_checkpoints(checkpoints, now_ms=engine_now_ms)
         )
+
+    # Completed jobs no longer have a realtime store. Optional metric failures
+    # must not discard job/checkpoint evidence or construct an LLM provider.
+    if status.upper() == "RUNNING":
+        try:
+            metric_base = f"{_ENGINE_API_BASE}/metrics/realtime/jobs/{job_id}"
+            edges = rest.request_json(f"{metric_base}/edges?windowMs=180000", timeout=10)
+            vertices = rest.request_json(f"{metric_base}/vertices?windowMs=180000", timeout=10)
+        except Exception as e:
+            edges, vertices = None, None
+            logger.debug("Realtime metrics for job %s unavailable: %s", job_id, e)
+        findings = sort_findings(findings + diagnose_realtime(edges, vertices))
 
     if not findings:
         # Only claim a clean bill of health when the rules actually had their

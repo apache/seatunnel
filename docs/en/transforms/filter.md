@@ -26,8 +26,8 @@ The Filter transform decides which fields of a table are passed to the next step
 | include_fields    | Array&lt;String&gt;      | no       | -       | Fields to keep. All other fields are removed. Mutually exclusive with `exclude_fields`.              |
 | exclude_fields    | Array&lt;String&gt;      | no       | -       | Fields to remove. All other fields are kept. Mutually exclusive with `include_fields`.               |
 | table_match_regex | String             | no       | `.*`    | Regex of the table paths that the transform level rule applies to.                                   |
-| table_transform   | Array&lt;Map&gt;         | no       | -       | Per-table rules, see [Multi-Table Transform](transform-multi-table.md).                              |
-| rule_match_mode   | String             | no       | -       | How multiple `table_transform` entries with the same `table_path` are evaluated.                     |
+| table_transform   | Array&lt;Map&gt;         | no       | `[]`    | Per-table rules, see [Multi-Table Transform](transform-multi-table.md).                              |
+| rule_match_mode   | String             | no       | `FIRST_MATCH` | How multiple `table_transform` entries with the same `table_path` are evaluated.                     |
 | common options    | -                  | no       | -       | Transform plugin common parameters, see [Transform Plugin](common-options/common-options.md).       |
 
 :::caution

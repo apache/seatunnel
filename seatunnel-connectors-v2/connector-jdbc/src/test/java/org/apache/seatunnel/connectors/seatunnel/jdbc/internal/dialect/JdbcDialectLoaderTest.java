@@ -18,6 +18,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.cockroachdb.CockroachDBDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialect;
 
@@ -26,6 +27,17 @@ import org.junit.jupiter.api.Test;
 
 /** Test for {@link JdbcDialectLoader} */
 public class JdbcDialectLoaderTest {
+    @Test
+    void shouldSelectCockroachDBOnlyExplicitly() {
+        String url = "jdbc:postgresql://localhost:26257/seatunnel";
+        Assertions.assertInstanceOf(
+                CockroachDBDialect.class, JdbcDialectLoader.load(url, "CockroachDB", ""));
+        Assertions.assertEquals(
+                PostgresDialect.class, JdbcDialectLoader.load(url, null, "").getClass());
+        Assertions.assertEquals(
+                PostgresDialect.class, JdbcDialectLoader.load(url, "Postgres", "").getClass());
+    }
+
     @Test
     public void shouldFindGenericDialect() throws Exception {
         JdbcDialect jdbcDialect = JdbcDialectLoader.load("jdbc:someting:", null, "");
@@ -37,6 +49,22 @@ public class JdbcDialectLoaderTest {
         JdbcDialect jdbcDialect =
                 JdbcDialectLoader.load("jdbc:mysql://localhost:3306/test", null, "");
         Assertions.assertInstanceOf(MysqlDialect.class, jdbcDialect);
+    }
+
+    @Test
+    void shouldSelectGoldenDbWithoutChangingMysqlSelection() {
+        String goldenDbUrl = "jdbc:goldendb://localhost:3306/test";
+        Assertions.assertEquals(
+                GenericDialect.class, JdbcDialectLoader.load(goldenDbUrl, null, "").getClass());
+        Assertions.assertEquals(
+                MysqlDialect.class, JdbcDialectLoader.load(goldenDbUrl, "GoldenDB", "").getClass());
+        Assertions.assertEquals(
+                MysqlDialect.class,
+                JdbcDialectLoader.load("jdbc:mysql://localhost:3306/test", "GoldenDB", "")
+                        .getClass());
+        Assertions.assertEquals(
+                MysqlDialect.class,
+                JdbcDialectLoader.load("jdbc:mysql://localhost:3306/test", null, "").getClass());
     }
 
     /** Test for {@link JdbcDialectLoader} for appointDialect */

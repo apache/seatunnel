@@ -50,7 +50,7 @@ When `schema` is **not** configured, the whole message is emitted as one row wit
 | url                   | String  | Yes      | -       | WebSocket server url, must start with `ws://` or `wss://`.                                                                   |
 | headers               | Map     | No       | -       | Headers added to the handshake request, for example `Authorization`.                                                          |
 | open_messages         | Array   | No       | -       | Messages sent to the server in order right after the handshake succeeds, usually subscription or authentication payloads. They are re-sent on every successful reconnect. |
-| format                | String  | No       | json    | Data format of the received message, only takes effect when `schema` is configured. Supported values are `json` and `text`.   |
+| format                | enum    | No       | json    | Data format of the received message, only takes effect when `schema` is configured. Supported values are `json` and `text`.   |
 | field_delimiter       | String  | No       | ,       | Customize the field delimiter, only takes effect when `format` is `text`.                                                     |
 | connect_timeout_ms    | Integer | No       | 12000   | Timeout in milliseconds of establishing the connection.                                                                      |
 | ping_interval_ms      | Integer | No       | 0       | Interval in milliseconds of the WebSocket ping frame used to keep the connection alive, `0` disables it.                      |

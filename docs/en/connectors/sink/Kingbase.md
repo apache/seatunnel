@@ -43,16 +43,17 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 |----------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
 | BOOL                                         | BOOLEAN                                                                                                                                           |
 | INT2                                         | SHORT                                                                                                                                             |
-| SMALLSERIAL <br/>SERIAL <br/>INT4            | INT                                                                                                                                               |
+| SMALLSERIAL                                  | SMALLINT                                                                                                                                          |
+| SERIAL <br/>INT4                             | INT                                                                                                                                               |
 | INT8 <br/>BIGSERIAL                          | BIGINT                                                                                                                                            |
 | FLOAT4                                       | FLOAT                                                                                                                                             |
 | FLOAT8                                       | DOUBLE                                                                                                                                            |
 | NUMERIC                                      | DECIMAL((Get the designated column's specified column size),<br/>(Gets the designated column's number of digits to right of the decimal point.))) |
 | BPCHAR <br/>CHARACTER <br/>VARCHAR <br/>TEXT | STRING                                                                                                                                            |
-| TIMESTAMP                                    | LOCALDATETIME                                                                                                                                     |
-| TIME                                         | LOCALTIME                                                                                                                                         |
-| DATE                                         | LOCALDATE                                                                                                                                         |
-| Other data type                              | Not supported yet                                                                                                                                 |
+| TIMESTAMP                                    | TIMESTAMP                                                                                                                                         |
+| TIME                                         | TIME                                                                                                                                              |
+| DATE                                         | DATE                                                                                                                                              |
+| Other data type                              | Supported. Types not listed above are converted following the PostgreSQL mapping rules; MySQL, Oracle and SQL Server compatible types (e.g. TINYINT, MONEY, BLOB, CLOB, DATETIME, NUMBER, DATETIME2) are also supported |
 
 ## Sink Options
 

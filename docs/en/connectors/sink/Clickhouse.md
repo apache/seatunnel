@@ -59,16 +59,22 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 ## Data Type Mapping
 
+The table describes ClickHouse write types. For automatic table creation, `ClickhouseTypeConverter.reconvert` generates `String`, `Int32`, and `Int64` for SeaTunnel `STRING`, `INT`, and `BIGINT`, respectively. Other types shown in those rows apply to existing columns.
+
 | SeaTunnel Data Type |                                                             Clickhouse Data Type                                                              |
 |---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
 | STRING              | String / Int128 / UInt128 / Int256 / UInt256 / Point / Ring / Polygon MultiPolygon                                                            |
+| TINYINT             | Int8                                                                                                                                          |
+| SMALLINT            | Int16                                                                                                                                         |
 | INT                 | Int8 / UInt8 / Int16 / UInt16 / Int32                                                                                                         |
-| BIGINT              | UInt64 / Int64 / IntervalYear / IntervalQuarter / IntervalMonth / IntervalWeek / IntervalDay / IntervalHour / IntervalMinute / IntervalSecond |
+| BIGINT              | Int64 / UInt32 / UInt64 / IntervalYear / IntervalQuarter / IntervalMonth / IntervalWeek / IntervalDay / IntervalHour / IntervalMinute / IntervalSecond |
+| BOOLEAN             | Bool                                                                                                                                          |
 | DOUBLE              | Float64                                                                                                                                       |
 | DECIMAL             | Decimal                                                                                                                                       |
 | FLOAT               | Float32                                                                                                                                       |
 | DATE                | Date                                                                                                                                          |
-| TIME                | DateTime                                                                                                                                      |
+| TIMESTAMP           | DateTime64                                                                                                                                    |
+| TIME                | String                                                                                                                                        |
 | ARRAY               | Array                                                                                                                                         |
 | MAP                 | Map                                                                                                                                           |
 
@@ -101,7 +107,7 @@ Create the target table before running the job. Automatic table creation for `TI
 | custom_sql                           | String  | No       | -                            | Required when `data_save_mode = CUSTOM_PROCESSING`. The SQL is executed before the synchronization task starts.                                                                                                                                                                           |
 | save_mode_create_template            | String  | No       | see below                    | Template used to create the ClickHouse table when schema save mode creates a table.                                                                                                                                                                                                      |
 | server_time_zone                     | String  | No       | JVM system default           | The session time zone of the ClickHouse server. Defaults to the JVM system time zone (`ZoneId.systemDefault()`).                                                                                                                                              |
-| multi_table_sink_replica             | Int     | No       | 1                            | The number of replicas for multi-table write. When `multi_table_sink_replica > 1`, the data is written to multiple tables in parallel.                                                                                                                          |
+| multi_table_sink_replica             | Int     | No       | 1                            | The number of sink writer replicas per table in a multi-table job. When `multi_table_sink_replica > 1`, each table is written by multiple writer replicas in parallel. Must be at least 1.                                                                      |
 | common-options                        |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                                                                                                                                                                |
 
 ### schema_save_mode [Enum]
@@ -194,6 +200,55 @@ sink {
 }
 ```
 
+## ClickhouseFile Sink
+
+Besides the `Clickhouse` sink plugin above, this connector also provides the `ClickhouseFile` sink plugin
+(factory identifier `ClickhouseFile`). Instead of writing rows over JDBC, it feeds the data to a local
+`clickhouse-local` program to generate ClickHouse part files, copies the generated files to the target
+ClickHouse server nodes (`scp` or `rsync`), and attaches them to the target table. This is usually much faster than row-by-row inserts for large batch writes.
+
+Set `table` to an existing ClickHouse `Distributed` table. The sink reads its cluster and backing
+local table from the `Distributed` definition before writing.
+
+The `ClickhouseFile` sink reads only these options from [Sink Options](#sink-options) above: `host`,
+`database`, `table`, `username`, `password`, `clickhouse.config`, `sharding_key` and `server_time_zone`.
+Other sink options (such as `bulk_size`, `split_mode`, `primary_key`, `support_upsert`,
+`schema_save_mode` or `data_save_mode`) are not part of its option rule and have no effect here.
+The plugin-specific options are:
+
+| Name                  | Type    | Required | Default                              | Description                                                                                                                                                                     |
+|-----------------------|---------|----------|--------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| clickhouse_local_path | String  | Yes      | -                                    | Path of the `clickhouse-local` program used by the ClickhouseFile sink.                                                                                                          |
+| copy_method           | Enum    | No       | scp                                  | Method used to copy the generated part files to the ClickHouse server nodes. Supported values: `scp`, `rsync`.                                                                    |
+| compatible_mode       | Boolean | No       | false                                | In lower ClickHouse versions the `clickhouse-local` program does not support the `--path` parameter; enable this mode to emulate the `--path` behavior in another way.             |
+| node_free_password    | Boolean | No       | false                                | Whether password-free login is configured between the SeaTunnel nodes and the ClickHouse server nodes. File transfer uses `scp`/`rsync`, so SeaTunnel needs access to the ClickHouse server nodes. Set this to `true` when password-free login is configured; otherwise configure the node passwords in `node_pass`. |
+| node_pass | Array | Yes | - | SSH entries for the shard nodes. Use the shard hostname reported by `system.clusters` as `node_address`. Each entry requires `node_address` and `password`. `username` defaults to `root`. With passwordless SSH as `root`, set `node_free_password = true` and `node_pass = []`. |
+| key_path              | String  | No       | -                                    | Path of the `rsync`/`ssh` key file used by file transfer.                                                                                                                        |
+| file_fields_delimiter | String  | No       | `\t`                                 | ClickhouseFile temporarily stores data in CSV format. If a row contains this delimiter the generated file may break; avoid it with this option. The value must be exactly one character. |
+| file_temp_path        | String  | No       | /tmp/seatunnel/clickhouse-local/file | Local directory where ClickhouseFile stores temporary files.                                                                                                                     |
+
+### ClickhouseFile Sink Configuration Example
+
+Add this sink block to a job with your source. Use the hostname and SSH credentials for each shard in your cluster.
+
+```hocon
+sink {
+  ClickhouseFile {
+    host = "localhost:8123"
+    database = "default"
+    table = "seatunnel_table_dist"
+    username = "default"
+    password = ""
+    clickhouse_local_path = "/usr/local/clickhouse/clickhouse"
+    copy_method = "rsync"
+    node_pass = [
+      { node_address = "shard1.example.com", username = "ssh_user", password = "ssh_password" }
+    ]
+    file_temp_path = "/tmp/seatunnel/clickhouse-local/file"
+  }
+}
+```
+
 ## Example Configurations and Cases
 
 ### How to Create a Clickhouse Data Synchronization Jobs
@@ -225,7 +280,7 @@ source {
 
 sink {
   Clickhouse {
-    host = "127.0.0.1:9092"
+    host = "127.0.0.1:8123"
     database = "default"
     table = "test"
     username = "xxxxx"
@@ -314,6 +369,51 @@ sink {
     primary_key = "id"
     support_upsert = true
     allow_experimental_lightweight_delete = true
+  }
+}
+```
+
+### CDC Changelog Sink
+
+When the upstream is a changelog source (for example MySQL CDC or Postgres CDC), the rows contain `INSERT`,
+`UPDATE_BEFORE`/`UPDATE_AFTER`, and `DELETE` events. Configure `primary_key` so the sink can map `UPDATE` and
+`DELETE` rows to the right target row, and pair with `support_upsert = true` if the target table does not already
+provide a deduplication engine.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        pk_id = bigint
+        name = string
+        score = int
+      }
+    }
+    rows = [
+      { kind = INSERT,    fields = [1, "A",   100] }
+      { kind = INSERT,    fields = [2, "B",   100] }
+      { kind = INSERT,    fields = [3, "C",   100] }
+      { kind = UPDATE_BEFORE, fields = [1, "A",   100] }
+      { kind = UPDATE_AFTER,  fields = [1, "A_1", 100] }
+      { kind = DELETE,        fields = [2, "B",   100] }
+    ]
+  }
+}
+
+sink {
+  Clickhouse {
+    host = "localhost:8123"
+    database = "default"
+    table = "sink_table"
+    username = "default"
+    password = ""
+    primary_key = "pk_id"
   }
 }
 ```

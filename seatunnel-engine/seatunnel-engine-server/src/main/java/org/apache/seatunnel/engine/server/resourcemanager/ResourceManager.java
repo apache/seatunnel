@@ -73,9 +73,10 @@ public interface ResourceManager {
      * Requests the slots needed by a job's task groups from matching registered workers.
      *
      * <p>Completion requires all requested assignments. The existing request handler attempts to
-     * release partial allocations when allocation fails; failure completion is not a guarantee that
-     * every rollback RPC has already completed. Successful callers own the returned allocations and
-     * must release them when their task groups no longer need them.
+     * release partial allocations when allocation fails. Failure completion waits for those
+     * rollback attempts; an exhausted rollback failure is attached to the allocation failure.
+     * Successful callers own the returned allocations and must release them when their task groups
+     * no longer need them.
      *
      * @param jobId job that will own the granted slots
      * @param resourceProfile nonempty list of requested slot resource requirements

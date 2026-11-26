@@ -72,6 +72,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -328,6 +329,27 @@ public class LocalFileIT extends TestSuiteBase {
                         "/csv/csv_with_header2.csv",
                         "/seatunnel/read/csv/header/csv_with_header2.csv",
                         container);
+                ContainerUtil.copyFileIntoContainers(
+                        "/csv/default-values.csv",
+                        "/seatunnel/read/csv/defaults/default-values.csv",
+                        container);
+
+                Path csvWithPreamble = Files.createTempFile("csv-preamble-", ".csv");
+                try {
+                    Files.write(
+                            csvWithPreamble,
+                            ("\uFEFF\"unclosed quote in report preamble\n"
+                                            + "export generated today\n"
+                                            + "name,id,age\n"
+                                            + "\"Alice\nSmith\",1,10\n"
+                                            + "Bob,2,20\n")
+                                    .getBytes(StandardCharsets.UTF_8));
+                    container.copyFileToContainer(
+                            MountableFile.forHostPath(csvWithPreamble, 0644),
+                            "/seatunnel/read/csv/preamble/data.csv");
+                } finally {
+                    Files.deleteIfExists(csvWithPreamble);
+                }
 
                 ContainerUtil.copyFileIntoContainers(
                         "/text/e2e_null_format.txt",
@@ -337,7 +359,7 @@ public class LocalFileIT extends TestSuiteBase {
                 container.execInContainer(
                         "sh",
                         "-c",
-                        "mkdir -p /seatunnel/read/markdown && printf '# E2E Markdown RAG\\n' > /seatunnel/read/markdown/e2e.md");
+                        "mkdir -p /seatunnel/read/markdown && printf '# E2E Markdown RAG\\n## Child\\nBody\\n' > /seatunnel/read/markdown/e2e.md");
 
                 ContainerUtil.copyFileIntoContainers(
                         "/text/e2e.txt", "/seatunnel/read/recursive/e2e.txt", container);
@@ -355,7 +377,15 @@ public class LocalFileIT extends TestSuiteBase {
                         "/seatunnel/read/recursive/subdir/deeper/final/e2e.txt",
                         container);
 
-                container.execInContainer("mkdir", "-p", "/tmp/fake_empty");
+                Container.ExecResult create =
+                        container.execInContainer(
+                                "mkdir", "-p", "/tmp/fake_empty", "/seatunnel/read/binary2");
+                Assertions.assertEquals(0, create.getExitCode(), create.getStderr());
+                // Fixture setup runs as root; engine workers may run as a different user.
+                Container.ExecResult permissions =
+                        container.execInContainer(
+                                "chmod", "1777", "/tmp/fake_empty", "/seatunnel/read/binary2");
+                Assertions.assertEquals(0, permissions.getExitCode(), permissions.getStderr());
             };
 
     @TestTemplate
@@ -365,7 +395,16 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/csv/local_csv_to_assert.conf");
         helper.execute("/csv/local_csv_enable_split_to_assert.conf");
         helper.execute("/csv/csv_with_header_to_assert.conf");
+        helper.execute("/csv/default_values_to_assert.conf");
         helper.execute("/csv/breakline_csv_to_assert.conf");
+    }
+
+    @TestTemplate
+    public void testLocalFileCsvWithPreamble(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/csv/csv_with_preamble_to_assert.conf");
+        helper.execute("/csv/csv_with_header_to_assert.conf");
     }
 
     @TestTemplate
@@ -399,6 +438,19 @@ public class LocalFileIT extends TestSuiteBase {
     }
 
     @TestTemplate
+    public void testLocalFileNullPartitionValue(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
+        // A NULL partition value used to fail the job with a NullPointerException. The job must
+        // now finish and write the partition directory with the literal text "null".
+        helper.execute("/text/fake_to_local_file_null_partition.conf");
+        Container.ExecResult execResult =
+                baseContainer.execInContainer(
+                        "sh", "-c", "ls -d /tmp/seatunnel/text_null_partition/c_null=null");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
     public void testLocalFileJson(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
@@ -409,6 +461,13 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/json/fake_to_local_file_json_with_encoding.conf");
         helper.execute("/json/local_file_json_to_console_with_encoding.conf");
         helper.execute("/json/local_file_to_console.conf");
+    }
+
+    @TestTemplate
+    public void testLocalFileParquetProjection(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/parquet/local_file_parquet_projection_to_assert.conf");
     }
 
     @TestTemplate
@@ -425,6 +484,22 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/parquet/local_file_parquet_projection_to_assert.conf");
         helper.execute("/parquet/local_file_to_console.conf");
         helper.execute("/binary/local_file_binary_to_local_file_binary.conf");
+        AtomicBoolean binaryCopied = new AtomicBoolean();
+        container.executeExtraCommands(
+                engine -> {
+                    Container.ExecResult comparison =
+                            engine.execInContainer(
+                                    "sh",
+                                    "-c",
+                                    "if test -f /seatunnel/read/binary2/cat.png; then "
+                                            + "cmp /seatunnel/read/binary/cat.png "
+                                            + "/seatunnel/read/binary2/cat.png && printf matched; fi");
+                    Assertions.assertEquals(0, comparison.getExitCode(), comparison.getStderr());
+                    if ("matched".equals(comparison.getStdout().trim())) {
+                        binaryCopied.set(true);
+                    }
+                });
+        Assertions.assertTrue(binaryCopied.get(), "Missing committed binary copy");
         if (!container.identifier().getEngineType().equals(EngineType.FLINK)) {
             helper.execute("/binary/local_file_binary_to_assert.conf");
         }
@@ -882,6 +957,154 @@ public class LocalFileIT extends TestSuiteBase {
         Assertions.assertFalse(localFileCatalog.isExistsData(tablePath));
         localFileCatalog.dropTable(tablePath, false);
         Assertions.assertFalse(localFileCatalog.tableExists(tablePath));
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Savepoint restore uses the native Zeta reader lifecycle")
+    public void testBoundedFileSavepointRestore(TestContainer container) throws Exception {
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        String config = "/text/local_file_bounded_restore.conf";
+        String root = "/tmp/seatunnel_mnt/bounded-restore";
+        Container.ExecResult setup =
+                baseContainer.execInContainer(
+                        "sh",
+                        "-c",
+                        "rm -rf "
+                                + root
+                                + " && mkdir -p "
+                                + root
+                                + "/source "
+                                + root
+                                + "/output "
+                                + root
+                                + "/pending && i=1; while [ $i -le 120 ]; do echo $i > "
+                                + root
+                                + "/source/$i.txt; i=$((i+1)); done");
+        Assertions.assertEquals(0, setup.getExitCode(), setup.getStderr());
+        CompletableFuture<Container.ExecResult> firstRun =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(config, jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        List<CompletableFuture<Container.ExecResult>> runs = new ArrayList<>();
+        runs.add(firstRun);
+        Throwable failure = null;
+        try {
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .failFast(
+                            "Bounded job ended before checkpointed partial output",
+                            firstRun::isDone)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(
+                                        container.getCompletedCheckpointCount(jobId) > 0);
+                                int committed = readBoundedRestoreIds().size();
+                                Assertions.assertTrue(
+                                        committed > 0 && committed < 120,
+                                        "Checkpoint must commit a proper subset before restore");
+                            });
+            Container.ExecResult savepoint = container.savepointJob(jobId);
+            Assertions.assertEquals(0, savepoint.getExitCode(), savepoint.getStderr());
+            Container.ExecResult stopped = firstRun.get(120, TimeUnit.SECONDS);
+            Assertions.assertEquals(0, stopped.getExitCode(), stopped.getStderr());
+            Assertions.assertTrue(
+                    readBoundedRestoreIds().size() < 120,
+                    "The saved job must still have unfinished file splits");
+            CompletableFuture<Container.ExecResult> restored =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    return container.restoreJob(config, jobId);
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
+            runs.add(restored);
+            Container.ExecResult completed = restored.get(180, TimeUnit.SECONDS);
+            Assertions.assertEquals(0, completed.getExitCode(), completed.getStderr());
+            List<Integer> expected = new ArrayList<>();
+            for (int id = 1; id <= 120; id++) {
+                expected.add(id);
+            }
+            List<Integer> actual = readBoundedRestoreIds();
+            actual.sort(Integer::compareTo);
+            Assertions.assertEquals(
+                    expected,
+                    actual,
+                    "Restore must neither replay completed files nor lose pending splits");
+        } catch (Exception | AssertionError e) {
+            failure = e;
+            throw e;
+        } finally {
+            try {
+                List<String> terminal =
+                        Lists.newArrayList("FINISHED", "FAILED", "CANCELED", "SAVEPOINT_DONE");
+                String status = container.getJobStatus(jobId);
+                if (status == null || "UNKNOWABLE".equals(status)) {
+                    throw new IllegalStateException(
+                            "Cannot confirm native termination; preserve fixture files");
+                }
+                if (!terminal.contains(status)) {
+                    CompletableFuture<Container.ExecResult> cancellation =
+                            CompletableFuture.supplyAsync(
+                                    () -> {
+                                        try {
+                                            return container.cancelJob(jobId);
+                                        } catch (Exception e) {
+                                            throw new RuntimeException(e);
+                                        }
+                                    });
+                    Container.ExecResult cancel = cancellation.get(30, TimeUnit.SECONDS);
+                    Assertions.assertEquals(0, cancel.getExitCode(), cancel.getStderr());
+                }
+                Awaitility.await()
+                        .atMost(120, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () ->
+                                        Assertions.assertTrue(
+                                                terminal.contains(container.getJobStatus(jobId)),
+                                                "Keep fixture files until the native job is confirmed terminal"));
+                for (CompletableFuture<Container.ExecResult> run : runs) {
+                    if (!run.isDone()) {
+                        run.get(120, TimeUnit.SECONDS);
+                    }
+                }
+                Container.ExecResult cleanup =
+                        baseContainer.execInContainer("sh", "-c", "rm -rf " + root);
+                Assertions.assertEquals(0, cleanup.getExitCode(), cleanup.getStderr());
+            } catch (Exception | AssertionError cleanupFailure) {
+                if (failure != null) {
+                    failure.addSuppressed(cleanupFailure);
+                } else {
+                    throw cleanupFailure;
+                }
+            }
+        }
+    }
+
+    private List<Integer> readBoundedRestoreIds() throws IOException, InterruptedException {
+        Container.ExecResult result =
+                baseContainer.execInContainer(
+                        "sh",
+                        "-c",
+                        "find /tmp/seatunnel_mnt/bounded-restore/output -type f "
+                                + "! -name '.*' -exec awk '1' {} +");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        List<Integer> ids = new ArrayList<>();
+        for (String line : result.getStdout().split("\\R")) {
+            if (!line.trim().isEmpty()) {
+                ids.add(Integer.parseInt(line.trim()));
+            }
+        }
+        return ids;
     }
 
     private void resetUpdateTestPath() throws IOException, InterruptedException {

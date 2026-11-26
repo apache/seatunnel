@@ -27,7 +27,7 @@ The Linear source connector reads data from the [Linear](https://linear.app/) Gr
 | headers                     | Map     | No       | -       | Extra HTTP headers. Any `Authorization` entry here is always replaced by the value of `api_key`. |
 | params                      | Map     | No       | -       | Query parameters sent with the request. |
 | body                        | String  | No       | -       | HTTP request body. Usually used with `method = "POST"` to send a GraphQL query. |
-| format                      | String  | No       | text    | Response format. Use `json` when reading the GraphQL response into a SeaTunnel schema; use `text` to return the raw response as `content`. The shared HTTP option also accepts `binary`, but `binary` is not supported by the `Linear` source and `binary_chunk_size` has no effect here. |
+| format                      | String  | No       | text    | Response format. Use `json` when reading the GraphQL response into a SeaTunnel schema; use `text` to return the raw response as `content`. Only response-format options are used by the Linear reader: the shared HTTP `binary` format and `binary_chunk_size` are **not** applied here (the Linear reader always deserializes JSON or text), so do not rely on them. |
 | schema                      | Config  | No       | -       | Output schema. Required when `format = "json"`. |
 | schema.fields               | Config  | No       | -       | Field names and SeaTunnel data types used to parse the JSON response. |
 | content_field               | String  | No       | -       | JSONPath used to select a nested part of the response before parsing it with `schema`, for example `$.data.issues.nodes.*`. |
@@ -54,7 +54,7 @@ The Linear source connector reads data from the [Linear](https://linear.app/) Gr
 - Set `format = "json"` and configure `schema` when you want typed SeaTunnel rows.
 - Use `content_field` to unwrap the GraphQL envelope, for example `$.data.issues.nodes.*`, before parsing with `schema`.
 - Use `json_field` only when each output field needs its own JSONPath expression.
-- Pagination is not supported by this connector. Each job reads only what a single request returns; the HTTP `pageing` block and its options have no effect here.
+- Pagination is **not** effective in Linear mode: the reader issues a single request and ignores the HTTP `pageing` block, so a multi-page API will only return its first page. Reading more data than one request returns requires a separate code change, not configuration.
 - `api_key` is sent verbatim as the `Authorization` header value and always overrides any `Authorization` entry in `headers`. Put only other custom headers in `headers`.
 
 ## Task Examples

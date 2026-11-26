@@ -32,7 +32,7 @@ Amazon SQS 写入连接器用于把每条输入的 SeaTunnel 行数据写入一�
 | region            | String | 是    | -    | SQS 队列所在的 AWS 区域，例如 `us-east-1`。                                                                                     |
 | access_key_id     | String | 否    | -    | AWS access key ID。和 `secret_access_key` 一起配置时使用静态凭证；两者都不配置时使用 AWS 默认凭证链。                                    |
 | secret_access_key | String | 否    | -    | AWS secret access key。和 `access_key_id` 一起配置时使用静态凭证。                                                            |
-| format            | String | 否    | json | 消息体格式。支持 `json`、`text`、`canal_json`、`debezium_json`。                                                             |
+| format            | enum   | 否    | json | 消息体格式。支持 `json`、`text`、`canal_json`、`debezium_json`。                                                             |
 | field_delimiter   | String | 否    | ,    | 当 `format = text` 时使用的字段分隔符。                                                                                       |
 | common-options    |        | 否    | -    | Sink 插件通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。                                      |
 
@@ -47,6 +47,18 @@ Amazon SQS 写入连接器用于把每条输入的 SeaTunnel 行数据写入一�
 - 当前写入连接器只发送消息体，不提供 SQS message attributes、delay seconds、deduplication ID 或 message group ID 等配置。
 - `access_key_id` 和 `secret_access_key` 是可选项；如果使用静态 AWS 凭证，需要两个一起配置。
 - 该写入连接器会把每条 SeaTunnel 行数据发送成一条 SQS 消息，不会把多行数据合并到一次 SQS 请求里。
+
+## 认证
+
+连接器按以下顺序解析 AWS 凭证：
+
+1. 如果 `access_key_id` 和 `secret_access_key` 都已配置，则使用这对静态凭证。
+2. 否则，使用 AWS 默认凭证提供链（环境变量、实例 profile 等）。
+
+如果要在 LocalStack 或 ElasticMQ 等 SQS 兼容服务上进行本地测试，把 `url` 指向本地
+endpoint（例如 `http://sqs-host:4566/...`），并提供任意非空的
+`access_key_id` / `secret_access_key` 即可。SQS 兼容测试服务通常不会校验请求的
+SigV4 签名，因此任意静态凭证对都可以被接受。
 
 ## 任务示例
 
