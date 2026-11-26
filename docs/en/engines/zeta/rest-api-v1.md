@@ -175,7 +175,7 @@ network:
 
 ```json
 {
-    "projectVersion":"3.1.0-SNAPSHOT",
+    "projectVersion":"3.1.1-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
@@ -288,6 +288,7 @@ None.
     "envOptions": {
     },
     "createTime": "",
+    "startTime": "",
     "jobDag": {
       "jobId": "",
       "envOptions": [],
@@ -399,7 +400,7 @@ None.
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
 `finishTime`, `errorMsg` will return when job is finished.
 A running job also returns a `diagnostics` block (state timestamps and per-pipeline restore counts),
@@ -513,7 +514,7 @@ This API has been deprecated, please use /hazelcast/rest/maps/job-info/:jobId in
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
 `finishTime`, `errorMsg` will return when job is finished.
 
@@ -550,6 +551,7 @@ When we can't get the job info, the response contains only the requested `jobId`
     "jobStatus": "",
     "errorMsg": null,
     "createTime": "",
+    "startTime": "",
     "finishTime": "",
     "jobDag": {
       "jobId": "",
@@ -658,6 +660,9 @@ Each member is asked in parallel and awaited against one shared deadline (`seatu
 > | jobId                | optional | string    | job id                            |
 > | jobName              | optional | string    | job name                          |
 > | isStartWithSavePoint | optional | string    | if job is started with save point |
+> | restoreMode          | optional | string    | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
+> | restoreSourceJobId   | optional | string    | ID of the job to restore. Required for `CHECKPOINT`. In `SAVEPOINT` mode, the server uses `jobId` if this parameter is omitted. |
+> | format               | optional | string    | config format, support json, hocon and sql, default json |
 
 #### Body
 
@@ -716,6 +721,9 @@ Each member is asked in parallel and awaited against one shared deadline (`seatu
 > | jobId                | optional     | string  | job id                                |
 > | jobName              | optional     | string  | job name                              |
 > | isStartWithSavePoint | optional     | string  | if the job is started with save point |
+> | restoreMode          | optional     | string  | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
+> | restoreSourceJobId   | optional     | string  | ID of the job to restore. Required for `CHECKPOINT`. In `SAVEPOINT` mode, the server uses `jobId` if this parameter is omitted. |
+> | format               | optional     | string  | config format, support json, hocon and sql, default json |
 
 #### Request Body
 

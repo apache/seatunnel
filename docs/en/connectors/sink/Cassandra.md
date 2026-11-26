@@ -90,7 +90,7 @@ also exist in the upstream SeaTunnel row.
 
 Use this option when the upstream row has extra fields that should not be written to Cassandra.
 
-### batch_size [number]
+### batch_size [int]
 
 The number of rows written through [Cassandra-Java-Driver](https://github.com/datastax/java-driver) each time,
 default is `5000`. With `async_write = false`, the sink sends the buffered rows as one batch once

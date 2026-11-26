@@ -86,7 +86,7 @@ sink 会把数据写入已经存在的 Cassandra 表。如果不配置 `fields`�
 
 当上游数据中有不需要写入 Cassandra 的额外字段时，可以使用该选项只选择目标字段。
 
-### batch_size [number]
+### batch_size [int]
 
 通过 [Cassandra-Java-Driver](https://github.com/datastax/java-driver) 每次写入的行数,
 默认值 `5000`. 当 `async_write = false` 时，缓冲的行达到这个数量后，Sink 会把它们作为一个批次发送。当 `async_write = true` 时，

@@ -1,4 +1,4 @@
-import ChangeLog from '../changelog/connector-iotdb.md';
+import ChangeLog from '../changelog/connector-iotdb-v2.md';
 
 # IoTDBv2
 
@@ -29,6 +29,8 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 ## 数据类型映射
 
+下表适用于默认的树模型（`sql_dialect = "tree"`）。树模型下 `STRING` 写入为 IoTDB 的 `TEXT`，未列出的类型（例如 `TIMESTAMP` 和 `DATE`）会抛出 `UNSUPPORTED_DATA_TYPE`。表模型（`sql_dialect = "table"`）下 `STRING` 映射为 `STRING`，并且额外支持 `TIMESTAMP` 和 `DATE`。
+
 | SeaTunnel 数据类型 | IoTDB 数据类型 | 
 |----------------|------------|
 | BOOLEAN        | BOOLEAN    |
@@ -38,9 +40,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | BIGINT         | INT64      |
 | FLOAT          | FLOAT      |
 | DOUBLE         | DOUBLE     |
-| STRING         | STRING     |
-| TIMESTAMP      | TIMESTAMP  |
-| DATE           | DATE       |
+| STRING         | TEXT       |
 
 ## Sink 选项
 
@@ -126,6 +126,7 @@ sink {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
+    storage_group = "" # 必填选项；这里设为空字符串，因为 `key_device` 字段已包含完整设备路径
     key_device = "device_name" # specify the `deviceId` use device_name field
   }
 }
@@ -156,6 +157,7 @@ sink {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
+    storage_group = "" # 必填选项；这里设为空字符串，因为 `key_device` 字段已包含完整设备路径
     key_device = "device_name" # specify the `deviceId` use device_name field
     key_timestamp = "event_ts" # specify the `timestamp` use event_ts field
   }
@@ -187,6 +189,7 @@ sink {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
+    storage_group = "" # 必填选项；这里设为空字符串，因为 `key_device` 字段已包含完整设备路径
     key_device = "device_name"
     key_timestamp = "event_ts"
     key_measurement_fields = ["temperature", "moisture"]

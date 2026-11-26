@@ -24,7 +24,10 @@ public enum IcebergConnectorErrorCode implements SeaTunnelErrorCode {
     INVALID_STARTING_RECORD_OFFSET("ICEBERG-02", "Invalid starting record offset"),
     UNSUPPORTED_TABLE_FORMAT_VERSION("ICEBERG-03", "Unsupported Iceberg table format version"),
     UNSUPPORTED_WRITE_FOR_TABLE_FORMAT_VERSION(
-            "ICEBERG-04", "Unsupported write mode for the Iceberg table format version");
+            "ICEBERG-04", "Unsupported write mode for the Iceberg table format version"),
+    INVALID_COMMIT_GROUP("ICEBERG-05", "Invalid Iceberg commit group"),
+    COMMIT_PUBLICATION_STATE_UNCERTAIN(
+            "ICEBERG-06", "Iceberg commit publication state is uncertain");
 
     private final String code;
     private final String description;
