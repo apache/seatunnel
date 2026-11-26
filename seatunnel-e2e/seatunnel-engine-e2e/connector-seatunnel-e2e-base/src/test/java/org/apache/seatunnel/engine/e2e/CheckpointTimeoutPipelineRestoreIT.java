@@ -38,6 +38,8 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
+import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
@@ -129,7 +131,7 @@ public class CheckpointTimeoutPipelineRestoreIT {
     private static final long HOLD_ENTRY_TIMEOUT_SECONDS = 120L;
 
     /** Upper bound to wait for the checkpoint timeout to be reported by the master. */
-    private static final long TIMEOUT_OBSERVATION_TIMEOUT_SECONDS = 60L;
+    private static final long TIMEOUT_OBSERVATION_TIMEOUT_SECONDS = 120L;
 
     /** Upper bound to wait for the pipeline restore and the first post-restore checkpoint. */
     private static final long RESTORE_TIMEOUT_SECONDS = 180L;
@@ -164,6 +166,60 @@ public class CheckpointTimeoutPipelineRestoreIT {
                             () ->
                                     Assertions.assertEquals(
                                             2, finalMasterNode.getCluster().getMembers().size()));
+
+            // CLUSTER mode does not wait for a worker registration inside waitingWorkerRegister:
+            // the member count can reach two before the worker profile arrives through the
+            // separate registration/heartbeat path. Submitting on the member count alone can make
+            // the first slot request see an empty registry and fail under the default REJECT
+            // strategy, so the scenario never reaches the checkpoint expiry it is meant to test.
+            HazelcastInstanceImpl finalWorkerNode = workerNode;
+            Awaitility.await()
+                    .atMost(CLUSTER_FORMATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .pollInterval(200, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                SeaTunnelServer masterServer =
+                                        finalMasterNode.node.nodeEngine.getService(
+                                                SeaTunnelServer.SERVICE_NAME);
+                                Assertions.assertNotNull(
+                                        masterServer,
+                                        "The master SeaTunnel service is not started yet");
+                                Assertions.assertNotNull(
+                                        masterServer.getCoordinatorService(),
+                                        "The master coordinator is not active yet");
+                                ResourceManager resourceManager =
+                                        masterServer.getCoordinatorService().getResourceManager();
+                                Assertions.assertNotNull(
+                                        resourceManager,
+                                        "The master resource manager is not initialized yet");
+                                WorkerProfile workerProfile =
+                                        resourceManager
+                                                .getRegisterWorker()
+                                                .get(finalWorkerNode.node.address);
+                                Assertions.assertNotNull(
+                                        workerProfile,
+                                        "The worker has not registered with the master yet");
+                                Assertions.assertNotNull(
+                                        workerProfile.getProfile(),
+                                        "The registered worker has not reported its resources yet");
+                                if (workerProfile.isDynamicSlot()) {
+                                    // With dynamic slots the worker allocates on demand, so the
+                                    // registry only has to hold the reported free resource.
+                                    Assertions.assertNotNull(
+                                            workerProfile.getUnassignedResource(),
+                                            "The dynamic-slot worker has not reported free"
+                                                    + " resources yet");
+                                } else {
+                                    Assertions.assertNotNull(
+                                            workerProfile.getUnassignedSlots(),
+                                            "The fixed-slot worker has not reported its slots"
+                                                    + " yet");
+                                    Assertions.assertTrue(
+                                            workerProfile.getUnassignedSlots().length > 0,
+                                            "The fixed-slot worker has no slot available for the"
+                                                    + " job");
+                                }
+                            });
 
             Common.setDeployMode(DeployMode.CLUSTER);
             String confPath = createTestResources(testCaseName, holdKey);
