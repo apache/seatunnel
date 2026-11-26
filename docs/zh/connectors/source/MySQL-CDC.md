@@ -348,6 +348,14 @@ sink {
 
 ```
 
+启用表结构变更同步后，在 MySQL CDC 源端和同方言的 MySQL JDBC 目标端之间同步 `ADD COLUMN` 时，会保留 `DATETIME` 的日期时间字面量默认值。例如：
+
+```sql
+ALTER TABLE products ADD COLUMN observed_at DATETIME(6) DEFAULT '2025-04-05 06:07:08.123456';
+```
+
+请使用有效的 `YYYY-MM-DD HH:MM:SS` 日期时间字面量，可附带 1 至 6 位小数秒（不超过列定义的精度）。此行为不改变 `CURRENT_TIMESTAMP` 或 `NULL` 的处理，也不扩展到 `MODIFY COLUMN`、`CHANGE COLUMN` 或跨方言目标端。
+
 ### Schema change 事件过滤
 
 当 `schema-changes.enabled = true` 时，可通过 `schema-changes.include` / `schema-changes.exclude` 进一步

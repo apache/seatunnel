@@ -49,6 +49,8 @@ public class MySqlTypeUtils {
     private static final MySqlTypeConverter NO_INT_NARROWING_CONVERTER =
             new MySqlTypeConverter(MySqlVersion.V_5_7, false);
 
+    // Recognize calendar literals with four-digit MySQL years and up to six fractional digits.
+    // Invalid or unsupported values retain Debezium's default conversion.
     private static final Pattern DATETIME_LITERAL =
             Pattern.compile(
                     "[1-9][0-9]{3}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?");
