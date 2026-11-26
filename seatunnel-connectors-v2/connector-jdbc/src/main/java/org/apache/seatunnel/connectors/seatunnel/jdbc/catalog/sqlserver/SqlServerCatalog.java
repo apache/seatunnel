@@ -59,6 +59,19 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
                     + "WHERE schema_name(tbl.schema_id) = '%s' %s\n"
                     + "ORDER BY tbl.name, col.column_id";
 
+    /**
+     * Columns of one named table or view. {@link #SELECT_COLUMNS_SQL_TEMPLATE} reads {@code
+     * sys.tables}, which has no views, so a view passed the existence check but came back with no
+     * columns. That template stays as it is for the schema-wide listing and for the CDC connector,
+     * which only captures tables.
+     */
+    private static final String SELECT_TABLE_OR_VIEW_COLUMNS_SQL_TEMPLATE =
+            SELECT_COLUMNS_SQL_TEMPLATE
+                    .replace("FROM sys.tables tbl\n", "FROM sys.objects tbl\n")
+                    .replace(
+                            "WHERE schema_name(tbl.schema_id) = '%s' %s\n",
+                            "WHERE tbl.type IN ('U', 'V') AND schema_name(tbl.schema_id) = '%s' %s\n");
+
     public SqlServerCatalog(
             String catalogName,
             String username,
@@ -74,10 +87,17 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
         return String.format(getListDatabaseSql() + "  where name = '%s'", databaseName);
     }
 
+    /**
+     * Existence check behind {@link #tableExists} and {@link #getTable(TablePath)}: a table or a
+     * view. {@link #getListTableSql} keeps {@code BASE TABLE} only, so {@link #listTables} still
+     * lists tables only.
+     */
     @Override
     protected String getTableWithConditionSql(TablePath tablePath) {
         return String.format(
-                getListTableSql(tablePath.getDatabaseName())
+                "SELECT TABLE_SCHEMA, TABLE_NAME FROM ["
+                        + tablePath.getDatabaseName()
+                        + "].INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE IN ('BASE TABLE', 'VIEW')"
                         + "  and  TABLE_SCHEMA = '%s' and TABLE_NAME = '%s'",
                 tablePath.getSchemaName(),
                 tablePath.getTableName());
@@ -97,12 +117,13 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getSelectColumnsSql(TablePath tablePath) {
-        String tableSql =
-                StringUtils.isNotEmpty(tablePath.getTableName())
-                        ? "AND tbl.name = '" + tablePath.getTableName() + "'"
-                        : "";
-
-        return String.format(SELECT_COLUMNS_SQL_TEMPLATE, tablePath.getSchemaName(), tableSql);
+        if (StringUtils.isEmpty(tablePath.getTableName())) {
+            return String.format(SELECT_COLUMNS_SQL_TEMPLATE, tablePath.getSchemaName(), "");
+        }
+        return String.format(
+                SELECT_TABLE_OR_VIEW_COLUMNS_SQL_TEMPLATE,
+                tablePath.getSchemaName(),
+                "AND tbl.name = '" + tablePath.getTableName() + "'");
     }
 
     @Override
