@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.SupportSinkDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbSinkOptions;
@@ -31,7 +32,14 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbSinkOptio
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class MongodbSinkFactory implements TableSinkFactory {
+public class MongodbSinkFactory implements TableSinkFactory, SupportSinkDryRunValidation {
+
+    /** Checks connectivity without creating a writer or executing save-mode logic. */
+    @Override
+    public void validateConnectionForDryRun(TableSinkFactoryContext context) {
+        MongodbSinkDryRunValidator.validate(context.getOptions());
+    }
+
     @Override
     public String factoryIdentifier() {
         return MongodbSinkOptions.CONNECTOR_IDENTITY;
@@ -52,6 +60,7 @@ public class MongodbSinkFactory implements TableSinkFactory {
                         MongodbSinkOptions.UPSERT_ENABLE,
                         MongodbSinkOptions.PRIMARY_KEY,
                         MongodbSinkOptions.DATA_SAVE_MODE,
+                        MongodbSinkOptions.TLS_CA_FILE,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
@@ -67,13 +76,10 @@ public class MongodbSinkFactory implements TableSinkFactory {
                         .withConnectString(connection)
                         .withDatabase(database)
                         .withCollection(collection);
-        if (readonlyConfig.getOptional(MongodbSinkOptions.BUFFER_FLUSH_MAX_ROWS).isPresent()) {
-            builder.withFlushSize(readonlyConfig.get(MongodbSinkOptions.BUFFER_FLUSH_MAX_ROWS));
-        }
-        if (readonlyConfig.getOptional(MongodbSinkOptions.BUFFER_FLUSH_INTERVAL).isPresent()) {
-            builder.withBatchIntervalMs(
-                    readonlyConfig.get(MongodbSinkOptions.BUFFER_FLUSH_INTERVAL));
-        }
+        // Always read buffer and retry options: an omitted option must fall back to the default
+        // declared in MongodbSinkOptions, not to the builder's zero value.
+        builder.withFlushSize(readonlyConfig.get(MongodbSinkOptions.BUFFER_FLUSH_MAX_ROWS));
+        builder.withBatchIntervalMs(readonlyConfig.get(MongodbSinkOptions.BUFFER_FLUSH_INTERVAL));
         if (readonlyConfig.getOptional(MongodbSinkOptions.PRIMARY_KEY).isPresent()) {
             builder.withPrimaryKey(
                     readonlyConfig.get(MongodbSinkOptions.PRIMARY_KEY).toArray(new String[0]));
@@ -81,17 +87,15 @@ public class MongodbSinkFactory implements TableSinkFactory {
         if (readonlyConfig.getOptional(MongodbSinkOptions.UPSERT_ENABLE).isPresent()) {
             builder.withUpsertEnable(readonlyConfig.get(MongodbSinkOptions.UPSERT_ENABLE));
         }
-        if (readonlyConfig.getOptional(MongodbSinkOptions.RETRY_MAX).isPresent()) {
-            builder.withRetryMax(readonlyConfig.get(MongodbSinkOptions.RETRY_MAX));
-        }
-        if (readonlyConfig.getOptional(MongodbSinkOptions.RETRY_INTERVAL).isPresent()) {
-            builder.withRetryInterval(readonlyConfig.get(MongodbSinkOptions.RETRY_INTERVAL));
-        }
+        builder.withRetryMax(readonlyConfig.get(MongodbSinkOptions.RETRY_MAX));
+        builder.withRetryInterval(readonlyConfig.get(MongodbSinkOptions.RETRY_INTERVAL));
 
         if (readonlyConfig.getOptional(MongodbSinkOptions.TRANSACTION).isPresent()) {
             builder.withTransaction(readonlyConfig.get(MongodbSinkOptions.TRANSACTION));
         }
         builder.withDataSaveMode(readonlyConfig.get(MongodbSinkOptions.DATA_SAVE_MODE));
+        builder.withTlsCaFile(
+                readonlyConfig.getOptional(MongodbSinkOptions.TLS_CA_FILE).orElse(null));
         CatalogTable catalogTable = context.getCatalogTable();
         // sourceCatalogTable to sinkCatalogTable
         TableIdentifier tableIdentifier =

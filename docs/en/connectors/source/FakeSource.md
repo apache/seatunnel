@@ -20,10 +20,10 @@ FakeSource is a virtual source that generates rows from a user-defined schema. I
 - [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
-- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
-> FakeSource's `FakeSourceSplitEnumerator` enumerator computes all splits up front and assigns them deterministically to specific reader subtasks via `assignSplit(splitId % currentParallelism, ...)`. Reader subtasks do not coordinate with each other while generating rows — fake data production needs no cross-reader state — but the split→reader routing is centralized in the enumerator, not self-enumerated by each subtask.
+> FakeSource implements `SupportParallelism`. Its `FakeSourceSplitEnumerator` generates splits for each reader in row chunks whose size is derived from `split.num` (`ceil(row.num / split.num)` rows per chunk), so the number of splits per table is bounded by the available rows rather than always being exactly `numReaders × split.num` (for example, `row.num = 5` with `split.num = 10` and 2 readers yields 10 splits in total, and `row.num = 0` yields none). Splits are assigned deterministically to reader subtasks via `assignSplit(splitId % currentParallelism, ...)`, so readers run in parallel. Reader subtasks do not coordinate with each other while generating rows — fake data production needs no cross-reader state — and the split→reader routing is centralized in the enumerator.
 
 ## Source Options
 
@@ -63,10 +63,16 @@ FakeSource is a virtual source that generates rows from a user-defined schema. I
 | float.min               | float    | No       | 0                       | The min value of float data that connector generated                                                                                                                                  |
 | float.max               | float    | No       | 0x1.fffffeP+127         | The max value of float data that connector generated                                                                                                                                  |
 | float.template          | list     | No       | -                       | The template list of float type that connector generated, if user configured it, connector will randomly select an item from the template list                                        |
-| double.fake.mode        | string   | No       | range                   | The fake mode of generating float data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `double.template` option      |
+| double.fake.mode        | string   | No       | range                   | The fake mode of generating double data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `double.template` option      |
 | double.min              | double   | No       | 0                       | The min value of double data that connector generated                                                                                                                                 |
 | double.max              | double   | No       | 0x1.fffffffffffffP+1023 | The max value of double data that connector generated                                                                                                                                 |
 | double.template         | list     | No       | -                       | The template list of double type that connector generated, if user configured it, connector will randomly select an item from the template list                                       |
+| date.year.template      | list     | No       | -                       | The template list of year of date like `yyyy`, if user configured it, connector will randomly select an item from the template list   |
+| date.month.template     | list     | No       | -                       | The template list of month of date like `MM`, if user configured it, connector will randomly select an item from the template list    |
+| date.day.template       | list     | No       | -                       | The template list of day of date like `dd`, if user configured it, connector will randomly select an item from the template list      |
+| time.hour.template      | list     | No       | -                       | The template list of hour of time like `HH`, if user configured it, connector will randomly select an item from the template list     |
+| time.minute.template    | list     | No       | -                       | The template list of minute of time like `mm`, if user configured it, connector will randomly select an item from the template list   |
+| time.second.template    | list     | No       | -                       | The template list of second of time like `ss`, if user configured it, connector will randomly select an item from the template list   |
 | vector.dimension        | int      | No       | 4                       | Dimension of the generated vector, excluding binary vectors                                                                                                                           |
 | binary.vector.dimension | int      | No       | 8                       | Dimension of the generated binary vector                                                                                                                                              |
 | vector.float.min        | float    | No       | 0                       | The min value of float data in vector that connector generated                                                                                                                        |
@@ -385,25 +391,6 @@ rows = [
     fields = [1, "A_1", 100]
   }
 ]
-```
-
-### Options `table-names` Case
-
-```hocon
-
-source {
-  # This is a example source plugin **only for test and demonstrate the feature source plugin**
-  FakeSource {
-    table-names = ["test.table1", "test.table2", "test.table3"]
-    parallelism = 1
-    schema = {
-      fields {
-        name = "string"
-        age = "int"
-      }
-    }
-  }
-}
 ```
 
 ### Options `defaultValue` Case

@@ -41,6 +41,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Data
@@ -165,7 +166,7 @@ public class DataValidatorTransformConfig implements Serializable {
             return null;
         }
 
-        String ruleType = String.valueOf(ruleTypeObj).toUpperCase();
+        String ruleType = String.valueOf(ruleTypeObj).toUpperCase(Locale.ROOT);
 
         try {
             switch (ruleType) {
@@ -333,7 +334,7 @@ public class DataValidatorTransformConfig implements Serializable {
         if (value instanceof Boolean) {
             return (Boolean) value;
         }
-        String stringValue = String.valueOf(value).trim().toLowerCase();
+        String stringValue = String.valueOf(value).trim().toLowerCase(Locale.ROOT);
         return "true".equals(stringValue) || "1".equals(stringValue) || "yes".equals(stringValue);
     }
 

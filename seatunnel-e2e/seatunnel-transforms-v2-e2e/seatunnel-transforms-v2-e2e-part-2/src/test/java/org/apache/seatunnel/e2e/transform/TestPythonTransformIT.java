@@ -136,13 +136,45 @@ public class TestPythonTransformIT {
     }
 
     /**
+     * Verifies a transform level rule combined with a per-table rule.
+     *
+     * @param container test container provided by the shared suite
+     * @throws IOException when the job execution API fails
+     * @throws InterruptedException when the test is interrupted
+     */
+    @TestTemplate
+    public void testMultiTablePythonTransform(TestContainer container)
+            throws IOException, InterruptedException {
+        assertFlinkPythonPolicyVisible(container);
+        Container.ExecResult execResult =
+                container.executeJob(BASE_PATH + "python_transform_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    /**
+     * Verifies a transform configured only through {@code table_transform} entries.
+     *
+     * @param container test container provided by the shared suite
+     * @throws IOException when the job execution API fails
+     * @throws InterruptedException when the test is interrupted
+     */
+    @TestTemplate
+    public void testTableTransformOnlyPythonTransform(TestContainer container)
+            throws IOException, InterruptedException {
+        assertFlinkPythonPolicyVisible(container);
+        Container.ExecResult execResult =
+                container.executeJob(BASE_PATH + "python_transform_table_transform_only.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    /**
      * Replaces the default container providers with variants that configure Python policy before
      * each runtime JVM starts.
      *
      * @param container discovered default container
      * @return container equivalent with Python transform JVM policy
      */
-    private static TestContainer withPythonTransformPolicy(TestContainer container) {
+    static TestContainer withPythonTransformPolicy(TestContainer container) {
         TestContainerId containerId = container.identifier();
         switch (containerId) {
             case SEATUNNEL:
@@ -163,6 +195,7 @@ public class TestPythonTransformIT {
                 return new PythonPolicyFlink20Container();
             case SPARK_2_4:
             case SPARK_3_3:
+            case SPARK_3_5:
                 return container;
             default:
                 throw new IllegalStateException(

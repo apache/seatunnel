@@ -36,6 +36,7 @@ bin/seatunnel-ai.sh
 ```bash
 cd seatunnel-cli
 bash setup.sh          # installs all providers + dev tools
+source .venv/bin/activate
 seatunnel --init       # interactive provider setup
 ```
 
@@ -69,6 +70,18 @@ export ORCAROUTER_API_KEY=orc_...
 # export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto
 # export ORCAROUTER_ECHO_REASONING_CONTENT=true   # optional: replay reasoning_content for reasoning models
 ```
+
+### Reasoning models and output limits
+
+For any OpenAI-compatible endpoint, the reasoning block is read under either
+field name servers use for it — `reasoning_content` or `reasoning` (vLLM's
+reasoning parser emits the latter from 0.34 on) — so no extra setting is
+needed to keep reasoning working across servers.
+
+If a model stops at its output token limit before writing any answer, the CLI
+reports that explicitly instead of treating the empty response as a finished
+one. This usually means the reasoning consumed the whole budget: raise
+`max_tokens`, shorten the request, or turn thinking off for the run.
 
 ### OrcaRouter AI gateway
 

@@ -78,11 +78,17 @@ public class DB2Catalog extends AbstractJdbcCatalog {
                 databaseName);
     }
 
+    /**
+     * Existence check behind {@link #tableExists} and {@link #getTable(TablePath)}: a table ({@code
+     * TYPE = 'T'}) or a view ({@code 'V'}). {@code SYSCAT.COLUMNS} lists the columns of both, so a
+     * source {@code table_path} naming a view is readable; {@link #listTables} still lists tables
+     * only.
+     */
     @Override
     protected String getTableWithConditionSql(TablePath tablePath) {
         return String.format(
                 "SELECT TABSCHEMA, TABNAME FROM SYSCAT.TABLES "
-                        + "WHERE TYPE = 'T' AND TABSCHEMA = '%s' AND TABNAME = '%s'",
+                        + "WHERE TYPE IN ('T', 'V') AND TABSCHEMA = '%s' AND TABNAME = '%s'",
                 resolveSchema(tablePath), tablePath.getTableName());
     }
 
@@ -110,7 +116,7 @@ public class DB2Catalog extends AbstractJdbcCatalog {
         String sql =
                 String.format(
                         "SELECT REMARKS FROM SYSCAT.TABLES "
-                                + "WHERE TYPE = 'T' AND TABSCHEMA = '%s' AND TABNAME = '%s'",
+                                + "WHERE TYPE IN ('T', 'V') AND TABSCHEMA = '%s' AND TABNAME = '%s'",
                         resolveSchema(tablePath), tablePath.getTableName());
         List<String> comments =
                 queryString(

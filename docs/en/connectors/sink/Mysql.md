@@ -49,8 +49,10 @@ semantics (using XA transaction guarantee).
 
 |                                                          Mysql Data Type                                                          |                                                                 SeaTunnel Data Type                                                                 |
 |-----------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| BIT(1)<br/>INT UNSIGNED                                                                                                           | BOOLEAN                                                                                                                                             |
-| TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT                                                                                                                                                 |
+| BIT(1)                                                                                                                            | BOOLEAN                                                                                                                                             |
+| TINYINT                                                                                                                           | TINYINT                                                                                                                                             |
+| TINYINT UNSIGNED<br/>SMALLINT                                                                                                     | SMALLINT                                                                                                                                            |
+| SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR                                               | INT                                                                                                                                                 |
 | INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT                                                                                      | BIGINT                                                                                                                                              |
 | BIGINT UNSIGNED                                                                                                                   | DECIMAL(20,0)                                                                                                                                       |
 | DECIMAL(x,y)(Get the designated column's specified column size.<38)                                                               | DECIMAL(x,y)                                                                                                                                        |
@@ -61,9 +63,10 @@ semantics (using XA transaction guarantee).
 | CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>JSON                                                       | STRING                                                                                                                                              |
 | DATE                                                                                                                              | DATE                                                                                                                                                |
 | TIME                                                                                                                              | TIME                                                                                                                                                |
-| DATETIME<br/>TIMESTAMP                                                                                                            | TIMESTAMP                                                                                                                                           |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)                                                  | BYTES                                                                                                                                               |
-| GEOMETRY<br/>UNKNOWN                                                                                                              | Not supported yet                                                                                                                                   |
+| DATETIME                                                                                                                          | TIMESTAMP                                                                                                                                           |
+| TIMESTAMP                                                                                                                         | TIMESTAMP_TZ                                                                                                                                        |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINARY<br/>BIT(n)<br/>GEOMETRY                                    | BYTES                                                                                                                                               |
+| UNKNOWN                                                                                                                           | Not supported yet                                                                                                                                   |
 
 ## Sink Options
 
@@ -98,7 +101,8 @@ semantics (using XA transaction guarantee).
 
 ### Tips
 
-> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
+> Sink concurrency follows the job or pipeline parallelism. `partition_column` is a JDBC
+> source option for splitting reads; it does not control how the sink distributes writes.
 
 ## Task Example
 
@@ -235,7 +239,7 @@ transform {
 }
 
 sink {
-  Mysql {
+  jdbc {
     url = "jdbc:mysql://localhost:3306?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
     driver = "com.mysql.cj.jdbc.Driver"
     username = "root"
@@ -279,7 +283,7 @@ transform {
 }
 
 sink {
-  Mysql {
+  jdbc {
     url = "jdbc:mysql://localhost:3306?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
     driver = "com.mysql.cj.jdbc.Driver"
     username = "root"

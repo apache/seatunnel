@@ -28,6 +28,9 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.doris.config.DorisSinkConfig;
@@ -46,6 +49,8 @@ import org.apache.seatunnel.connectors.doris.util.UnsupportedTypeConverterUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -55,6 +60,7 @@ import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.zip.CRC32;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkState;
 
@@ -71,6 +77,7 @@ public class DorisSinkWriter
     private DorisStreamLoad controlStreamLoad;
     private final DorisSinkConfig dorisSinkConfig;
     private final String labelPrefix;
+    private final String restoredLabelPrefix;
     private final LabelGenerator labelGenerator;
     private final int intervalTime;
     private DorisSerializer serializer;
@@ -84,6 +91,10 @@ public class DorisSinkWriter
     private SchemaChangeManager schemaChangeManager;
     private final DorisStreamLoadFactory streamLoadFactory;
     private String controlHostPort;
+    // Set once this writer instance has logged the TIMESTAMP_TZ zone warning, and only then: a
+    // schema without such columns leaves it unset, so a later schema change can still warn. It is
+    // not shared across writers or kept in state, so a restored writer may warn again.
+    private boolean timestampTzZoneWarningLogged;
 
     public DorisSinkWriter(
             SinkWriter.Context context,
@@ -97,13 +108,25 @@ public class DorisSinkWriter
                 catalogTable,
                 dorisSinkConfig,
                 jobId,
-                (hostPort, tablePath, sinkConfig, currentLabelGenerator) ->
-                        new DorisStreamLoad(
-                                hostPort,
-                                tablePath,
-                                sinkConfig,
-                                currentLabelGenerator,
-                                new HttpUtil().getHttpClient()));
+                catalogTable.getTablePath().getFullName(),
+                defaultStreamLoadFactory());
+    }
+
+    public DorisSinkWriter(
+            SinkWriter.Context context,
+            List<DorisSinkState> state,
+            CatalogTable catalogTable,
+            DorisSinkConfig dorisSinkConfig,
+            String jobId,
+            String sourceTableId) {
+        this(
+                context,
+                state,
+                catalogTable,
+                dorisSinkConfig,
+                jobId,
+                sourceTableId,
+                defaultStreamLoadFactory());
     }
 
     DorisSinkWriter(
@@ -113,12 +136,30 @@ public class DorisSinkWriter
             DorisSinkConfig dorisSinkConfig,
             String jobId,
             DorisStreamLoadFactory streamLoadFactory) {
+        this(
+                context,
+                state,
+                catalogTable,
+                dorisSinkConfig,
+                jobId,
+                catalogTable.getTablePath().getFullName(),
+                streamLoadFactory);
+    }
+
+    DorisSinkWriter(
+            SinkWriter.Context context,
+            List<DorisSinkState> state,
+            CatalogTable catalogTable,
+            DorisSinkConfig dorisSinkConfig,
+            String jobId,
+            String sourceTableId,
+            DorisStreamLoadFactory streamLoadFactory) {
         this.dorisSinkConfig = dorisSinkConfig;
         this.catalogTable = catalogTable;
         this.lastCheckpointId = !state.isEmpty() ? state.get(0).getCheckpointId() : 0;
         log.info("restore checkpointId {}", lastCheckpointId);
         log.info("labelPrefix " + dorisSinkConfig.getLabelPrefix());
-        this.labelPrefix =
+        String baseLabelPrefix =
                 dorisSinkConfig.getLabelPrefix()
                         + "_"
                         + catalogTable.getTablePath().getFullName().replaceAll("\\.", "_")
@@ -126,6 +167,20 @@ public class DorisSinkWriter
                         + jobId
                         + "_"
                         + context.getIndexOfSubtask();
+        // A multi-table sink creates one writer per source table, and all of those writers share
+        // the sink table, the job id and the subtask index. Derive the discriminator from the
+        // source table identity so sub-writers are distinct, while the same writer keeps the same
+        // prefix across attempts. The stable prefix is what lets a restarted writer abort
+        // pre-committed transactions left by a failed attempt that never completed a checkpoint.
+        this.labelPrefix = baseLabelPrefix + "_" + sourceTableDiscriminator(sourceTableId);
+        // A restored writer must abort the pre-committed transactions created with the prefix
+        // persisted in its state. For a state written before the discriminator existed the
+        // persisted prefix is the old, shared prefix; the new run still uses the stable one.
+        String persistedLabelPrefix = state.isEmpty() ? null : state.get(0).getLabelPrefix();
+        this.restoredLabelPrefix =
+                persistedLabelPrefix == null || persistedLabelPrefix.isEmpty()
+                        ? null
+                        : persistedLabelPrefix;
         this.labelGenerator = new LabelGenerator(labelPrefix, dorisSinkConfig.getEnable2PC());
         this.scheduledExecutorService =
                 new ScheduledThreadPoolExecutor(
@@ -140,6 +195,27 @@ public class DorisSinkWriter
         if (!dorisSinkConfig.getEnable2PC()) {
             context.registerFlushAction(this::timerFlush);
         }
+    }
+
+    private static DorisStreamLoadFactory defaultStreamLoadFactory() {
+        return (hostPort, tablePath, sinkConfig, currentLabelGenerator) ->
+                new DorisStreamLoad(
+                        hostPort,
+                        tablePath,
+                        sinkConfig,
+                        currentLabelGenerator,
+                        new HttpUtil().getHttpClient());
+    }
+
+    /**
+     * Stable 8-hex discriminator for a source table. CRC32 is enough to separate the source tables
+     * of one job and keeps the label short; the value must not change across attempts.
+     */
+    private static String sourceTableDiscriminator(String sourceTableId) {
+        CRC32 crc = new CRC32();
+        String value = sourceTableId == null ? "" : sourceTableId;
+        crc.update(value.getBytes(StandardCharsets.UTF_8));
+        return String.format("%08x", crc.getValue());
     }
 
     private void initializeLoad() {
@@ -268,7 +344,12 @@ public class DorisSinkWriter
         }
         long txnId = respContent.getTxnId();
 
-        return Optional.of(new DorisCommitInfo(controlHostPort, dorisStreamLoad.getDb(), txnId));
+        return Optional.of(
+                new DorisCommitInfo(
+                        controlHostPort,
+                        dorisStreamLoad.getDb(),
+                        txnId,
+                        dorisStreamLoad.getLabel()));
     }
 
     private RespContent flush() throws IOException {
@@ -364,7 +445,80 @@ public class DorisSinkWriter
 
     private DorisSerializer createSerializer(
             DorisSinkConfig dorisSinkConfig, SeaTunnelRowType seaTunnelRowType) {
+        if (!timestampTzZoneWarningLogged) {
+            Optional<String> warning =
+                    timestampTzZoneWarning(
+                            catalogTable.getTablePath(),
+                            seaTunnelRowType,
+                            dorisSinkConfig.getDatetimeTimezone(),
+                            ZoneId.systemDefault());
+            if (warning.isPresent()) {
+                log.warn(warning.get());
+                timestampTzZoneWarningLogged = true;
+            }
+        }
         return SeaTunnelRowSerializerFactory.createSerializer(dorisSinkConfig, seaTunnelRowType);
+    }
+
+    /**
+     * Doris has no timezone-aware datetime type, so TIMESTAMP_TZ values are written as wall-clock
+     * time in {@code sink.datetime-timezone}, or in the JVM default zone when it is unset. The JVM
+     * zone can differ from the zone expected in Doris without any error, so say which zone is used.
+     */
+    static Optional<String> timestampTzZoneWarning(
+            TablePath tablePath,
+            SeaTunnelRowType rowType,
+            ZoneId configuredZone,
+            ZoneId jvmDefaultZone) {
+        if (configuredZone != null) {
+            return Optional.empty();
+        }
+        List<String> columns = new ArrayList<>();
+        for (int i = 0; i < rowType.getTotalFields(); i++) {
+            collectTimestampTzPaths(rowType.getFieldName(i), rowType.getFieldType(i), columns);
+        }
+        if (columns.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(
+                String.format(
+                        "Doris sink table %s has TIMESTAMP_TZ columns %s and "
+                                + "'sink.datetime-timezone' is not set. These values are written "
+                                + "as wall-clock time in the JVM default zone %s. If Doris expects "
+                                + "another zone, set 'sink.datetime-timezone'.",
+                        tablePath, columns, jvmDefaultZone));
+    }
+
+    /**
+     * Collects the TIMESTAMP_TZ columns of a type, including nested ones, for the warning message
+     * only. Nested paths use {@code .field} for row fields, {@code []} for array elements and
+     * {@code .<key>} / {@code .<value>} for map keys and values; they are not configuration paths.
+     */
+    private static void collectTimestampTzPaths(
+            String path, SeaTunnelDataType<?> type, List<String> paths) {
+        switch (type.getSqlType()) {
+            case TIMESTAMP_TZ:
+                paths.add(path);
+                break;
+            case ROW:
+                SeaTunnelRowType rowType = (SeaTunnelRowType) type;
+                for (int i = 0; i < rowType.getTotalFields(); i++) {
+                    collectTimestampTzPaths(
+                            path + "." + rowType.getFieldName(i), rowType.getFieldType(i), paths);
+                }
+                break;
+            case ARRAY:
+                collectTimestampTzPaths(
+                        path + "[]", ((ArrayType<?, ?>) type).getElementType(), paths);
+                break;
+            case MAP:
+                MapType<?, ?> mapType = (MapType<?, ?>) type;
+                collectTimestampTzPaths(path + ".<key>", mapType.getKeyType(), paths);
+                collectTimestampTzPaths(path + ".<value>", mapType.getValueType(), paths);
+                break;
+            default:
+                break;
+        }
     }
 
     private InitializedStreamLoad initializeStreamLoad(
@@ -379,7 +533,9 @@ public class DorisSinkWriter
                         streamLoadFactory.create(
                                 node, catalogTable.getTablePath(), dorisSinkConfig, labelGenerator);
                 if (abortPreCommitOnInit) {
-                    streamLoad.abortPreCommit(labelPrefix, lastCheckpointId + 1);
+                    streamLoad.abortPreCommit(
+                            restoredLabelPrefix != null ? restoredLabelPrefix : labelPrefix,
+                            lastCheckpointId + 1);
                 }
                 return new InitializedStreamLoad(node, streamLoad);
             } catch (Exception e) {

@@ -15,6 +15,44 @@
 # limitations under the License.
 #
 
+# JDK 9+ module system compatibility. Two independent consumers need these flags:
+#   1. Hazelcast, which the Zeta engine is built on. Its own serialization and networking
+#      internals reflectively touch these JDK APIs; nothing in this codebase calls them
+#      directly, so there is no first-party call site in our source to point to for these.
+#   2. This project's own reflective code: the Kerberos configuration reload helpers
+#      (KuduUtil, PaimonSecurityContext) and the connector classloader injection helpers
+#      (AbstractPluginDiscovery, ConfigValidationUtils, the Flink starter plugin loaders),
+#      which are named per-flag below.
+# Source of truth: the launcher scripts (seatunnel.sh, seatunnel-cluster.sh) append the mandatory
+# flags below themselves, skipping any already present. The entries in this file are a
+# convenience and documentation; do not remove the launcher injection assuming this file is
+# sufficient, because a preserved config directory would then silently lose the flags.
+# Without these flags the Kerberos reload helpers log an ERROR naming the missing flag; other
+# consumers may not report it until the affected path is actually exercised.
+# Evidence status: only java.net has a captured failing stack trace (ReflectionUtilsTest).
+# The other entries are not proven necessary by a captured failure on this project's CI and
+# are candidates to trim later.
+# Required by Hazelcast internals (see note 1 above).
+# Evidence: no captured failure on this project's CI; candidate to trim.
+--add-opens=java.base/java.lang=ALL-UNNAMED
+# Required by URLClassLoader#addURL reflection: AbstractPluginDiscovery,
+# ConfigValidationUtils, and the Flink starter plugin loaders inject connector jars this way.
+--add-opens=java.base/java.net=ALL-UNNAMED
+# Required by Hazelcast internals (see note 1 above).
+# Evidence: also required by Apache Arrow (connector-lance unit tests fail on JDK 17 without it).
+--add-opens=java.base/java.nio=ALL-UNNAMED
+# Required by Hazelcast internals (see note 1 above).
+# Evidence: no captured failure on this project's CI; candidate to trim.
+--add-opens=java.base/java.util=ALL-UNNAMED
+# Required by Hazelcast internals (see note 1 above).
+# Evidence: no captured failure on this project's CI; candidate to trim.
+--add-opens=java.base/sun.nio.ch=ALL-UNNAMED
+# Required by the Kerberos configuration reload helpers KuduUtil and PaimonSecurityContext,
+# which reflectively call sun.security.krb5.Config#refresh() to pick
+# up a custom krb5.conf without a JVM restart.
+# Evidence: no captured failure on this project's CI; kept for the reflective reload.
+--add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED
+
 # JVM Heap
 # -Xms2g
 # -Xmx2g
@@ -22,12 +60,26 @@
 # JVM Dump
 -XX:+HeapDumpOnOutOfMemoryError
 -XX:HeapDumpPath=/tmp/seatunnel/dump/zeta-server
+# Exit once the dump has been written. A member whose heap is exhausted cannot serve
+# tasks, but it keeps heartbeating and keeps receiving work, so the cluster sees a
+# healthy node that never finishes anything. Exiting hands recovery to the supervisor
+# and to the job failover path instead.
+-XX:+ExitOnOutOfMemoryError
 
 # Metaspace
+# Raise the initial high-water mark. The JVM default is about 20 MB, so the first
+# class loading burst here (engine startup plus connector plugin loading, which is
+# amplified by classloader-cache-mode) trips a metadata GC cycle before the node has
+# done any real work.
+-XX:MetaspaceSize=256m
 -XX:MaxMetaspaceSize=2g
 
 # G1GC
 -XX:+UseG1GC
+# Netty (direct buffer cleanup), RMI and some JDBC drivers call System.gc() from time
+# to time. The default reaction is a stop-the-world full GC; on a multi-gigabyte heap
+# that is a minutes-long pause. Convert those calls into a concurrent cycle instead.
+-XX:+ExplicitGCInvokesConcurrent
 
 # GC Logging
 # Uncomment the following options to enable GC logging for troubleshooting and performance analysis.

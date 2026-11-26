@@ -96,4 +96,14 @@ public class IcebergSinkOptions extends IcebergCommonOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Default branch for commits");
+
+    public static final Option<Long> FLUSH_ROW_SIZE =
+            Options.key("flush_row_size")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Maximum number of rows a sink writer handles before it closes its"
+                                    + " current files and starts new ones, instead of keeping them"
+                                    + " open until the next checkpoint. Must be greater than 0."
+                                    + " Not set means the writer is only rotated at checkpoints.");
 }

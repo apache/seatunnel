@@ -62,6 +62,7 @@ Facebook 本身就以 JSON 字符串返回大多数指标，嵌套对象/数组�
 | request_timeout_ms | Integer | 否   | 60000   | 单次调用的 HTTP 请求超时（毫秒）。                                                            |
 | max_retries        | Integer | 否   | 3       | 单个请求瞬时失败（429/5xx/限流/网络错误）的最大重试次数。                                     |
 | retry_backoff_ms   | Long    | 否   | 1000    | 重试之间的基础退避时间（毫秒）；每次重试翻倍。                                                |
+| api_endpoint       | String  | 否   | `https://graph.facebook.com` | Facebook Graph API 基础地址，主要用于测试环境指向其他端点。                          |
 | page_size          | Integer | 否   | -       | 每次请求的分页大小（Graph API `limit` 参数）。不设置时使用服务端默认值。                       |
 
 \* `resource` 和 `tables_configs` 必须且只能提供一个。

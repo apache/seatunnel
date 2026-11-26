@@ -61,10 +61,9 @@ public class JdbcSourceFactory implements TableSourceFactory, SupportSourceDryRu
                         config.getJdbcConnectionConfig().getDialect(),
                         config.getJdbcConnectionConfig().getCompatibleMode(),
                         config.getJdbcConnectionConfig());
-        jdbcDialect.connectionUrlParse(
+        jdbcDialect.configureSourceConnection(
                 config.getJdbcConnectionConfig().getUrl(),
-                config.getJdbcConnectionConfig().getProperties(),
-                jdbcDialect.defaultParameter());
+                config.getJdbcConnectionConfig().getProperties());
         return () -> (SeaTunnelSource<T, SplitT, StateT>) new JdbcSource(config);
     }
 
@@ -85,6 +84,16 @@ public class JdbcSourceFactory implements TableSourceFactory, SupportSourceDryRu
                         JdbcSourceOptions.USERNAME,
                         JdbcSourceOptions.PASSWORD,
                         JdbcSourceOptions.CONNECTION_CHECK_TIMEOUT_SEC,
+                        JdbcSourceOptions.CONNECT_TIMEOUT_MS,
+                        JdbcSourceOptions.SOCKET_TIMEOUT_MS,
+                        JdbcSourceOptions.HANDLE_BLOB_AS_STRING,
+                        JdbcSourceOptions.USE_KERBEROS,
+                        JdbcSourceOptions.KERBEROS_PRINCIPAL,
+                        JdbcSourceOptions.KERBEROS_KEYTAB_PATH,
+                        JdbcSourceOptions.KRB5_PATH,
+                        JdbcSourceOptions.ACCESS_KEY_ID,
+                        JdbcSourceOptions.SECRET_ACCESS_KEY,
+                        JdbcSourceOptions.REGION,
                         JdbcSourceOptions.FETCH_SIZE,
                         JdbcSourceOptions.PARTITION_COLUMN,
                         JdbcSourceOptions.PARTITION_UPPER_BOUND,
@@ -108,6 +117,7 @@ public class JdbcSourceFactory implements TableSourceFactory, SupportSourceDryRu
                         JdbcSourceOptions.SPLIT_ALLOW_SAMPLING,
                         JdbcSourceOptions.DECIMAL_TYPE_NARROWING,
                         JdbcSourceOptions.INT_TYPE_NARROWING,
+                        JdbcSourceOptions.NUMERIC_SPECIAL_VALUE_AS_NULL,
                         JdbcSourceOptions.DIALECT,
                         JdbcSourceOptions.ENABLE_CONCURRENT_READ)
                 .build();

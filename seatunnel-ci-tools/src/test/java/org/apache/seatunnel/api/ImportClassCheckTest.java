@@ -93,24 +93,16 @@ public class ImportClassCheckTest {
 
     @Test
     public void commonLang2Check() {
-        // both common-lang and common-lang3 share the same prefix org.apache.commons.lang
-        Map<String, List<String>> commonLangMap =
-                checkImportClassPrefix(
-                        Arrays.asList("org.apache.commons.lang"),
-                        Collections.emptyList(),
-                        Collections.emptyList());
-        // common-lang3
-        Map<String, List<String>> commonLang3Map =
-                checkImportClassPrefix(
-                        Arrays.asList("org.apache.commons.lang3"),
-                        Collections.emptyList(),
-                        Collections.emptyList());
-
-        // find the one in common-lang but not common-lang3
+        // Both commons-lang2 (org.apache.commons.lang) and commons-lang3
+        // (org.apache.commons.lang3) match the org.apache.commons.lang prefix, so lang3
+        // imports must be excluded per import statement. Filtering whole files instead
+        // would let a file that mixes lang2 and lang3 imports pass unnoticed.
         Map<String, List<String>> errorMap =
-                commonLangMap.entrySet().stream()
-                        .filter(entry -> !commonLang3Map.containsKey(entry.getKey()))
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                checkImportClassPrefix(
+                        Collections.singletonList("org.apache.commons.lang"),
+                        Collections.singletonList("org.apache.commons.lang3"),
+                        Collections.emptyList(),
+                        Collections.emptyList());
 
         Assertions.assertEquals(
                 0, errorMap.size(), shadeErrorMsg("org.apache.commons.lang", errorMap));
@@ -205,6 +197,15 @@ public class ImportClassCheckTest {
 
     private Map<String, List<String>> checkImportClassPrefix(
             List<String> prefixList, List<String> packageCheckList, List<String> packageWhiteList) {
+        return checkImportClassPrefix(
+                prefixList, Collections.emptyList(), packageCheckList, packageWhiteList);
+    }
+
+    private Map<String, List<String>> checkImportClassPrefix(
+            List<String> prefixList,
+            List<String> excludePrefixList,
+            List<String> packageCheckList,
+            List<String> packageWhiteList) {
         List<String> pathWhiteList =
                 packageWhiteList.stream()
                         .map(whitePackage -> whitePackage.replace(".", isWindows ? "\\" : "/"))
@@ -233,7 +234,10 @@ public class ImportClassCheckTest {
                                                     String importClz =
                                                             importMetadata.getClassName();
                                                     return prefixList.stream()
-                                                            .anyMatch(importClz::startsWith);
+                                                                    .anyMatch(importClz::startsWith)
+                                                            && excludePrefixList.stream()
+                                                                    .noneMatch(
+                                                                            importClz::startsWith);
                                                 })
                                         .map(this::getImportClassLineNum)
                                         .collect(Collectors.toList());

@@ -20,10 +20,10 @@ FakeSource 是一个虚拟数据源，它根据用户定义的 schema 数据结�
 - [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
-- [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
-> FakeSource 的 `FakeSourceSplitEnumerator` 枚举器会一次性计算出全部 split，并通过 `assignSplit(splitId % currentParallelism, ...)` 把它们确定性地分配给各个 reader 子任务。在生成行时 reader 之间并不互相协作——虚拟数据生成不需要跨 reader 状态——但 split → reader 的路由是集中在枚举器中完成的，并不是由每个子任务自行枚举的。
+> FakeSource 实现了 `SupportParallelism`。其 `FakeSourceSplitEnumerator` 会按 reader 以行数分块的方式生成分片，分块大小由 `split.num` 推导（每块 `ceil(row.num / split.num)` 行），因此每张表实际的 split 数量受可用行数限制，并不总是正好等于 `numReaders × split.num`（例如 `row.num = 5`、`split.num = 10`、2 个 reader 时总共只会有 10 个 split；`row.num = 0` 时没有 split）。split 通过 `assignSplit(splitId % currentParallelism, ...)` 确定性地分配给各个 reader 子任务，因此多个 reader 可以并行运行。在生成行时 reader 之间并不互相协作——虚拟数据生成不需要跨 reader 状态——split → reader 的路由集中在枚举器中完成。
 
 ## 数据源选项
 
@@ -67,6 +67,12 @@ FakeSource 是一个虚拟数据源，它根据用户定义的 schema 数据结�
 | double.min                | double   | 否       | 0                      | 连接器生成的 double 数据的最小值                                                                                                                                                                  |
 | double.max                | double   | 否       | 0x1.fffffffffffffP+1023 | 连接器生成的 double 数据的最大值                                                                                                                                                                  |
 | double.template           | list     | 否       | -                      | 连接器生成的 double 类型的模板列表，如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                         |
+| date.year.template        | list     | 否       | -                      | 日期年份的模板列表（如 `yyyy`），如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                              |
+| date.month.template       | list     | 否       | -                      | 日期月份的模板列表（如 `MM`），如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                |
+| date.day.template         | list     | 否       | -                      | 日期天数的模板列表（如 `dd`），如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                |
+| time.hour.template        | list     | 否       | -                      | 时间小时的模板列表（如 `HH`），如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                |
+| time.minute.template      | list     | 否       | -                      | 时间分钟的模板列表（如 `mm`），如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                |
+| time.second.template      | list     | 否       | -                      | 时间秒数的模板列表（如 `ss`），如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                |
 | vector.dimension          | int      | 否       | 4                      | 生成的向量的维度，不包括二进制向量                                                                                                                                                                   |
 | binary.vector.dimension   | int      | 否       | 8                      | 生成的二进制向量的维度                                                                                                                                                                            |
 | vector.float.min          | float    | 否       | 0                      | 连接器生成的向量中 float 数据的最小值                                                                                                                                                              |
@@ -386,24 +392,6 @@ rows = [
     fields = [1, "A_1", 100]
   }
 ]
-```
-
-### `table-names` 选项示例
-
-```hocon
-source {
-  # 这是一个示例源插件，**仅用于测试和演示源插件功能**
-  FakeSource {
-    table-names = ["test.table1", "test.table2", "test.table3"]
-    parallelism = 1
-    schema = {
-      fields {
-        name = "string"
-        age = "int"
-      }
-    }
-  }
-}
 ```
 
 ### `defaultValue` 选项示例

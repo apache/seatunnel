@@ -43,6 +43,8 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskRestore
 import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskStartOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
+import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
@@ -69,7 +71,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -236,18 +238,7 @@ public class CheckpointCoordinator {
         this.pendingCheckpoints = new ConcurrentHashMap<>();
         this.completedCheckpointIds =
                 new ArrayDeque<>(coordinatorConfig.getStorage().getMaxRetainedCheckpoints() + 1);
-        this.scheduler =
-                Executors.newScheduledThreadPool(
-                        2,
-                        runnable -> {
-                            Thread thread = new Thread(runnable);
-                            thread.setName(
-                                    String.format(
-                                            "checkpoint-coordinator-%s/%s", pipelineId, jobId));
-                            return thread;
-                        });
-        ((ScheduledThreadPoolExecutor) this.scheduler).setRemoveOnCancelPolicy(true);
-        this.scheduler = MDCTracer.tracing(scheduler);
+        this.scheduler = createScheduler();
         this.serializer = new ProtoStuffSerializer();
         this.pipelineTasks = getPipelineTasks(plan.getPipelineSubtasks());
         this.actionParallelism = getActionParallelism(plan.getSubtaskActions());
@@ -295,6 +286,28 @@ public class CheckpointCoordinator {
                 updateStatus(CheckpointCoordinatorStatus.RUNNING);
             }
         }
+    }
+
+    /**
+     * Builds a scheduler with capacity for two workers, started lazily when tasks are scheduled.
+     *
+     * <p>Only called from the constructor and from a {@code CHECKPOINT_COORDINATOR_RESET} cleanup.
+     * Non-reset cleanup leaves the scheduler shut down until {@link #restoreCoordinator(boolean)}
+     * revives it for pipeline restore or master failover.
+     */
+    private ScheduledExecutorService createScheduler() {
+        ScheduledThreadPoolExecutor executor =
+                new ScheduledThreadPoolExecutor(
+                        2,
+                        runnable -> {
+                            Thread thread = new Thread(runnable);
+                            thread.setName(
+                                    String.format(
+                                            "checkpoint-coordinator-%s/%s", pipelineId, jobId));
+                            return thread;
+                        });
+        executor.setRemoveOnCancelPolicy(true);
+        return MDCTracer.tracing(executor);
     }
 
     public int getPipelineId() {
@@ -547,10 +560,32 @@ public class CheckpointCoordinator {
     @VisibleForTesting
     protected void scheduleTriggerPendingCheckpoint(
             CheckpointType checkpointType, long delayMills) {
-        scheduler.schedule(
-                () -> tryTriggerPendingCheckpoint(checkpointType),
-                delayMills,
-                TimeUnit.MILLISECONDS);
+        try {
+            scheduler.schedule(
+                    () -> {
+                        try {
+                            tryTriggerPendingCheckpoint(checkpointType);
+                        } catch (Throwable e) {
+                            // A thrown trigger would otherwise drop the scheduled checkpoint chain
+                            // silently; fail the coordinator so the job can handle the error.
+                            handleCoordinatorError(
+                                    String.format(
+                                            "Failed to trigger %s for job id: %s, pipeline id: %s",
+                                            checkpointType, jobId, pipelineId),
+                                    e,
+                                    CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
+                        }
+                    },
+                    delayMills,
+                    TimeUnit.MILLISECONDS);
+        } catch (RejectedExecutionException e) {
+            // Terminal cleanup keeps the scheduler shut down; a concurrent trigger may arrive late.
+            LOG.info(
+                    "Job {} pipeline {} scheduler is already shut down, skip scheduling a {} checkpoint.",
+                    jobId,
+                    pipelineId,
+                    checkpointType);
+        }
     }
 
     /**
@@ -711,7 +746,28 @@ public class CheckpointCoordinator {
         }
 
         if (alreadyStarted) {
+            // SubPlan accepts FINISHED physical groups only for unbounded readers while every
+            // coordinator is RUNNING. Rebuild their idle-close bookkeeping before triggering a
+            // checkpoint: those groups no longer run and cannot acknowledge another barrier.
+            // This is a second read of the execution state after SubPlan's decision. A group that
+            // turns FINISHED between the two reads is treated as closed as well; a running
+            // pipeline only finishes an unbounded reader group through the idle-close handshake.
+            Set<TaskGroupLocation> finishedGroups =
+                    plan.getPipelineSubtasks().stream()
+                            .map(TaskLocation::getTaskGroupLocation)
+                            .distinct()
+                            .filter(
+                                    group ->
+                                            ExecutionState.FINISHED.equals(
+                                                    runningJobStateIMap.get(group)))
+                            .collect(Collectors.toSet());
+            plan.getPipelineSubtasks().stream()
+                    .filter(task -> finishedGroups.contains(task.getTaskGroupLocation()))
+                    .forEach(closedIdleTask::add);
             isAllTaskReady.set(true);
+            // Finished groups still receive CheckpointFinishedOperation here: the hosting worker
+            // resolves them through its finishedExecutionContexts fallback. If that worker is
+            // gone, the send fails and the error path restarts the pipeline as before.
             if (!notifyCompleted(latestCompletedCheckpoint)) {
                 return;
             }
@@ -1025,26 +1081,38 @@ public class CheckpointCoordinator {
                             checkpointTimeout =
                                     coordinatorConfig.getSchemaChangeCheckpointTimeout();
                         }
-                        pendingCheckpoint.setCheckpointTimeOutFuture(
-                                scheduler.schedule(
-                                        () -> {
-                                            // If any task is not acked within the checkpoint
-                                            // timeout
-                                            if (pendingCheckpoints.get(
-                                                                    pendingCheckpoint
-                                                                            .getCheckpointId())
-                                                            != null
-                                                    && !pendingCheckpoint.isFullyAcknowledged()) {
-                                                LOG.info(
-                                                        "timeout checkpoint: {}",
-                                                        pendingCheckpoint.getInfo());
-                                                handleCoordinatorError(
-                                                        CheckpointCloseReason.CHECKPOINT_EXPIRED,
-                                                        null);
-                                            }
-                                        },
-                                        checkpointTimeout,
-                                        TimeUnit.MILLISECONDS));
+                        try {
+                            pendingCheckpoint.setCheckpointTimeOutFuture(
+                                    scheduler.schedule(
+                                            () -> {
+                                                // If any task is not acked within the checkpoint
+                                                // timeout
+                                                if (pendingCheckpoints.get(
+                                                                        pendingCheckpoint
+                                                                                .getCheckpointId())
+                                                                != null
+                                                        && !pendingCheckpoint
+                                                                .isFullyAcknowledged()) {
+                                                    LOG.info(
+                                                            "timeout checkpoint: {}",
+                                                            pendingCheckpoint.getInfo());
+                                                    handleCoordinatorError(
+                                                            CheckpointCloseReason
+                                                                    .CHECKPOINT_EXPIRED,
+                                                            null);
+                                                }
+                                            },
+                                            checkpointTimeout,
+                                            TimeUnit.MILLISECONDS));
+                        } catch (RejectedExecutionException e) {
+                            // Terminal cleanup may finish while the asynchronous barrier RPC is in
+                            // flight.
+                            LOG.info(
+                                    "Job {} pipeline {} scheduler is already shut down, skip arming timeout for checkpoint {}.",
+                                    jobId,
+                                    pipelineId,
+                                    pendingCheckpoint.getCheckpointId());
+                        }
                     }
                 });
         pendingCounter.incrementAndGet();
@@ -1195,14 +1263,15 @@ public class CheckpointCoordinator {
      *       caused by a coordinator reset)
      *   <li>Clearing all internal tracking structures
      *   <li>Resetting counters and schema change flags
-     *   <li>Stopping and recreating the scheduler thread pool
+     *   <li>Stopping the scheduler thread pool; recreating it only for {@code
+     *       CHECKPOINT_COORDINATOR_RESET}
      * </ul>
      *
      * <p>If the close reason is {@code CHECKPOINT_COORDINATOR_RESET}, the monitor service will
      * clear all in-progress checkpoint metadata without reporting them as failures.
      *
-     * <p>This method ensures that no residual checkpoint state remains in memory and that the
-     * coordinator is ready for a clean restart if necessary.
+     * <p>This method clears residual checkpoint state. Only reset cleanup prepares the scheduler
+     * for a restart; other close reasons leave it shut down until {@code restoreCoordinator} runs.
      *
      * @param closedReason the reason why pending checkpoints are being closed; determines how
      *     monitoring and cleanup are handled
@@ -1242,22 +1311,18 @@ public class CheckpointCoordinator {
             pendingCounter.set(0);
             schemaChanging.set(false);
             // Only remove the persisted ready-to-close state when the coordinator truly ends
-            // (completed/failed/cancelled). During a reset (master failover), the IMap entry
-            // must be preserved so restoreCoordinator() can recover from it.
+            // (completed/failed/cancelled). During pipeline restore or master failover, RESET
+            // preserves the IMap entry so restoreCoordinator() can recover from it.
             if (closedReason != CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
                 runningJobStateIMap.remove(readyToCloseImapKey);
             }
             scheduler.shutdownNow();
-            scheduler =
-                    Executors.newScheduledThreadPool(
-                            2,
-                            runnable -> {
-                                Thread thread = new Thread(runnable);
-                                thread.setName(
-                                        String.format(
-                                                "checkpoint-coordinator-%s/%s", pipelineId, jobId));
-                                return thread;
-                            });
+            // Non-reset cleanup leaves the scheduler shut down, so late callbacks cannot start
+            // workers on a replacement after the pipeline ends. restoreCoordinator() revives it
+            // through RESET for either pipeline restore or master failover.
+            if (closedReason == CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
+                scheduler = createScheduler();
+            }
         }
         if (checkpointMonitorService != null
                 && closedReason == CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {

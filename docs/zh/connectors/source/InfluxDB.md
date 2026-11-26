@@ -20,7 +20,7 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持用户自定义切分](../../introduction/concepts/connector-v2-features.md)
@@ -56,7 +56,7 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 | partition_num      | int    | 否  | 0     | 查询切分数量。`0` 表示不切分，直接执行原始 `sql`。                                              |
 | split_column       | string | 否  | -     | 用于并行切分的整数列。                                                                    |
 | where              | string | 否  | -     | 预留的 source 配置项。当前切分逻辑直接从 `sql` 中读取小写 `where` 关键字。                              |
-| epoch              | string | 否  | n     | 返回的时间精度，例如：`H`、`m`、`s`、`MS`、`u`、`n`。                                     |
+| epoch              | string | 否  | n     | 返回的时间精度，必须使用小写：`h`、`m`、`s`、`ms`、`u`、`n`。                                     |
 | connect_timeout_ms | long   | 否  | 15000 | 连接 InfluxDB 的超时时间（毫秒）。                                                         |
 | query_timeout_sec  | int    | 否  | 3     | 查询 InfluxDB 的超时时间（秒）。                                                          |
 | common-options     | config | 否  | -     | Source 插件通用参数，详见 [Source 通用选项](../common-options/source-common-options.md)。 |
@@ -143,7 +143,7 @@ InfluxDB 密码。必须和 `username` 一起配置。
 `split_column` 列的下界。启用并行范围读取时使用。
 
 连接器会把 `split_column` 范围切成 `partition_num` 份；若 `partition_num = 1`，则使用整段范围；若
-`partition_num` 小于 `upper_bound - lower_bound`，则按 `upper_bound - lower_bound` 切分。
+`partition_num` 大于 `upper_bound - lower_bound`，则按 `upper_bound - lower_bound` 切分。
 
 例如 `lower_bound = 1`、`upper_bound = 10`、`partition_num = 2`、
 `sql = "select * from test where age > 0 and age < 10"` 会被切分成：
@@ -159,9 +159,28 @@ split 2: select * from test where ($split_column >= 6 and $split_column < 11) an
 
 > 提示：确保 `upper_bound - lower_bound` 能被 `partition_num` 整除，否则查询结果会重叠。
 
+### where [string]
+
+:::caution 保留参数
+
+单表模式（根级 `sql` 参数）：设置 `where` 参数对生成的切分查询没有任何效果——请把过滤条件直接
+写进 `sql` 中，例如 `select * from test where age > 0`。该切分解析器对 `where` 关键字区分大小写。
+
+`tables_configs` 多表模式：在表条目中设置 `where` 会在构建阶段直接抛出 `OptionValidationException`
+（`InfluxDBSourceFactory` 会拒绝该配置）；该切分解析器对 `where` 关键字不区分大小写。
+
+`tables_configs` 多表模式：在表条目中配置 `where` 会在构建阶段直接抛出
+`OptionValidationException`（`InfluxDBSourceFactory` 会拒绝该配置）；该模式下的切分解析器对
+`where` 关键字不区分大小写。
+
+该参数保留在参数列表中，只是因为校验规则（`InfluxDBSourceFactory.optionRule()`）为了向后兼容仍然
+引用了它；运行时的切分查询生成器不会读取该参数。
+
+:::
+
 ### epoch [string]
 
-InfluxDB 返回的时间精度。可选值：`H`、`m`、`s`、`MS`、`u`、`n`，默认值为 `n`。
+InfluxDB 返回的时间精度。该值会原样传递给 InfluxDB HTTP API，必须使用小写：`h`、`m`、`s`、`ms`、`u`、`n`，默认值为 `n`。
 
 ### query_timeout_sec [int]
 
@@ -316,6 +335,57 @@ source {
 
 sink {
     Console {}
+}
+```
+
+### 有界读取与并行切分
+
+InfluxDB Source 的读取范围由 `sql` 的结果决定。如果需要把它接入流式 Sink 且不丢数据，可以设置一个
+有限的 `partition_num`，让 SeaTunnel 通过检查点记录每个切分的读取位置。
+
+```hocon
+env {
+    parallelism = 2
+    job.mode = "BATCH"
+    checkpoint.interval = 10000
+}
+
+source {
+    InfluxDB {
+        url = "http://influxdb-host:8086"
+        sql = "select label, c_string, c_double, c_bigint, c_float, c_int, c_smallint, c_boolean from source"
+        database = "test"
+        lower_bound = 0
+        upper_bound = 99
+        partition_num = 4
+        split_column = "c_int"
+        query_timeout_sec = 10
+        connect_timeout_ms = 20000
+        schema {
+            fields {
+                label = STRING
+                c_string = STRING
+                c_double = DOUBLE
+                c_bigint = BIGINT
+                c_float = FLOAT
+                c_int = INT
+                c_smallint = SMALLINT
+                c_boolean = BOOLEAN
+                time = BIGINT
+            }
+        }
+    }
+}
+
+sink {
+    InfluxDB {
+        url = "http://influxdb-host:8086"
+        database = "test"
+        measurement = "sink"
+        key_time = "time"
+        key_tags = ["label"]
+        batch_size = 1024
+    }
 }
 ```
 

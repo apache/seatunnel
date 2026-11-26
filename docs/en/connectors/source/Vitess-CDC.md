@@ -57,6 +57,8 @@ separately.
 | Name | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | hostname | String | Yes | - | Hostname or IP address of the Vitess VTGate gRPC server. |
+| username | String | No | - | Username used by the Vitess VTGate gRPC connection when the cluster enables authentication. |
+| password | String | No | - | Password used by the Vitess VTGate gRPC connection when the cluster enables authentication. |
 | port | Int | No | 15991 | Port of the Vitess VTGate gRPC server. |
 | keyspace | String | Yes | - | Vitess keyspace captured by the connector. |
 | schema | Config | Yes* | - | Single-table schema definition. The schema block must provide `table` plus either `columns` or `metadata_table_id`. |
@@ -82,6 +84,11 @@ separately.
 
 ## Notes
 
+- The schema metadata contract is validated when the job is submitted: a `schema` block must declare
+  `columns` or `metadata_table_id`, every `tables_configs` entry must contain its own `schema` block,
+  and `table-names` / `table-pattern` are mutually exclusive.
+- Checks that need the catalog - a declared table missing from the schema metadata, or a pattern that
+  matches no table - still run when the source is created.
 - The first delivery does not read an initial table snapshot.
 - Dynamic discovery of newly added tables is out of scope.
 - Schema evolution events are not emitted in this first delivery.

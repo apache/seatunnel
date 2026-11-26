@@ -72,6 +72,15 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
+/**
+ * Concurrency contract: {@code write}/{@code finishAndCloseFile} (declared per-format in
+ * subclasses) and {@code prepareCommit}/{@code snapshotState}/{@code applySchemaChange}/{@code
+ * abortPrepare} (here in the base class) all synchronize on the strategy instance monitor so that a
+ * checkpoint can never close, snapshot, or delete a transaction's files while a row write is still
+ * in flight (see #10523). Java does not require an override to keep a superclass method's {@code
+ * synchronized} modifier, so every subclass that overrides one of these methods MUST also declare
+ * it {@code synchronized}, or it silently drops out of this lock and reopens the race.
+ */
 public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
     protected final Logger log = LoggerFactory.getLogger(this.getClass());
     protected final FileSinkConfig fileSinkConfig;
@@ -227,7 +236,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
     // ── Schema Evolution ──────────────────────────────────────────────────────────
 
     @Override
-    public void applySchemaChange(SchemaChangeEvent event) throws IOException {
+    public synchronized void applySchemaChange(SchemaChangeEvent event) throws IOException {
         if (!fileSinkConfig.isSchemaEvolutionEnabled()
                 && !(event instanceof RestoreTableSchemaEvent)) {
             throw new UnsupportedOperationException(
@@ -507,27 +516,29 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
         }
         List<String> vals = new ArrayList<>(partitionFieldsIndexInRow.size());
         String partitionDir;
+        // A nullable partition column is a legal schema, so a null value must not fail the job:
+        // the directory name already renders null as the text "null", so the committed partition
+        // values use the same text instead of dereferencing the null field.
         if (StringUtils.isBlank(partitionDirExpression)) {
             StringBuilder stringBuilder = new StringBuilder();
             for (int i = 0; i < partitionFieldsIndexInRow.size(); i++) {
-                stringBuilder
-                        .append(partitionFieldList.get(i))
-                        .append("=")
-                        .append(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)]);
+                String partitionValue =
+                        String.valueOf(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)]);
+                stringBuilder.append(partitionFieldList.get(i)).append("=").append(partitionValue);
                 if (i < partitionFieldsIndexInRow.size() - 1) {
                     stringBuilder.append("/");
                 }
-                vals.add(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)].toString());
+                vals.add(partitionValue);
             }
             partitionDir = stringBuilder.toString();
         } else {
             Map<String, String> valueMap = new HashMap<>(partitionFieldList.size() * 2);
             for (int i = 0; i < partitionFieldsIndexInRow.size(); i++) {
+                String partitionValue =
+                        String.valueOf(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)]);
                 valueMap.put(keys[i], partitionFieldList.get(i));
-                valueMap.put(
-                        values[i],
-                        seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)].toString());
-                vals.add(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)].toString());
+                valueMap.put(values[i], partitionValue);
+                vals.add(partitionValue);
             }
             partitionDir = VariablesSubstitute.substitute(partitionDirExpression, valueMap);
         }
@@ -580,7 +591,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
      */
     @SneakyThrows
     @Override
-    public Optional<FileCommitInfo> prepareCommit() {
+    public synchronized Optional<FileCommitInfo> prepareCommit() {
         if (this.needMoveFiles.isEmpty() && fileSinkConfig.isCreateEmptyFileWhenNoData()) {
             String filePath = createFilePathWithoutPartition();
             this.getOrCreateOutputStream(filePath);
@@ -600,16 +611,19 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
 
     /** abort prepare commit operation */
     @Override
-    public void abortPrepare() {
+    public synchronized void abortPrepare() {
         abortPrepare(transactionId);
     }
 
     /**
-     * abort prepare commit operation using transaction directory
+     * Abort prepare commit operation using transaction directory. Synchronized so a checkpoint
+     * abort cannot delete the transaction directory (and clear in-flight file bookkeeping) while a
+     * row write is still in progress on this strategy instance; see the class-level concurrency
+     * contract note.
      *
      * @param transactionId transaction id
      */
-    public void abortPrepare(String transactionId) {
+    public synchronized void abortPrepare(String transactionId) {
         String transactionDir = getTransactionDir(transactionId);
         try {
             hadoopFileSystemProxy.deleteFile(transactionDir);
@@ -678,7 +692,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
      * @return the list of states
      */
     @Override
-    public List<FileSinkState> snapshotState(long checkpointId) {
+    public synchronized List<FileSinkState> snapshotState(long checkpointId) {
         LinkedHashMap<String, List<String>> commitMap =
                 this.partitionDirAndValuesMap.entrySet().stream()
                         .collect(

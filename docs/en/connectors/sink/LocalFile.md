@@ -59,6 +59,10 @@ By default, we use 2PC commit to ensure `exactly-once`
 | filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true.                                                                                                                                         |
 | file_format_type                      | string  | no       | "csv"                                      | File format type, supported: `text`, `csv`, `parquet`, `orc`, `json`, `excel`, `xml`, `binary`, `canal_json`, `debezium_json`, `maxwell_json`.                                   |
 | filename_extension                    | string  | no       | -                                          | Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`                                                          |
+| date_format                           | string  | no       | yyyy-MM-dd                                 | Only used when file_format_type is `text`, `csv`, `excel` or `xml`. Date type format, used to tell connector how to write date values. Supported formats (examples): `yyyy-MM-dd`, `yyyy.MM.dd`, `yyyy/MM/dd`.                                               |
+| datetime_format                       | string  | no       | yyyy-MM-dd HH:mm:ss                        | Only used when file_format_type is `text`, `csv`, `excel` or `xml`. Datetime type format, used to tell connector how to write datetime values. Supported formats (examples): `yyyy-MM-dd HH:mm:ss`, `yyyy.MM.dd HH:mm:ss`, `yyyy/MM/dd HH:mm:ss`, `yyyyMMddHHmmss`.                                                        |
+| time_format                           | string  | no       | HH:mm:ss                                   | Only used when file_format_type is `text`, `csv`, `excel` or `xml`. Time type format, used to tell connector how to write time values. Supported formats (examples): `HH:mm:ss`, `HH:mm:ss.SSS`.                                                             |
+| multi_table_sink_replica              | int     | no       | 1                                          | The replica number of multi table sink writer. Must be at least 1.                                                                                                              |
 | field_delimiter                       | string  | no       | '\001' for text and ',' for csv            | Only used when file_format_type is text and csv.                                                                                                                                |
 | row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format_type is `text`, `csv` and `json`.                                                                                                                    |
 | have_partition                        | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                                                         |
@@ -148,6 +152,8 @@ Only used when `have_partition` is `true`.
 
 Partition data based on selected fields.
 
+A `NULL` value in a partition field is written as the literal text `null` in the partition directory (for example `c_null=null`), not as a missing value.
+
 ### partition_dir_expression [string]
 
 Only used when `have_partition` is `true`.
@@ -209,7 +215,7 @@ When file format is Excel, the maximum number of rows per sheet.
 
 Writer the sheet of the workbook
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 When File Format is CSV,The string quote mode of CSV.
 
@@ -339,8 +345,6 @@ LocalFile {
     file_format_type="excel"
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
-    schema_save_mode=RECREATE_SCHEMA
-    data_save_mode=DROP_DATA
   }
 
 ```

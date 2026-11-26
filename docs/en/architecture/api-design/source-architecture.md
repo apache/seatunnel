@@ -70,7 +70,10 @@ The top-level interface that serves as a factory for creating readers and enumer
 
 ```java
 public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT extends Serializable>
-    extends Serializable {
+    extends Serializable,
+        PluginIdentifierInterface, // requires String getPluginName()
+        SeaTunnelPluginLifeCycle,
+        SeaTunnelJobAware {
 
     /**
      * Get source boundedness (BOUNDED for batch, UNBOUNDED for streaming)
@@ -83,9 +86,11 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT extends S
     SourceReader<T, SplitT> createReader(SourceReader.Context readerContext) throws Exception;
 
     /**
-     * Split serializer used for network transfer and checkpointing.
+     * Split serializer used for network transfer and checkpointing (optional).
      */
-    Serializer<SplitT> getSplitSerializer();
+    default Serializer<SplitT> getSplitSerializer() {
+        return new DefaultSerializer<>();
+    }
 
     /**
      * Create SourceSplitEnumerator (called on master)
@@ -101,14 +106,20 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT extends S
         StateT checkpointState) throws Exception;
 
     /**
-     * Enumerator-state serializer used for checkpointing.
+     * Enumerator-state serializer used for checkpointing (optional).
      */
-    Serializer<StateT> getEnumeratorStateSerializer();
+    default Serializer<StateT> getEnumeratorStateSerializer() {
+        return new DefaultSerializer<>();
+    }
 
     /**
-     * Get output schema (CatalogTable list, supports multi-table)
+     * Get output schema (CatalogTable list, supports multi-table).
+     * The default throws UnsupportedOperationException, so sources must override it.
      */
-    List<CatalogTable> getProducedCatalogTables();
+    default List<CatalogTable> getProducedCatalogTables() {
+        throw new UnsupportedOperationException(
+            "getProducedCatalogTables method has not been implemented.");
+    }
 }
 ```
 
@@ -118,7 +129,7 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT extends S
 - `createEnumerator()`: Factory for enumerator (single instance on master)
 - `restoreEnumerator()`: Restore enumerator from checkpoint state
 - `getProducedCatalogTables()`: Defines output schema (supports multi-table)
-- `getSplitSerializer()` / `getEnumeratorStateSerializer()`: Split/enumerator-state serializers for network transfer and checkpointing
+- `getSplitSerializer()` / `getEnumeratorStateSerializer()`: Optional split/enumerator-state serializers for network transfer and checkpointing; both default to `DefaultSerializer` (Java serialization)
 
 #### SourceSplit (Minimal Serializable Unit)
 
@@ -368,6 +379,13 @@ public interface SourceReader<T, SplitT extends SourceSplit>
     void open() throws Exception;
 
     /**
+     * Request cancellation of an in-flight source operation (Zeta only).
+     * Called from an engine thread while open/pollNext/close may run concurrently;
+     * implementations must be idempotent, thread-safe and lock-free.
+     */
+    default void cancel() {}
+
+    /**
      * Poll next batch of records (non-blocking or timeout)
      */
     void pollNext(Collector<T> output) throws Exception;
@@ -415,6 +433,10 @@ public interface SourceReader<T, SplitT extends SourceSplit>
 - **Progress Tracking**: Track offset/position within each split
 - **State Management**: Snapshot split progress for recovery
 - **Split Management**: Handle split assignment, completion, and removal
+- **Job Cancellation**: Override `cancel()` when reads can block in an external system (e.g. a
+  JDBC query). The engine calls it from a separate thread on job cancellation, so implementations
+  must be idempotent, thread-safe, and must not acquire locks held by the reader methods. Currently
+  only the Zeta engine invokes this hook.
 
 **Implementation Example**:
 

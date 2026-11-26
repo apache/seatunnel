@@ -19,7 +19,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 
 ### 适用于SeaTunnel Zeta引擎
 
-1. 您必须确保在`${SEATUNNEL_HOME}/lib/`目录中有`seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar`、`aliyun-sdk-oss-3.4.1.jar`、`hadoop-aliyun-3.1.4.jar`和`jdom-1.1.jar`。
+1. 使用发行包自带的 `seatunnel-shade-hadoop3-uber-*.jar`，并将 `aliyun-sdk-oss-3.4.1.jar`、`hadoop-aliyun-3.1.4.jar` 和 `jdom-1.1.jar` 添加到 `${SEATUNNEL_HOME}/lib/` 目录。
 
 ## 关键特性
 
@@ -138,6 +138,9 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 | data_save_mode                        | Enum    | 否  | APPEND_DATA                                | 在开启同步任务之前，对目标路径中的数据文件进行不同的处理                                                                                                                          |
 | merge_update_event                    | boolean | 否  | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json 时使用。                                                                                |
 | schema_evolution_enabled              | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
+| date_format                           | string  | 否    | yyyy-MM-dd                                 | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。日期类型格式，用于告知 connector 如何写出 date 值。支持格式（示例）：`yyyy-MM-dd`、`yyyy.MM.dd`、`yyyy/MM/dd`。 |
+| datetime_format                       | string  | 否    | yyyy-MM-dd HH:mm:ss                        | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间戳类型格式，用于告知 connector 如何写出 datetime 值。支持格式：`yyyy-MM-dd HH:mm:ss`、`yyyy.MM.dd HH:mm:ss`、`yyyy/MM/dd HH:mm:ss`、`yyyyMMddHHmmss`。 |
+| time_format                           | string  | 否    | HH:mm:ss                                   | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间类型格式，用于告知 connector 如何写出 time 值。支持格式（示例）：`HH:mm:ss`、`HH:mm:ss.SSS`。 |
 
 ### path [string]
 
@@ -275,7 +278,7 @@ Sink插件常用参数，请参考[Sink common Options](../common-options/sink-c
 
 编写工作簿的工作表
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 当文件格式为CSV时，CSV的字符串引用模式。
 
@@ -606,8 +609,12 @@ sink {
 CDC 管道中的使用示例：
 
 ```hocon
-LocalFile {
-    path = "/tmp/cdc/${table_name}"
+OssFile {
+    bucket = "oss://whale-ops"
+    access_key = "xxxxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxx"
+    endpoint = "https://oss-accelerate.aliyuncs.com"
+    path = "/cdc/${table_name}"
     file_format_type = "parquet"
     schema_evolution_enabled = true
     have_partition = true

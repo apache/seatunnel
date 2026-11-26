@@ -20,7 +20,13 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
+import java.util.Map;
+
 public class KafkaConnectorException extends SeaTunnelRuntimeException {
+    protected KafkaConnectorException(SeaTunnelErrorCode errorCode, Map<String, String> params) {
+        super(errorCode, params);
+    }
+
     public KafkaConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
         super(seaTunnelErrorCode, errorMessage);
     }

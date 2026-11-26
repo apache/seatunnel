@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
-import org.apache.seatunnel.api.configuration.util.Expression;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.configuration.util.RequiredOption;
@@ -126,6 +125,35 @@ class S3FileFactoryTest {
         Assertions.assertDoesNotThrow(() -> validate(config, optionRule));
     }
 
+    @Test
+    void consumedOptionsAreDeclared() {
+        OptionRule optionRule = new S3FileSourceFactory().optionRule();
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.READ_PARTITIONS));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.CSV_USE_HEADER_LINE));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.BINARY_CHUNK_SIZE));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.FILE_FILTER_MODIFIED_START));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.FILE_FILTER_MODIFIED_END));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME));
+    }
+
     private static Map<String, Object> sinkConfig() {
         Map<String, Object> config = new HashMap<>();
         config.put(S3FileBaseOptions.FILE_PATH.key(), "/tmp/seatunnel");
@@ -155,19 +183,8 @@ class S3FileFactoryTest {
                 .map(ro -> (RequiredOption.ConditionalRequiredOptions) ro)
                 .anyMatch(
                         cro ->
-                                expressionContainsOption(cro.getExpression(), conditionalOption)
+                                conditionContainsOption(cro.getCondition(), conditionalOption)
                                         && cro.getRequiredOption().contains(requiredOption));
-    }
-
-    private static boolean expressionContainsOption(Expression expression, Option<?> option) {
-        Expression currentExpression = expression;
-        while (currentExpression != null) {
-            if (conditionContainsOption(currentExpression.getCondition(), option)) {
-                return true;
-            }
-            currentExpression = currentExpression.getNext();
-        }
-        return false;
     }
 
     private static boolean conditionContainsOption(Condition<?> condition, Option<?> option) {

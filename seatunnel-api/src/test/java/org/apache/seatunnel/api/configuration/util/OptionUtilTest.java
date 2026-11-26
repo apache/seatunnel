@@ -18,15 +18,38 @@
 package org.apache.seatunnel.api.configuration.util;
 
 import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class OptionUtilTest {
+
+    @Test
+    public void testGetDeclaredOptionKeysCollectsOptionConstants() {
+        Set<String> keys = OptionUtil.getDeclaredOptionKeys(TestOptionConstants.class);
+
+        Assertions.assertEquals(
+                new LinkedHashSet<>(Arrays.asList("test.alpha", "test.beta")), keys);
+        Assertions.assertThrows(UnsupportedOperationException.class, () -> keys.add("test.gamma"));
+    }
+
+    /**
+     * Option-constant holder used by {@link #testGetDeclaredOptionKeysCollectsOptionConstants()}.
+     */
+    private static final class TestOptionConstants {
+        private static final Option<String> ALPHA =
+                Options.key("test.alpha").stringType().noDefaultValue();
+        private static final Option<Integer> BETA =
+                Options.key("test.beta").intType().defaultValue(1);
+    }
 
     @Test
     public void test() throws InstantiationException, IllegalAccessException {

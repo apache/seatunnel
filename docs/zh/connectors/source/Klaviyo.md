@@ -13,7 +13,7 @@ import ChangeLog from '../changelog/connector-http-klaviyo.md';
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户定义分片](../../introduction/concepts/connector-v2-features.md)
 
@@ -39,6 +39,8 @@ import ChangeLog from '../changelog/connector-http-klaviyo.md';
 | json_field                  | Config | 否       | -      | 用 JSONPath 把返回字段映射到输出列，必须和 `schema` 一起使用。 |
 | content_field               | String | 否       | -      | 用 JSONPath 选出需要按行解析的数组或对象。 |
 | pageing                     | Config | 否       | -      | 分页配置，见 [分页](#分页)。 |
+| keep_params_as_form         | Boolean | 否      | false  | 是否把 `params` 作为表单字段放入请求体提交，而不是作为 URL 查询参数。用于兼容旧行为。 |
+| keep_page_param_as_http_param | Boolean | 否    | false  | 是否把分页参数写入 `params`。用于兼容旧行为。 |
 | poll_interval_millis        | int    | 否       | -      | 流模式下的请求间隔，单位毫秒。 |
 | retry                       | int    | 否       | -      | 请求出现 `IOException` 时的最大重试次数。 |
 | retry_backoff_multiplier_ms | int    | 否       | 100    | 重试退避时间倍数，单位毫秒。 |

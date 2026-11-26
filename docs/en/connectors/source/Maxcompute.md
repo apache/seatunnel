@@ -33,7 +33,7 @@ for parallel reads.
 | accesskey       | string | no                                | -             | Aliyun AccessKey secret used to access MaxCompute.                                                                  |
 | sts_token       | string | no                                | -             | STS token used for temporary MaxCompute authentication. When `sts_token` is provided, `accessId` and `accesskey` are required. |
 | endpoint        | string | yes                               | -             | MaxCompute endpoint, starting with `http`.                                                                          |
-| project         | string | yes                               | -             | MaxCompute project created in Alibaba Cloud.                                                                        |
+| project         | string | no                                | -             | MaxCompute project created in Alibaba Cloud. Not enforced by the option rule: each `table_list` entry can provide its own `project` override, so the top-level option is optional. Set it unless every `table_list` entry defines its own project. |
 | table_name      | string | yes when `table_list` is not set  | -             | Target MaxCompute table name, for example `fake`.                                                                   |
 | schema_name     | string | no                                | -             | MaxCompute schema name (namespace between project and table). Required only when the table is in a non-default schema. |
 | partition_spec  | string | no                                | -             | Partition spec for a MaxCompute partitioned table, for example `ds='20220101'`.                                     |
@@ -68,7 +68,7 @@ for parallel reads.
 
 ### endpoint [string]
 
-`endpoint` Your Maxcompute endpoint start with http.
+Your MaxCompute endpoint, starting with `http`. This option is required and must not be an empty string or contain only whitespace. Blank values are rejected during configuration validation, before connecting to MaxCompute.
 
 ### project [string]
 
@@ -106,7 +106,7 @@ Default: not set (uses the project default schema).
 
 The list of tables to be read, you can use this configuration instead of `table_name`.
 
-Each table item must contain `table_name`. It can also override `project`, `schema_name`, `partition_spec`, `split_row`, and `read_columns`. If an item does not set those values, the connector uses the top-level value.
+Each table item must contain `table_name`. It can also override `project`, `schema_name`, `partition_spec`, `split_row`, and `read_columns`. If an item does not set `project`, `schema_name`, `partition_spec`, or `split_row`, the connector uses the top-level value. The `split_row` fallback has one exception: an item that carries its own inline `schema` uses only its own `split_row` and does not inherit the top-level `split_row`; when such an item omits `split_row`, the option default (10000) applies. Note that `read_columns` is the exception: it must be set inside each `table_list` item, and a top-level `read_columns` is not applied to `table_list` entries.
 
 This mode is useful when one job needs to read several MaxCompute tables with the same account, endpoint, and default project.
 
