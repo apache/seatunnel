@@ -427,6 +427,12 @@ public class PostgresStreamingChangeEventSource
         if (stream instanceof WalProgressAwareReplicationStream) {
             receivedLsn = ((WalProgressAwareReplicationStream) stream).lastReceivedWalLsn();
         } else {
+            // Debezium's PostgreSQL stream delegates flushLsn() to pgjdbc's
+            // forceUpdateStatus(). Acknowledging only the last completely processed position is
+            // safe and makes pgjdbc report its raw lastReceiveLSN immediately, instead of waiting
+            // for the asynchronous keep-alive interval. The server exposes that receive position
+            // as the WAL sender's write_lsn.
+            stream.flushLsn(lastCompletelyProcessedLsn);
             receivedLsn = readPostgresClientReceivedLsn();
         }
         return receivedLsn != null && receivedLsn.compareTo(stoppingLsn) >= 0;
