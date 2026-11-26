@@ -55,6 +55,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -101,7 +102,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * in-flight savepoint request to fail instead of reporting success, no completed checkpoint for the
  * aborted id, no restore attempt, and a late savepoint request on the terminal job to fail fast
  * without reopening it. A second job submitted on the same cluster must still reach {@code RUNNING}
- * and cancel cleanly, which proves the first job's slots and coordinator were released.
+ * and cancel cleanly. That only proves continued scheduling, not slot or coordinator cleanup: the
+ * fixture uses dynamic slots, so a leaked allocation could coexist with the follow-up job.
  */
 @Slf4j
 public class CancelDuringSavepointIT {
@@ -141,6 +143,13 @@ public class CancelDuringSavepointIT {
 
     /** Upper bound to wait for the job to leave DOING_SAVEPOINT after the cancel request. */
     private static final long CANCEL_TRANSITION_TIMEOUT_SECONDS = 30L;
+
+    /**
+     * Upper bound for the cancel RPC acknowledgement while the savepoint barrier is still held. The
+     * assertion under test is that the cancel does not wait for the parked snapshot, so this is
+     * checked here instead of relying on an engine or workflow timeout.
+     */
+    private static final long CANCEL_ACK_TIMEOUT_SECONDS = 30L;
 
     /** Upper bound to wait for the cancelled job to reach its terminal state. */
     private static final long CANCELED_TERMINAL_TIMEOUT_SECONDS = 60L;
@@ -293,8 +302,10 @@ public class CancelDuringSavepointIT {
 
             // Cancel while the savepoint barrier is still unacknowledged. The cancel request must
             // win: the job has to leave DOING_SAVEPOINT immediately and must never be reported as
-            // SAVEPOINT_DONE/FINISHED afterwards.
-            clientJobProxy.cancelJob();
+            // SAVEPOINT_DONE/FINISHED afterwards. Run the call on a test-owned executor so a
+            // regression that makes the acknowledgement wait for the parked snapshot fails through
+            // this bounded get() instead of consuming the workflow timeout.
+            awaitCancelAcknowledged(clientJobProxy);
             Awaitility.await()
                     .atMost(CANCEL_TRANSITION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .pollInterval(100, TimeUnit.MILLISECONDS)
@@ -395,8 +406,9 @@ public class CancelDuringSavepointIT {
                     clientJobProxy.getJobStatus(),
                     "A rejected late savepoint must not change the terminal state");
 
-            // The cancelled job must release its slots and coordinator: a follow-up job on the
-            // same cluster has to schedule and cancel normally.
+            // The follow-up job only proves that the cluster still schedules new jobs after the
+            // cancelled savepoint. It does not prove that the first job's slots are gone: the test
+            // config uses dynamic slots, so a leaked allocation could coexist with this job.
             String followUpCaseName = testCaseName + "FollowUp";
             String followUpConfPath =
                     createTestResources(
@@ -439,17 +451,69 @@ public class CancelDuringSavepointIT {
                     heldCheckpointId,
                     followUpProxy.getJobId());
         } finally {
-            SavepointCancelGate.clear(holdKey);
-            savepointExecutor.shutdownNow();
-            if (engineClient != null) {
-                engineClient.close();
+            // Release the parked snapshot first: a negative-path failure can leave the scripted
+            // writer inside snapshotState(), and only the gate release lets it leave. Every later
+            // step runs from a nested finally so an earlier teardown failure cannot skip it.
+            SavepointCancelGate.release(holdKey);
+            try {
+                savepointExecutor.shutdownNow();
+            } finally {
+                try {
+                    if (engineClient != null) {
+                        engineClient.close();
+                    }
+                } finally {
+                    try {
+                        if (workerNode != null) {
+                            workerNode.shutdown();
+                        }
+                    } finally {
+                        if (masterNode != null) {
+                            masterNode.shutdown();
+                        }
+                    }
+                }
             }
-            if (workerNode != null) {
-                workerNode.shutdown();
+        }
+    }
+
+    /**
+     * Calls {@link ClientJobProxy#cancelJob()} on a test-owned daemon executor and requires the
+     * acknowledgement within a bounded time.
+     *
+     * <p>The client proxy joins its remote future without a test-controlled timeout. Waiting for it
+     * here, while the savepoint gate is still held, is what turns "a cancel must not wait for the
+     * parked snapshot" into an assertion instead of a workflow timeout.
+     *
+     * @param clientJobProxy job whose cancellation is requested
+     * @throws Exception when the cancel fails, or a bounded assertion when it does not acknowledge
+     */
+    private static void awaitCancelAcknowledged(ClientJobProxy clientJobProxy) throws Exception {
+        ExecutorService cancelExecutor =
+                Executors.newSingleThreadExecutor(
+                        runnable -> {
+                            Thread thread = new Thread(runnable, "cancel-during-savepoint-cancel");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
+        try {
+            Future<?> cancel = cancelExecutor.submit(clientJobProxy::cancelJob);
+            try {
+                cancel.get(CANCEL_ACK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            } catch (TimeoutException timeout) {
+                cancel.cancel(true);
+                throw new AssertionError(
+                        "The cancel request for job "
+                                + clientJobProxy.getJobId()
+                                + " did not acknowledge within "
+                                + CANCEL_ACK_TIMEOUT_SECONDS
+                                + " s while the savepoint barrier was still held",
+                        timeout);
             }
-            if (masterNode != null) {
-                masterNode.shutdown();
-            }
+        } finally {
+            // The remote join is not interrupted by Future.cancel alone, so the executor is
+            // daemon-backed and abandoned after this bounded wait.
+            cancelExecutor.shutdownNow();
         }
     }
 
