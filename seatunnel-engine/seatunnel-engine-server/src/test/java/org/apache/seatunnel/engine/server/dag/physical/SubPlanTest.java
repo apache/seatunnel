@@ -334,6 +334,7 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
         JobMaster jobMaster = mock(JobMaster.class);
         when(jobMaster.getCheckpointManager()).thenReturn(checkpointManager);
         when(jobMaster.getPhysicalPlan()).thenReturn(physicalPlan);
+        when(jobMaster.isNeedRestore()).thenReturn(true);
         doAnswer(
                         invocation -> {
                             ((SubPlan) invocation.getArgument(0)).initStateFuture();
@@ -370,6 +371,45 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
                     causes.get(0).contains("Access denied for user"),
                     "captured the placeholder instead of the real error: " + causes.get(0));
             Assertions.assertTrue(causes.get(0).startsWith("restore 1: "));
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void shouldNotRestoreWhenStopIsRequestedWhileWaiting() throws Exception {
+        // A stop-with-savepoint whose final checkpoint fails calls forceStopPipeline(), which
+        // records the stop through JobMaster#neverNeedRestore(). If the pipeline was already
+        // waiting in prepareRestorePipeline(), that wait must re-check the intent, otherwise the
+        // pipeline restores behind the stop and the job can stay in DOING_SAVEPOINT forever.
+        CheckpointManager checkpointManager = mock(CheckpointManager.class);
+        PhysicalPlan physicalPlan = mock(PhysicalPlan.class);
+        JobMaster jobMaster = mock(JobMaster.class);
+        when(jobMaster.getCheckpointManager()).thenReturn(checkpointManager);
+        when(jobMaster.getPhysicalPlan()).thenReturn(physicalPlan);
+        when(jobMaster.isNeedRestore()).thenReturn(false);
+
+        PhysicalVertex vertex = mockPhysicalVertex(ExecutionState.FAILED);
+        when(vertex.initStateFuture())
+                .thenReturn(new PassiveCompletableFuture<>(new CompletableFuture<>()));
+
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            SubPlan subPlan =
+                    newSubPlan(
+                            executorService,
+                            Collections.singletonList(vertex),
+                            Collections.emptyList());
+            subPlan.setJobMaster(jobMaster);
+            subPlan.setCurrPipelineStatus(PipelineStatus.FAILED);
+
+            Assertions.assertFalse(
+                    invokePrepareRestorePipeline(subPlan),
+                    "a pipeline must not restore after a stop was requested while it was waiting");
+            Assertions.assertEquals(
+                    1,
+                    subPlan.getRestoreCauses().size(),
+                    "the failed attempt must still be recorded even when the restore is skipped");
         } finally {
             executorService.shutdownNow();
         }
