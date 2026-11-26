@@ -80,7 +80,6 @@ Debezium DB2，在初始快照完成后会继续读取已提交的 INSERT、UPDA
 | snapshot.fetch.size | Integer | 否 | 1024 | 读取表快照时每次轮询的最大获取大小。 |
 | enable_concurrent_read | Boolean | 否 | true | 快照阶段是否启用分片并发读取。设置为 false 时，源会以单个分片读取表，不做分片分析，适用于没有索引的表。 |
 | server-time-zone | String | 否 | JVM 系统时区 | 数据库服务器中的会话时区。 |
-| split.allow-sampling | Boolean | 否 | true | 是否启用基于采样的分片策略。设置为 false 时，无论预估分片数是否超过阈值，系统都会回退到非均匀分片方式（迭代查询方式）。 |
 | connect.timeout.ms | Long | 否 | 30000 | 连接器尝试连接到数据库服务器后，在超时之前等待的最长时间。 |
 | connect.max-retries | Integer | 否 | 3 | 连接器重试建立数据库连接的最大次数。 |
 | connection.pool.size | Integer | 否 | 20 | 连接池大小。 |

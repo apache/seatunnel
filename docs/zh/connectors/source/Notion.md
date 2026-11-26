@@ -34,20 +34,20 @@ Notion 源连接器用于读取 Notion API 数据。它基于 HTTP 源连接器�
 | content_field               | String  | 否  | -      | 在 `schema` 解析之前先通过 JSONPath 抽取一段 JSON。                                                            |
 | json_field                  | Config  | 否  | -      | 字段级 JSONPath 映射，与 `schema` 配合使用。                                                                |
 | pageing                     | Config  | 否  | -      | HTTP 分页配置，继承自 HTTP 源连接器。当前 Notion 读取路径不会应用该配置：不会自动进行游标或页码分页，只读取响应的第一页数据；如需读取更多页（例如配合 `start_cursor` 参数），请在连接器外部自行处理。 |
-| poll_interval_millis        | int     | 否  | -      | 流模式下的请求间隔（毫秒）。Notion 源连接器当前只支持批处理模式。                                                            |
-| retry                       | int     | 否  | -      | HTTP 请求返回 `IOException` 时的最大重试次数。                                                              |
-| retry_backoff_multiplier_ms | int     | 否  | 100    | HTTP 请求失败时的重试退避倍数（毫秒）。                                                                          |
-| retry_backoff_max_ms        | int     | 否  | 10000  | HTTP 请求失败时的最大重试退避时间（毫秒）。                                                                        |
-| enable_multi_lines          | boolean | 否  | false  | 是否启用多行模式，将响应体中按换行分隔的多个 JSON 对象视为独立记录。                                                            |
-| keep_params_as_form         | boolean | 否  | false  | 是否将请求参数作为表单参数发送，而不是 URL 查询参数。                                                                   |
-| keep_page_param_as_http_param | boolean | 否 | false | 分页时是否将分页参数保留在 URL 中，而不是在请求体内替换。该配置在当前 Notion 读取路径上不会生效（参见 `pageing`）。                  |
-| batch_size                  | int     | 否  | 100    | 当总页数未知时，每次请求返回的记录数。该配置在当前 Notion 读取路径上不会生效（参见 `pageing`）。                                  |
-| start_page_number           | long    | 否  | 1      | 从哪一页开始读取。该配置在当前 Notion 读取路径上不会生效（参见 `pageing`）。                                                  |
-| total_page_size             | long    | 否  | 0      | 要读取的总页数。`0` 表示按照 `batch_size` 一直读取，直到 API 不再返回新页。该配置在当前 Notion 读取路径上不会生效（参见 `pageing`）。 |
-| use_placeholder_replacement | boolean | 否  | false  | 是否使用 `${field}` 占位符替换 headers、params 和 body 中的字段值，否则按键名替换。                                            |
-| connect_timeout_ms          | int     | 否  | 12000  | HTTP 连接超时时间（毫秒），默认 12000ms。                                                                       |
-| socket_timeout_ms           | int     | 否  | 60000  | HTTP 套接字超时时间（毫秒），默认 60000ms。                                                                      |
-| json_filed_missed_return_null | boolean | 否 | false  | 配置的 JSON 字段缺失时是否返回 `null`，否则报错。                                                                  |
+| poll_interval_millis        | Int     | 否  | -      | 流模式下的请求间隔（毫秒）。Notion 源连接器当前只支持批处理模式。                                                            |
+| retry                       | Int     | 否  | -      | HTTP 请求返回 `IOException` 时的最大重试次数。                                                              |
+| retry_backoff_multiplier_ms | Int     | 否  | 100    | HTTP 请求失败时的重试退避倍数（毫秒）。                                                                          |
+| retry_backoff_max_ms        | Int     | 否  | 10000  | HTTP 请求失败时的最大重试退避时间（毫秒）。                                                                        |
+| enable_multi_lines          | Boolean | 否  | false  | 是否启用多行模式，将响应体中按换行分隔的多个 JSON 对象视为独立记录。                                                            |
+| keep_params_as_form         | Boolean | 否  | false  | 是否将请求参数作为表单参数发送，而不是 URL 查询参数。                                                                   |
+| keep_page_param_as_http_param | Boolean | 否 | false | 分页时是否将分页参数保留在 URL 中，而不是在请求体内替换。该配置在当前 Notion 读取路径上不会生效（参见 `pageing`）。                  |
+| batch_size                  | Int     | 否  | 100    | 当总页数未知时，每次请求返回的记录数。该配置在当前 Notion 读取路径上不会生效（参见 `pageing`）。                                  |
+| start_page_number           | Long    | 否  | 1      | 从哪一页开始读取。该配置在当前 Notion 读取路径上不会生效（参见 `pageing`）。                                                  |
+| total_page_size             | Long    | 否  | 0      | 要读取的总页数。`0` 表示按照 `batch_size` 一直读取，直到 API 不再返回新页。该配置在当前 Notion 读取路径上不会生效（参见 `pageing`）。 |
+| use_placeholder_replacement | Boolean | 否  | false  | 是否使用 `${field}` 占位符替换 headers、params 和 body 中的字段值，否则按键名替换。                                            |
+| connect_timeout_ms          | Int     | 否  | 12000  | HTTP 连接超时时间（毫秒），默认 12000ms。                                                                       |
+| socket_timeout_ms           | Int     | 否  | 60000  | HTTP 套接字超时时间（毫秒），默认 60000ms。                                                                      |
+| json_filed_missed_return_null | Boolean | 否 | false  | 配置的 JSON 字段缺失时是否返回 `null`，否则报错。                                                                  |
 | common-options              | config  | 否  | -      | 源插件通用参数，详见 [源通用选项](../common-options/source-common-options.md)。                                       |
 
 :::tip

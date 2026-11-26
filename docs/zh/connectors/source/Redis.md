@@ -55,11 +55,19 @@ Redis 值。校验成功**不代表**匹配的 key 存在、已存储的值与 `
 | user           | string | 否                  | -     | Redis 认证用户名 |
 | auth           | string | 否                  | -     | Redis 认证密码 |
 | db_num         | int    | 否                  | 0     | Redis 数据库索引 |
-| mode           | string | 否                  | single | Redis 模式：`single` 或 `cluster` |
+| mode           | enum   | 否                  | single | Redis 模式：`single` 或 `cluster` |
 | nodes          | list   | `mode=cluster` 时必须 | -     | Redis 集群节点，格式为 `["host1:port1", "host2:port2"]` |
 | keys           | string | 未配置 `tables_configs` 时必须 | -     | 要扫描的 Redis key pattern，支持模糊匹配；用户需保证匹配到的 key 类型相同。与 `tables_configs` 互斥。 |
-| data_type      | string | 未配置 `tables_configs` 时必须 | -     | 匹配到的 key 的 Redis 数据类型：`key`、`string`、`hash`、`list`、`set`、`zset`。单 key pattern 读取时需与 `keys` 一起配置。 |
+| data_type      | enum   | 未配置 `tables_configs` 时必须 | -     | 匹配到的 key 的 Redis 数据类型：`key`、`string`、`hash`、`list`、`set`、`zset`。单 key pattern 读取时需与 `keys` 一起配置。 |
 | tables_configs | list   | 否                  | -     | 多表读取时的表配置列表 |
+| hash_key_parse_mode | string | 否                  | all   | HASH 数据的解析模式（`tables_configs` 表项同样生效）：`all` 将整个 hash 值作为单个 JSON 字符串列输出，`kv` 将 hash 字段（连同 `key_field_name` 下的 key）按配置的 `schema` 映射，每个 Redis hash key 输出一行 |
+| read_key_enabled | boolean | 否                  | false | 设置为 true 时，源连接器在读取 Redis 值的同时会读取对应的 key。开启后必须设置 `single_field_name` |
+| key_field_name | string | 否                  | `key`（`hash` 类型为 `hash_key`） | 输出行中表示 Redis key 的字段名；对 `hash` 数据始终生效，`read_key_enabled = true` 时也生效 |
+| single_field_name | string | `read_key_enabled=true` 时必须 | -     | 读取单值类型（`string`、`list`、`set`、`zset`）时，输出行中表示值的字段名 |
+| batch_size     | int    | 否                  | 10    | 读取时每批从 Redis 获取的数据条数 |
+| format         | string | 否                  | json  | 上游数据格式：`json` 或 `text` |
+| schema         | config | 否                  | -     | 输出行对应的 schema；`format = text` 以及 `hash_key_parse_mode = kv` 时必须配置 |
+| field_delimiter | string | 否                  | ,     | 一行数据中列之间的分隔符。仅在 `text` 格式下需要 |
 | common-options |        | 否                  | -     | 源连接器插件通用参数，详情请参见 [Source Common Options](../common-options/source-common-options.md) |
 
 读取单个 key pattern 时使用 `keys` 和 `data_type`。读取多个 key pattern 时使用 `tables_configs`；`keys` 和
@@ -72,14 +80,14 @@ Redis 值。校验成功**不代表**匹配的 key 存在、已存储的值与 `
 | 名称                  | 类型     | 是否必须 | 默认值 | 描述                                         |
 |---------------------|---------|--------|-------|--------------------------------------------|
 | keys                | string  | 是     | -     | 要扫描的 Redis key pattern                     |
-| data_type           | string  | 是     | -     | Redis 数据类型：`key`、`string`、`hash`、`list`、`set`、`zset` |
+| data_type           | enum    | 是     | -     | Redis 数据类型：`key`、`string`、`hash`、`list`、`set`、`zset` |
 | batch_size          | int     | 否     | 10    | SCAN 操作的批量大小                               |
-| format              | string  | 否     | json  | 数据格式：`json` 或 `text`                       |
+| format              | enum    | 否     | json  | 数据格式：`json` 或 `text`                       |
 | schema              | config  | 否     | -     | Schema 配置                               |
-| hash_key_parse_mode | string  | 否     | all   | Hash key 解析模式：`all` 或 `kv`                 |
-| read_key_enabled    | boolean | 否     | false | 是否在输出中包含 Redis key                         |
-| key_field_name      | string  | 否     | -     | Redis key 的字段名称                            |
-| single_field_name   | string  | read_key_enabled = true 且为单值类型（string、list、set、zset）时必填 | -     | Redis value 的字段名称                              |
+| hash_key_parse_mode | enum    | 否     | all   | Hash key 解析模式：`all` 或 `kv`                 |
+| read_key_enabled | boolean | 否 | false | 在输出中加入 Redis key。启用时需要配置 `schema` 并使用 `format = json`。 |
+| key_field_name | string | 否 | `hash` 类型为 `hash_key`，其余类型为 `key` | 输出行中保存 Redis key 的字段名。 |
+| single_field_name | string | 条件必填 | - | 当 `read_key_enabled = true` 且 `string` 的值或 `list`、`set`、`zset` 的元素为标量或数组时，必须用此参数指定保存该值的输出字段。JSON 对象直接使用自身字段。 |
 | field_delimiter     | string  | 否     | ','   | 文本格式的分隔符                                   |
 
 **注意：** 当只读取单表时，请把这些表级参数直接配置在 `Redis` 外层，例如 `keys`、`data_type`、`format`、`schema`，不需要使用 `tables_configs`。
@@ -98,45 +106,16 @@ redis 端口号
 
 指定 hash key 解析模式, 支持 `all` `kv` 模式, 用于设定连接器如何解析 hash key。
 
-当设定为 `all` 时，连接器会将 hash key 的值视为一行并根据 schema config 配置进行解析，当设定为 `kv` 时，连接器会将 hash key 的每个 kv 视为一行，并根据 schema config 进行解析。
+对于 `keys` 匹配到的每个 Redis hash key（`tables_configs` 表项同样生效），连接器会获取整个 hash map，并将 Redis key 写入 `key_field_name` 对应字段（`hash` 类型默认为 `hash_key`）。设为 `kv` 时，该 map 的 hash 字段会按配置的 `schema` 映射为一行，每个 Redis hash key 输出一行；设为 `all` 时，整个 hash 值作为单个 JSON 字符串列输出。
 
-例如，如果 hash key 的值如下设置：
+例如，`keys` 匹配到两个 hash key `001` 和 `002`：
 
 ```text
-{ 
-  "001": {
-    "name": "tyrantlucifer",
-    "age": 26
-  },
-  "002": {
-    "name": "Zongwen",
-    "age": 26
-  }
-}
-
+001 -> {"name": "tyrantlucifer", "age": 26}
+002 -> {"name": "Zongwen", "age": 26}
 ```
 
-如果 `hash_key_parse_mode` 设置为 `all` 模式，且 schema config 如下所示，将会生成下表数据：
-
-```hocon
-schema {
-  fields {
-    001 {
-      name = string
-      age = int
-    }
-    002 {
-      name = string
-      age = int
-    }
-  }
-}
-
-```
-
-| 001                             | 002                       |
-| ------------------------------- | ------------------------- |
-| Row(name=tyrantlucifer, age=26) | Row(name=Zongwen, age=26) |
+如果 `hash_key_parse_mode` 设置为 `all` 模式，每个匹配到的 hash key 会输出一行，其列内容为整个 hash map 的 JSON 字符串（连同 key 字段）。
 
 如果 `hash_key_parse_mode` 设置为 `kv` 模式，且 schema config 如下所示，将会生成下表数据：
 
@@ -156,9 +135,7 @@ schema {
 | 001      | tyrantlucifer | 26   |
 | 002      | Zongwen       | 26   |
 
-hash key 中的每个 kv 将会被视为一行并被发送给上游。
-
-**提示：连接器会使用 schema 配置中的第一个字段作为每个 hash kv 中 key 的字段名。**
+**提示：每个 hash 的 Redis key 会存储在 `key_field_name` 指定的列中（`hash` 类型默认为 `hash_key`）。**
 
 ### keys [string]
 
@@ -170,7 +147,7 @@ keys 模式
 
 默认值为 `false`，也就是只读取 value。
 
-单表配置下开启 `read_key_enabled` 时，必须同时配置 `single_field_name`，与 `data_type` 无关。对于 `string`、`list`、`set`、`zset` 这类单值类型，该选项指定 Redis value 写入哪一列，缺失时读取会直接失败。`key_field_name` 是可选项，默认字段名为 `key`。`tables_configs` 中的表级配置不受该校验限制：此时仅单值类型需要配置 `single_field_name`。
+当 `read_key_enabled = true` 时，选项规则要求必须在源顶层配置中设置 `single_field_name`，与配置的 `data_type` 无关（该校验只针对扁平的单表配置；`tables_configs` 表项只需 `keys` 和 `data_type`）。该字段的值用于把非对象值（例如 `string`、`list`、`set`、`zset` 的普通值）映射到 schema 列；本身就能解析成 JSON 对象的值（例如 `json` 格式下的 `hash` 字段）则按对象自身字段映射。`key_field_name` 是可选项，`hash` 类型默认字段名为 `hash_key`，其它类型默认为 `key`。
 
 配置 schema 时，需要包含实际输出的字段名，包括默认的 `key` 字段或 `key_field_name` 指定的字段名。
 
@@ -201,7 +178,9 @@ schema {
 
 `read_key_enabled = true` 时，指定 Redis value 输出到哪一个字段。
 
-单表配置下，只要 `read_key_enabled = true`，无论 `data_type` 是什么，配置校验都要求该选项必填。对于 `string`、`list`、`set`、`zset` 这类单值类型，该字段就是 value 映射到的 schema 列，缺失时读取会直接失败；对于 `hash` 这类可以直接映射成多列对象的数据，value 字段来自 hash 结构本身，但单表配置校验仍会要求填写该选项。
+该选项主要用于 `string`、`list`、`set`、`zset` 这类不能直接映射成多列对象的数据。对于本身就能解析成 JSON 对象的值（例如 `json` 格式下的 `hash` 字段），该选项不会被应用，对象按自身字段映射。
+
+**注意：** 即使目标数据类型在运行时不会使用该选项，只要配置了 `read_key_enabled = true`，顶层选项规则仍然要求配置该选项。该要求只针对扁平的单表配置；`tables_configs` 表项不要求设置该选项。
 
 ### batch_size [int]
 
@@ -563,8 +542,9 @@ sink {
 ### 使用自定义键名和值列名读取
 
 通过 `key_field_name`、`single_field_name` 和 `read_key_enabled = true` 可以把 Redis 键纳入输出，并控制其
-值映射到 schema 中的哪一列。对于基础值类型（`string`、`list`、`set`、`zset`），必须设置 `single_field_name`，
-让连接器知道哪个 schema 列接收该值。
+值映射到 schema 中的哪一列。只要开启 `read_key_enabled = true`，就必须设置 `single_field_name`（选项规则对
+所有 `data_type` 都生效），并且对于 `string`、`list`、`set`、`zset` 这类非对象值，该选项决定了哪个 schema 列
+接收该值。
 
 ```hocon
 source {

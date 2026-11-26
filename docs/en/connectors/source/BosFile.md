@@ -93,6 +93,24 @@ To use this connector you need to put `bos-hdfs-sdk` (>= 1.0.4-community) into `
 | escape_char                | string  | no       | -                           |
 | recursive_file_scan        | boolean | no       | true                        |
 | sort_files_by_modification_time | boolean | no       | false                       |
+| enable_file_split          | boolean | no       | false                       |
+| file_split_size            | long    | no       | 134217728                   |
+| markdown_rag_metadata_enabled | boolean | no     | false                       |
+| pdf_rag_metadata_enabled   | boolean | no       | false                       |
+| discovery_mode             | string  | no       | once                        |
+| scan_interval              | string  | no       | 10S                         |
+| start_mode                 | string  | no       | earliest                    |
+| sync_mode                  | string  | no       | full                        |
+| target_path                | string  | no       | -                           |
+| target_hadoop_conf         | map     | no       | -                           |
+| update_strategy            | string  | no       | distcp                      |
+| compare_mode               | string  | no       | len_mtime                   |
+| update_compare_parallelism | int     | no       | 8                           |
+| update_compare_bulk_threshold | int  | no       | 0                           |
+| post_sync_action           | string  | no       | none                        |
+| backup_path                | string  | no       | -                           |
+| retention_max_age          | string  | no       | -                           |
+| retention_check_interval   | string  | no       | 1H                          |
 
 ### path [string]
 
@@ -121,6 +139,48 @@ Supported file types: `text`, `csv`, `parquet`, `orc`, `json`, `excel`, `xml`, `
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.
+
+## Continuous Discovery
+
+`discovery_mode=continuous` keeps a streaming job running and polls BOS for new or changed objects. This mode uses the existing file comparison path; it does not consume BOS event notifications and does not emit object delete events or changelog rows.
+
+Continuous discovery currently requires `file_format_type="binary"` and `sync_mode="update"`. Set `target_path` to the same base path used by the sink so the source can skip unchanged objects. The default `discovery_mode="once"` preserves the existing bounded-source behavior.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  BosFile {
+    bucket = "bos://source-bucket"
+    path = "/watch/source"
+    access_key = "your-access-key"
+    secret_key = "your-secret-key"
+    endpoint = "http://bj.bcebos.com"
+    file_format_type = "binary"
+
+    discovery_mode = "continuous"
+    scan_interval = "10S"
+    start_mode = "earliest"
+    sync_mode = "update"
+    target_path = "/watch/target"
+  }
+}
+
+sink {
+  BosFile {
+    bucket = "bos://source-bucket"
+    path = "/watch/target"
+    tmp_path = "/watch/tmp"
+    access_key = "your-access-key"
+    secret_key = "your-secret-key"
+    endpoint = "http://bj.bcebos.com"
+    file_format_type = "binary"
+  }
+}
+```
 
 ## Example
 

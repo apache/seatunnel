@@ -106,6 +106,7 @@ case-sensitive databases, make sure the configured identifier case matches the d
 | debezium.*                                | config   | No       | -       | Pass-through Debezium's properties to Debezium Embedded Engine which is used to capture data changes from SqlServer server.<br/>See more about<br/>the [Debezium's SqlServer Connector properties](https://debezium.io/documentation/reference/1.9/connectors/sqlserver.html)                                                                                                                                                                                                                                                                                    |
 | format                                    | Enum     | No       | DEFAULT | Optional output format for SqlServer CDC, valid enumerations are "DEFAULT"、"COMPATIBLE_DEBEZIUM_JSON".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | schema-changes.enabled                    | Boolean  | No       | false   | Schema evolution is disabled by default. Now we only support `add column`、`drop column`、`rename column` and `modify column`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| schema-changes.behavior                   | Enum     | No       | evolve  | Controls events that survive `schema-changes.include` / `schema-changes.exclude` when `schema-changes.enabled = true`. Values are case-insensitive: `strict`, `evolve`, `ignore`. `ignore` drops comment-only events but fails on row-layout changes. Currently enforced on Flink only; not supported on Zeta or Spark. See [Schema change behavior](../../introduction/configuration/schema-evolution.md#schema-change-behavior). |
 | schema-changes.include                     | List     | No       | -       | Only the listed schema change event types are sent downstream (when `schema-changes.enabled = true`). Empty means all are eligible. See [Schema change event filtering](#schema-change-event-filtering).                                                                                                                                                                                                                                                                                                                                                                                                             |
 | schema-changes.exclude                     | List     | No       | -       | Schema change event types listed here are NOT sent downstream. Applied after `schema-changes.include`; exclude wins on conflict. See [Schema change event filtering](#schema-change-event-filtering).                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | common-options                            |          | no       | -       | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -147,9 +148,10 @@ case-sensitive databases, make sure the configured identifier case matches the d
 
 ## Task Example
 
-### initiali read Simple
+### Initial Read Simple
 
-> This is a stream mode cdc initializes read table data will be read incrementally after successful read The following sql DDL is for reference only
+> In stream mode, CDC reads the existing table data during initialization and continues reading
+> incrementally after the initial read completes. The following SQL DDL is for reference only.
 
 ```
 env {
@@ -323,11 +325,12 @@ source {
 
 ### Heartbeat action
 
-Use the `debezium.heartbeat.action.query` option to keep offsets and change events flowing during idle periods when
-there are no upstream changes for a long time. Pair it with `debezium.heartbeat.interval.ms` so the action runs at a
-regular cadence. SQL Server CDC has no replication slot for a heartbeat to keep alive, and heartbeat writes do not pin
-the LSN range a consumer needs; the heartbeat does not replace a suitable change-table retention setting and lag
-monitoring.
+Use the `debezium.heartbeat.action.query` option to run an action whenever the connector emits a heartbeat event.
+SQL Server's polling loop does not dispatch idle heartbeats on its own, so the action runs only when a heartbeat is
+actually emitted. The action executes through the source database connection and updates the LSN tracking of SQL
+Server's CDC; it does not
+pin any consumer retention window and does not replace correctly configured CDC retention and outage/lag monitoring
+(see [Microsoft's CDC cleanup documentation](https://learn.microsoft.com/en-us/sql/relational-databases/track-changes/administer-and-monitor-change-data-capture-sql-server#cleanup-job)).
 
 ```hocon
 source {

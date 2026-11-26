@@ -4,6 +4,14 @@
 
 ## dev
 
+### HBase sink：DELETE 行删除映射的数据
+
+`DELETE` 行现在会删除本 sink 映射列簇中不晚于该变更时间戳的所有单元格版本。此前这些行会将旧值作为 Put 写入，未映射列簇仍不受影响。仅投影 rowkey 和版本列时，没有映射列簇，sink 会拒绝 DELETE 行。请在投影中包含目标列簇的至少一个数据列。
+需要原先仅追加行为的作业应在 sink 前过滤 DELETE 行。`UPDATE_BEFORE` 行现在会被忽略，不再作为 Put 写入。修改 rowkey 时需要上游显式发送旧键 DELETE 和新键 INSERT。
+使用 `version_column` 提供正确排序的时间戳：相同或更早时间戳的 Put 无法覆盖删除标记。
+关闭 HBase 客户端定时刷新（默认行为）时，checkpoint 刷新会等待 region server 接受数据。依赖 checkpoint 刷新的作业应保持定时刷新关闭。`wal_write = false` 仍不能防止 region server 崩溃导致的数据丢失。
+无需迁移配置或 checkpoint 格式。
+
 ### MongoDB Sink：未配置的缓冲与重试选项使用文档中的默认值
 
 - **行为变更：未设置 `buffer-flush.*` 或 `retry.*` 选项的非事务 MongoDB Sink 会按批写入，并重试失败的写入**
@@ -33,6 +41,13 @@
   - **描述**：`array_mode = true` 时，Http Sink 此前把每行的序列化结果作为字符串加入请求数组，请求体为 `["{\"id\":1}","{\"id\":2}"]`，而不是文档描述的 JSON 数组。现在发送的是 `[{"id":1},{"id":2}]`。自 2.3.11 起的各版本发送的都是字符串数组。`array_mode = false` 不受影响。
   - **影响**：此前因请求体格式报错的接口现在可以正常接收。专门适配旧格式、把每个元素再按 JSON 字符串解码的接收方，现在收到的是对象，需要修改。
   - **迁移指南**：无需修改配置。如果接收方会把数组的每个元素从字符串解码，请改为直接使用该元素。
+
+### Doris Source：`case_sensitive = false` 现在会将单表 `database`/`table` 转为小写
+
+- **行为变更：单表 Doris Source 配置 `case_sensitive = false` 时，`database` 与 `table` 名称按小写解析**
+  - **描述**：`case_sensitive` 选项自 2.3.11 起就已存在于 Doris Source，但小写转换作用在一个随后被丢弃的中间对象上，该选项从未生效，配置中的原始大小写会原样进入 query-plan 请求。现在转换作用于 Source 实际使用的表配置。该选项只影响通过 `database` 和 `table` 配置的单表；`table_list` 条目与默认值（`true`）行为不变。
+  - **影响**：配置 `case_sensitive = false` 且名称含大写的作业，现在会把 `TestDB.TestTable` 解析为 `testdb.testtable`。在名称匹配区分大小写的集群上，这会选中另一个对象，或导致查找失败。早期版本保存的 checkpoint 中也可能持有原始大小写名称的 split：恢复到如今按小写名称索引表的 Source 时，Reader 会报 `the table 'TestDB.TestTable' cannot be found in table_list of job configuration` 而失败，而不是读取该 split。
+  - **迁移指南**：要保持历史拼写，请设置 `case_sensitive = true` 或删除该选项（默认值为 `true`）。要继续使用 `case_sensitive = false`，请在升级后从新的 checkpoint 启动作业，而不要恢复旧的 checkpoint；已保存的 split 不会被改写，因此旧的混大小写 checkpoint 无法服务于标识符已变为小写的作业。
 
 ### Lance Sink：BIGINT 列创建为 int64
 
@@ -706,6 +721,14 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **变更说明**：此前 XML 读取器使用默认的 dom4j `SAXReader` 解析用户提供的文件，DTD 处理和外部实体解析均保持 JAXP 默认行为。精心构造的 `DOCTYPE`/外部实体载荷可能导致 worker 节点本地文件泄露、SSRF 式请求，或通过实体展开（"billion laughs"）耗尽内存。现在 `XmlReadStrategy` 的所有解析都会经过加固后的 reader：启用 JAXP 安全处理特性、彻底拒绝任何 `<!DOCTYPE ...>` 声明、禁用外部通用/参数实体及外部 DTD 加载，并额外安装一个拒绝一切解析请求的 `EntityResolver` 作为与具体解析器实现无关的兜底防护。
   - **影响**：此前仅因携带 `<!DOCTYPE ...>` 声明才能被解析的 XML 文件——即使该声明是不引用任何外部 `SYSTEM`/`PUBLIC` 资源的良性声明——现在会以 `FileConnectorException(FILE_READ_FAILED)` 失败。该行为没有配置项可以恢复为旧版本的处理方式。
   - **迁移指南**：在使用 SeaTunnel 读取前，移除 XML 文件中的 `DOCTYPE` 声明，或对文件做预处理/重新导出。不带 `DOCTYPE` 声明的合法 XML 文件不受影响。(#11250)
+
+### CDC 连接器变更
+
+- **弃用说明：兼容窗口结束后将拒绝继承的 CDC Sink schema change no-op**
+  - **影响范围**：`schema-changes.enabled = true` 且 Sink writer 未实现 `SupportSchemaEvolutionSinkWriter` 的 CDC 作业
+  - **变更说明**：在 `evolve` 模式下，两个受支持的 Flink sink 路径优先使用 `SupportSchemaEvolutionSinkWriter`，并在调用显式覆写的 deprecated `SinkWriter.applySchemaChange` 时记录告警。在一个版本的兼容窗口内，继承默认 no-op 的 writer 也会记录告警并丢弃事件；该兜底将在下一个版本移除。(#11162)
+  - **影响**：仅继承 deprecated no-op 的现有 CDC 作业在兼容窗口内仍能运行，但 Sink schema 不会演进；兼容兜底移除后此类作业会失败。
+  - **迁移指南**：实现幂等的 `SupportSchemaEvolutionSinkWriter` 以完成端到端 schema evolution。也可以关闭 `schema-changes.enabled`，或排除 Sink 不应接收的事件类型。`schema-changes.behavior = ignore` 只适用于纯注释变更，不能屏蔽行结构变更。
 
 ### 转换变更
 

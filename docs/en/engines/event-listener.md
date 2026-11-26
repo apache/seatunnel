@@ -31,12 +31,18 @@ The `EventType` enumeration defines all possible event types in the system, main
 | `SCHEMA_CHANGE_ADD_COLUMN`      | Table column addition event     | `AlterTableAddColumnEvent`      |
 | `SCHEMA_CHANGE_DROP_COLUMN`     | Table column deletion event     | `AlterTableDropColumnEvent`     |
 | `SCHEMA_CHANGE_MODIFY_COLUMN`   | Table column modification event | `AlterTableModifyColumnEvent`   |
-| `LIFECYCLE_ENUMERATOR_OPEN`     | Enumerator open event           | `EnumeratorOpenEvent`           |
-| `LIFECYCLE_ENUMERATOR_CLOSE`    | Enumerator close event          | `EnumeratorCloseEvent`          |
+| `SCHEMA_CHANGE_CHANGE_COLUMN`   | Table column change event       | `AlterTableChangeColumnEvent`   |
+| `SCHEMA_CHANGE_RENAME_TABLE`    | Table rename event              | `AlterTableNameEvent`           |
+| `SCHEMA_CHANGE_ALTER_TABLE_COMMENT` | Table comment change event  | `AlterTableCommentEvent`        |
+| `SCHEMA_CHANGE_ALTER_COLUMN_COMMENT` | Column comment change event | `AlterColumnCommentEvent`       |
+| `SCHEMA_CHANGE_RESTORE`         | Table schema restore event      | `RestoreTableSchemaEvent`       |
+| `LIFECYCLE_ENUMERATOR_OPEN`     | Split enumerator open event     | `EnumeratorOpenEvent`           |
+| `LIFECYCLE_ENUMERATOR_CLOSE`    | Split enumerator close event    | `EnumeratorCloseEvent`          |
 | `LIFECYCLE_READER_OPEN`         | Reader open event               | `ReaderOpenEvent`               |
 | `LIFECYCLE_READER_CLOSE`        | Reader close event              | `ReaderCloseEvent`              |
 | `LIFECYCLE_WRITER_CLOSE`        | Writer close event              | `WriterCloseEvent`              |
 | `READER_MESSAGE_DELAYED`        | Reader message delayed event    | `MessageDelayedEvent`           |
+| `STAIN_TRACE`                    | Stain trace event               | `StainTraceEvent`               |
 
 > Note: Different event types correspond to different event data structures. When customizing an event handler, you need to judge the type through `event.getEventType()` to ensure type-safe conversion.
 

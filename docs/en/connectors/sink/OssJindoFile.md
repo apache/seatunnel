@@ -92,7 +92,7 @@ The connector targets Alibaba OSS via the Jindo SDK. The Jindo SDK jars (`jindo-
 | csv_string_quote_mode                 | enum    | no       | MINIMAL                                    | Only used when file_format is csv.                                                                                                                                              |
 | xml_root_tag                          | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                                                                              |
 | xml_row_tag                           | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                                                                                              |
-| xml_use_attr_format                   | boolean | no       | -                                          | Only used when file_format is xml.                                                                                                                                              |
+| xml_use_attr_format                   | boolean | conditional       | -                                          | Required when `file_format_type` is `xml`.                                                                                                                                              |
 | single_file_mode                      | boolean | no       | false                                      | Each parallelism will only output one file. When this parameter is turned on, batch_size will not take effect. The output file name does not have a file block suffix.          |
 | create_empty_file_when_no_data        | boolean | no       | false                                      | When there is no data synchronization upstream, the corresponding data files are still generated.                                                                               |
 | parquet_avro_write_timestamp_as_int96 | boolean | no       | false                                      | Only used when file_format is parquet.                                                                                                                                          |
@@ -100,6 +100,11 @@ The connector targets Alibaba OSS via the Jindo SDK. The Jindo SDK jars (`jindo-
 | encoding                              | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                                                                                           |
 | merge_update_event                    | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data |
 | schema_evolution_enabled              | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
+| date_format                            | string  | no       | yyyy-MM-dd                                 | Only used when file_format_type is `text`, `csv`, `excel` or `xml`. Date type format, used to tell connector how to write date values. Supported formats (examples): `yyyy-MM-dd`, `yyyy.MM.dd`, `yyyy/MM/dd`. |
+| datetime_format                        | string  | no       | yyyy-MM-dd HH:mm:ss                        | Only used when file_format_type is `text`, `csv`, `excel` or `xml`. Datetime type format, used to tell connector how to write datetime values. Supported formats (examples): `yyyy-MM-dd HH:mm:ss`, `yyyy.MM.dd HH:mm:ss`, `yyyy/MM/dd HH:mm:ss`, `yyyyMMddHHmmss`. |
+| time_format                            | string  | no       | HH:mm:ss                                   | Only used when file_format_type is `text`, `csv`, `excel` or `xml`. Time type format, used to tell connector how to write time values. Supported formats (examples): `HH:mm:ss`, `HH:mm:ss.SSS`. |
+| schema_save_mode                       | string  | no       | CREATE_SCHEMA_WHEN_NOT_EXIST               | Controls how the target directory is treated before the synchronization task starts.                                                                                             |
+| data_save_mode                         | string  | no       | APPEND_DATA                                | Controls how existing data files in the target directory are processed before the synchronization task starts.                                                                   |
 
 ### path [string]
 
@@ -236,7 +241,7 @@ When file format is Excel, the maximum number of rows per sheet.
 
 Writer the sheet of the workbook.
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 When File Format is CSV, the string quote mode of CSV.
 
