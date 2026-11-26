@@ -48,6 +48,9 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -93,6 +96,9 @@ public class MultiPipelineSavepointRestoreIT {
 
     private static final long CLUSTER_TIMEOUT_SECONDS = 30;
     private static final long STATE_TIMEOUT_SECONDS = 180;
+
+    /** Upper bound for the best-effort cancellation performed during test teardown. */
+    private static final long CANCEL_TIMEOUT_SECONDS = 30;
 
     @Test
     public void testSavepointIsPersistedPerPipelineAndRestoredForBothPipelines() throws Exception {
@@ -195,24 +201,77 @@ public class MultiPipelineSavepointRestoreIT {
             awaitJobStatus(restoredJob, JobStatus.CANCELED);
             restoredJob = null;
         } finally {
-            if (restoredJob != null) {
+            // Best-effort cancellation must not be able to consume the workflow timeout: a
+            // lifecycle regression that also blocks cancellation would otherwise keep the client
+            // and both embedded nodes alive. The wait is bounded and every later step runs from a
+            // nested finally so an earlier teardown failure cannot skip it.
+            try {
+                cancelRestoredJobQuietly(restoredJob);
+            } finally {
                 try {
-                    restoredJob.cancelJob();
-                } catch (Throwable cancelFailure) {
-                    log.warn(
-                            "Could not cancel restored job {} during teardown",
-                            restoredJob.getJobId());
+                    if (engineClient != null) {
+                        engineClient.close();
+                    }
+                } finally {
+                    try {
+                        if (node1 != null) {
+                            node1.shutdown();
+                        }
+                    } finally {
+                        if (node2 != null) {
+                            node2.shutdown();
+                        }
+                    }
                 }
             }
-            if (engineClient != null) {
-                engineClient.close();
-            }
-            if (node1 != null) {
-                node1.shutdown();
-            }
-            if (node2 != null) {
-                node2.shutdown();
-            }
+        }
+    }
+
+    /**
+     * Cancels the restored job from a test-owned executor with a bounded wait.
+     *
+     * <p>{@link ClientJobProxy#cancelJob()} joins its remote future without a test-controlled
+     * timeout. Running it on a daemon worker keeps a lifecycle regression from turning teardown
+     * into an unbounded hang and lets the caller reach the client/node shutdown in its nested
+     * finally blocks.
+     *
+     * @param restoredJob job to cancel; {@code null} after an already completed cancellation
+     */
+    private static void cancelRestoredJobQuietly(ClientJobProxy restoredJob) {
+        if (restoredJob == null) {
+            return;
+        }
+        ExecutorService cancelExecutor =
+                Executors.newSingleThreadExecutor(
+                        runnable -> {
+                            Thread thread = new Thread(runnable, "multi-pipeline-restore-cancel");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
+        try {
+            Future<?> cancel = cancelExecutor.submit(restoredJob::cancelJob);
+            cancel.get(CANCEL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (TimeoutException timeout) {
+            log.warn(
+                    "Cancelling restored job {} did not acknowledge within {}s; continuing"
+                            + " teardown",
+                    restoredJob.getJobId(),
+                    CANCEL_TIMEOUT_SECONDS);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            log.warn(
+                    "Interrupted while cancelling restored job {} during teardown",
+                    restoredJob.getJobId(),
+                    interrupted);
+        } catch (Throwable cancelFailure) {
+            log.warn(
+                    "Could not cancel restored job {} during teardown",
+                    restoredJob.getJobId(),
+                    cancelFailure);
+        } finally {
+            // The remote join is not interruptible through Future.cancel alone, so the executor is
+            // daemon-backed and abandoned after this bounded wait.
+            cancelExecutor.shutdownNow();
         }
     }
 
