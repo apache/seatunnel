@@ -16,11 +16,17 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.highgo;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialectFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psqllow.PostgresLowDialect;
 
 import com.google.auto.service.AutoService;
+
+import javax.annotation.Nonnull;
 
 @AutoService(JdbcDialectFactory.class)
 public class HighGoDialectFactory extends PostgresDialectFactory {
@@ -32,5 +38,38 @@ public class HighGoDialectFactory extends PostgresDialectFactory {
     @Override
     public boolean acceptsURL(String url) {
         return url.startsWith("jdbc:highgo:");
+    }
+
+    @Override
+    public JdbcDialect create(@Nonnull String compatibleMode, String fieldIde) {
+        return create(compatibleMode, fieldIde, null);
+    }
+
+    @Override
+    public JdbcDialect create(
+            @Nonnull String compatibleMode,
+            String fieldIde,
+            JdbcConnectionConfig connectionConfig) {
+        boolean numericSpecialValueAsNull =
+                connectionConfig != null && connectionConfig.isNumericSpecialValueAsNull();
+        if ("postgresLow".equalsIgnoreCase(compatibleMode)) {
+            return createLowDialect(fieldIde, numericSpecialValueAsNull);
+        }
+        return new HighGoDialect(fieldIde, numericSpecialValueAsNull);
+    }
+
+    /**
+     * Preserves low-mode SQL without capturing the non-serializable factory in the dialect.
+     *
+     * <p>This preserves the driver boundary when dialects are selected for runtime execution.
+     */
+    private static JdbcDialect createLowDialect(
+            String fieldIde, boolean numericSpecialValueAsNull) {
+        return new PostgresLowDialect(fieldIde, numericSpecialValueAsNull) {
+            @Override
+            public JdbcRowConverter getRowConverter() {
+                return new HighGoJdbcRowConverter(numericSpecialValueAsNull);
+            }
+        };
     }
 }

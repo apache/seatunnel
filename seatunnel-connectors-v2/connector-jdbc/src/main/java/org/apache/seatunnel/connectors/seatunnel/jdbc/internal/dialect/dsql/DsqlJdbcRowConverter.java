@@ -20,10 +20,20 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dsql;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresJdbcRowConverter;
 
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+
 public class DsqlJdbcRowConverter extends PostgresJdbcRowConverter {
 
     @Override
     public String converterName() {
         return DatabaseIdentifier.DSQL;
+    }
+
+    @Override
+    protected void setJsonOrUuid(
+            PreparedStatement statement, int index, String sourceType, String value)
+            throws SQLException {
+        statement.setString(index, value);
     }
 }
