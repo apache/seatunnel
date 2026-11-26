@@ -241,6 +241,58 @@ public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResourc
         }
     }
 
+    /**
+     * A table with only a UNIQUE key: the sink upserts by that key without {@code primary_keys},
+     * and with {@code multi_table_sink_replica = 2} the changes of one key must stay in order, so
+     * the table ends with the last version of each key and without the deleted keys.
+     */
+    @TestTemplate
+    public void testUniqueKeyTableKeepsTheLastChangeOfEachKeyWithReplicas(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        // Each engine runs this against the same table, so a failed run must not leave rows for
+        // the next one: empty it before the job and again when the test ends either way.
+        truncateSinkUnique();
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob("/jdbc_sink_cdc_changelog_unique_key_replicas.conf");
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+            Set<List<Object>> actual = new HashSet<>();
+            try (Connection connection =
+                            DriverManager.getConnection(
+                                    postgreSQLContainer.getJdbcUrl(),
+                                    postgreSQLContainer.getUsername(),
+                                    postgreSQLContainer.getPassword());
+                    Statement statement = connection.createStatement();
+                    ResultSet resultSet =
+                            statement.executeQuery("select code, val from sink_unique")) {
+                while (resultSet.next()) {
+                    actual.add(
+                            Arrays.asList(resultSet.getLong("code"), resultSet.getString("val")));
+                }
+            }
+            // Every key is inserted as v1 and updated to v2; every even key is then deleted.
+            Set<List<Object>> expected = new HashSet<>();
+            for (long code = 1; code <= 100; code += 2) {
+                expected.add(Arrays.asList(code, "v2"));
+            }
+            Assertions.assertEquals(expected, actual);
+        } finally {
+            truncateSinkUnique();
+        }
+    }
+
+    private void truncateSinkUnique() throws SQLException {
+        try (Connection connection =
+                        DriverManager.getConnection(
+                                postgreSQLContainer.getJdbcUrl(),
+                                postgreSQLContainer.getUsername(),
+                                postgreSQLContainer.getPassword());
+                Statement statement = connection.createStatement()) {
+            statement.execute("truncate table sink_unique");
+        }
+    }
+
     private void initializeJdbcTable() {
         try (Connection connection =
                 DriverManager.getConnection(
@@ -264,6 +316,11 @@ public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResourc
                     "create table if not exists sink_status_append(\n"
                             + "pk_id BIGINT NOT NULL,\n"
                             + "status varchar(255)\n"
+                            + ")");
+            statement.execute(
+                    "create table sink_unique(\n"
+                            + "code BIGINT NOT NULL UNIQUE,\n"
+                            + "val varchar(255)\n"
                             + ")");
         } catch (SQLException e) {
             throw new RuntimeException("Initializing PostgreSql table failed!", e);

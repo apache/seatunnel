@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.Collections;
 
 class JdbcSinkTest {
@@ -41,7 +42,7 @@ class JdbcSinkTest {
                         .primaryKey(PrimaryKey.of("empty_pk", Collections.emptyList()))
                         .build();
 
-        Assertions.assertFalse(JdbcSink.getPrimaryKeyIndex(tableSchema).isPresent());
+        Assertions.assertFalse(JdbcSink.getPrimaryKeyIndex(tableSchema, null).isPresent());
     }
 
     @Test
@@ -56,7 +57,7 @@ class JdbcSinkTest {
                         .primaryKey(PrimaryKey.of("null_pk", null))
                         .build();
 
-        Assertions.assertFalse(JdbcSink.getPrimaryKeyIndex(tableSchema).isPresent());
+        Assertions.assertFalse(JdbcSink.getPrimaryKeyIndex(tableSchema, null).isPresent());
     }
 
     @Test
@@ -76,6 +77,63 @@ class JdbcSinkTest {
                         .primaryKey(PrimaryKey.of("id_pk", Collections.singletonList("id")))
                         .build();
 
-        Assertions.assertEquals(1, JdbcSink.getPrimaryKeyIndex(tableSchema).get());
+        Assertions.assertEquals(1, JdbcSink.getPrimaryKeyIndex(tableSchema, null).get());
+    }
+
+    @Test
+    void getPrimaryKeyIndexFallsBackToTheSinkKeyWhenTheSchemaHasNone() {
+        // A table with only a UNIQUE key: the factory sets primary_keys from it, so the sink
+        // upserts by "code", and the rows of one code must be routed by it.
+        TableSchema tableSchema = nameAndCodeSchema(null);
+
+        Assertions.assertEquals(
+                1, JdbcSink.getPrimaryKeyIndex(tableSchema, Arrays.asList("code", "name")).get());
+    }
+
+    @Test
+    void getPrimaryKeyIndexPrefersTheSchemaPrimaryKey() {
+        TableSchema tableSchema =
+                nameAndCodeSchema(PrimaryKey.of("name_pk", Collections.singletonList("name")));
+
+        Assertions.assertEquals(
+                0,
+                JdbcSink.getPrimaryKeyIndex(tableSchema, Collections.singletonList("code")).get());
+    }
+
+    @Test
+    void getPrimaryKeyIndexIsEmptyWithoutAnyKey() {
+        TableSchema tableSchema = nameAndCodeSchema(null);
+
+        Assertions.assertFalse(JdbcSink.getPrimaryKeyIndex(tableSchema, null).isPresent());
+        Assertions.assertFalse(
+                JdbcSink.getPrimaryKeyIndex(tableSchema, Collections.emptyList()).isPresent());
+    }
+
+    @Test
+    void getPrimaryKeyIndexIgnoresASinkKeyThatIsNotInTheRow() {
+        TableSchema tableSchema = nameAndCodeSchema(null);
+
+        Assertions.assertFalse(
+                JdbcSink.getPrimaryKeyIndex(tableSchema, Collections.singletonList("missing"))
+                        .isPresent());
+    }
+
+    private static TableSchema nameAndCodeSchema(PrimaryKey primaryKey) {
+        TableSchema.Builder builder =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("name")
+                                        .dataType(BasicType.STRING_TYPE)
+                                        .build())
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("code")
+                                        .dataType(BasicType.STRING_TYPE)
+                                        .build());
+        if (primaryKey != null) {
+            builder.primaryKey(primaryKey);
+        }
+        return builder.build();
     }
 }

@@ -19,7 +19,6 @@ different API endpoints.
 | secret_key                     | string | no       | -             | The secret key required for additional authentication with the embedding service. Only required by `AMAZON` and `QIANFAN`.                                               |
 | aws_region                     | string | conditional |            | AWS Region. Required when `model_provider` is `AMAZON` (Amazon Bedrock).                                                                                                 |
 | single_vectorized_input_number | int    | no       | 1             | The number of inputs vectorized in one request. Default is 1.                                                                                                           |
-| process_batch_size             | int    | no       | 100           | The row batch size of each process (legacy name: `inference_batch_size`).                                                                                               |
 | vectorization_fields           | map    | yes      | -             | A mapping between input fields and their corresponding output vector fields.                                                                                            |
 | model                          | string | yes      | -             | The specific model to use for embedding (e.g: `text-embedding-3-small` for OPENAI).                                                                                     |
 | api_path                       | string | no       | -             | The API endpoint for the embedding service. Typically provided by the model provider. Legacy alias: `openai.api_path`.                                                   |
@@ -47,7 +46,7 @@ different API endpoints.
 
 ### model_provider
 
-The providers for generating embeddings include common options such as `AMAZON`, `DOUBAO`, `QIANFAN`, and `OPENAI`. Additionally,
+The providers for generating embeddings include common options such as `AMAZON`, `DOUBAO`, `QIANFAN`, `ZHIPU`, and `OPENAI`. Additionally,
 you can choose `CUSTOM` to implement requests and retrievals for custom embedding models.
 
 ### api_key
