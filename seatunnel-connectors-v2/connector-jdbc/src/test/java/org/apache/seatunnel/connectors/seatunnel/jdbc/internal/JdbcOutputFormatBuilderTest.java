@@ -25,9 +25,11 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.TestConnection;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleDialect;
@@ -40,6 +42,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -135,6 +139,53 @@ public class JdbcOutputFormatBuilderTest {
     }
 
     @Test
+    public void testFlushFailureMessageIdentifiesConfiguredTable() throws Exception {
+        SQLException batchFailure = new SQLException("data too long for column 'id'", "22001");
+        JdbcSinkConfig sinkConfig =
+                JdbcSinkConfig.builder()
+                        .database("sales")
+                        .table("orders")
+                        .jdbcConnectionConfig(
+                                JdbcConnectionConfig.builder().autoCommit(true).build())
+                        .build();
+
+        JdbcConnectorException exception =
+                flushFailure(buildFailingOutputFormat(sinkConfig, batchFailure));
+
+        Assertions.assertEquals(
+                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, exception.getSeaTunnelErrorCode());
+        Assertions.assertSame(batchFailure, exception.getCause());
+        Assertions.assertTrue(
+                exception.getMessage().contains("for table sales.orders"),
+                "message should identify the target table: " + exception.getMessage());
+    }
+
+    @Test
+    public void testFlushFailureMessageKeepsLegacyTextWithoutTargetTable() throws Exception {
+        SQLException batchFailure = new SQLException("data too long for column 'id'", "22001");
+        JdbcSinkConfig sinkConfig =
+                JdbcSinkConfig.builder()
+                        .simpleSql("INSERT INTO t (id) VALUES (:id)")
+                        .jdbcConnectionConfig(
+                                JdbcConnectionConfig.builder().autoCommit(true).build())
+                        .build();
+
+        JdbcConnectorException exception =
+                flushFailure(buildFailingOutputFormat(sinkConfig, batchFailure));
+
+        Assertions.assertEquals(
+                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, exception.getSeaTunnelErrorCode());
+        Assertions.assertSame(batchFailure, exception.getCause());
+        Assertions.assertTrue(
+                exception.getMessage().contains("JDBC batch flush failed."),
+                "message should keep the legacy text: " + exception.getMessage());
+        Assertions.assertFalse(
+                exception.getMessage().contains(" for table "),
+                "message must not invent a table when none is configured: "
+                        + exception.getMessage());
+    }
+
+    @Test
     public void testOracleAppendValuesKeepsConventionalInsertSql() {
         JdbcSinkConfig config =
                 JdbcSinkConfig.builder()
@@ -198,6 +249,33 @@ public class JdbcOutputFormatBuilderTest {
                 .table("TEST_TABLE")
                 .jdbcConnectionConfig(JdbcConnectionConfig.builder().autoCommit(true).build())
                 .oracleInsertMode(JdbcSinkConfig.OracleInsertMode.APPEND_VALUES);
+    }
+
+    private static JdbcOutputFormat buildFailingOutputFormat(
+            JdbcSinkConfig sinkConfig, SQLException batchFailure) throws Exception {
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.INT_TYPE, 22L, false, null, "id"))
+                        .build();
+
+        SimpleJdbcConnectionProvider provider = Mockito.mock(SimpleJdbcConnectionProvider.class);
+        Connection connection = Mockito.mock(Connection.class);
+        PreparedStatement statement = Mockito.mock(PreparedStatement.class);
+        Mockito.when(provider.getOrEstablishConnection()).thenReturn(connection);
+        Mockito.when(provider.getConnection()).thenReturn(connection);
+        Mockito.when(provider.isConnectionValid()).thenReturn(true);
+        Mockito.when(connection.prepareStatement(Mockito.anyString())).thenReturn(statement);
+        Mockito.when(statement.executeBatch()).thenThrow(batchFailure);
+
+        return new JdbcOutputFormatBuilder(new MysqlDialect(), provider, sinkConfig, schema, null)
+                .build();
+    }
+
+    private static JdbcConnectorException flushFailure(JdbcOutputFormat outputFormat)
+            throws IOException {
+        outputFormat.open();
+        outputFormat.writeRecord(new SeaTunnelRow(new Object[] {1}));
+        return Assertions.assertThrows(JdbcConnectorException.class, outputFormat::flush);
     }
 
     private static JdbcOutputFormatBuilder newBuilder(

@@ -99,6 +99,16 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 null);
     }
 
+    /**
+     * Creates an output format with an optional target-table label.
+     *
+     * <p>The label is diagnostic only: it is appended to flush and commit failure messages so a
+     * multi-table job can identify the failing {@code database.table}. It does not affect the
+     * generated SQL or route records to another table. Passing {@code null} (as the compatibility
+     * constructors do) keeps the previous messages unchanged.
+     *
+     * @param tableIdentifier {@code database.table} label for failure messages, or {@code null}
+     */
     public JdbcOutputFormat(
             JdbcConnectionProvider connectionProvider,
             JdbcConnectionConfig jdbcConnectionConfig,
