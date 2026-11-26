@@ -54,6 +54,7 @@ import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTableUtils;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.orc.CompressionKind;
+import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -230,41 +231,50 @@ public class HiveSink
     }
 
     /**
-     * Inherits compression only while preparing an existing ORC table. Explicit codecs, including
-     * NONE, take precedence. Rejects enum values mapped to ORC NONE to prevent silent compression
+     * Inherits compression only while preparing an existing ORC or Parquet table. Explicit codecs,
+     * including NONE, take precedence. Rejects incompatible mappings to prevent silent compression
      * loss. Returns the original config or an immutable replacement without changing table
      * metadata.
      */
     private Config inheritTableCompression(
             Config pluginConfig, FileFormat fileFormat, Table table) {
         if (!readonlyConfig.get(HiveSinkOptions.USE_TABLE_COMPRESSION)
-                || fileFormat != FileFormat.ORC
+                || (fileFormat != FileFormat.ORC && fileFormat != FileFormat.PARQUET)
                 || pluginConfig.hasPath(COMPRESS_CODEC.key())) {
             return pluginConfig;
         }
         Map<String, String> parameters = table.getParameters();
-        String codec = parameters == null ? null : parameters.get("orc.compress");
+        String property = fileFormat == FileFormat.ORC ? "orc.compress" : "parquet.compression";
+        String codec = parameters == null ? null : parameters.get(property);
         if (codec == null || codec.trim().isEmpty()) {
             return pluginConfig;
         }
         CompressFormat compression;
+        String normalizedCodec = codec.trim().toUpperCase(Locale.ROOT);
+        if (fileFormat == FileFormat.PARQUET && "UNCOMPRESSED".equals(normalizedCodec)) {
+            normalizedCodec = CompressFormat.NONE.name();
+        }
         try {
-            compression = CompressFormat.valueOf(codec.trim().toUpperCase(Locale.ROOT));
+            compression = CompressFormat.valueOf(normalizedCodec);
         } catch (IllegalArgumentException e) {
             throw new HiveConnectorException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                     String.format(
-                            "Unsupported orc.compress '%s' for Hive table %s.%s",
-                            codec, table.getDbName(), table.getTableName()),
+                            "Unsupported %s '%s' for Hive table %s.%s",
+                            property, codec, table.getDbName(), table.getTableName()),
                     e);
         }
         if (compression != CompressFormat.NONE
-                && compression.getOrcCompression() == CompressionKind.NONE) {
+                && ((fileFormat == FileFormat.ORC
+                                && compression.getOrcCompression() == CompressionKind.NONE)
+                        || (fileFormat == FileFormat.PARQUET
+                                && compression.getParquetCompression()
+                                        == CompressionCodecName.UNCOMPRESSED))) {
             throw new HiveConnectorException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                     String.format(
-                            "Unsupported orc.compress '%s' for Hive table %s.%s",
-                            codec, table.getDbName(), table.getTableName()));
+                            "Unsupported %s '%s' for Hive table %s.%s",
+                            property, codec, table.getDbName(), table.getTableName()));
         }
         return pluginConfig.withValue(
                 COMPRESS_CODEC.key(), ConfigValueFactory.fromAnyRef(compression.name()));

@@ -83,7 +83,7 @@ connector-console
 --end--
 ```
 
-You can find all supported connectors and the corresponding plugin_config configuration names under `${SEATUNNEL_HOME}/connectors/plugins-mapping.properties`.
+You can find all supported connectors and the corresponding plugin_config configuration names under `${SEATUNNEL_HOME}/connectors/plugin-mapping.properties`.
 
 :::tip Tip
 

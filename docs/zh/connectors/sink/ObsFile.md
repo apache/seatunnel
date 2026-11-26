@@ -86,12 +86,27 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | single_file_mode                 | boolean | 否    | false                                      | 每个并行处理只会输出一个文件。启用此参数后，batch_size将不会生效。输出文件名没有文件块后缀。                                                                |
 | create_empty_file_when_no_data   | boolean | 否    | false                                      | 当上游没有数据同步时，仍然会生成相应的数据文件。                                                                                                |
 | compress_codec                   | string  | 否    | none                                       | 文件的压缩编解码器。Excel 格式不支持任何压缩格式。[提示](#compress_codec)                                                                        |
+| tmp_path                         | string  | 否    | /tmp/seatunnel                             | 结果文件会先写入临时路径，然后使用 `mv` 将临时目录提交到目标目录。需要一个 OBS 目录。                                                                        |
+| csv_string_quote_mode            | enum    | 否    | MINIMAL                                    | 仅在 `file_format_type` 为 `csv` 时使用。 |
+| enable_header_write              | boolean | 否    | false                                      | 仅当 file_format_type 为 text、csv 时使用。`false`：不写表头，`true`：写表头。                                                              |
 | common-options                   | object  | 否    | -                                          | Sink 插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md)。[提示](#common_options)                                  |
 | max_rows_in_memory               | int     | 否    | -                                          | 当文件格式为Excel时，内存中可以缓存的最大数据项数。仅在file_format_type为excel时使用。                                                                |
 | sheet_max_rows                   | int     | 否    | 1048576                                    | 仅在 file_format 为 excel 时使用，每个工作表允许写入的最大行数。                                                                              |
 | sheet_name                       | string  | 否    | Sheet0                      | 标签页。仅在file_format_type为excel时使用。                                                                                          |
 | merge_update_event               | boolean | 否    | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json 时使用。设置为 `true` 时，会将 `UPDATE_AFTER` 与 `UPDATE_BEFORE` 合并为 `UPDATE` 事件数据。     |
 | schema_evolution_enabled         | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
+| encoding                         | string  | 否    | "UTF-8"                                    | 仅当 `file_format_type` 为 `json`、`text`、`csv`、`xml` 时使用。要写入文件的字符集，通过 `Charset.forName(encoding)` 解析。 |
+| filename_extension               | string  | 否    | -                                          | 输出文件名后缀。设置后会追加到生成的文件名（缺少前导点时自动补上），例如 `csv`、`.txt`、`json` 或 `.xml`；未设置时使用格式默认后缀。 |
+| xml_root_tag                     | string  | 否    | RECORDS                                    | 适用于 `file_format_type` 为 `xml` 的写入。                                        |
+| xml_row_tag                      | string  | 否    | RECORD                                     | 适用于 `file_format_type` 为 `xml` 的写入。                                        |
+| xml_use_attr_format              | boolean | 条件必填    | -                                          | `file_format_type` 为 `xml` 时必填。 |
+| parquet_avro_write_timestamp_as_int96 | boolean | 否    | false                                      | 仅在 `file_format_type` 为 parquet 时使用                                    |
+| parquet_avro_write_fixed_as_int96     | array   | 否    | -                                          | 仅在 `file_format_type` 为 parquet 时使用                                    |
+| date_format                      | string  | 否    | yyyy-MM-dd                                 | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。日期类型格式，用于告知 connector 如何写出 date 值。支持格式（示例）：`yyyy-MM-dd`、`yyyy.MM.dd`、`yyyy/MM/dd`。 |
+| datetime_format                  | string  | 否    | yyyy-MM-dd HH:mm:ss                        | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间戳类型格式，用于告知 connector 如何写出 datetime 值。支持格式：`yyyy-MM-dd HH:mm:ss`、`yyyy.MM.dd HH:mm:ss`、`yyyy/MM/dd HH:mm:ss`、`yyyyMMddHHmmss`。 |
+| time_format                      | string  | 否    | HH:mm:ss                                   | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间类型格式，用于告知 connector 如何写出 time 值。支持格式（示例）：`HH:mm:ss`、`HH:mm:ss.SSS`。 |
+| schema_save_mode                 | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方式                                                       |
+| data_save_mode                   | string  | 否    | APPEND_DATA                                | 现有数据处理方式                                                       |
 
 ### 提示
 
@@ -255,7 +270,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 
 >对于json文件格式简单配置。
 
-```hcocn
+```hocon
 
    ObsFile {
        path = "/seatunnel/json"
@@ -272,7 +287,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 
 >对于excel文件格式简单配置。
 
-```hcocn
+```hocon
 
    ObsFile {
        path = "/seatunnel/excel"
@@ -289,7 +304,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 
 >对于csv文件格式简单配置。
 
-```hcocn
+```hocon
 
    ObsFile {
        path = "/seatunnel/csv"

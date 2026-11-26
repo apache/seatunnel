@@ -53,7 +53,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | TIMESTAMP                                    | TIMESTAMP                                                                                                                                         |
 | TIME                                         | TIME                                                                                                                                              |
 | DATE                                         | DATE                                                                                                                                              |
-| Other data type                              | Not supported yet                                                                                                                                 |
+| Other data type                              | Supported. Types not listed above are converted following the PostgreSQL mapping rules; MySQL, Oracle and SQL Server compatible types (e.g. TINYINT, MONEY, BLOB, CLOB, DATETIME, NUMBER, DATETIME2) are also supported |
 
 ## Sink Options
 

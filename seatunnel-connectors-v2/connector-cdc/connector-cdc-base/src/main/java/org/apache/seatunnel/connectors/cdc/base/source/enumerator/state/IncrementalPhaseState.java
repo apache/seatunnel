@@ -38,16 +38,23 @@ public class IncrementalPhaseState implements PendingSplitsState {
      */
     private final Offset stopOffset;
 
+    private final boolean splitAssigned;
+
     public IncrementalPhaseState() {
-        this(null, null);
+        this(null, null, false);
     }
 
     public IncrementalPhaseState(Offset startupOffset) {
-        this(startupOffset, null);
+        this(startupOffset, null, false);
     }
 
     public IncrementalPhaseState(Offset startupOffset, Offset stopOffset) {
+        this(startupOffset, stopOffset, false);
+    }
+
+    public IncrementalPhaseState(Offset startupOffset, Offset stopOffset, boolean splitAssigned) {
         this.startupOffset = startupOffset;
         this.stopOffset = stopOffset;
+        this.splitAssigned = splitAssigned;
     }
 }
