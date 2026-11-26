@@ -32,6 +32,7 @@ import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
+import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.HybridPendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.IncrementalPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.PendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
@@ -47,6 +48,7 @@ import org.mockito.Mockito;
 
 import io.debezium.relational.TableId;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -315,6 +317,53 @@ class IncrementalSourceTest {
                 IllegalStateException.class,
                 () -> source.restoreEnumerator(enumeratorContext, checkpointState),
                 "initial restore must reject a snapshot-only checkpoint");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testHybridRestoreDerivesAssignedTablesFromLegacyIncrementalPhaseState() throws Exception {
+        TableId existingTable = TableId.parse("db.existing");
+        TableId addedTable = TableId.parse("db.added");
+        SnapshotPhaseState snapshotState =
+                new SnapshotPhaseState(
+                        new ArrayList<>(Collections.singletonList(existingTable)),
+                        new ArrayList<>(),
+                        new HashMap<>(),
+                        new HashMap<>(),
+                        true,
+                        new ArrayList<>(),
+                        false,
+                        true);
+        // Legacy checkpoint written before assignedTables existed: splitAssigned=true and
+        // assignedTablesCheckpointed=false.
+        IncrementalPhaseState legacyIncrementalState = new IncrementalPhaseState(null, null, true);
+        HybridPendingSplitsState checkpointState =
+                new HybridPendingSplitsState(snapshotState, legacyIncrementalState);
+
+        TestIncrementalSource source =
+                new TestIncrementalSource(
+                        ReadonlyConfig.fromMap(Collections.emptyMap()), Collections.emptyList());
+        Mockito.when(source.getDialect().discoverDataCollections(source.getSourceConfig()))
+                .thenReturn(Arrays.asList(existingTable, addedTable));
+
+        SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext =
+                Mockito.mock(SourceSplitEnumerator.Context.class);
+        Mockito.when(enumeratorContext.currentParallelism()).thenReturn(1);
+
+        SourceSplitEnumerator<SourceSplitBase, PendingSplitsState> enumerator =
+                source.restoreEnumerator(enumeratorContext, checkpointState);
+        HybridPendingSplitsState restoredState =
+                (HybridPendingSplitsState) enumerator.snapshotState(1L);
+
+        Assertions.assertFalse(restoredState.getSnapshotPhaseState().isAssignerCompleted());
+        Assertions.assertEquals(
+                Collections.singletonList(addedTable),
+                restoredState.getSnapshotPhaseState().getRemainingTables());
+        Assertions.assertTrue(
+                restoredState.getIncrementalPhaseState().isAssignedTablesCheckpointed());
+        Assertions.assertEquals(
+                Collections.singleton(existingTable),
+                restoredState.getIncrementalPhaseState().getAssignedTables());
     }
 
     private static CatalogTable catalogTable(TablePath tablePath) {

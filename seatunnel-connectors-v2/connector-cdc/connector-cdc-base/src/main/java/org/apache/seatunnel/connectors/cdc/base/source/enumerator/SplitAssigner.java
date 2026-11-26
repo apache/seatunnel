@@ -36,6 +36,14 @@ import java.util.Set;
 /**
  * The {@code SplitAssigner} is responsible for deciding what split should be processed. It
  * determines split processing order.
+ *
+ * <p><b>Synchronization contract:</b> Implementations are not required to be internally
+ * synchronized. Callers must invoke {@link #getNext()}, {@link #onSplitAssigning(SourceSplitBase)},
+ * {@link #onSplitAssigned(SourceSplitBase)}, {@link #onSplitAssignFailed(SourceSplitBase)}, {@link
+ * #waitingForCompletedSplits()}, {@link #onCompletedSplits(List)}, {@link #addSplits(Collection)},
+ * {@link #snapshotState(long)}, and {@link #notifyCheckpointComplete(long)} while holding the
+ * enumerator {@code context} monitor so state mutations stay atomic with respect to concurrent
+ * checkpoint snapshots (for example Zeta's {@code SourceSplitEnumeratorTask.triggerBarrier()}).
  */
 public interface SplitAssigner {
 
@@ -45,7 +53,7 @@ public interface SplitAssigner {
     void open();
 
     /**
-     * Gets the next split.
+     * Gets the next split. Must be called while holding the enumerator {@code context} monitor.
      *
      * <p>When this method returns an empty {@code Optional}, then the set of splits is assumed to
      * be done and the source will finish once the readers completed their current splits.
@@ -57,13 +65,20 @@ public interface SplitAssigner {
      * Implementations that persist unassigned splits keep the split visible to {@link
      * #snapshotState(long)} until {@link #onSplitAssigned(SourceSplitBase)} confirms delivery.
      *
+     * <p>Every {@code onSplitAssigning(split)} call must be followed by exactly one of {@link
+     * #onSplitAssigned(SourceSplitBase)} or {@link #onSplitAssignFailed(SourceSplitBase)} for the
+     * same split. This callback must be invoked while holding the enumerator {@code context}
+     * monitor.
+     *
      * @param split split currently being sent to a reader
      */
     default void onSplitAssigning(SourceSplitBase split) {}
 
     /**
      * Confirms that a split previously marked via {@link #onSplitAssigning(SourceSplitBase)} has
-     * been handed off to its reader.
+     * been handed off to its reader. Must be invoked while holding the enumerator {@code context}
+     * monitor and paired with a preceding {@link #onSplitAssigning(SourceSplitBase)} for the same
+     * split.
      *
      * @param split split whose delivery completed
      */
@@ -71,7 +86,9 @@ public interface SplitAssigner {
 
     /**
      * Reverts a split previously marked via {@link #onSplitAssigning(SourceSplitBase)} when handoff
-     * to the reader failed with an exception so it remains available for reassignment.
+     * to the reader failed with an exception so it remains available for reassignment. Must be
+     * invoked while holding the enumerator {@code context} monitor and paired with a preceding
+     * {@link #onSplitAssigning(SourceSplitBase)} for the same split.
      *
      * @param split split whose delivery failed
      */

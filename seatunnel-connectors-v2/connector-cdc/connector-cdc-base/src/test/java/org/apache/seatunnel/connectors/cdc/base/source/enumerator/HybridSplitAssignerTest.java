@@ -159,6 +159,50 @@ public class HybridSplitAssignerTest {
                 postAssignedSnapshot.getIncrementalPhaseState().getRemainingSplits().isEmpty());
     }
 
+    @Test
+    public void shouldAllowCompletedSnapshotPhaseWhileSiblingIncrementalSplitRemainsQueued() {
+        Map<String, SnapshotSplit> assignedSplits = createAssignedSplits();
+        Map<String, SnapshotSplitWatermark> splitCompletedOffsets = createSplitCompletedOffsets();
+        SnapshotPhaseState snapshotPhaseState =
+                new SnapshotPhaseState(
+                        Collections.emptyList(),
+                        Collections.emptyList(),
+                        assignedSplits,
+                        splitCompletedOffsets,
+                        true,
+                        Collections.emptyList(),
+                        false,
+                        false);
+        HybridPendingSplitsState checkpointState =
+                new HybridPendingSplitsState(snapshotPhaseState, null);
+        SourceConfig sourceConfig = mock(SourceConfig.class);
+        OffsetFactory offsetFactory = mock(OffsetFactory.class);
+        Offset startupOffset = mock(Offset.class);
+        Offset stopOffset = mock(Offset.class);
+        when(sourceConfig.getStartupConfig())
+                .thenReturn(new StartupConfig(StartupMode.EARLIEST, null, null, null));
+        when(sourceConfig.getStopConfig())
+                .thenReturn(new StopConfig(StopMode.NEVER, null, null, null));
+        when(offsetFactory.earliest()).thenReturn(startupOffset);
+        when(offsetFactory.neverStop()).thenReturn(stopOffset);
+        SplitAssigner.Context<SourceConfig> context =
+                new SplitAssigner.Context<>(
+                        sourceConfig,
+                        Stream.of(TableId.parse("db1.table1"), TableId.parse("db1.table2"))
+                                .collect(Collectors.toSet()),
+                        checkpointState.getSnapshotPhaseState().getAssignedSplits(),
+                        checkpointState.getSnapshotPhaseState().getSplitCompletedOffsets());
+        HybridSplitAssigner<SourceConfig> splitAssigner =
+                new HybridSplitAssigner<>(context, 2, 2, checkpointState, null, offsetFactory);
+
+        IncrementalSplit firstSplit = splitAssigner.getNext().get().asIncrementalSplit();
+        Assertions.assertFalse(splitAssigner.getIncrementalSplitAssigner().noMoreSplits());
+        Assertions.assertFalse(splitAssigner.completedSnapshotPhase(firstSplit.getTableIds()));
+
+        IncrementalSplit secondSplit = splitAssigner.getNext().get().asIncrementalSplit();
+        Assertions.assertTrue(splitAssigner.completedSnapshotPhase(secondSplit.getTableIds()));
+    }
+
     private static Map<String, SnapshotSplit> createAssignedSplits() {
         return Stream.of(
                         new AbstractMap.SimpleEntry<>(

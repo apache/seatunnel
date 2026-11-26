@@ -20,11 +20,14 @@ package org.apache.seatunnel.connectors.cdc.base.source.enumerator.state;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 
+import io.debezium.relational.TableId;
 import lombok.Data;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /** A {@link PendingSplitsState} for pending incremental splits. */
 @Data
@@ -48,20 +51,45 @@ public class IncrementalPhaseState implements PendingSplitsState {
     /** Incremental splits generated but not yet assigned to a reader. */
     private final List<IncrementalSplit> remainingSplits;
 
+    /**
+     * Tables already covered by an incremental split (either assigned to a reader or queued in
+     * {@link #remainingSplits}). Always empty when {@link #assignedTablesCheckpointed} is {@code
+     * false}.
+     */
+    private final Set<TableId> assignedTables;
+
+    /**
+     * Whether {@link #assignedTables} was explicitly recorded in this checkpoint. {@code false} for
+     * checkpoints written before {@link #assignedTables} existed.
+     */
+    private final boolean assignedTablesCheckpointed;
+
     public IncrementalPhaseState() {
-        this(null, null, false, Collections.emptyList());
+        this(null, null, false, Collections.emptyList(), Collections.emptySet(), false);
     }
 
     public IncrementalPhaseState(Offset startupOffset) {
-        this(startupOffset, null, false, Collections.emptyList());
+        this(startupOffset, null, false, Collections.emptyList(), Collections.emptySet(), false);
     }
 
     public IncrementalPhaseState(Offset startupOffset, Offset stopOffset) {
-        this(startupOffset, stopOffset, false, Collections.emptyList());
+        this(
+                startupOffset,
+                stopOffset,
+                false,
+                Collections.emptyList(),
+                Collections.emptySet(),
+                false);
     }
 
     public IncrementalPhaseState(Offset startupOffset, Offset stopOffset, boolean splitAssigned) {
-        this(startupOffset, stopOffset, splitAssigned, Collections.emptyList());
+        this(
+                startupOffset,
+                stopOffset,
+                splitAssigned,
+                Collections.emptyList(),
+                Collections.emptySet(),
+                false);
     }
 
     public IncrementalPhaseState(
@@ -69,6 +97,31 @@ public class IncrementalPhaseState implements PendingSplitsState {
             Offset stopOffset,
             boolean splitAssigned,
             List<IncrementalSplit> remainingSplits) {
+        this(
+                startupOffset,
+                stopOffset,
+                splitAssigned,
+                remainingSplits,
+                Collections.emptySet(),
+                false);
+    }
+
+    public IncrementalPhaseState(
+            Offset startupOffset,
+            Offset stopOffset,
+            boolean splitAssigned,
+            List<IncrementalSplit> remainingSplits,
+            Set<TableId> assignedTables) {
+        this(startupOffset, stopOffset, splitAssigned, remainingSplits, assignedTables, true);
+    }
+
+    private IncrementalPhaseState(
+            Offset startupOffset,
+            Offset stopOffset,
+            boolean splitAssigned,
+            List<IncrementalSplit> remainingSplits,
+            Set<TableId> assignedTables,
+            boolean assignedTablesCheckpointed) {
         this.startupOffset = startupOffset;
         this.stopOffset = stopOffset;
         this.splitAssigned = splitAssigned;
@@ -76,5 +129,24 @@ public class IncrementalPhaseState implements PendingSplitsState {
                 remainingSplits == null
                         ? Collections.emptyList()
                         : Collections.unmodifiableList(new ArrayList<>(remainingSplits));
+        this.assignedTables =
+                assignedTables == null
+                        ? Collections.emptySet()
+                        : Collections.unmodifiableSet(new LinkedHashSet<>(assignedTables));
+        this.assignedTablesCheckpointed = assignedTablesCheckpointed;
+    }
+
+    /**
+     * Re-normalizes fields added after earlier releases (such as {@link #remainingSplits} and
+     * {@link #assignedTables}) when deserializing legacy checkpoints whose streams omit them.
+     */
+    private Object readResolve() {
+        return new IncrementalPhaseState(
+                startupOffset,
+                stopOffset,
+                splitAssigned,
+                remainingSplits,
+                assignedTables,
+                assignedTablesCheckpointed);
     }
 }

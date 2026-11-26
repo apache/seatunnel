@@ -81,6 +81,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset.BINLOG_FILENAME_OFFSET_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createBinaryClient;
@@ -122,6 +123,8 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     @Override
     public void configure(SourceSplitBase sourceSplitBase) {
         super.registerDatabaseHistory(sourceSplitBase, connection);
+
+        this.dbzConnectorConfig = resolveConnectorConfig(sourceConfig, sourceSplitBase);
 
         // initial stateful objects
         final MySqlConnectorConfig connectorConfig = getDbzConnectorConfig();
@@ -221,9 +224,32 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         return taskContext;
     }
 
+    static MySqlConnectorConfig resolveConnectorConfig(
+            JdbcSourceConfig sourceConfig, SourceSplitBase sourceSplitBase) {
+        if (sourceSplitBase.isIncrementalSplit()) {
+            List<TableId> splitTables = sourceSplitBase.asIncrementalSplit().getTableIds();
+            if (splitTables != null && !splitTables.isEmpty()) {
+                // Scope table.include.list to the tables owned by this split so parallel
+                // incremental readers (incremental.parallelism > 1) ignore binlog events of
+                // tables handled by sibling splits instead of failing on unknown table schema.
+                String tableIncludeList =
+                        splitTables.stream()
+                                .map(TableId::toString)
+                                .collect(Collectors.joining(","));
+                return new MySqlConnectorConfig(
+                        sourceConfig
+                                .getDbzConfiguration()
+                                .edit()
+                                .with("table.include.list", tableIncludeList)
+                                .build());
+            }
+        }
+        return (MySqlConnectorConfig) sourceConfig.getDbzConnectorConfig();
+    }
+
     @Override
     public MySqlConnectorConfig getDbzConnectorConfig() {
-        return (MySqlConnectorConfig) super.getDbzConnectorConfig();
+        return (MySqlConnectorConfig) this.dbzConnectorConfig;
     }
 
     @Override

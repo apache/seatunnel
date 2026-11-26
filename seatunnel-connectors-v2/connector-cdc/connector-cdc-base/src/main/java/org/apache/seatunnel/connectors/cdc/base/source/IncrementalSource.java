@@ -79,6 +79,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -562,6 +563,25 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                     checkpointSnapshotState.getSplitCompletedOffsets().remove(splitId);
                 });
 
+        IncrementalPhaseState incrementalPhaseState = checkpointState.getIncrementalPhaseState();
+        if (incrementalPhaseState != null
+                && incrementalPhaseState.isSplitAssigned()
+                && !incrementalPhaseState.isAssignedTablesCheckpointed()) {
+            // Legacy checkpoints written before assignedTables existed only recorded
+            // splitAssigned=true. Derive the already-covered tables from the snapshot checkpoint so
+            // tables added across restore still receive incremental splits on upgrade.
+            Set<TableId> legacyAssignedTables =
+                    new LinkedHashSet<>(
+                            Sets.intersection(checkpointCapturedTables, capturedTables));
+            incrementalPhaseState =
+                    new IncrementalPhaseState(
+                            incrementalPhaseState.getStartupOffset(),
+                            incrementalPhaseState.getStopOffset(),
+                            incrementalPhaseState.isSplitAssigned(),
+                            incrementalPhaseState.getRemainingSplits(),
+                            legacyAssignedTables);
+        }
+
         if ((!checkpointSnapshotState.getRemainingTables().isEmpty()
                         || !checkpointSnapshotState.getRemainingSplits().isEmpty())
                 && checkpointSnapshotState.isAssignerCompleted()) {
@@ -577,7 +597,10 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                             checkpointSnapshotState.getRemainingTables(),
                             checkpointSnapshotState.isTableIdCaseSensitive(),
                             checkpointSnapshotState.isRemainingTablesCheckpointed()),
-                    checkpointState.getIncrementalPhaseState());
+                    incrementalPhaseState);
+        }
+        if (incrementalPhaseState != checkpointState.getIncrementalPhaseState()) {
+            return new HybridPendingSplitsState(checkpointSnapshotState, incrementalPhaseState);
         }
         return checkpointState;
     }
