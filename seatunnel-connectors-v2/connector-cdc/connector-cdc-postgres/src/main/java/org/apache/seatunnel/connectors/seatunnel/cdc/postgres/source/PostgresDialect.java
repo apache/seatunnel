@@ -134,19 +134,20 @@ public class PostgresDialect implements JdbcDataSourceDialect {
                                     .build());
             TopicSelector<TableId> topicSelector = PostgresTopicSelector.create(bootstrapConfig);
             TypeRegistry typeRegistry = connection.getTypeRegistry();
-            io.debezium.connector.postgresql.PostgresSchema schema =
-                    PostgresObjectUtils.newSchema(
-                            connection,
-                            bootstrapConfig,
-                            typeRegistry,
-                            topicSelector,
-                            newPostgresValueConverterBuilder(
-                                            bootstrapConfig,
-                                            "postgres-enumerator-slot-bootstrap",
-                                            sourceConfig.getServerTimeZone())
-                                    .build(typeRegistry));
             PostgresTaskContext taskContext =
-                    PostgresObjectUtils.newTaskContext(bootstrapConfig, schema, topicSelector);
+                    PostgresObjectUtils.newTaskContext(
+                            bootstrapConfig,
+                            PostgresObjectUtils.newSchema(
+                                    connection,
+                                    bootstrapConfig,
+                                    typeRegistry,
+                                    topicSelector,
+                                    newPostgresValueConverterBuilder(
+                                                    bootstrapConfig,
+                                                    "postgres-enumerator-slot-bootstrap",
+                                                    sourceConfig.getServerTimeZone())
+                                            .build(typeRegistry)),
+                            topicSelector);
             ReplicationConnection replicationConnection =
                     PostgresObjectUtils.createReplicationConnection(
                             taskContext, connection, false, bootstrapConfig);

@@ -118,6 +118,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     private static final String POSTGRES_HOST = "postgres_cdc_e2e";
 
     private static final String POSTGRESQL_DATABASE = "postgres_cdc";
+    private static final String OTHER_POSTGRESQL_DATABASE = "postgres";
     private static final String POSTGRESQL_SCHEMA = "inventory";
 
     private static final String SOURCE_TABLE_1 = "postgres_cdc_table_1";
@@ -475,6 +476,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         CompletableFuture<Void> job = null;
         Connection snapshotGate = null;
         List<CompletableFuture<Void>> sourceChanges = Collections.emptyList();
+        Throwable primaryFailure = null;
         // The blocking job future plus three gate-blocked DML futures need four workers at once.
         // ForkJoinPool.commonPool() only has three workers on the 4-vCPU GitHub runners, so a
         // dedicated pool is required or the third DML never starts and the lock-wait assertion
@@ -578,44 +580,106 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                             query(getQuerySQL(POSTGRESQL_SCHEMA, SOURCE_TABLE_1)),
                                             query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE_1))));
             assertJobHasNoAsyncFailure(job);
+        } catch (RuntimeException | Error failure) {
+            primaryFailure = failure;
+            throw failure;
         } finally {
-            if (snapshotGate != null) {
-                rollbackAndCloseSnapshotGate(snapshotGate);
-            }
-            for (CompletableFuture<Void> sourceChange : sourceChanges) {
-                if (!sourceChange.isDone()) {
-                    waitForAsyncTask(
-                            sourceChange,
-                            "Concurrent PostgreSQL source change did not finish during cleanup");
-                }
-            }
-            if (job != null) {
-                if (job.isDone()) {
-                    assertJobHasNoAsyncFailure(job);
-                } else {
-                    try {
-                        Container.ExecResult cancelJobResult =
-                                container.cancelJob(String.valueOf(jobId));
-                        Assertions.assertEquals(
-                                0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
-                        await().ignoreExceptions()
-                                .atMost(30, TimeUnit.SECONDS)
-                                .untilAsserted(
-                                        () ->
-                                                Assertions.assertFalse(
-                                                        replicationSlotExists(slotName),
-                                                        "Streaming replication slot was not dropped after cancellation"));
-                    } catch (IOException | InterruptedException e) {
-                        throw new RuntimeException("Failed to cancel PostgreSQL CDC job", e);
-                    }
-                }
-            }
-            // Source-change futures were awaited above and the job was either awaited or
-            // cancelled, so interrupting any leftover job wait here cannot fail an assertion; it
-            // only prevents a hung container exec from leaking the pool thread.
-            asyncTaskExecutor.shutdownNow();
+            cleanupConcurrentSnapshotTest(
+                    container,
+                    jobId,
+                    slotName,
+                    snapshotGate,
+                    sourceChanges,
+                    job,
+                    asyncTaskExecutor,
+                    primaryFailure);
+        }
+    }
+
+    /** Verifies that bounded backfill completes when only another database advances cluster WAL. */
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "This case observes the Zeta snapshot reader and its replication slots while the job is running.")
+    public void testPostgresCdcBackfillCompletesAfterOtherDatabaseWal(TestContainer container) {
+        String slotName = createSlotName();
+        String slotVariable = toSlotVariable(slotName);
+        String otherDatabaseTable = "seatunnel_wal_" + stableSlotHash(slotName);
+        Long jobId = JobIdGenerator.newJobId();
+        CompletableFuture<Void> job = null;
+        Connection snapshotGate = null;
+        Throwable primaryFailure = null;
+        ExecutorService asyncTaskExecutor = Executors.newSingleThreadExecutor();
+
+        try {
             clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
             clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
+            executeSql(
+                    "INSERT INTO "
+                            + POSTGRESQL_SCHEMA
+                            + "."
+                            + SOURCE_TABLE_1
+                            + " (id, f_big, f_text) "
+                            + "SELECT id, id, 'snapshot-' || id "
+                            + "FROM generate_series(1, 20000) AS id");
+
+            job =
+                    CompletableFuture.runAsync(
+                            () -> {
+                                try {
+                                    container.executeJob(
+                                            "/postgrescdc_to_postgres_exactly_once.conf",
+                                            String.valueOf(jobId),
+                                            slotVariable);
+                                } catch (Exception e) {
+                                    throw new RuntimeException("PostgreSQL CDC job failed", e);
+                                }
+                            },
+                            asyncTaskExecutor);
+
+            snapshotGate = waitForBackfillSlotAndLockSourceTable(slotName, SOURCE_TABLE_1);
+            await().pollInterval(10, TimeUnit.MILLISECONDS)
+                    .atMost(POSTGRES_CDC_WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            isSnapshotSelectWaitingForTableLock(SOURCE_TABLE_1),
+                                            "Snapshot SELECT is not waiting on the source table"));
+
+            generateWalInOtherDatabase(otherDatabaseTable);
+            commitAndCloseSnapshotGate(snapshotGate);
+            snapshotGate = null;
+
+            await().ignoreExceptions()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            backfillReplicationSlotExists(slotName),
+                                            "Backfill did not finish after other-database WAL"));
+            waitForReplicationSlotActive(slotName);
+            await().atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertIterableEquals(
+                                            query(getQuerySQL(POSTGRESQL_SCHEMA, SOURCE_TABLE_1)),
+                                            query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE_1))));
+            assertJobHasNoAsyncFailure(job);
+        } catch (RuntimeException | Error failure) {
+            primaryFailure = failure;
+            throw failure;
+        } finally {
+            cleanupConcurrentSnapshotTest(
+                    container,
+                    jobId,
+                    slotName,
+                    snapshotGate,
+                    Collections.emptyList(),
+                    job,
+                    asyncTaskExecutor,
+                    primaryFailure);
         }
     }
 
@@ -1486,6 +1550,18 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                 POSTGRES_CONTAINER.getPassword());
     }
 
+    private Connection getJdbcConnection(String database) throws SQLException {
+        String jdbcUrl =
+                "jdbc:postgresql://"
+                        + POSTGRES_CONTAINER.getHost()
+                        + ":"
+                        + POSTGRES_CONTAINER.getMappedPort(PostgreSQLContainer.POSTGRESQL_PORT)
+                        + "/"
+                        + database;
+        return DriverManager.getConnection(
+                jdbcUrl, POSTGRES_CONTAINER.getUsername(), POSTGRES_CONTAINER.getPassword());
+    }
+
     @Test
     public void shouldResolveNewTypesUsingPostgresSearchPath() throws SQLException {
         JdbcConfiguration config =
@@ -1660,6 +1736,120 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         } catch (SQLException e) {
             log.debug("Failed to close PostgreSQL snapshot gate attempt", e);
         }
+    }
+
+    /** Generates committed cluster WAL that the captured database's logical slot cannot decode. */
+    private void generateWalInOtherDatabase(String tableName) {
+        try (Connection connection = getJdbcConnection(OTHER_POSTGRESQL_DATABASE);
+                Statement statement = connection.createStatement()) {
+            try {
+                statement.execute("CREATE TABLE public." + tableName + " (id INTEGER PRIMARY KEY)");
+                statement.execute("INSERT INTO public." + tableName + " VALUES (1)");
+            } finally {
+                statement.execute("DROP TABLE IF EXISTS public." + tableName);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to generate WAL in another PostgreSQL database", e);
+        }
+    }
+
+    /** Runs every resource cleanup and keeps the original test failure as the primary failure. */
+    private void cleanupConcurrentSnapshotTest(
+            TestContainer container,
+            Long jobId,
+            String slotName,
+            Connection snapshotGate,
+            List<CompletableFuture<Void>> sourceChanges,
+            CompletableFuture<Void> job,
+            ExecutorService executor,
+            Throwable primaryFailure) {
+        Throwable cleanupFailure = null;
+        if (snapshotGate != null) {
+            cleanupFailure =
+                    attemptCleanup(
+                            cleanupFailure, () -> rollbackAndCloseSnapshotGate(snapshotGate));
+        }
+        for (CompletableFuture<Void> sourceChange : sourceChanges) {
+            if (!sourceChange.isDone()) {
+                cleanupFailure =
+                        attemptCleanup(
+                                cleanupFailure,
+                                () ->
+                                        waitForAsyncTask(
+                                                sourceChange,
+                                                "Concurrent PostgreSQL source change did not finish during cleanup"));
+            }
+        }
+        if (job != null) {
+            cleanupFailure =
+                    attemptCleanup(
+                            cleanupFailure, () -> cleanupCdcJob(container, jobId, slotName, job));
+        }
+        cleanupFailure = attemptCleanup(cleanupFailure, executor::shutdownNow);
+        cleanupFailure =
+                attemptCleanup(cleanupFailure, () -> clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1));
+        cleanupFailure =
+                attemptCleanup(cleanupFailure, () -> clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1));
+
+        if (cleanupFailure == null) {
+            return;
+        }
+        if (primaryFailure != null) {
+            primaryFailure.addSuppressed(cleanupFailure);
+            return;
+        }
+        rethrowCleanupFailure(cleanupFailure);
+    }
+
+    private void cleanupCdcJob(
+            TestContainer container, Long jobId, String slotName, CompletableFuture<Void> job) {
+        if (job.isDone()) {
+            assertJobHasNoAsyncFailure(job);
+            return;
+        }
+        try {
+            Container.ExecResult cancelJobResult = container.cancelJob(String.valueOf(jobId));
+            Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
+            await().ignoreExceptions()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            replicationSlotExists(slotName),
+                                            "Streaming replication slot was not dropped after cancellation"));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while cancelling PostgreSQL CDC job", e);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to cancel PostgreSQL CDC job", e);
+        }
+    }
+
+    private Throwable attemptCleanup(Throwable previousFailure, CleanupAction cleanupAction) {
+        try {
+            cleanupAction.run();
+        } catch (Throwable cleanupFailure) {
+            if (previousFailure == null) {
+                return cleanupFailure;
+            }
+            previousFailure.addSuppressed(cleanupFailure);
+        }
+        return previousFailure;
+    }
+
+    private void rethrowCleanupFailure(Throwable cleanupFailure) {
+        if (cleanupFailure instanceof RuntimeException) {
+            throw (RuntimeException) cleanupFailure;
+        }
+        if (cleanupFailure instanceof Error) {
+            throw (Error) cleanupFailure;
+        }
+        throw new RuntimeException("PostgreSQL CDC test cleanup failed", cleanupFailure);
+    }
+
+    @FunctionalInterface
+    private interface CleanupAction {
+        void run() throws Exception;
     }
 
     /**
