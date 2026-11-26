@@ -163,6 +163,20 @@ describe('managers', () => {
     wrappers.push(wrapper)
     return { wrapper, router }
   }
+  test.each([
+    { path: '/managers/master', included: ['5801', '5802'], excluded: '5803' },
+    { path: '/managers/workers', included: ['5802', '5803'], excluded: '5801' }
+  ])('selects configured roles for $path', async ({ path, included, excluded }) => {
+    vi.mocked(managerService.getMonitors).mockResolvedValue([
+      { ...monitor('localhost', '5801', true), coordinator: 'true', worker: 'false' },
+      { ...monitor('localhost', '5802'), coordinator: 'true', worker: 'true' },
+      { ...monitor('localhost', '5803'), coordinator: 'false', worker: 'true' }
+    ])
+    const { wrapper } = await setup(path)
+    await flushPromises()
+    for (const port of included) expect(wrapper.text()).toContain('localhost:' + port)
+    expect(wrapper.text()).not.toContain('localhost:' + excluded)
+  })
   test('renders fixed slots, monitoring and resource details without lossy job IDs', async () => {
     const { wrapper } = await setup()
     await flushPromises()

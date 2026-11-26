@@ -270,6 +270,8 @@ b2c3d4e5-f6a7-8901-bcde-f23456789012 192.168.1.101:5801  MASTER               5.
 c3d4e5f6-a7b8-9012-cdef-345678901234 192.168.1.102:5801  WORKER               5.1.7
 ```
 
+`ACTIVE MASTER` marks the active SeaTunnel coordinator. In separated master and worker clusters the Hazelcast master can be a worker-only member; the command then infers the coordinator from the client membership view and prints an extra `Active master: <address> (best effort)` line below the table. If no coordinator can be resolved, it prints `Active master: UNKNOWN` and the `MASTER` rows only show the configured role.
+
 **Note**: You must specify the cluster name with the `-cn` parameter. The cluster must be running for this command to work.
 
 ## Stop cluster

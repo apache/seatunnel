@@ -41,10 +41,12 @@ import org.apache.seatunnel.engine.server.observability.RealtimeMetricsService;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.rest.service.BaseService;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
+import org.apache.seatunnel.engine.server.service.jar.ServerConnectorPackageClient;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
 import org.apache.seatunnel.engine.server.telemetry.log.TaskLogManagerService;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolStatus;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import org.apache.hadoop.fs.FileSystem;
 
@@ -99,6 +101,14 @@ public class SeaTunnelServer
 
     private volatile SlotService slotService;
     @Getter private TaskExecutionService taskExecutionService;
+    /**
+     * Stores connector jars on every server member.
+     *
+     * <p>The client is initialized independently of the worker service so standby coordinator-only
+     * members can retain jars needed after failover.
+     */
+    private ServerConnectorPackageClient serverConnectorPackageClient;
+
     @Getter private ClassLoaderService classLoaderService;
     private CoordinatorService coordinatorService;
     @Getter private CheckpointService checkpointService;
@@ -137,8 +147,7 @@ public class SeaTunnelServer
     /** Lazy load for Slot Service */
     public SlotService getSlotService() {
         // If the node is master node, the slot service is not needed.
-        if (EngineConfig.ClusterRole.MASTER.ordinal()
-                == seaTunnelConfig.getEngineConfig().getClusterRole().ordinal()) {
+        if (!isWorkerNode()) {
             return null;
         }
 
@@ -174,6 +183,8 @@ public class SeaTunnelServer
         classLoaderService =
                 new DefaultClassLoaderService(
                         seaTunnelConfig.getEngineConfig().isClassloaderCacheMode(), nodeEngine);
+        serverConnectorPackageClient =
+                new ServerConnectorPackageClient(nodeEngine, seaTunnelConfig);
 
         eventService = new EventService(nodeEngine);
 
@@ -255,7 +266,11 @@ public class SeaTunnelServer
     private void startWorker() {
         taskExecutionService =
                 new TaskExecutionService(
-                        classLoaderService, nodeEngine, engineContext, eventService);
+                        classLoaderService,
+                        nodeEngine,
+                        engineContext,
+                        eventService,
+                        serverConnectorPackageClient);
         nodeEngine.getMetricsRegistry().registerDynamicMetricsProvider(taskExecutionService);
         taskExecutionService.start();
         getSlotService();
@@ -403,6 +418,15 @@ public class SeaTunnelServer
     }
 
     /**
+     * Returns the node-local connector package client shared by all server roles.
+     *
+     * @return node-local connector package client
+     */
+    public ServerConnectorPackageClient getServerConnectorPackageClient() {
+        return serverConnectorPackageClient;
+    }
+
+    /**
      * return whether task is end
      *
      * @param taskGroupLocation taskGroupLocation
@@ -420,7 +444,12 @@ public class SeaTunnelServer
         try {
             return Boolean.TRUE.equals(
                     RetryUtils.retryWithException(
-                            () -> nodeEngine.getThisAddress().equals(nodeEngine.getMasterAddress()),
+                            () ->
+                                    nodeEngine
+                                            .getThisAddress()
+                                            .equals(
+                                                    NodeEngineUtil.getActiveMasterAddress(
+                                                            nodeEngine)),
                             new RetryUtils.RetryMaterial(
                                     Constant.OPERATION_RETRY_TIME,
                                     true,
@@ -433,6 +462,35 @@ public class SeaTunnelServer
         } catch (Exception e) {
             throw new SeaTunnelEngineException("cluster have no master node", e);
         }
+    }
+
+    /**
+     * Returns the statically configured node capability.
+     *
+     * <p>See {@link EngineConfig.ClusterRole} for the supported values.
+     */
+    public EngineConfig.ClusterRole getClusterRole() {
+        return seaTunnelConfig.getEngineConfig().getClusterRole();
+    }
+
+    /**
+     * Returns whether this node is configured with coordinator capability.
+     *
+     * <p>This reflects the static cluster-role configuration, not the dynamic active coordinator
+     * state exposed by {@link #isMasterNode()}.
+     */
+    public boolean isCoordinatorNode() {
+        return !EngineConfig.ClusterRole.WORKER.equals(getClusterRole());
+    }
+
+    /**
+     * Returns whether this node is configured with worker capability.
+     *
+     * <p>This reflects the static cluster-role configuration, not the dynamic active coordinator
+     * state exposed by {@link #isMasterNode()}.
+     */
+    public boolean isWorkerNode() {
+        return !EngineConfig.ClusterRole.MASTER.equals(getClusterRole());
     }
 
     private void printExecutionInfo() {

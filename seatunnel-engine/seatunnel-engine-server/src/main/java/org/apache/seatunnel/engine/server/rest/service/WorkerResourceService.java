@@ -45,7 +45,9 @@ public class WorkerResourceService extends BaseService {
         if (seaTunnelServer != null) {
             return GetWorkerResourcesOperation.getWorkerResourceSnapshot(seaTunnelServer);
         }
-        Address masterAddress = nodeEngine.getMasterAddress();
+        // Forward to the active SeaTunnel coordinator. In separated clusters the raw Hazelcast
+        // master can be a worker-only lite member that has no resource manager to answer this read.
+        Address masterAddress = NodeEngineUtil.getActiveMasterAddress(nodeEngine);
         if (masterAddress == null) {
             return unavailableSnapshot();
         }

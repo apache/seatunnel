@@ -52,11 +52,8 @@ public class DeleteConnectorJarInExecutionNode extends Operation
     @Override
     public void run() throws Exception {
         SeaTunnelServer seaTunnelServer = getService();
-        if (seaTunnelServer.getTaskExecutionService() == null) {
-            return;
-        }
         ServerConnectorPackageClient serverConnectorPackageClient =
-                seaTunnelServer.getTaskExecutionService().getServerConnectorPackageClient();
+                seaTunnelServer.getServerConnectorPackageClient();
         serverConnectorPackageClient.deleteConnectorJar(connectorJarIdentifier);
     }
 

@@ -58,7 +58,20 @@ public class IsolatedConnectorJarStorageStrategy extends AbstractConnectorJarSto
     @Override
     public void cleanUpWhenJobFinished(
             long jobId, List<ConnectorJarIdentifier> connectorJarIdentifierList) {
-        connectorJarIdentifierList.forEach(this::deleteConnectorJar);
+        // Isolated job-end cleanup has no retry path. Log deletion failures and keep trying
+        // the remaining jars without failing the finished job. Shared cleanup retries failures
+        // separately on its timer.
+        for (ConnectorJarIdentifier connectorJarIdentifier : connectorJarIdentifierList) {
+            try {
+                deleteConnectorJar(connectorJarIdentifier);
+            } catch (RuntimeException e) {
+                LOGGER.warning(
+                        String.format(
+                                "Failed to clean up isolated connector jar %s of job %s.",
+                                connectorJarIdentifier, jobId),
+                        e);
+            }
+        }
     }
 
     @Override

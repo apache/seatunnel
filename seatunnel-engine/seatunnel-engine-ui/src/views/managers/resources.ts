@@ -53,7 +53,11 @@ export function joinResources(
   const rows = new Map<string, NodeResources>()
   for (const monitor of monitors) {
     const address = addressKey(`${monitor.host}:${monitor.port}`)
-    if (monitor.isMaster === String(master)) rows.set(address, { address, monitor })
+    // Older servers only expose isMaster; retain their existing table behavior.
+    const capability = master ? monitor.coordinator : monitor.worker
+    const matches =
+      capability === undefined ? monitor.isMaster === String(master) : capability === 'true'
+    if (matches) rows.set(address, { address, monitor })
   }
   if (!master) {
     const byAddress = new Map(

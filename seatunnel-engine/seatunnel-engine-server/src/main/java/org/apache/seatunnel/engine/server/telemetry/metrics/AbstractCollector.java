@@ -22,7 +22,9 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.impl.MemberImpl;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.cluster.ClusterService;
@@ -55,7 +57,10 @@ public abstract class AbstractCollector extends Collector {
     }
 
     protected boolean isMaster() {
-        return getNode().isMaster();
+        Address activeMasterAddress =
+                NodeEngineUtil.getActiveMasterAddress(getNode().getNodeEngine());
+        return activeMasterAddress != null
+                && activeMasterAddress.equals(getNode().getNodeEngine().getThisAddress());
     }
 
     protected MemberImpl getLocalMember() {
@@ -108,9 +113,14 @@ public abstract class AbstractCollector extends Collector {
     }
 
     protected String masterAddress() throws UnknownHostException {
-        return getClusterService().getMasterAddress().getInetAddress().getHostAddress()
+        Address activeMasterAddress =
+                NodeEngineUtil.getActiveMasterAddress(getNode().getNodeEngine());
+        if (activeMasterAddress == null) {
+            activeMasterAddress = getClusterService().getMasterAddress();
+        }
+        return activeMasterAddress.getInetAddress().getHostAddress()
                 + ":"
-                + getClusterService().getMasterAddress().getPort();
+                + activeMasterAddress.getPort();
     }
 
     protected String getClusterName() {

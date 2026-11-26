@@ -32,6 +32,7 @@ import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.job.ExecutionAddress;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
@@ -63,6 +64,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
 import com.hazelcast.cluster.Address;
@@ -1486,6 +1488,53 @@ public class CoordinatorServiceTest {
         Assertions.assertEquals(jobId, jobDAGInfo.getJobId());
 
         jobInformation.coordinatorServiceTest.shutdown();
+    }
+
+    @Test
+    void testJobDagRestoresWithActiveCoordinatorAddress() throws Exception {
+        String clusterName =
+                TestUtils.getClusterName(
+                        "CoordinatorServiceTest_testJobDagRestoresWithActiveCoordinatorAddress");
+        HazelcastInstanceImpl instance =
+                createHazelcastInstanceWithJoinPortTryCount(clusterName, 100);
+        try {
+            NodeEngineImpl nodeEngine = instance.node.getNodeEngine();
+            SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
+            CoordinatorService service = server.awaitCoordinatorService(60_000L);
+
+            long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+            LogicalDag logicalDag =
+                    TestUtils.createTestLogicalPlan(
+                            "batch_fake_to_console.conf", "restored-dag-coordinator", jobId);
+            JobImmutableInformation information =
+                    new JobImmutableInformation(
+                            jobId,
+                            "Test",
+                            instance.getSerializationService(),
+                            logicalDag,
+                            Collections.emptyList(),
+                            Collections.emptyList());
+            // Seed only the persisted job info so no live job or history can mask the restore path.
+            IMap<Long, JobInfo> runningJobInfos = instance.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+            runningJobInfos.put(
+                    jobId,
+                    new JobInfo(100L, instance.getSerializationService().toData(information)));
+
+            Address master = nodeEngine.getMasterAddress();
+            int coordinatorPort = master.getPort() == 65535 ? 65534 : master.getPort() + 1;
+            Address coordinator = new Address(master.getHost(), coordinatorPort);
+            try (MockedStatic<NodeEngineUtil> routing = Mockito.mockStatic(NodeEngineUtil.class)) {
+                routing.when(() -> NodeEngineUtil.getActiveMasterAddress(nodeEngine))
+                        .thenReturn(coordinator);
+                JobDAGInfo dag = service.getJobInfo(jobId);
+                Assertions.assertEquals(jobId, dag.getJobId());
+                Assertions.assertEquals(
+                        new ExecutionAddress(coordinator.getHost(), coordinator.getPort()),
+                        dag.getMaster());
+            }
+        } finally {
+            instance.shutdown();
+        }
     }
 
     private void setDefaultConfigFile() {

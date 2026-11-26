@@ -20,9 +20,13 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
+import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.BlockTask;
 import org.apache.seatunnel.engine.server.execution.ExceptionTestTask;
@@ -40,7 +44,10 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupType;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TestTask;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
+import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -52,6 +59,9 @@ import org.mockito.Mockito;
 
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.spi.exception.RetryableHazelcastException;
+import com.hazelcast.spi.impl.operationservice.Operation;
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 
 import java.io.File;
@@ -76,6 +86,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -84,6 +95,7 @@ import static java.util.Collections.emptySet;
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.CANCELED;
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.FAILED;
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.FINISHED;
+import static org.apache.seatunnel.engine.server.execution.ExecutionState.RUNNING;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -99,6 +111,152 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     public void before() {
         super.before();
         FLAKE_ID_GENERATOR = instance.getFlakeIdGenerator("test");
+    }
+
+    @Override
+    public SeaTunnelConfig loadSeaTunnelConfig() {
+        SeaTunnelConfig config = super.loadSeaTunnelConfig();
+        // Keep periodic publication from satisfying these explicit reporting assertions.
+        config.getEngineConfig().setJobMetricsBackupInterval(3600);
+        return config;
+    }
+
+    /** A failed coordinator lookup must be retried and the coordinator must apply the state. */
+    @Test
+    void testNotifyTaskStatusRetriesAfterCoordinatorGap() throws Exception {
+        TaskExecutionService service = server.getTaskExecutionService();
+        TaskExecutionService worker = spyWithFirstCoordinatorLookupFailure(service);
+        long reportingJobId = FLAKE_ID_GENERATOR.newId();
+        PhysicalVertex vertex = null;
+        try {
+            vertex = startReportingJob(reportingJobId);
+            TaskGroupLocation location = vertex.getTaskGroupLocation();
+            assertEquals(RUNNING, vertex.getExecutionState());
+
+            worker.notifyTaskStatusToMaster(location, new TaskExecutionState(location, FINISHED));
+
+            assertEquals(FINISHED, vertex.getExecutionState());
+            Mockito.verify(worker, Mockito.times(2)).sendOperationToMaster(Mockito.any());
+        } finally {
+            try {
+                if (vertex != null) {
+                    // This test sends the terminal report directly; stop the original worker too.
+                    service.cancelTaskGroup(vertex.getTaskGroupLocation());
+                }
+            } finally {
+                server.getCoordinatorService().cancelJob(reportingJobId).get(20, TimeUnit.SECONDS);
+            }
+        }
+    }
+
+    /** One coordinator lookup gap is contained and the next report persists the worker counter. */
+    @Test
+    void testMetricsReportingContinuesAfterCoordinatorGap() throws Exception {
+        TaskExecutionService service = server.getTaskExecutionService();
+        TaskExecutionService worker = spyWithFirstCoordinatorLookupFailure(service);
+        long reportingJobId = FLAKE_ID_GENERATOR.newId();
+        try {
+            PhysicalVertex vertex = startReportingJob(reportingJobId);
+            SeaTunnelTask task =
+                    service.getActiveExecutionContext(vertex.getTaskGroupLocation()).getTaskGroup()
+                            .getTasks().stream()
+                            .filter(SeaTunnelTask.class::isInstance)
+                            .map(SeaTunnelTask.class::cast)
+                            .findFirst()
+                            .orElseThrow();
+            TaskLocation location = task.getTaskLocation();
+            String counterName = "coordinator-gap-test";
+            task.getMetricsContext().counter(counterName).inc(37L);
+            MetricsSnapshotStateStore snapshots =
+                    server.getEngineContext().getStateStores().metricsSnapshotStore();
+
+            worker.updateMetricsContextInImap();
+            Assertions.assertNull(snapshots.get(location));
+
+            worker.updateMetricsContextInImap();
+
+            SeaTunnelMetricsContext delivered = snapshots.get(location);
+            Assertions.assertNotNull(delivered, "The successful report must persist task metrics");
+            assertEquals(37L, delivered.counter(counterName).getCount());
+            Mockito.verify(worker, Mockito.times(2)).sendOperationToMaster(Mockito.any());
+        } finally {
+            server.getCoordinatorService().cancelJob(reportingJobId).get(20, TimeUnit.SECONDS);
+        }
+    }
+
+    private TaskExecutionService spyWithFirstCoordinatorLookupFailure(
+            TaskExecutionService service) {
+        TaskExecutionService worker = Mockito.spy(service);
+        Mockito.doThrow(new RetryableHazelcastException("coordinator unavailable"))
+                .doCallRealMethod()
+                .when(worker)
+                .sendOperationToMaster(Mockito.any());
+        return worker;
+    }
+
+    private PhysicalVertex startReportingJob(long reportingJobId) {
+        startJob(reportingJobId, "stream_fake_to_console_biginterval.conf", false);
+        CoordinatorService coordinator = server.getCoordinatorService();
+        await().atMost(20, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                assertEquals(
+                                        JobStatus.RUNNING,
+                                        coordinator.getJobStatus(reportingJobId)));
+        PhysicalVertex vertex =
+                coordinator
+                        .getJobMaster(reportingJobId)
+                        .getPhysicalPlan()
+                        .getPipelineList()
+                        .get(0)
+                        .getPhysicalVertexList()
+                        .get(0);
+        await().atMost(20, TimeUnit.SECONDS)
+                .untilAsserted(() -> assertEquals(RUNNING, vertex.getExecutionState()));
+        return vertex;
+    }
+
+    /**
+     * Verifies that cancelled task groups still attempt a final metrics flush without waiting
+     * unboundedly on a slow coordinator invocation.
+     */
+    @Test
+    void testCancelCompletesWhenFinalMetricsFlushTimesOut() throws Exception {
+        TaskExecutionService taskExecutionService = Mockito.spy(server.getTaskExecutionService());
+        InvocationFuture<Object> slowMetricsInvocation = Mockito.mock(InvocationFuture.class);
+        InvocationFuture<Object> successfulInvocation = Mockito.mock(InvocationFuture.class);
+        Mockito.when(slowMetricsInvocation.get(1, TimeUnit.SECONDS))
+                .thenThrow(new TimeoutException("timeout"));
+        Mockito.when(successfulInvocation.get()).thenReturn(null);
+        Mockito.doAnswer(
+                        invocation -> {
+                            Operation operation = invocation.getArgument(0);
+                            if (operation instanceof ReportMetricsOperation) {
+                                return slowMetricsInvocation;
+                            }
+                            return successfulInvocation;
+                        })
+                .when(taskExecutionService)
+                .sendOperationToMaster(Mockito.any());
+
+        long sleepTime = 300;
+        AtomicBoolean stop = new AtomicBoolean(false);
+        TestTask testTask1 = new TestTask(stop, sleepTime, true);
+        TestTask testTask2 = new TestTask(stop, sleepTime, false);
+        TaskGroupDefaultImpl taskGroup =
+                new TaskGroupDefaultImpl(
+                        new TaskGroupLocation(jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
+                        "cancel-metrics-flush",
+                        Lists.newArrayList(testTask1, testTask2));
+        CompletableFuture<TaskExecutionState> completableFuture =
+                deployLocalTask(taskExecutionService, taskGroup);
+
+        taskExecutionService.cancelTaskGroup(taskGroup.getTaskGroupLocation());
+
+        await().atMost(sleepTime + 10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> assertEquals(CANCELED, completableFuture.get().getExecutionState()));
+        Mockito.verify(slowMetricsInvocation).get(1, TimeUnit.SECONDS);
     }
 
     private PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
