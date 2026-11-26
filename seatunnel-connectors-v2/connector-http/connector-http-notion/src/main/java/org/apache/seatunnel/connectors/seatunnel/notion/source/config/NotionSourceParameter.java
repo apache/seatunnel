@@ -33,5 +33,6 @@ public class NotionSourceParameter extends HttpParameter {
         this.headers.put(
                 NotionSourceOptions.NOTION_VERSION, pluginConfig.get(NotionSourceOptions.VERSION));
         this.setHeaders(this.headers);
+        validateCredentialScheme();
     }
 }

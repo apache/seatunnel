@@ -5,7 +5,7 @@
 从 https://github.com/apache/seatunnel/issues/1608 我们添加了 Connector V2 特性。
 Connector V2 是基于SeaTunnel Connector API接口定义的连接器。不像Connector V1， V2 支持如下特性：
 
-* **多引擎支持** SeaTunnel Connector API 是引擎独立的API。基于这个API开发的连接器可以在多个引擎上运行。目前支持Flink和Spark引擎，后续我们会支持其它的引擎。
+* **多引擎支持** SeaTunnel Connector API 是引擎独立的API。基于这个API开发的连接器可以在多个引擎上运行。目前支持 SeaTunnel Engine（Zeta）、Flink 和 Spark 引擎。
 * **多引擎版本支持** 通过翻译层将连接器与引擎解耦，解决了大多数连接器需要修改代码才能支持新版本底层引擎的问题。
 * **流批一体** Connector V2 可以支持批处理和流处理。我们不需要为批和流分别开发连接器。
 * **多路复用JDBC/Log连接。** Connector V2支持JDBC资源复用和共享数据库日志解析。
@@ -68,13 +68,13 @@ Sink connector有一些公共的核心特性，每个sink connector在不同程�
 对于sink connector，如果任何数据只写入目标一次，则sink connector支持精确一次。 通常有两种方法可以实现这一目标：
 
 * 目标数据库支持key去重。例如 `MySQL`, `Kudu`。
-* 目标支持 **XA 事务**(事务可以跨会话使用，即使创建事务的程序已经结束，新启动的程序也只需要知道最后一个事务的ID就可以重新提交或回滚事务）。 然后我们可以使用 **两阶段提交** 来确保 * 精确一次**。 例如：`File`, `MySQL`.
+* 目标支持 **XA 事务**(事务可以跨会话使用，即使创建事务的程序已经结束，新启动的程序也只需要知道最后一个事务的ID就可以重新提交或回滚事务）。 然后我们可以使用 **两阶段提交** 来确保 **精确一次**。 例如：`File`, `MySQL`.
 
 ### cdc(更改数据捕获，change data capture)
 
 如果sink connector支持基于主键写入行类型（INSERT/UPDATE_BEFORE/UPDATE_AFTER/DELETE），我们认为它支持cdc（更改数据捕获，change data capture）。
 
-### 支持多表读取
+### 支持多表写入
 
 支持在一个 SeaTunnel 作业中写入多个表，用户可以通过[配置占位符](../configuration/sink-options-placeholders.md)动态指定表的标识符。
 

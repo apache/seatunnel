@@ -28,11 +28,13 @@ or more primary key fields.
 | Name                     | Type   | Required | Default                      | Description                                                                                          |
 |--------------------------|--------|----------|------------------------------|------------------------------------------------------------------------------------------------------|
 | hosts                    | array  | Yes      | -                            | Typesense node addresses in `host:port` format. Multiple hosts are supported.                        |
+| protocol                 | string | No       | http                         | Protocol used to connect to Typesense. Use `https` for Typesense Cloud or other TLS-enabled nodes.   |
 | collection               | string | Yes      | -                            | Target collection name.                                                                              |
 | schema_save_mode         | string | Yes      | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target collection schema before writing.                                           |
 | data_save_mode           | string | Yes      | APPEND_DATA                  | How to handle existing documents before writing.                                                     |
 | primary_keys             | array  | No       | -                            | Source fields used to build the Typesense document `id`.                                             |
 | key_delimiter            | string | No       | `_`                          | Delimiter used when `primary_keys` contains more than one field.                                     |
+| key_encoding             | enum   | No       | LEGACY                       | Optional collision-safe encoding for composite document IDs.                                         |
 | api_key                  | string | Yes      | -                            | Typesense API key.                                                                                   |
 | max_retry_count          | int    | No       | 3                            | Maximum retry count for one bulk request.                                                            |
 | max_batch_size           | int    | No       | 10                           | Maximum number of documents sent in one bulk request.                                                |
@@ -42,6 +44,10 @@ or more primary key fields.
 ### hosts [array]
 
 The access address for Typesense, formatted as `host:port`, e.g., `["typesense-01:8108"]`. When several nodes are configured, the sink keeps a single client per writer and does not balance writes across them.
+
+### protocol [string]
+
+The protocol used to connect to Typesense. The default value is `http`. Use `https` for Typesense Cloud.
 
 ### collection [string]
 
@@ -55,6 +61,12 @@ the connector joins their values with `key_delimiter`. Without `primary_keys`, T
 ### key_delimiter [string]
 
 Sets the delimiter for composite keys (default is `_`).
+
+### key_encoding [enum]
+
+`LEGACY` (default) preserves existing IDs, but composite keys can collide when a value contains `key_delimiter`. `LENGTH_PREFIXED` encodes each formatted value as `<length>:<value>`: `["1_1", "2"]` becomes `3:1_11:2`, while `["1", "1_2"]` becomes `1:13:1_2`. It ignores `key_delimiter` and does not change single-key IDs.
+
+Switching an existing composite-key collection changes document IDs. Migrate or recreate existing documents first; otherwise later writes can create duplicates instead of updating them.
 
 ### api_key [string]
 
@@ -96,7 +108,11 @@ Choose how to handle existing data on the target side before starting the synchr
 
 :::tip
 
-The connector uses Typesense's bulk import endpoint. `UPDATE` and `DELETE` row kinds are not interpreted as CDC operations — every upstream row is upserted into the target collection based on the generated document `id`. Use `data_save_mode = DROP_DATA` together with a stable `primary_keys` configuration to make repeated jobs behave like upserts rather than appends.
+The connector interprets CDC row kinds: `INSERT` and `UPDATE_AFTER` rows are upserted into the target collection via Typesense's bulk import endpoint based on the generated document `id`, `UPDATE_BEFORE` rows are skipped, and `DELETE` rows delete the document with the generated `id`. Configure `primary_keys` so the document `id` is stable across CDC events.
+
+The writer sends deletes immediately and can hold earlier upserts until the batch is flushed.
+With `max_batch_size > 1`, a buffered upsert can recreate a document after a later delete of the same ID.
+Set `max_batch_size = 1` to preserve this order within each sink writer.
 
 :::
 

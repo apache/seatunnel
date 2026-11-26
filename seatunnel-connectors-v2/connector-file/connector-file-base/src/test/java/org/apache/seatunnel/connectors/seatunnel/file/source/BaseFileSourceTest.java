@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.KnowledgeSyncMetadataField;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
@@ -89,6 +90,8 @@ public class BaseFileSourceTest {
 
         Assertions.assertArrayEquals(
                 MARKDOWN_FIELD_NAMES, catalogTable.getSeaTunnelRowType().getFieldNames());
+        Assertions.assertEquals(
+                ArrayType.STRING_ARRAY_TYPE, catalogTable.getSeaTunnelRowType().getFieldType(7));
         Assertions.assertTrue(catalogTable.getMetadataSchema().getColumns().isEmpty());
     }
 
@@ -101,6 +104,8 @@ public class BaseFileSourceTest {
         Assertions.assertArrayEquals(
                 concat(MARKDOWN_FIELD_NAMES, MARKDOWN_RAG_METADATA_FIELD_NAMES),
                 catalogTable.getSeaTunnelRowType().getFieldNames());
+        Assertions.assertEquals(
+                ArrayType.STRING_ARRAY_TYPE, catalogTable.getSeaTunnelRowType().getFieldType(7));
         assertMarkdownKnowledgeSyncMetadata(catalogTable);
     }
 

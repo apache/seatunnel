@@ -15,36 +15,38 @@ sidebar_position: 4
 
 :::
 
-| 名称           | 类型     | 是否需要 | 默认值 |
-|--------------|--------|------|-----|
-| plugin_input | string | 否    | -   |
-| parallelism  | int    | 否    | -   |
-| metadata_datasource_id | string | 否    | -   |
+| 名称           | 类型     | 是否需要 | 默认值 | 说明 |
+|--------------|--------|------|-----|------|
+| plugin_input | list | Zeta 复杂作业必填 | - | 上游数据集名称或名称列表。 |
+| metadata_datasource_id | string | 否    | -   | 用于从元数据中心获取连接配置的数据源 ID。指定后会从外部元数据服务获取连接信息（如 URL、用户名、密码），而不是使用直接配置。详见 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。 |
 
 ### metadata_datasource_id [string]
 
 用于从元数据中心获取连接配置的数据源 ID。当指定此参数时，连接器将从外部元数据服务获取连接详细信息（如 URL、用户名、密码），而不是使用直接配置。详见 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。
 
-### plugin_input [string]
+### plugin_input [list]
 
-当不指定 `plugin_input` 时，当前插件处理配置文件中上一个插件输出的数据集 `dataset`
+将 `plugin_input` 设为上游 source 或 transform 通过 `plugin_output` 声明的数据集名称。可填写单个名称（字符串）或名称数组。选择多个数据集时，Zeta 会合并兼容的输入。
 
-当指定了 `plugin_input` 时，当前插件正在处理该参数对应的数据集
+## 重要说明
 
-### parallelism [int]
+对于只有一个 source、一个 sink 且最多一个 transform 的 Zeta 作业，省略 `plugin_output` 或 `plugin_input` 时使用默认数据集标识 `DEFAULT_ID`。若 sink 的输入名称均未匹配到数据集，Zeta 会回退到最后生成的数据集。
 
-当没有指定`parallelism`时，默认使用 env 中的 `parallelism`。
-
-当指定 `parallelism` 时，它将覆盖 env 中的 `parallelism`。
+如果 Zeta 作业包含多个 source、多个 transform 或多个 sink，每个 source 和 transform 都必须设置 `plugin_output`，每个 transform 和 sink 都必须设置 `plugin_input`。多个 sink 可以将各自的 `plugin_input` 设为同一个输出名称，消费同一数据集。
 
 ## Examples
 
 ```bash
 source {
-    FakeSourceStream {
+    FakeSource {
       parallelism = 2
       plugin_output = "fake"
-      field_name = "name,age"
+      schema = {
+        fields {
+          name = "string"
+          age = "int"
+        }
+      }
     }
 }
 
@@ -70,6 +72,3 @@ sink {
     }
 }
 ```
-
-> 如果作业只有一个 source 和一个（或零个）transform 和一个 sink ，则不需要为连接器指定 `plugin_input` 和 `plugin_output`。
-> 如果 source 、transform 和 sink 中任意运算符的数量大于 1，则必须为作业中的每个连接器指定 `plugin_input` 和 `plugin_output`

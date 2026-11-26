@@ -33,8 +33,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.seatunnel.api.configuration.OptionTest.TEST_MODE;
+import static org.apache.seatunnel.api.configuration.OptionTest.TEST_NUM;
 import static org.apache.seatunnel.api.configuration.util.Conditions.contains;
 import static org.apache.seatunnel.api.configuration.util.Conditions.greaterOrEqual;
 import static org.apache.seatunnel.api.configuration.util.Conditions.greaterOrEqualField;
@@ -288,6 +290,39 @@ public class ConfigValidatorTest {
         // Expression mismatch
         config.put(KEY_USERNAME.key(), "asuka111");
         Assertions.assertDoesNotThrow(executable);
+    }
+
+    @Test
+    public void testConditionalRequiredOptionEvaluatesWithAndBeforeOrPrecedence() {
+        Condition<?> condition =
+                Condition.of(TEST_MODE, OptionTest.TestMode.TIMESTAMP)
+                        .and(Condition.of(TEST_NUM, 1000))
+                        .or(Condition.of(KEY_USERNAME, "ashulin"));
+        OptionRule rule =
+                new OptionRule(
+                        Arrays.asList(TEST_MODE, TEST_NUM, KEY_USERNAME),
+                        Collections.singletonList(
+                                RequiredOption.ConditionalRequiredOptions.of(
+                                        condition, Collections.singletonList(TEST_TIMESTAMP))),
+                        Collections.emptyList());
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(TEST_MODE.key(), "EARLIEST");
+        config.put(TEST_NUM.key(), 999);
+        config.put(KEY_USERNAME.key(), "ashulin");
+
+        // (A && B) || C: the OR branch matches even though the AND branch does not
+        String msg =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule))
+                        .getMessage();
+        Assertions.assertTrue(
+                msg.contains(
+                        "required because [('option.mode' == TIMESTAMP && 'option.num' == 1000) || 'username' == ashulin] is true"),
+                msg);
+
+        // Neither branch matches
+        config.put(KEY_USERNAME.key(), "asuka");
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
     }
 
     @Test
@@ -2928,10 +2963,12 @@ public class ConfigValidatorTest {
 
     @Test
     public void testExtensionConditionEquals() {
-        Condition<Integer> a = Conditions.extension(EXT_PORT, new PortRangeExtension());
-        Condition<Integer> b = Conditions.extension(EXT_PORT, new PortRangeExtension());
+        ConditionExtension<Integer> extension = new PortRangeExtension();
+        Condition<Integer> a = Conditions.extension(EXT_PORT, extension);
+        Condition<Integer> b = Conditions.extension(EXT_PORT, extension);
         assertEquals(a, b);
         assertEquals(a.hashCode(), b.hashCode());
+        Assertions.assertNotEquals(a, Conditions.extension(EXT_PORT, new PortRangeExtension()));
 
         Condition<Integer> c =
                 Conditions.extension(
@@ -2947,8 +2984,7 @@ public class ConfigValidatorTest {
                                 return value != null;
                             }
                         });
-        assertEquals(a, c);
-        assertEquals(a.hashCode(), c.hashCode());
+        Assertions.assertNotEquals(a, c);
     }
 
     static final Option<List<Map<String, Object>>> LIST_MAP_OPTION =
@@ -3600,6 +3636,91 @@ public class ConfigValidatorTest {
     }
 
     @Test
+    public void testConditionalRequiredEvaluatesTriggerOnceForPresenceAndSingleChoice() {
+        AtomicInteger calls = new AtomicInteger();
+        Condition<String> trigger =
+                Conditions.extension(
+                        MODE,
+                        new ConditionExtension<String>() {
+                            @Override
+                            public String description() {
+                                return "is streaming";
+                            }
+
+                            @Override
+                            public boolean evaluate(ReadonlyConfig config, String value) {
+                                calls.incrementAndGet();
+                                return "stream".equals(value);
+                            }
+                        });
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(MODE)
+                        .conditional(trigger, HOST, SINGLE_CHOICE_VALUE_TEST)
+                        .build();
+        Map<String, Object> config = new HashMap<>();
+        config.put(MODE.key(), "batch");
+        config.put(SINGLE_CHOICE_VALUE_TEST.key(), "invalid");
+
+        validate(config, rule);
+        assertEquals(1, calls.get());
+
+        config.put(MODE.key(), "stream");
+        String message =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule))
+                        .getMessage();
+        assertEquals(2, calls.get());
+        Assertions.assertTrue(message.contains("Option validation failed (2 errors)"), message);
+        Assertions.assertTrue(
+                message.contains("required because ['mode' is streaming] is true"), message);
+        Assertions.assertTrue(message.contains("value(invalid) must be one of [A, B, C]"), message);
+    }
+
+    @Test
+    public void testConditionalRequiredAggregatesTriggerExceptionWithinNestedRule() {
+        Condition<Integer> throwing =
+                Conditions.extension(
+                        PORT,
+                        new ConditionExtension<Integer>() {
+                            @Override
+                            public String description() {
+                                return "passes port check";
+                            }
+
+                            @Override
+                            public boolean evaluate(ReadonlyConfig config, Integer value) {
+                                throw new OptionValidationException(
+                                        "cannot validate port %d", value);
+                            }
+                        });
+        Condition<?> trigger = Condition.of(MODE, "stream").and(throwing);
+        OptionRule nested =
+                OptionRule.builder()
+                        .optional(MODE, PORT)
+                        .conditional(trigger, SINGLE_CHOICE_VALUE_TEST)
+                        .required(HOST)
+                        .build();
+        OptionRule rule =
+                OptionRule.builder().optional(MODE).conditionalRule(MODE, "stream", nested).build();
+        Map<String, Object> config = new HashMap<>();
+        config.put(MODE.key(), "stream");
+        config.put(PORT.key(), -1);
+        config.put(SINGLE_CHOICE_VALUE_TEST.key(), "invalid");
+
+        String message =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule))
+                        .getMessage();
+        Assertions.assertTrue(message.contains("Option validation failed (2 errors)"), message);
+        Assertions.assertTrue(
+                message.contains("option: 'mode' == stream && 'port' passes port check"), message);
+        Assertions.assertTrue(message.contains("type: conditional"), message);
+        Assertions.assertTrue(message.contains("constraint: cannot validate port -1"), message);
+        Assertions.assertTrue(
+                message.contains("required option is not configured when ['mode' == stream]"),
+                message);
+    }
+
+    @Test
     public void testConditionalExpressionExceptionUsesWholeExpressionContext() {
         ConditionExtension<Integer> throwingExtension =
                 new ConditionExtension<Integer>() {
@@ -3619,17 +3740,15 @@ public class ConfigValidatorTest {
                     }
                 };
 
-        Expression expression =
-                Expression.of(
-                        Condition.of(MODE, "stream")
-                                .and(Conditions.extension(PORT, throwingExtension)));
+        Condition<?> condition =
+                Condition.of(MODE, "stream").and(Conditions.extension(PORT, throwingExtension));
         OptionRule rule =
                 new OptionRule(
                         Arrays.asList(MODE, PORT),
                         Collections.emptyList(),
                         Collections.singletonList(
-                                new ConditionRule(
-                                        expression,
+                                ConditionRule.of(
+                                        condition,
                                         new OptionRule(
                                                 Collections.emptyList(),
                                                 Collections.emptyList(),
@@ -3648,7 +3767,7 @@ public class ConfigValidatorTest {
         String msg = ex.getMessage();
         Assertions.assertTrue(msg.contains("Option validation failed (1 error):"), msg);
         Assertions.assertTrue(
-                msg.contains("[1] option: ('mode' == stream && 'port' must be positive)"), msg);
+                msg.contains("[1] option: 'mode' == stream && 'port' must be positive"), msg);
         Assertions.assertTrue(msg.contains("type: conditional"), msg);
         Assertions.assertTrue(msg.contains("constraint: port value -1 is not positive"), msg);
     }

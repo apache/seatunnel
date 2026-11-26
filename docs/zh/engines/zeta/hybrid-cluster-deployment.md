@@ -93,6 +93,14 @@ seatunnel:
 
 连续检查点之间的最小暂停时间(以毫秒为单位)，确保检查点不会频繁触发。
 
+**monitor-history-size**
+
+监控为 `/jobs/checkpoints/{jobId}` REST 接口按 pipeline 保留的 checkpoint 历史条数，取值 1 到 4096，默认 32。超过 256 的值仍然可用，但 master 启动时会打印一条警告——因为下面提到的开销是每次 checkpoint 事件都要付的。已完成和失败的 checkpoint 共用这个窗口。
+
+它是**条数**而不是时长，因此覆盖多长时间取决于每个作业自己的 `checkpoint.interval`，而本选项是集群级的：按默认 300000ms 的间隔，32 条约覆盖 2.5 小时；若间隔为 10000ms，则只覆盖约 5 分钟。如果集群上有间隔很短的作业，并且希望拿作业和更长一段自身历史做对比，应调大该值。
+
+历史保存在集群级的 checkpoint overview map 中，每次 checkpoint 事件都会重写整条记录，因此窗口越大，除堆内存外还会增加 master 的 CPU、网络与副本复制开销。该值只在 master 启动时读取一次，修改后需要重启。
+
 示例
 
 ```yaml
@@ -106,6 +114,7 @@ seatunnel:
             interval: 300000
             timeout: 10000
             min-pause: 5000
+            monitor-history-size: 32
 ```
 
 **checkpoint storage**
@@ -173,7 +182,7 @@ seatunnel:
     job-schedule-strategy: WAIT
 ```
 
-当`dynamic-slot: ture`时，`job-schedule-strategy: WAIT` 配置会失效，将被强制修改为`job-schedule-strategy: REJECT`，因为动态Slot时该参数没有意义，可以直接提交。
+`job-schedule-strategy` 的行为不受 `dynamic-slot` 影响。当资源不足时，`WAIT` 会将作业保持在等待队列中并每隔 3 秒重试调度，`REJECT` 则直接使作业失败。
 
 ### 4.7 Coordinator Service
 
@@ -185,14 +194,16 @@ CoordinatorService 提供了每个作业从 LogicalDag 到 ExecutionDag，再到
 
 **max-thread-num**
 
-同时可执行的最大作业数量
+CoordinatorService 线程池的最大线程数（即线程池的 `maximumPoolSize`），默认值为 `Integer.MAX_VALUE`。
 
 Example
 
 ```yaml
-coordinator-service:
-   core-thread-num: 30
-   max-thread-num: 1000
+seatunnel:
+  engine:
+    coordinator-service:
+      core-thread-num: 30
+      max-thread-num: 1000
 ```
 
 ### 4.8 作业指标分区数量（此参数在 Worker 节点上无效）
@@ -207,8 +218,8 @@ coordinator-service:
 
 ```yaml
 seatunnel:
-engine:
-job-metrics-partition-count: 4
+  engine:
+    job-metrics-partition-count: 4
 ```
 
 上述配置会将指标分布到 4 个分区中，而不是使用单个 key。
@@ -323,10 +334,11 @@ map:
            fs.defaultFS: file:///
 ```
 
-说明：`engine_runningJobMetrics` 保存的是高频运行时指标快照。即使通过 `map.engine*`
-配置了 `map-store`，它也会被有意排除在持久化 IMAP 存储之外，以避免仅用于可观测性的状态导致
-WAL 持续膨胀。Engine 重启后，running-job metrics 不会延续重启前的 snapshot，而是由后续
-report 重新构建。
+说明：`engine_runningJobMetrics` 保存的是高频运行时指标快照，`engine_checkpoint_monitor`
+保存的是 REST API 使用的 checkpoint overview/history。即使通过 `map.engine*` 配置了
+`map-store`，它们也会被有意排除在持久化 IMAP 存储之外，以避免仅用于可观测性的状态导致 WAL
+持续膨胀。Engine 重启后，running-job metrics 由后续 report 重新构建，checkpoint
+overview/history 从下一次 checkpoint 开始重新记录，而不会延续重启前的状态。
 
 如果您使用 OSS，可以像这样配置：
 
@@ -349,17 +361,68 @@ map:
            fs.oss.endpoint: OSS endpoint
 ```
 
+如果要通过环境变量提供 OSS 凭据，请删除 `fs.oss.accessKeyId` 和
+`fs.oss.accessKeySecret`，并增加：
+
+```yaml
+           fs.oss.credentials.provider: com.aliyun.oss.common.auth.EnvironmentVariableCredentialsProvider
+```
+
+该 Provider 读取 `OSS_ACCESS_KEY_ID` 和 `OSS_ACCESS_KEY_SECRET`，临时凭据还可使用
+`OSS_SESSION_TOKEN`。
+
 注意：使用OSS 时，确保 lib目录下有这几个jar。
 
-其中 `seatunnel-shade-hadoop3-uber` 来自 [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) 项目，它是对 Hadoop 客户端的 shaded（包重定位）版本，所有第三方类被重定位到 `org.apache.seatunnel.shade.*` 下，避免与 SeaTunnel 自身的依赖产生类路径冲突。版本号格式为 `${library.version}-${seatunnel.shade.version}`（例如 `3.1.4-3.0.0`），具体版本请参考 SeaTunnel 发行包中实际包含的 JAR 文件名。
+其中 `seatunnel-shade-hadoop3-uber` 来自 [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) 项目，它是对 Hadoop 客户端的 shaded（包重定位）版本，所有第三方类被重定位到 `org.apache.seatunnel.shade.*` 下，避免与 SeaTunnel 自身的依赖产生类路径冲突。请使用 SeaTunnel 发行包 `lib/` 目录自带的 Hadoop Uber JAR。
 
 ```
-aliyun-sdk-oss-3.13.2.jar
-hadoop-aliyun-3.3.6.jar
-jdom2-2.0.6.jar
+aliyun-sdk-oss-3.4.1.jar
+hadoop-aliyun-3.1.4.jar
+jdom-1.1.jar
 netty-buffer-4.1.89.Final.jar
 netty-common-4.1.89.Final.jar
+seatunnel-shade-hadoop3-uber-*.jar
+```
+
+可以使用 S3 进行 IMap 持久化存储。
+
+S3 的配置属性遵循 Hadoop S3A 文件系统（Native S3）标准。具体来说，我们使用 fs.s3a.access.key 和 fs.s3a.secret.key 属性，以确保与现有基于 Hadoop 的生态系统兼容。
+
+如果您想使用 S3 兼容存储（例如 Minio），可以这样配置：
+
+
+```yaml
+map:
+   engine*:
+     map-store:
+       enabled: true
+       initial-mode: EAGER
+       factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+       properties:
+         type: hdfs
+         namespace: /seatunnel/engine
+         clusterName: seatunnel
+         storage.type: s3
+         s3.bucket: s3a://your-bucket
+         fs.defaultFS: s3a://your-bucket
+         fs.s3a.endpoint: http://your-minio-endpoint:port
+         fs.s3a.path.style.access: true
+         fs.s3a.access.key: YOUR_ACCESS_KEY
+         fs.s3a.secret.key: YOUR_SECRET_KEY
+         fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+```
+
+注意：使用 S3 时，确保 lib 目录下有以下几个 jar。
+
+以下两个 JAR 均来自 [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) 项目：
+- `seatunnel-shade-hadoop3-uber` — 包重定位后的 shaded Hadoop 客户端
+- `seatunnel-shade-hadoop-aws` — 包重定位后的 shaded Hadoop AWS 连接器
+
+版本号格式为 `${library.version}-${seatunnel.shade.version}`（例如 `3.1.4-3.0.0`），具体版本请参考 SeaTunnel 发行包中实际包含的 JAR 文件名。
+
+```
 seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+seatunnel-shade-hadoop-aws-${seatunnel.shade.hadoop-aws.version}-${seatunnel.shade.version}.jar
 ```
 
 如果您使用 GCS，可以像这样配置：
@@ -387,7 +450,7 @@ map:
 
 ```
 gcs-connector-hadoop3-2.2.33-shaded.jar
-seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+seatunnel-shade-hadoop3-uber-*.jar
 ```
 
 ## 6. 配置 SeaTunnel Engine 客户端
@@ -423,7 +486,7 @@ mkdir -p $SEATUNNEL_HOME/logs
 ./bin/seatunnel-cluster.sh -d
 ```
 
-日志将写入 `$SEATUNNEL_HOME/logs/seatunnel-engine-server.log`
+日志将写入 `$SEATUNNEL_HOME/logs/` 目录——默认的 master-and-worker 部署写入 `seatunnel-engine-server.log`
 
 ## 8. 提交作业和管理作业
 

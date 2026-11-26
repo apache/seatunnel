@@ -64,4 +64,22 @@ public class TestCalciteIT extends TestSuiteBase {
                 container.executeJob("/calcite_transform/calcite_des_udf.conf");
         Assertions.assertEquals(0, result.getExitCode());
     }
+
+    /** A transform with a transform level rule and per-table rules must be accepted. */
+    @TestTemplate
+    public void testCalciteMultiTable(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult result =
+                container.executeJob("/calcite_transform/calcite_multi_table.conf");
+        Assertions.assertEquals(0, result.getExitCode());
+    }
+
+    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    @TestTemplate
+    public void testCalciteTableTransformOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult result =
+                container.executeJob("/calcite_transform/calcite_table_transform_only.conf");
+        Assertions.assertEquals(0, result.getExitCode());
+    }
 }

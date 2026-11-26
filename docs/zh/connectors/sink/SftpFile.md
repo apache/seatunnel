@@ -14,6 +14,7 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 
 如果你使用SeaTunnel引擎，当你下载并安装SeaTunnel引擎时，它会自动集成hadoop jar包。您可以在${SEATUNNEL_HOME}/lib下找到jar包。
 
+:::
 
 ## 主要特性
 
@@ -225,7 +226,7 @@ Sink插件常用参数，请参考[Sink common Options](../common-options/sink-c
 
 编写工作簿的工作表
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 当文件格式为CSV时，CSV的字符串引用模式。
 

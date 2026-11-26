@@ -40,6 +40,7 @@ public class SeaTunnelRowSerializerFactory {
                 seaTunnelRowType,
                 dorisSinkConfig.getStreamLoadProps().getProperty(LoadConstants.FIELD_DELIMITER_KEY),
                 dorisSinkConfig.getEnableDelete(),
-                dorisSinkConfig.isCaseSensitive());
+                dorisSinkConfig.isCaseSensitive(),
+                dorisSinkConfig.getDatetimeTimezone());
     }
 }

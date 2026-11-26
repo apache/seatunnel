@@ -49,7 +49,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | url                 | String | Yes | - | Databend JDBC connection URL. It must start with `jdbc:databend://` |
 | username            | String | Yes | - | Databend database username                    |
 | password            | String | Yes | - | Databend database password                     |
-| database            | String | No | - | Databend database name used when `generate_sink_sql = true` (together with `table`) to generate the write SQL. No default is applied when unset |
+| database            | String | No | - | Databend database name (together with `table`) that locates the target table to write. No default is applied when unset |
 | table               | String | No | - | Databend table name                       |
 | batch_size          | Integer | No | 1000 | Number of records for batch writing                           |
 | auto_commit         | Boolean | No | true | Whether to auto-commit transactions                           |
@@ -83,6 +83,14 @@ Option descriptions:
 
 ## Data Type Mapping
 
+The mapping applied to a column depends on how the target table is produced. Initial table creation
+(save mode) and CDC schema-change DDL use two different converters, so they do not always agree.
+
+### Schema-Change DDL (CDC)
+
+For CDC `ADD COLUMN` / `MODIFY COLUMN` events, the connector generates DDL through
+`SchemaChangeManager`, which converts columns with `DatabendTypeConverter`:
+
 | SeaTunnel Data Type | Databend Data Type |
 |-----------------|---------------|
 | BOOLEAN | BOOLEAN |
@@ -96,8 +104,19 @@ Option descriptions:
 | STRING | STRING |
 | BYTES | VARBINARY |
 | DATE | DATE |
-| TIME | TIME |
+| TIME | STRING |
 | TIMESTAMP | TIMESTAMP |
+| ARRAY | ARRAY(STRING) |
+| MAP | MAP(STRING, STRING) |
+| ROW | STRING |
+| NULL | NULL |
+
+### Initial Table Creation (Save Mode)
+
+When `schema_save_mode` creates the target table, `DatabendCatalog.buildCreateTableSql` uses its own
+conversion, which differs from the table above: `STRING` maps to `VARCHAR`, `TIME` maps to `TIME`,
+and the `ARRAY`, `MAP`, `ROW`, and `NULL` types are not supported (table creation fails with an
+unsupported data type error).
 
 ## Task Examples
 

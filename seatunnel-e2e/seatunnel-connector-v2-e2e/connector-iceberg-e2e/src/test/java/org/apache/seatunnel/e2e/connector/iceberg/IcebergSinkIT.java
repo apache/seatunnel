@@ -21,15 +21,24 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit.IcebergFilesCommitter;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.HadoopStreamFileIO;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
+import org.apache.iceberg.FileContent;
+import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.HasTableOperations;
 import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.data.IcebergGenerics;
 import org.apache.iceberg.data.Record;
@@ -45,10 +54,14 @@ import com.github.luben.zstd.Zstd;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HADOOP;
@@ -63,6 +76,12 @@ import static org.awaitility.Awaitility.given;
 public class IcebergSinkIT extends TestSuiteBase {
 
     private static final String CATALOG_DIR = "/tmp/seatunnel_mnt/iceberg/hadoop-sink/";
+    private static final String V3_TABLE = "iceberg_v3_table";
+    private static final String V3_COPY_TABLE = "iceberg_v3_copy";
+    private static final String V3_UPSERT_TABLE = "iceberg_v3_upsert";
+    private static final String V4_TABLE = "iceberg_v4_table";
+    private static final String FLUSH_UPSERT_TABLE = "iceberg_flush_upsert_table";
+    private static final String FLUSH_CDC_TABLE = "iceberg_flush_cdc_table";
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
@@ -126,6 +145,259 @@ public class IcebergSinkIT extends TestSuiteBase {
         Assertions.assertTrue(containsPartitionField(table, fields, "c_timestamp", "identity"));
     }
 
+    @TestTemplate
+    public void testFormatV3WriteAndReadE2e(TestContainer container)
+            throws IOException, InterruptedException {
+        resetTableDirectory(container, V3_TABLE);
+        resetTableDirectory(container, V3_COPY_TABLE);
+
+        Container.ExecResult writeResult = container.executeJob("/iceberg/fake_to_iceberg_v3.conf");
+        Assertions.assertEquals(0, writeResult.getExitCode(), writeResult.getStderr());
+        Table table = loadIcebergTableObject(V3_TABLE);
+        Assertions.assertFalse(table.spec().isUnpartitioned());
+        // SeaTunnel's Spark translation carries TIMESTAMP in microseconds and TIMESTAMP_TZ in
+        // milliseconds, so the precision is cut before the rows reach the sink
+        boolean nanosecondRows = container.identifier().getEngineType() != EngineType.SPARK;
+        assertFormatV3Table(table, nanosecondRows);
+
+        // Read the v3 table through the source and write it into a second auto-created v3 table:
+        // the nanosecond precision must survive the round trip.
+        Container.ExecResult copyResult =
+                container.executeJob("/iceberg/iceberg_v3_to_iceberg_v3.conf");
+        Assertions.assertEquals(0, copyResult.getExitCode(), copyResult.getStderr());
+        assertFormatV3Table(loadIcebergTableObject(V3_COPY_TABLE), nanosecondRows);
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = "Spark does not preserve CDC row kinds")
+    public void testFormatV3CdcE2e(TestContainer container)
+            throws IOException, InterruptedException {
+        resetTableDirectory(container, V3_UPSERT_TABLE);
+
+        // The second job also deletes the first job's committed rows by equality key.
+        for (int attempt = 0; attempt < 2; attempt++) {
+            Container.ExecResult execResult =
+                    container.executeJob("/iceberg/fake_to_iceberg_v3_upsert.conf");
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            Table table = loadIcebergTableObject(V3_UPSERT_TABLE);
+            Assertions.assertEquals(
+                    "2", table.currentSnapshot().summary().get("seatunnel.commit-group-count"));
+            Assertions.assertEquals(
+                    "1", table.currentSnapshot().summary().get("seatunnel.commit-group"));
+            Map<Long, String> rows = new HashMap<>();
+            try (CloseableIterable<Record> records = IcebergGenerics.read(table).build()) {
+                for (Record record : records) {
+                    Assertions.assertNull(
+                            rows.put(
+                                    (Long) record.getField("id"), (String) record.getField("name")),
+                            "duplicate live primary key");
+                }
+            }
+            Assertions.assertEquals(2, rows.size());
+            Assertions.assertEquals("A_2", rows.get(1L));
+            Assertions.assertEquals("C_1", rows.get(3L));
+            boolean foundVector = false;
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                for (FileScanTask task : tasks) {
+                    for (org.apache.iceberg.DeleteFile file : task.deletes()) {
+                        if (file.content() == FileContent.POSITION_DELETES) {
+                            Assertions.assertEquals(FileFormat.PUFFIN, file.format());
+                            Assertions.assertEquals(
+                                    task.file().location(), file.referencedDataFile());
+                            Assertions.assertTrue(file.contentOffset() > 0);
+                            Assertions.assertTrue(file.contentSizeInBytes() > 0);
+                            foundVector = true;
+                        }
+                    }
+                }
+            }
+            Assertions.assertTrue(foundVector, "CDC should persist actual deletion vectors");
+        }
+    }
+
+    @TestTemplate
+    public void testUnsupportedFormatVersionRejectedE2e(TestContainer container)
+            throws IOException, InterruptedException {
+        resetTableDirectory(container, V4_TABLE);
+
+        Container.ExecResult execResult =
+                container.executeJob("/iceberg/fake_to_iceberg_unsupported_format_version.conf");
+        Assertions.assertNotEquals(0, execResult.getExitCode());
+        String output = execResult.getStdout() + execResult.getStderr();
+        Assertions.assertTrue(
+                output.contains("Unsupported Iceberg table format-version '4'"),
+                "the job should report the unsupported format-version");
+    }
+
+    /**
+     * Upsert job with {@code flush_row_size = 2}: the UPDATE and DELETE of earlier rows are written
+     * by later task writers, so they only apply if the checkpoint is committed as ordered
+     * snapshots.
+     */
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = "Spark does not carry the row kind of changelog rows")
+    public void testFlushRowSizeUpsertE2e(TestContainer container)
+            throws IOException, InterruptedException {
+        assertFlushRowSizeJob(
+                container,
+                "/iceberg/fake_to_iceberg_flush_row_size_upsert.conf",
+                FLUSH_UPSERT_TABLE);
+    }
+
+    /** Same rows as the upsert case, written as a changelog into a partitioned table. */
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = "Spark does not carry the row kind of changelog rows")
+    public void testFlushRowSizeCdcPartitionedE2e(TestContainer container)
+            throws IOException, InterruptedException {
+        assertFlushRowSizeJob(
+                container, "/iceberg/fake_to_iceberg_flush_row_size_cdc.conf", FLUSH_CDC_TABLE);
+        Assertions.assertFalse(loadIcebergTableObject(FLUSH_CDC_TABLE).spec().isUnpartitioned());
+    }
+
+    private void assertFlushRowSizeJob(TestContainer container, String conf, String tableName)
+            throws IOException, InterruptedException {
+        resetTableDirectory(container, tableName);
+
+        Container.ExecResult execResult = container.executeJob(conf);
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        Table table = loadIcebergTableObject(tableName);
+        Map<Integer, String> rows = new TreeMap<>();
+        try (CloseableIterable<Record> records = IcebergGenerics.read(table).build()) {
+            for (Record record : records) {
+                Assertions.assertNull(
+                        rows.put((Integer) record.getField("id"), (String) record.getField("name")),
+                        "duplicate row for id " + record.getField("id"));
+            }
+        }
+        // 1 and 3 were updated and 2 deleted after the writer that inserted them was rotated
+        Map<Integer, String> expected = new TreeMap<>();
+        expected.put(1, "A2");
+        expected.put(3, "C2");
+        expected.put(4, "D");
+        Assertions.assertEquals(expected, rows);
+
+        // The changes after a rotation must have been committed as ordered snapshots, each group
+        // exactly once.
+        List<Snapshot> snapshots = new ArrayList<>();
+        table.snapshots().forEach(snapshots::add);
+        int splitCheckpoints = 0;
+        for (int i = 0; i < snapshots.size(); i++) {
+            String count =
+                    snapshots
+                            .get(i)
+                            .summary()
+                            .get(IcebergFilesCommitter.SNAPSHOT_PROPERTY_COMMIT_GROUP_COUNT);
+            if (count == null) {
+                continue;
+            }
+            int groupCount = Integer.parseInt(count);
+            Assertions.assertTrue(groupCount > 1, "a split checkpoint has at least two groups");
+            Assertions.assertTrue(
+                    i + groupCount <= snapshots.size(),
+                    "missing groups of a split checkpoint: " + summaries(snapshots));
+            String checkpointId =
+                    snapshots
+                            .get(i)
+                            .summary()
+                            .get(IcebergFilesCommitter.SNAPSHOT_PROPERTY_CHECKPOINT_ID);
+            for (int group = 0; group < groupCount; group++) {
+                Map<String, String> summary = snapshots.get(i + group).summary();
+                Assertions.assertEquals(
+                        String.valueOf(group),
+                        summary.get(IcebergFilesCommitter.SNAPSHOT_PROPERTY_COMMIT_GROUP),
+                        "groups must be committed once and in order: " + summaries(snapshots));
+                Assertions.assertEquals(
+                        checkpointId,
+                        summary.get(IcebergFilesCommitter.SNAPSHOT_PROPERTY_CHECKPOINT_ID));
+            }
+            i += groupCount - 1;
+            splitCheckpoints++;
+        }
+        Assertions.assertTrue(
+                splitCheckpoints > 0,
+                "expected the checkpoint to be committed as ordered snapshots: "
+                        + summaries(snapshots));
+    }
+
+    private static List<Map<String, String>> summaries(List<Snapshot> snapshots) {
+        List<Map<String, String>> summaries = new ArrayList<>();
+        snapshots.forEach(snapshot -> summaries.add(snapshot.summary()));
+        return summaries;
+    }
+
+    private void assertFormatV3Table(Table table, boolean nanosecondRows) throws IOException {
+        Assertions.assertEquals(
+                3, ((HasTableOperations) table).operations().current().formatVersion());
+        Schema schema = table.schema();
+        Assertions.assertEquals("timestamp", schema.findType("ts_micros").toString());
+        Assertions.assertEquals("timestamp_ns", schema.findType("ts_nanos").toString());
+        Assertions.assertEquals("timestamptz_ns", schema.findType("tstz_nanos").toString());
+
+        Map<Long, Record> rows = new HashMap<>();
+        try (CloseableIterable<Record> records = IcebergGenerics.read(table).build()) {
+            for (Record record : records) {
+                rows.put((Long) record.getField("id"), record);
+            }
+        }
+        Assertions.assertEquals(3, rows.size());
+        Assertions.assertEquals(
+                LocalDateTime.parse("2024-03-10T10:00:00.123456"),
+                rows.get(1L).getField("ts_micros"));
+        ChronoUnit precision = nanosecondRows ? ChronoUnit.NANOS : ChronoUnit.MICROS;
+        ChronoUnit offsetPrecision = nanosecondRows ? ChronoUnit.NANOS : ChronoUnit.MILLIS;
+        Assertions.assertEquals(
+                LocalDateTime.parse("2024-03-10T10:00:00.123456789").truncatedTo(precision),
+                rows.get(1L).getField("ts_nanos"));
+        Assertions.assertEquals(
+                LocalDateTime.parse("2024-03-11T10:00:00.000000001").truncatedTo(precision),
+                rows.get(2L).getField("ts_nanos"));
+        Assertions.assertEquals(
+                LocalDateTime.parse("2024-03-12T23:59:59.999999999").truncatedTo(precision),
+                rows.get(3L).getField("ts_nanos"));
+        Assertions.assertEquals(
+                OffsetDateTime.parse("2024-03-10T10:00:00.123456789+08:00")
+                        .truncatedTo(offsetPrecision)
+                        .toInstant(),
+                ((OffsetDateTime) rows.get(1L).getField("tstz_nanos")).toInstant());
+        Assertions.assertEquals(
+                OffsetDateTime.parse("2024-03-12T23:59:59.999999999-05:00")
+                        .truncatedTo(offsetPrecision)
+                        .toInstant(),
+                ((OffsetDateTime) rows.get(3L).getField("tstz_nanos")).toInstant());
+    }
+
+    /**
+     * Starts each run from an empty table location. The directories are created from inside the job
+     * container, see {@link #extendedFactory}.
+     */
+    private void resetTableDirectory(TestContainer container, String table)
+            throws IOException, InterruptedException {
+        String tableDir = CATALOG_DIR + "seatunnel_namespace/" + table;
+        container.executeExtraCommands(
+                c ->
+                        c.execInContainer(
+                                "sh",
+                                "-c",
+                                "rm -rf "
+                                        + tableDir
+                                        + " && mkdir -p "
+                                        + tableDir
+                                        + "/data "
+                                        + tableDir
+                                        + "/metadata && chmod -R 777 "
+                                        + CATALOG_DIR));
+    }
+
     private static boolean containsPartitionField(
             Table table, List<PartitionField> fields, String sourceFieldName, String transform) {
         return fields.stream()
@@ -137,13 +409,19 @@ public class IcebergSinkIT extends TestSuiteBase {
     }
 
     private Table loadIcebergTableObject() throws IOException {
+        return loadIcebergTableObject("iceberg_sink_table");
+    }
+
+    private Table loadIcebergTableObject(String tableName) throws IOException {
         Map<String, Object> configs = new HashMap<>();
         Map<String, Object> catalogProps = new HashMap<>();
         catalogProps.put("type", HADOOP.getType());
         catalogProps.put("warehouse", "file://" + CATALOG_DIR);
+        // Parquet 1.16 needs Hadoop 3.3+ to open Hadoop files itself, see HadoopStreamFileIO
+        catalogProps.put("io-impl", HadoopStreamFileIO.class.getName());
         configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), "seatunnel_test");
         configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), "seatunnel_namespace");
-        configs.put(IcebergCommonOptions.KEY_TABLE.key(), "iceberg_sink_table");
+        configs.put(IcebergCommonOptions.KEY_TABLE.key(), tableName);
         configs.put(IcebergCommonOptions.CATALOG_PROPS.key(), catalogProps);
         try (IcebergTableLoader tableLoader =
                 IcebergTableLoader.create(

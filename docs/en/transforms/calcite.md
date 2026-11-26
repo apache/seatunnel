@@ -17,7 +17,7 @@ SQL transform plugin powered by [Apache Calcite](https://calcite.apache.org/). U
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
-| sql | string | yes | - | SQL statement to execute |
+| sql | string | conditional | - | SQL statement to execute |
 | table_transform | list | no | [] | Per-table SQL overrides for multi-table CDC scenarios |
 | table_match_regex | string | no | .* | Regex to match table paths. Unmatched tables pass through unchanged |
 | row_error_handle_way | enum | no | FAIL | How to handle row-level errors: `FAIL`, `SKIP`, or `ROUTE_TO_TABLE` |
@@ -27,6 +27,8 @@ SQL transform plugin powered by [Apache Calcite](https://calcite.apache.org/). U
 ```hocon
 sql = "SELECT id, UPPER(name) AS name, age + 1 AS next_age FROM source_table WHERE age > 18"
 ```
+
+The global `sql` is required when `table_transform` is not configured (an explicitly empty `table_transform` list still requires it). When `table_transform` entries are present, each entry must carry its own `sql`, and the global `sql` becomes optional: tables not listed in `table_transform` fall back to the global `sql` when it is set and their path matches `table_match_regex` (default `.*`); tables outside the regex pass through unchanged.
 
 ### table_transform [list]
 
@@ -115,6 +117,14 @@ Example:
 ```sql
 SELECT DES_DECRYPT('12345678', encrypted_secret) AS original FROM t
 ```
+
+### JSON Functions
+
+#### GET_JSON_OBJECT
+
+```GET_JSON_OBJECT(json, path) -> STRING```
+
+Extracts a value from a JSON string using a JSON path and returns it as a string. It shares the Zeta implementation; see [GET_JSON_OBJECT](sql-functions.md#get_json_object) for the supported path syntax and examples.
 
 ### Vector Functions
 
@@ -229,6 +239,24 @@ Normalizes a vector to unit length (magnitude = 1). Useful for computing cosine 
 
 ```sql
 SELECT id, VECTOR_NORMALIZE(embedding) AS unit_vec FROM t
+```
+
+### JSON Functions
+
+#### GET_JSON_OBJECT
+
+```GET_JSON_OBJECT(json, path) -> STRING```
+
+Extracts a value from a JSON string using a JSON path and returns it as a string. Returns `NULL` when any argument is `NULL`.
+
+**Parameters:**
+- `json`: The JSON string to parse (STRING)
+- `path`: The JSON path, for example `$.field.subfield[0]` (STRING)
+
+**Example:**
+
+```sql
+SELECT GET_JSON_OBJECT('{"a":{"b":[1,2,3]}}', '$.a.b[1]') AS value FROM t
 ```
 
 In addition to the UDFs listed above, all standard SQL functions provided by Apache Calcite are available (string, math, date/time, JSON, conditional, etc.). For the full function reference, see the [Apache Calcite SQL Reference](https://calcite.apache.org/docs/reference.html).
@@ -387,6 +415,14 @@ transform {
 ```
 
 ### Vector Operations
+
+`VECTOR_NORM`, `INNER_PRODUCT`, `COSINE_DISTANCE`, `L1_DISTANCE`, `L2_DISTANCE` and
+`VECTOR_NORMALIZE` use double-precision intermediate products and differences for
+float vector elements, avoiding float overflow or underflow for finite inputs.
+Normalized output elements remain float, so output rounding and underflow remain
+possible. Null inputs and actual zero vectors retain their handling. No non-finite
+input validation or sanitization is added; corrected finite intermediates can also
+affect results when mixed with non-finite elements.
 
 Use built-in vector UDFs to compute distances, reduce dimensions, or normalize vectors in a data pipeline (e.g., between Milvus/Qdrant source and sink).
 

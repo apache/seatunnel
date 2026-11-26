@@ -22,18 +22,22 @@ import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -58,6 +62,14 @@ class JdbcSinkFactoryTest {
         return cfg;
     }
 
+    private Map<String, Object> cockroachConfig() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("url", "jdbc:postgresql://localhost:26257/defaultdb");
+        cfg.put("driver", "org.postgresql.Driver");
+        cfg.put("dialect", "CockroachDB");
+        return cfg;
+    }
+
     private CatalogTable createCatalogTable(boolean withPrimaryKey) {
         TableSchema.Builder schemaBuilder =
                 TableSchema.builder()
@@ -75,6 +87,48 @@ class JdbcSinkFactoryTest {
                 new ArrayList<>(),
                 null,
                 "catalog");
+    }
+
+    /**
+     * A table with a UNIQUE key on {@code name} (column 1) and deliberately no primary key: the
+     * factory then takes {@code primary_keys} from the unique key, which is the fallback that the
+     * routing tests below need. Adding a primary key would make them test the primary key path.
+     */
+    private CatalogTable createCatalogTableWithUniqueKeyOnName() {
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.LONG_TYPE, 22, false, null, "id"))
+                        .column(
+                                PhysicalColumn.of(
+                                        "name", BasicType.STRING_TYPE, 128, false, null, "name"))
+                        .constraintKey(
+                                ConstraintKey.of(
+                                        ConstraintKey.ConstraintType.UNIQUE_KEY,
+                                        "uk_name",
+                                        Collections.singletonList(
+                                                ConstraintKey.ConstraintKeyColumn.of(
+                                                        "name", ConstraintKey.ColumnSortType.ASC))))
+                        .build();
+        return CatalogTable.of(
+                TableIdentifier.of("catalog", "ORCL", null, "TEST_TABLE"),
+                schema,
+                new HashMap<>(),
+                new ArrayList<>(),
+                null,
+                "catalog");
+    }
+
+    /**
+     * Creates the sink as a job submission does: the option rule validates {@code cfg}, then {@code
+     * factory.createSink} derives the effective key, so the sink sees the same {@code primary_keys}
+     * and schema as at runtime.
+     */
+    private JdbcSink createJdbcSink(Map<String, Object> cfg, CatalogTable catalogTable) {
+        ReadonlyConfig config = ReadonlyConfig.fromMap(cfg);
+        ConfigValidator.of(config).validate(factory.optionRule());
+        TableSinkFactoryContext context =
+                new TableSinkFactoryContext(catalogTable, config, getClass().getClassLoader());
+        return (JdbcSink) factory.createSink(context).createSink();
     }
 
     /**
@@ -189,6 +243,49 @@ class JdbcSinkFactoryTest {
         Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
     }
 
+    /**
+     * The strict unknown-key check used by {@code --check} and {@code --dry-run} only accepts keys
+     * declared in the option rule, so every option the sink reads must be declared there.
+     */
+    @Test
+    void testDocumentedSinkOptionsAreNotUnknownKeys() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("table", "TEST_TABLE");
+        cfg.put("schema", "ST");
+        cfg.put("properties", Collections.singletonMap("oracle.jdbc.timezoneAsRegion", "false"));
+        cfg.put("connect_timeout_ms", 30000);
+        cfg.put("socket_timeout_ms", 60000);
+        cfg.put("decimal_type_narrowing", true);
+        cfg.put("int_type_narrowing", true);
+        cfg.put("handle_blob_as_string", false);
+        cfg.put("use_kerberos", true);
+        cfg.put("kerberos_principal", "seatunnel@EXAMPLE.COM");
+        cfg.put("kerberos_keytab_path", "/etc/seatunnel.keytab");
+        cfg.put("krb5_path", "/etc/krb5.conf");
+        cfg.put("access_key_id", "ak");
+        cfg.put("secret_access_key", "sk");
+        cfg.put("region", "us-east-1");
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        ConfigValidator.validateUnknownKeys(
+                                ReadonlyConfig.fromMap(cfg), rule, "Jdbc"));
+    }
+
+    @Test
+    void testUndeclaredSinkOptionIsUnknownKey() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("tabel", "TEST_TABLE");
+
+        OptionValidationException exception =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () ->
+                                ConfigValidator.validateUnknownKeys(
+                                        ReadonlyConfig.fromMap(cfg), rule, "Jdbc"));
+        Assertions.assertTrue(exception.getMessage().contains("[tabel]"));
+    }
+
     // ---- Entry-level regression tests through factory-context path ----
 
     @Test
@@ -241,5 +338,77 @@ class JdbcSinkFactoryTest {
                 "Factory-level validation and createSink should succeed even when "
                         + "CatalogTable has primary keys; the PK + APPEND_VALUES conflict "
                         + "is guarded at runtime by JdbcOutputFormatBuilder.validateOracleInsertMode");
+    }
+
+    @Test
+    void cockroachDoesNotAdvertiseSchemaEvolutionWhilePostgresStillDoes() {
+        Map<String, Object> cfg = cockroachConfig();
+        JdbcSink cockroach = (JdbcSink) createSinkViaFactoryContext(cfg, true).createSink();
+        Assertions.assertTrue(cockroach.supports().isEmpty());
+
+        cfg.put("dialect", "Postgres");
+        JdbcSink postgres = (JdbcSink) createSinkViaFactoryContext(cfg, true).createSink();
+        Assertions.assertTrue(postgres.supports().contains(SchemaChangeType.ADD_COLUMN));
+    }
+
+    @Test
+    void cockroachRejectsSaveModesThatWouldOtherwiseBeSkipped() {
+        Map<String, Object> cfg = cockroachConfig();
+        cfg.put("schema_save_mode", "IGNORE");
+        Assertions.assertDoesNotThrow(() -> createSinkViaFactoryContext(cfg, true));
+        cfg.put("custom_sql", "DELETE FROM public.target");
+
+        for (String dataMode :
+                new String[] {"DROP_DATA", "CUSTOM_PROCESSING", "ERROR_WHEN_DATA_EXISTS"}) {
+            cfg.put("data_save_mode", dataMode);
+            Assertions.assertThrows(
+                    JdbcConnectorException.class, () -> createSinkViaFactoryContext(cfg, true));
+        }
+        cfg.put("data_save_mode", "APPEND_DATA");
+        for (String schemaMode : new String[] {"RECREATE_SCHEMA", "ERROR_WHEN_SCHEMA_NOT_EXIST"}) {
+            cfg.put("schema_save_mode", schemaMode);
+            Assertions.assertThrows(
+                    JdbcConnectorException.class, () -> createSinkViaFactoryContext(cfg, true));
+        }
+    }
+
+    /**
+     * A table with only a UNIQUE key gets {@code primary_keys} from it, so the sink upserts by that
+     * column. Its writers must route by the same column, or the changes of one row could reach
+     * different writers when {@code multi_table_sink_replica} is above 1.
+     */
+    @Test
+    void testUniqueKeyOnlyTableRoutesByItsUniqueColumn() {
+        JdbcSink sink = createJdbcSink(baseConfig(), createCatalogTableWithUniqueKeyOnName());
+
+        Assertions.assertEquals(1, sink.routingKeyIndex().get());
+    }
+
+    @Test
+    void testRoutingKeyFollowsConfiguredPrimaryKeysAndIsEmptyWithoutAnyKey() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("primary_keys", Arrays.asList("name"));
+        Assertions.assertEquals(
+                1, createJdbcSink(cfg, createCatalogTable(false)).routingKeyIndex().get());
+
+        Assertions.assertFalse(
+                createJdbcSink(baseConfig(), createCatalogTable(false))
+                        .routingKeyIndex()
+                        .isPresent());
+        Assertions.assertEquals(
+                0, createJdbcSink(baseConfig(), createCatalogTable(true)).routingKeyIndex().get());
+    }
+
+    /**
+     * Configured {@code primary_keys} replace the primary key of the table for upserts, so the
+     * writers route by them too, not by the primary key of the table.
+     */
+    @Test
+    void testConfiguredPrimaryKeysRouteInsteadOfThePrimaryKeyOfTheTable() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("primary_keys", Arrays.asList("name"));
+
+        Assertions.assertEquals(
+                1, createJdbcSink(cfg, createCatalogTable(true)).routingKeyIndex().get());
     }
 }

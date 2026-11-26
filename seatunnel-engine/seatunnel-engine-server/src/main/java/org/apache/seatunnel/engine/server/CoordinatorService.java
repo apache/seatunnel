@@ -97,6 +97,7 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.ringbuffer.Ringbuffer;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import lombok.Getter;
 import lombok.NonNull;
 
 import java.util.ArrayList;
@@ -138,7 +139,12 @@ public class CoordinatorService {
 
     private volatile ResourceManager resourceManager;
 
-    private JobHistoryService jobHistoryService;
+    /**
+     * The current history view, returned by the Lombok getter including after coordinator teardown.
+     * Closing the view only deregisters listeners; reads remain valid for requests already in
+     * flight. Every activation constructs a fresh instance in {@link #initCoordinatorService()}.
+     */
+    @Getter private JobHistoryService jobHistoryService;
 
     /**
      * IMap key is jobId and value is {@link JobInfo}. Tuple2 key is JobMaster init timestamp and
@@ -233,9 +239,11 @@ public class CoordinatorService {
 
     private final EngineConfig engineConfig;
 
+    private final ResourceManagerFactory resourceManagerFactory;
+
     private ConnectorPackageService connectorPackageService;
 
-    private EventProcessor eventProcessor;
+    @Getter private EventProcessor eventProcessor;
 
     private PassiveCompletableFuture restoreAllJobFromMasterNodeSwitchFuture;
 
@@ -250,9 +258,24 @@ public class CoordinatorService {
             @NonNull SeaTunnelServer seaTunnelServer,
             @NonNull SeaTunnelEngineContext engineContext,
             EngineConfig engineConfig) {
+        this(
+                nodeEngine,
+                seaTunnelServer,
+                engineContext,
+                engineConfig,
+                new ResourceManagerFactory());
+    }
+
+    public CoordinatorService(
+            @NonNull NodeEngineImpl nodeEngine,
+            @NonNull SeaTunnelServer seaTunnelServer,
+            @NonNull SeaTunnelEngineContext engineContext,
+            EngineConfig engineConfig,
+            ResourceManagerFactory resourceManagerFactory) {
         this.nodeEngine = nodeEngine;
         this.engineContext = engineContext;
         this.engineConfig = engineConfig;
+        this.resourceManagerFactory = resourceManagerFactory;
         this.logger = nodeEngine.getLogger(getClass());
         this.executorService = createCoordinatorExecutor();
 
@@ -592,20 +615,12 @@ public class CoordinatorService {
         return new JobEventProcessor(handlers);
     }
 
-    public JobHistoryService getJobHistoryService() {
-        return jobHistoryService;
-    }
-
     public JobMaster getJobMaster(Long jobId) {
         PendingJobInfo pendingJobInfo = pendingJobQueue.getById(jobId);
         if (pendingJobInfo != null) {
             return pendingJobInfo.getJobMaster();
         }
         return runningJobMasterMap.get(jobId);
-    }
-
-    public EventProcessor getEventProcessor() {
-        return eventProcessor;
     }
 
     private void initCoordinatorService() {
@@ -622,6 +637,8 @@ public class CoordinatorService {
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
         pendingJobCleanupIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+        // Never reuse the previous history view: teardown removes its listener registrations,
+        // while requests already holding that view may still finish their reads.
         jobHistoryService =
                 new JobHistoryService(
                         nodeEngine,
@@ -1294,6 +1311,10 @@ public class CoordinatorService {
         if (!coordinatorServiceCleared.compareAndSet(false, true)) {
             return;
         }
+        // Capture the service owned by the coordinator generation being cleared before shutdown
+        // waits, so a concurrent re-activation during node shutdown does not make this cleanup
+        // close listeners that belong to a later generation.
+        JobHistoryService closingJobHistoryService = jobHistoryService;
         pendingJobScheduleEpoch.incrementAndGet();
         schedulingJobMasters.forEach(JobMaster::interrupt);
         schedulingJobMasters.clear();
@@ -1335,10 +1356,26 @@ public class CoordinatorService {
                     "Coordinator service shutdown interrupted while waiting executorService termination, continue cleanup.");
         }
 
+        // The finished-job IMaps are cluster-wide, so the expiration listeners registered by the
+        // current JobHistoryService are not released automatically when this node leaves the
+        // active master role. Deregister them here, otherwise repeated master role switches
+        // accumulate stale listeners that keep old service instances reachable and duplicate
+        // finished-job expiration side effects. The instance itself is kept because read paths
+        // may still use it until a new active master creates a fresh one.
+        if (closingJobHistoryService != null) {
+            closingJobHistoryService.close();
+        }
+
         ResourceManager manager = resourceManager;
         resourceManager = null;
-        if (manager != null) {
-            manager.close();
+        try {
+            if (manager != null) {
+                manager.close();
+            }
+        } catch (Exception e) {
+            // Continue the shutdown: the event processor and the remaining cleanup must still
+            // run even when a resource manager refuses to close.
+            logger.warning("close resource manager error: " + e);
         }
 
         try {
@@ -1358,8 +1395,7 @@ public class CoordinatorService {
             synchronized (this) {
                 if (resourceManager == null) {
                     ResourceManager manager =
-                            new ResourceManagerFactory(nodeEngine, engineConfig)
-                                    .getResourceManager();
+                            resourceManagerFactory.createResourceManager(nodeEngine, engineConfig);
                     manager.init();
                     resourceManager = manager;
                 }
@@ -1622,14 +1658,19 @@ public class CoordinatorService {
         }
         JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
         if (runningJobMaster == null) {
-            JobHistoryService.JobState jobDetailState = jobHistoryService.getJobDetailState(jobId);
-            return null == jobDetailState ? JobStatus.UNKNOWABLE : jobDetailState.getJobStatus();
+            return resolveHistoryStatus(jobHistoryService.getJobDetailState(jobId));
         }
         JobStatus jobStatus = runningJobMaster.getJobStatus();
         if (jobStatus == null) {
-            return jobHistoryService.getFinishedJobStateImap().get(jobId).getJobStatus();
+            return resolveHistoryStatus(jobHistoryService.getFinishedJobStateImap().get(jobId));
         }
         return jobStatus;
+    }
+
+    static JobStatus resolveHistoryStatus(JobHistoryService.JobState jobState) {
+        return jobState == null || jobState.getJobStatus() == null
+                ? JobStatus.UNKNOWABLE
+                : jobState.getJobStatus();
     }
 
     public boolean shouldShowAsRunningJob(long jobId) {
@@ -2200,65 +2241,20 @@ public class CoordinatorService {
     }
 
     public JobCounter getJobCountMetrics() {
-        AtomicLong createdJobCount = new AtomicLong();
-        AtomicLong scheduledJobCount = new AtomicLong();
-        AtomicLong runningJobCount = new AtomicLong();
-        AtomicLong pendingJobCount = new AtomicLong();
-        AtomicLong failingJobCount = new AtomicLong();
-        AtomicLong failedJobCount = new AtomicLong();
-        AtomicLong cancellingJobCount = new AtomicLong();
-        AtomicLong canceledJobCount = new AtomicLong();
-        AtomicLong finishedJobCount = new AtomicLong();
-
-        if (jobHistoryService != null) {
-            jobHistoryService
-                    .getJobStatusData()
-                    .forEach(
-                            jobStatusData -> {
-                                JobStatus jobStatus = jobStatusData.getJobStatus();
-                                switch (jobStatus) {
-                                    case CREATED:
-                                        createdJobCount.addAndGet(1);
-                                        break;
-                                    case PENDING:
-                                        pendingJobCount.addAndGet(1);
-                                        break;
-                                    case SCHEDULED:
-                                        scheduledJobCount.addAndGet(1);
-                                        break;
-                                    case RUNNING:
-                                        runningJobCount.addAndGet(1);
-                                        break;
-                                    case FAILING:
-                                        failingJobCount.addAndGet(1);
-                                        break;
-                                    case FAILED:
-                                        failedJobCount.addAndGet(1);
-                                        break;
-                                    case CANCELING:
-                                        cancellingJobCount.addAndGet(1);
-                                        break;
-                                    case CANCELED:
-                                        canceledJobCount.addAndGet(1);
-                                        break;
-                                    case FINISHED:
-                                        finishedJobCount.addAndGet(1);
-                                        break;
-                                    default:
-                                }
-                            });
-        }
-
+        Map<JobStatus, Long> counts =
+                jobHistoryService == null
+                        ? Collections.emptyMap()
+                        : jobHistoryService.getJobStatusCounts();
         return new JobCounter(
-                createdJobCount.longValue(),
-                pendingJobCount.longValue(),
-                scheduledJobCount.longValue(),
-                runningJobCount.longValue(),
-                failingJobCount.longValue(),
-                failedJobCount.longValue(),
-                cancellingJobCount.longValue(),
-                canceledJobCount.longValue(),
-                finishedJobCount.longValue());
+                counts.getOrDefault(JobStatus.CREATED, 0L),
+                counts.getOrDefault(JobStatus.PENDING, 0L),
+                counts.getOrDefault(JobStatus.SCHEDULED, 0L),
+                counts.getOrDefault(JobStatus.RUNNING, 0L),
+                counts.getOrDefault(JobStatus.FAILING, 0L),
+                counts.getOrDefault(JobStatus.FAILED, 0L),
+                counts.getOrDefault(JobStatus.CANCELING, 0L),
+                counts.getOrDefault(JobStatus.CANCELED, 0L),
+                counts.getOrDefault(JobStatus.FINISHED, 0L));
     }
 
     public ThreadPoolStatus getThreadPoolStatusMetrics() {
