@@ -496,12 +496,24 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
 
     /** Executes prepared statement and closes all resources of this instance. */
     public synchronized void close() {
+        close(true);
+    }
+
+    /**
+     * Closes this output format's statements, and its connection only if owned by the writer.
+     *
+     * @param closeConnection whether this writer owns the connection rather than sharing a
+     *     queue-level connection with other writers
+     */
+    public synchronized void close(boolean closeConnection) {
         if (!closed) {
             closed = true;
             flushBufferedRecords();
             closeStatements();
         }
-        connectionProvider.closeConnection();
+        if (closeConnection) {
+            connectionProvider.closeConnection();
+        }
         checkFlushException();
     }
 

@@ -23,6 +23,16 @@ import java.util.Optional;
 public interface SupportMultiTableSinkWriter<T> extends SupportResourceShare<T> {
 
     /**
+     * May the wrapper close this child immediately after taking its final snapshot, before
+     * checkpoint state and committables have been published? Opt in only if closing cannot lose
+     * rollback work that a subsequent abortPrepare() must perform. In particular, a writer that
+     * owns a prepared transaction must remain open.
+     */
+    default boolean supportsCloseAfterSnapshot() {
+        return false;
+    }
+
+    /**
      * The primary key index of the table in SeaTunnelRow, use it to make sure the same key value
      * will be written to the same sink writer
      */

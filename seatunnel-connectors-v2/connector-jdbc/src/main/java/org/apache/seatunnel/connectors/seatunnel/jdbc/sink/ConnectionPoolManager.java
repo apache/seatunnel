@@ -191,8 +191,27 @@ public class ConnectionPoolManager {
         return connectionPool.getPoolName();
     }
 
-    public void close() {
-        if (!connectionPool.isClosed()) {
+    public synchronized void close() {
+        if (connectionPool.isClosed()) {
+            return;
+        }
+        try {
+            // Return the manager's checked-out proxies after all child writers have closed.
+            // Hikari otherwise calls abort() on physical connections; some drivers do not
+            // implement abort() and silently leave the underlying connection open.
+            connectionMap.forEach(
+                    (index, connection) -> {
+                        if (connectionMap.remove(index, connection)) {
+                            try {
+                                if (!connection.isClosed()) {
+                                    connection.close();
+                                }
+                            } catch (SQLException | RuntimeException e) {
+                                log.warn("Failed to return JDBC connection for queue {}", index, e);
+                            }
+                        }
+                    });
+        } finally {
             connectionPool.close();
         }
     }

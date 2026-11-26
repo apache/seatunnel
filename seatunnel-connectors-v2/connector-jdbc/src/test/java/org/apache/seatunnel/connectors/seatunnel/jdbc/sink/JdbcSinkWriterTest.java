@@ -378,8 +378,9 @@ class JdbcSinkWriterTest {
 
         Mockito.verify(outputFormat, Mockito.never()).flush();
         Mockito.verify(connection, Mockito.never()).commit();
-        Mockito.verify(connection).rollback();
-        Mockito.verify(outputFormat).close();
+        InOrder inOrder = Mockito.inOrder(connection, outputFormat);
+        inOrder.verify(connection).rollback();
+        inOrder.verify(outputFormat).close(true);
     }
 
     /**
@@ -405,7 +406,7 @@ class JdbcSinkWriterTest {
 
         InOrder inOrder = Mockito.inOrder(fixture.connection, outputFormat);
         inOrder.verify(fixture.connection).rollback();
-        inOrder.verify(outputFormat).close();
+        inOrder.verify(outputFormat).close(true);
         verify(fixture.connection, never()).commit();
     }
 
