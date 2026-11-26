@@ -63,6 +63,14 @@ CREATE TABLE if not exists mysql_cdc_e2e_sink_table_with_schema_change_sql_star 
  weight FLOAT
 );
 
+drop table if exists mysql_cdc_e2e_sink_table_with_schema_change_strict;
+CREATE TABLE if not exists mysql_cdc_e2e_sink_table_with_schema_change_strict (
+ id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ name VARCHAR(255) NOT NULL DEFAULT 'SeaTunnel',
+ description VARCHAR(512),
+ weight FLOAT
+);
+
 -- Sink fed through a projecting SQL transform with an expression column. The transform derives
 -- `weight * 2` as DOUBLE for the FLOAT operand, so the sink starts with the type the transform produces.
 drop table if exists mysql_cdc_e2e_sink_table_with_schema_change_sql_projection;
@@ -71,6 +79,14 @@ CREATE TABLE if not exists mysql_cdc_e2e_sink_table_with_schema_change_sql_proje
  name VARCHAR(255) NOT NULL DEFAULT 'SeaTunnel',
  weight FLOAT,
  double_weight DOUBLE
+);
+
+drop table if exists mysql_cdc_e2e_sink_table_with_schema_change_ignore;
+CREATE TABLE if not exists mysql_cdc_e2e_sink_table_with_schema_change_ignore (
+ id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ name VARCHAR(255) NOT NULL DEFAULT 'SeaTunnel',
+ description VARCHAR(512),
+ weight FLOAT
 );
 
 ALTER TABLE products AUTO_INCREMENT = 101;

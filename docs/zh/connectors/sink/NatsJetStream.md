@@ -104,7 +104,7 @@ native 模式中的 message ID 只能作为 **broker 侧的重复缓解提示**�
 
 不支持的映射键会直接校验失败。
 
-当可选映射（`subject`、`id`、`headers`）指向的字段不存在于输入 schema 时，连接器会静默跳过该映射。例如，使用默认映射 `{id:id, subject:subject, headers:headers, data:data}` 时，如果 schema 只包含 `data` 字段，仍然会被接受；`id`、`subject` 和 `headers` 只是不会设置到发布的消息上。
+当可选映射（`id`、`headers`）指向的字段不存在于输入 schema 时，连接器会静默跳过该映射。`subject` 映射只有在同时配置了 sink 级 `subject` 兜底选项时才会被跳过，否则校验直接失败。例如，使用默认映射 `{id:id, subject:subject, headers:headers, data:data}` 时，只有同时配置了 `subject` 选项，仅包含 `data` 字段的 schema 才会被接受；否则任务会因 schema 校验错误而失败。
 
 ### include_row_kind_header [boolean]
 

@@ -180,7 +180,7 @@ grep "SlowOperationDetector" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log | tai
 
 Correlate the timestamps with:
 - Job submission events (REST API calls)
-- Checkpoint intervals (the engine default is 300000 ms; the shipped `config/seatunnel.yaml` template sets `checkpoint.interval: 10000`)
+- Checkpoint interval (`seatunnel.engine.checkpoint.interval`): the code default is 300000 ms (5 minutes); the shipped `config/seatunnel.yaml` sets 10000 ms.
 - High-load periods (peak data ingestion)
 
 #### Step 2: Check overall node health
@@ -406,6 +406,7 @@ seatunnel:
       storage:
         type: hdfs
         plugin-config:
+          storage.type: s3
           namespace: /seatunnel/checkpoint/
           s3.bucket: s3a://<your-bucket>
           fs.s3a.endpoint: s3.<region>.amazonaws.com
@@ -419,6 +420,7 @@ seatunnel:
       storage:
         type: hdfs
         plugin-config:
+          storage.type: s3
           fs.s3a.fast.upload: true
           s3.bucket: s3a://<your-bucket>
           fs.s3a.fast.upload.buffer: disk
@@ -434,6 +436,7 @@ seatunnel:
       storage:
         type: hdfs
         plugin-config:
+          storage.type: s3
           fs.s3a.attempts.maximum: 10
           s3.bucket: s3a://<your-bucket>
           fs.s3a.connection.timeout: 30000
