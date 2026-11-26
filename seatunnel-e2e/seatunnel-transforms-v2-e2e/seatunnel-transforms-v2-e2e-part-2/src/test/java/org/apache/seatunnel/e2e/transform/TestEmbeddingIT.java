@@ -57,7 +57,8 @@ public class TestEmbeddingIT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() {
         Optional<URL> resource =
-                Optional.ofNullable(TestLLMIT.class.getResource("/mock-embedding.json"));
+                Optional.ofNullable(
+                        TestLLMIT.class.getResource("/llm_transform/mock-embedding.json"));
         this.mockserverContainer =
                 new GenericContainer<>(DockerImageName.parse(IMAGE))
                         .withNetwork(NETWORK)
@@ -72,10 +73,10 @@ public class TestEmbeddingIT extends TestSuiteBase implements TestResource {
                                                                                         "Can not get config file of mockServer"))
                                                                 .getPath())
                                                 .getAbsolutePath()),
-                                TMP_DIR + "/mock-embedding.json")
+                                TMP_DIR + "/llm_transform/mock-embedding.json")
                         .withEnv(
                                 "MOCKSERVER_INITIALIZATION_JSON_PATH",
-                                TMP_DIR + "/mock-embedding.json")
+                                TMP_DIR + "/llm_transform/mock-embedding.json")
                         .withEnv("MOCKSERVER_LOG_LEVEL", "WARN")
                         .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
                         .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));

@@ -48,7 +48,8 @@ public class TestLLMIT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() {
         Optional<URL> resource =
-                Optional.ofNullable(TestLLMIT.class.getResource("/mockserver-config.json"));
+                Optional.ofNullable(
+                        TestLLMIT.class.getResource("/llm_transform/mockserver-config.json"));
         this.mockserverContainer =
                 new GenericContainer<>(DockerImageName.parse(IMAGE))
                         .withNetwork(NETWORK)
@@ -63,10 +64,10 @@ public class TestLLMIT extends TestSuiteBase implements TestResource {
                                                                                         "Can not get config file of mockServer"))
                                                                 .getPath())
                                                 .getAbsolutePath()),
-                                TMP_DIR + "/mockserver-config.json")
+                                TMP_DIR + "/llm_transform/mockserver-config.json")
                         .withEnv(
                                 "MOCKSERVER_INITIALIZATION_JSON_PATH",
-                                TMP_DIR + "/mockserver-config.json")
+                                TMP_DIR + "/llm_transform/mockserver-config.json")
                         .withEnv("MOCKSERVER_LOG_LEVEL", "WARN")
                         .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
                         .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));

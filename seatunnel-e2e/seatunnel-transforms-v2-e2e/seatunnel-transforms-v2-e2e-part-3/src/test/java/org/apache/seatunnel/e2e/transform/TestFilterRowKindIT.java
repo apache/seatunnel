@@ -41,7 +41,7 @@ public class TestFilterRowKindIT extends TestSuiteBase {
         Assertions.assertEquals(0, execResult3.getExitCode());
 
         Container.ExecResult execResult4 =
-                container.executeJob("/filter_row_to_next_transform.json");
+                container.executeJob("/filter_row_kind/filter_row_to_next_transform.json");
         Assertions.assertEquals(0, execResult4.getExitCode());
     }
 
