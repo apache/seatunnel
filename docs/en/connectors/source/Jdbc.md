@@ -237,13 +237,21 @@ Many JDBC drivers treat schema and table arguments passed to `DatabaseMetaData` 
 
 :::note Views and table matching
 
-Whether `table_path` (with or without `use_regex`) also matches database views, not only base tables, depends on the dialect's internal table-listing query. There is no option to explicitly include or exclude views:
+An exact `table_path` (`use_regex = false`) can name a view. On DB2, Dameng, Oracle and SQL Server, SeaTunnel resolves the named view, takes its columns as the source schema and reads its rows, in the same way as for a base table. For example, the view `v_order` in schema `dbo` of the SQL Server database `shop`:
+
+```hocon
+table_path = "shop.dbo.v_order"
+```
+
+Pattern matching (`use_regex = true`) resolves tables through the dialect's table-listing query instead, so whether a pattern also matches views depends on the dialect. There is no option to explicitly include or exclude views:
 
 - MySQL and PostgreSQL list views alongside base tables, so a broad pattern like `db.*` also matches views.
-- SQL Server filters to `TABLE_TYPE = 'BASE TABLE'` and excludes views.
-- Oracle and Dameng query `ALL_TABLES`, which excludes views as a side effect of that view not listing them.
+- DB2 lists `TYPE = 'T'` only, and SQL Server filters to `TABLE_TYPE = 'BASE TABLE'`, so patterns do not match views.
+- Oracle and Dameng list from `ALL_TABLES`, which does not contain views, so patterns do not match views.
 
-To read only specific base tables regardless of dialect, list them explicitly in `table_list` instead of relying on a broad regular expression.
+To read a view on these dialects, name it with an exact `table_path`, either at the top level or as a `table_list` entry. To read only specific base tables regardless of dialect, list them explicitly in `table_list` instead of relying on a broad regular expression.
+
+Reading a view through `table_path` is a batch read of the rows the view returns. It does not extend CDC: the SQL Server CDC connector still captures changes of tables only.
 
 :::
 
