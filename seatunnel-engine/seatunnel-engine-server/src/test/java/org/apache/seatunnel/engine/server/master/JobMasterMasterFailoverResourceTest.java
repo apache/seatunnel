@@ -35,7 +35,9 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
+import com.hazelcast.core.HazelcastException;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
 
@@ -112,6 +114,50 @@ public class JobMasterMasterFailoverResourceTest
             }
         } finally {
             releasePersistedSlots(resourceManager, jobMaster, jobId);
+        }
+    }
+
+    /**
+     * A pre-apply whose slot ownership cannot be persisted must not admit the job. The slots are
+     * already allocated on the workers, so admitting it without the ownership record would leave a
+     * successor master unable to reuse or release them after an active-master switch.
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void testPreApplyStopsAdmissionWhenSlotOwnershipCannotBePersisted() throws Exception {
+        long jobId = instance.getFlakeIdGenerator("master-failover-ownership-write").newId();
+        ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
+        Data jobImmutableInformationData = createJobImmutableInformationData(jobId);
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> unavailableOwnershipMap =
+                Mockito.mock(IMap.class);
+        Mockito.doThrow(new HazelcastException("owned slot profiles IMap is unavailable"))
+                .when(unavailableOwnershipMap)
+                .put(Mockito.any(), Mockito.any());
+
+        JobMaster jobMaster =
+                newJobMaster(jobId, jobImmutableInformationData, unavailableOwnershipMap);
+        jobMaster.init(System.currentTimeMillis(), false);
+
+        Assertions.assertFalse(
+                jobMaster.preApplyResources(),
+                "a pre-apply that cannot persist its slot ownership must not admit the job");
+        Mockito.verify(unavailableOwnershipMap, Mockito.atLeastOnce())
+                .put(Mockito.any(), Mockito.any());
+        // The possibly committed record is cleared before the slots are released.
+        Mockito.verify(unavailableOwnershipMap, Mockito.atLeastOnce()).remove(Mockito.any());
+
+        // Every pre-applied fixed slot must be free again, otherwise the rejected admission leaked
+        // capacity that this master can no longer see.
+        List<SlotProfile> probeSlots = new ArrayList<>();
+        try {
+            for (int index = 0; index < SLOT_NUM; index++) {
+                probeSlots.add(
+                        resourceManager
+                                .applyResource(jobId + 1, new ResourceProfile(), null)
+                                .get());
+            }
+        } finally {
+            resourceManager.releaseResources(jobId + 1, probeSlots).join();
         }
     }
 
@@ -205,6 +251,18 @@ public class JobMasterMasterFailoverResourceTest
                 nodeEngine.getHazelcastInstance().getMap("stateTimestamps");
         IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
                 nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
+
+        return newJobMaster(jobId, jobImmutableInformationData, ownedSlotProfilesIMap);
+    }
+
+    private JobMaster newJobMaster(
+            long jobId,
+            Data jobImmutableInformationData,
+            IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap) {
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap("runningJobState");
+        IMap<Object, Long[]> runningJobStateTimestampsIMap =
+                nodeEngine.getHazelcastInstance().getMap("stateTimestamps");
 
         return new JobMaster(
                 jobId,

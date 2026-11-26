@@ -583,105 +583,66 @@ public class JobMaster {
                                 .count()
                         == preApplyResourceFutures.size();
 
-        if (enoughResource) {
-            for (Map.Entry<TaskGroupLocation, CompletableFuture<SlotProfile>> entry :
-                    preApplyResourceFutures.entrySet()) {
-                try {
-                    Address worker = entry.getValue().get().getWorker();
-                    historyExecutionAddress.add(
-                            new ExecutionAddress(worker.getHost(), worker.getPort()));
+        if (!enoughResource) {
+            releaseUnusedPreAppliedResources(
+                    preApplyResourceFutures, reusedSlotProfiles, Collections.emptySet());
+            return false;
+        }
 
-                } catch (Exception e) {
-                    LOGGER.warning("history execution plan add worker failed", e);
-                }
-            }
-            if (isSubPlan) {
-                // SubPlan applies for resources separately and needs to be merged into the entire
-                // job's resources
-                physicalPlan.getPreApplyResourceFutures().putAll(preApplyResourceFutures);
-            } else {
-                // Adequate resources, pass on resources to the plan
-                physicalPlan.setPreApplyResourceFutures(preApplyResourceFutures);
-            }
-            // Persist the ownership now, before any pipeline reaches SCHEDULED and starts
-            // deploying. Otherwise a master failure in this window leaves the workers holding
-            // slots that the new master cannot reuse or release, because it never recorded them.
-            persistPreAppliedSlotProfiles(preApplyResourceFutures);
-            // Retained slots are valid only for the first successful allocation after failover.
-            // A later pipeline retry must obtain a fresh allocation instead of reusing them.
-            masterFailoverRestore = false;
-        } else {
-            // Release the resource that has been applied
+        for (Map.Entry<TaskGroupLocation, CompletableFuture<SlotProfile>> entry :
+                preApplyResourceFutures.entrySet()) {
             try {
-                RetryUtils.retryWithException(
-                        () -> {
-                            resourceManager
-                                    .releaseResources(
-                                            jobImmutableInformation.getJobId(),
-                                            preApplyResourceFutures.values().stream()
-                                                    .filter(
-                                                            value -> {
-                                                                try {
-                                                                    return value != null
-                                                                            && value.join() != null;
-                                                                } catch (CompletionException e) {
-                                                                    LOGGER.warning(
-                                                                            String.format(
-                                                                                    "Filtering failed resource for job %s during release: %s",
-                                                                                    jobImmutableInformation
-                                                                                            .getJobId(),
-                                                                                    e.getCause()
-                                                                                                    != null
-                                                                                            ? e.getCause()
-                                                                                                    .getMessage()
-                                                                                            : e
-                                                                                                    .getMessage()));
-                                                                    return false;
-                                                                }
-                                                            })
-                                                    .map(CompletableFuture::join)
-                                                    .filter(
-                                                            slotProfile ->
-                                                                    !reusedSlotProfiles.contains(
-                                                                            slotProfile))
-                                                    .collect(Collectors.toList()))
-                                    .join();
-                            return null;
-                        },
-                        new RetryUtils.RetryMaterial(
-                                Constant.OPERATION_RETRY_TIME,
-                                true,
-                                ExceptionUtil::isOperationNeedRetryException,
-                                Constant.OPERATION_RETRY_SLEEP));
+                Address worker = entry.getValue().get().getWorker();
+                historyExecutionAddress.add(
+                        new ExecutionAddress(worker.getHost(), worker.getPort()));
+
             } catch (Exception e) {
-                LOGGER.warning(
-                        String.format(
-                                "Pre resource application failed %s",
-                                ExceptionUtils.getMessage(e)));
+                LOGGER.warning("history execution plan add worker failed", e);
             }
         }
-        return enoughResource;
+
+        // Persist the ownership now, before any pipeline reaches SCHEDULED and starts deploying.
+        // Otherwise a master failure in this window leaves the workers holding slots that the new
+        // master cannot reuse or release, because it never recorded them.
+        Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> preAppliedSlotProfiles =
+                collectPreAppliedSlotProfiles(preApplyResourceFutures);
+        if (!persistPreAppliedSlotProfiles(preAppliedSlotProfiles)) {
+            // A pre-applied slot is only reusable or releasable after a master failure when its
+            // ownership is visible in the IMap, so a write that cannot be confirmed must not admit
+            // the job: the slots would stay allocated while the successor master has no profile
+            // for them.
+            Set<PipelineLocation> unreconciledPipelines =
+                    reconcilePreAppliedSlotProfiles(preAppliedSlotProfiles);
+            releaseUnusedPreAppliedResources(
+                    preApplyResourceFutures, reusedSlotProfiles, unreconciledPipelines);
+            return false;
+        }
+
+        if (isSubPlan) {
+            // SubPlan applies for resources separately and needs to be merged into the entire
+            // job's resources
+            physicalPlan.getPreApplyResourceFutures().putAll(preApplyResourceFutures);
+        } else {
+            // Adequate resources, pass on resources to the plan
+            physicalPlan.setPreApplyResourceFutures(preApplyResourceFutures);
+        }
+        // Retained slots are valid only for the first successful allocation after failover.
+        // A later pipeline retry must obtain a fresh allocation instead of reusing them.
+        masterFailoverRestore = false;
+        return true;
     }
 
     /**
-     * Persists the task-group to slot mapping of a successful pre-apply before the pipelines are
-     * deployed.
+     * Groups the successfully pre-applied slots by pipeline, which is the grain of the ownership
+     * IMap.
      *
-     * <p>The mapping used to be written only when a pipeline reached {@code SCHEDULED}. A master
-     * failure between the allocation and that transition left the workers holding slots that the
-     * new master had no profile for, so it could neither reuse nor release them. Writing the exact
-     * profiles here closes that window; the profiles keep their allocation sequence, so releasing
-     * them later cannot affect a slot reassigned to another attempt.
-     *
-     * <p>The write is best effort: the {@code SCHEDULED} transition still persists the mapping and
-     * remains the enforcing write, so a transient IMap failure here is logged instead of failing
-     * the job after its slots were already allocated.
-     *
-     * @param preApplyResourceFutures successfully completed allocation futures of this pre-apply
-     *     round
+     * @param preApplyResourceFutures allocation futures of this pre-apply round
+     * @return the successfully allocated profiles per pipeline
      */
-    private void persistPreAppliedSlotProfiles(
-            Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures) {
+    private Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>>
+            collectPreAppliedSlotProfiles(
+                    Map<TaskGroupLocation, CompletableFuture<SlotProfile>>
+                            preApplyResourceFutures) {
         Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> profilesByPipeline =
                 new HashMap<>();
         preApplyResourceFutures.forEach(
@@ -698,19 +659,146 @@ public class JobMaster {
                                     taskGroupLocation.getPipelineLocation(), key -> new HashMap<>())
                             .put(taskGroupLocation, slotProfile);
                 });
-        profilesByPipeline.forEach(
-                (pipelineLocation, profiles) -> {
-                    try {
-                        setOwnedSlotProfiles(pipelineLocation, profiles);
-                    } catch (Exception e) {
-                        LOGGER.warning(
-                                String.format(
-                                        "Could not persist pre-applied slot ownership for pipeline %s of job %d: %s",
-                                        pipelineLocation,
+        return profilesByPipeline;
+    }
+
+    /**
+     * Persists the task-group to slot mapping of a successful pre-apply before the pipelines are
+     * deployed.
+     *
+     * <p>The mapping used to be written only when a pipeline reached {@code SCHEDULED}. A master
+     * failure between the allocation and that transition left the workers holding slots that the
+     * new master had no profile for, so it could neither reuse nor release them. Writing the exact
+     * profiles here closes that window; the profiles keep their allocation sequence, so releasing
+     * them later cannot affect a slot reassigned to another attempt.
+     *
+     * <p>{@link #setOwnedSlotProfiles} only returns once the written value is readable back, so a
+     * failure here means the ownership is unknown rather than delayed. The caller must not admit
+     * the job in that case: the slots are already allocated on the workers, and a successor master
+     * could neither reuse nor release them after an active-master switch.
+     *
+     * @param profilesByPipeline successfully allocated profiles of this pre-apply round, keyed by
+     *     pipeline
+     * @return true when every pipeline's ownership was written and confirmed
+     */
+    private boolean persistPreAppliedSlotProfiles(
+            Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> profilesByPipeline) {
+        boolean persisted = true;
+        for (Map.Entry<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> entry :
+                profilesByPipeline.entrySet()) {
+            try {
+                setOwnedSlotProfiles(entry.getKey(), entry.getValue());
+            } catch (Exception e) {
+                persisted = false;
+                LOGGER.warning(
+                        String.format(
+                                "Could not persist pre-applied slot ownership for pipeline %s of job %d: %s",
+                                entry.getKey(),
+                                jobImmutableInformation.getJobId(),
+                                ExceptionUtils.getMessage(e)));
+            }
+        }
+        return persisted;
+    }
+
+    /**
+     * Removes the ownership records a failed pre-apply may have written, before its slots are
+     * released.
+     *
+     * <p>An IMap write can commit while its acknowledgement is lost, so the record is removed
+     * explicitly instead of assuming a failed write left nothing behind. A pipeline whose record
+     * cannot be removed is returned to the caller, which must keep its slots allocated: a successor
+     * master may already have adopted them from that record, and releasing them would free slots
+     * that are in use.
+     *
+     * @param profilesByPipeline profiles of the pre-apply round that failed to persist
+     * @return pipelines whose ownership record could not be removed
+     */
+    private Set<PipelineLocation> reconcilePreAppliedSlotProfiles(
+            Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> profilesByPipeline) {
+        Set<PipelineLocation> unreconciledPipelines = new HashSet<>();
+        for (PipelineLocation pipelineLocation : profilesByPipeline.keySet()) {
+            try {
+                ownedSlotProfilesIMap.remove(pipelineLocation);
+            } catch (Exception e) {
+                unreconciledPipelines.add(pipelineLocation);
+                LOGGER.warning(
+                        String.format(
+                                "Could not clear pre-applied slot ownership for pipeline %s of job %d, keeping its slots allocated: %s",
+                                pipelineLocation,
+                                jobImmutableInformation.getJobId(),
+                                ExceptionUtils.getMessage(e)));
+            }
+        }
+        return unreconciledPipelines;
+    }
+
+    /**
+     * Releases the slots a pre-apply acquired but will not use.
+     *
+     * <p>Slots retained from the previous master are skipped: they are already accounted for by the
+     * failover restore path. Slots of a pipeline in {@code unreconciledPipelines} are skipped as
+     * well, because their ownership record still allows a successor master to adopt them.
+     *
+     * @param preApplyResourceFutures allocation futures of this pre-apply round
+     * @param reusedSlotProfiles slots retained from the previous master
+     * @param unreconciledPipelines pipelines whose ownership record could not be cleared
+     */
+    private void releaseUnusedPreAppliedResources(
+            Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures,
+            Set<SlotProfile> reusedSlotProfiles,
+            Set<PipelineLocation> unreconciledPipelines) {
+        try {
+            RetryUtils.retryWithException(
+                    () -> {
+                        resourceManager
+                                .releaseResources(
                                         jobImmutableInformation.getJobId(),
-                                        ExceptionUtils.getMessage(e)));
-                    }
-                });
+                                        preApplyResourceFutures.entrySet().stream()
+                                                .filter(
+                                                        entry -> {
+                                                            try {
+                                                                CompletableFuture<SlotProfile>
+                                                                        value = entry.getValue();
+                                                                return value != null
+                                                                        && value.join() != null
+                                                                        && !unreconciledPipelines
+                                                                                .contains(
+                                                                                        entry.getKey()
+                                                                                                .getPipelineLocation());
+                                                            } catch (CompletionException e) {
+                                                                LOGGER.warning(
+                                                                        String.format(
+                                                                                "Filtering failed resource for job %s during release: %s",
+                                                                                jobImmutableInformation
+                                                                                        .getJobId(),
+                                                                                e.getCause() != null
+                                                                                        ? e.getCause()
+                                                                                                .getMessage()
+                                                                                        : e
+                                                                                                .getMessage()));
+                                                                return false;
+                                                            }
+                                                        })
+                                                .map(entry -> entry.getValue().join())
+                                                .filter(
+                                                        slotProfile ->
+                                                                !reusedSlotProfiles.contains(
+                                                                        slotProfile))
+                                                .collect(Collectors.toList()))
+                                .join();
+                        return null;
+                    },
+                    new RetryUtils.RetryMaterial(
+                            Constant.OPERATION_RETRY_TIME,
+                            true,
+                            ExceptionUtil::isOperationNeedRetryException,
+                            Constant.OPERATION_RETRY_SLEEP));
+        } catch (Exception e) {
+            LOGGER.warning(
+                    String.format(
+                            "Pre resource application failed %s", ExceptionUtils.getMessage(e)));
+        }
     }
 
     /**
