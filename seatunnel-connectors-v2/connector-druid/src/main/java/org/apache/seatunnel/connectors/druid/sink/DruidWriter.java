@@ -43,17 +43,21 @@ import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexSupervi
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.segment.indexing.DataSchema;
 import org.apache.druid.segment.indexing.granularity.UniformGranularitySpec;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -61,6 +65,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.datatype.joda.JodaModule;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -76,6 +81,9 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private static final String DEFAULT_FIELD_DELIMITER = ",";
     private static final String TIMESTAMP_SPEC_COLUMN_NAME = "timestamp";
     private static final String DRUID_ENDPOINT = "/druid/indexer/v1/task";
+    // Bounds the diagnostic text taken from a response Druid did not accept: rejection bodies are
+    // short, and neither the log nor the failure message may carry them unbounded.
+    private static final int MAX_DIAGNOSTIC_BODY_LENGTH = 512;
 
     private int batchSize;
     private int currentBatchSize = 0;
@@ -96,12 +104,23 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             String coordinatorUrl,
             String datasource,
             int batchSize) {
+        this(seaTunnelRowType, coordinatorUrl, datasource, batchSize, HttpClients.createDefault());
+    }
+
+    /** Creates a writer that submits its indexing tasks with the given HTTP client. */
+    @VisibleForTesting
+    DruidWriter(
+            SeaTunnelRowType seaTunnelRowType,
+            String coordinatorUrl,
+            String datasource,
+            int batchSize,
+            CloseableHttpClient httpClient) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.coordinatorUrl = coordinatorUrl;
         this.datasource = datasource;
         this.batchSize = batchSize;
         this.mapper = provideDruidSerializer();
-        this.httpClient = HttpClients.createDefault();
+        this.httpClient = httpClient;
         this.dataSchema = provideDruidDataSchema();
         this.processTime = System.currentTimeMillis();
         this.data = new StringBuffer();
@@ -130,6 +149,11 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     }
 
     public void flush() throws IOException {
+        if (data.length() == 0) {
+            // Nothing accumulated since the last submission, e.g. close() right after a batch was
+            // flushed. Submitting here would create an indexing task without rows.
+            return;
+        }
         final ParallelIndexIOConfig ioConfig = provideDruidIOConfig(data);
         final ParallelIndexSupervisorTask indexTask = provideIndexTask(ioConfig);
         final String inputJSON = provideInputJSONString(indexTask);
@@ -139,16 +163,105 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         post.setHeader("Accept", "application/json, text/plain, */*");
         post.setEntity(new StringEntity(inputJSON));
 
+        final int statusCode;
+        final String responseBody;
         try (CloseableHttpResponse response = httpClient.execute(post)) {
-            String responseBody =
-                    response.getEntity() != null ? response.getEntity().toString() : "";
-            LOG.info("Druid write task has been sent, and the response is {}", responseBody);
+            final HttpEntity entity = response.getEntity();
+            responseBody =
+                    entity == null ? "" : EntityUtils.toString(entity, StandardCharsets.UTF_8);
+            statusCode = response.getStatusLine().getStatusCode();
+        }
+
+        // Druid answers 200 with the id of the indexing task it created only when it accepted the
+        // submission. Anything else throws before the buffer is cleared, so the rejected rows are
+        // not dropped silently and the failure fails the SeaTunnel task instead.
+        final String taskId = requireAcceptedTaskId(statusCode, responseBody);
+        LOG.info(
+                "Druid accepted the indexing task {} for datasource {}: status {}",
+                taskId,
+                datasource,
+                statusCode);
+        // The buffer holds every row written since it was last cleared, so without this the next
+        // flush submits the earlier batches again. Druid runs with rollup disabled, so a row sent
+        // twice is stored twice. Cleared only once Druid accepts the submission; a rejected one
+        // keeps its rows and throws, which fails the SeaTunnel task.
+        data.setLength(0);
+    }
+
+    /**
+     * Returns the id of the indexing task Druid created for the submission. A submission is
+     * accepted only when Druid answers 200 and returns the task id as a non-blank JSON string; a
+     * rejection, an unparseable body, a scalar id or a blank id all mean the batch was not taken,
+     * so each throws and the rows stay pending.
+     */
+    private String requireAcceptedTaskId(final int statusCode, final String responseBody)
+            throws IOException {
+        if (statusCode == HttpStatus.SC_OK) {
+            final JsonNode task;
+            try {
+                final JsonNode response = mapper.readTree(responseBody);
+                task = response == null ? null : response.get("task");
+            } catch (final IOException e) {
+                throw rejectedSubmission(statusCode, responseBody, e);
+            }
+            if (task != null && task.isTextual() && !task.textValue().trim().isEmpty()) {
+                return task.textValue();
+            }
+        }
+        throw rejectedSubmission(statusCode, responseBody, null);
+    }
+
+    /**
+     * The contextual failure of a submission Druid did not accept: the datasource, the HTTP status
+     * and a bounded response body.
+     */
+    private IOException rejectedSubmission(
+            final int statusCode, final String responseBody, final Throwable cause) {
+        return new IOException(
+                String.format(
+                        "Druid did not accept the indexing task for datasource %s: status %d, response body: %s",
+                        datasource, statusCode, boundedBody(responseBody)),
+                cause);
+    }
+
+    private static String boundedBody(final String responseBody) {
+        if (responseBody == null || responseBody.isEmpty()) {
+            return "<empty>";
+        }
+        if (responseBody.length() <= MAX_DIAGNOSTIC_BODY_LENGTH) {
+            return responseBody;
+        }
+        return responseBody.substring(0, MAX_DIAGNOSTIC_BODY_LENGTH) + "... (truncated)";
+    }
+
+    /**
+     * Submits the rows still buffered and closes the HTTP client. The client is closed even when
+     * the final flush is rejected: the rejection fails the SeaTunnel task, and it must not leak the
+     * client on its way out. The flush failure is the one the caller sees; a failure to close is
+     * attached to it as suppressed.
+     */
+    @Override
+    public void close() throws IOException {
+        Throwable flushFailure = null;
+        try {
+            flush();
+        } catch (IOException | RuntimeException | Error e) {
+            flushFailure = e;
+            throw e;
+        } finally {
+            try {
+                closeHttpClient();
+            } catch (IOException | RuntimeException | Error closeFailure) {
+                if (flushFailure != null) {
+                    flushFailure.addSuppressed(closeFailure);
+                } else {
+                    throw closeFailure;
+                }
+            }
         }
     }
 
-    @Override
-    public void close() throws IOException {
-        flush();
+    private void closeHttpClient() throws IOException {
         if (httpClient != null) {
             httpClient.close();
         }
@@ -224,7 +337,13 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                 null,
                 new InlineInputSource(data.toString()),
                 new CsvInputFormat(formatList, DEFAULT_LINE_DELIMITER, null, false, 0),
-                false,
+                // Append this batch to the datasource instead of replacing the segments of its
+                // time interval. Every row carries the writer's start time as its timestamp, so
+                // batches of one job land in the same interval: without appending, a job that
+                // flushes more than once would keep only the segments of its last batch. Appending
+                // is documented in the "Druid sink" entry under "dev" in
+                // docs/en/introduction/concepts/incompatible-changes.md.
+                true,
                 null);
     }
 

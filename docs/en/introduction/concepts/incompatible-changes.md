@@ -39,6 +39,14 @@ for connector requirements and the restrictions on shared physical destinations.
   - **Impact**: An endpoint that rejected the old body with an error now accepts it. A receiver written for the old body, which decodes each element as a JSON string, now receives objects and has to be changed.
   - **Migration Guide**: No configuration change is needed. If a receiver decodes each array element from a string, change it to use the element directly.
 
+### Druid sink: each batch is appended to the datasource instead of replacing the interval
+
+- **Behavior change: the Druid sink appends every batch to the datasource**
+  - **Affected component**: `seatunnel-connectors-v2/connector-druid`
+  - **Description**: The Druid sink submits one `index_parallel` indexing task per batch and now asks Druid to append that batch to the datasource (`ParallelIndexIOConfig.appendToExisting = true`) instead of replacing the segments of the time interval its rows fall into. Every row carries the writer's start time as its timestamp, so all batches of one job land in the same interval: without appending, the last batch of a job replaced the segments its earlier batches had written.
+  - **Impact**: Re-running a job keeps the rows it wrote on an earlier run instead of replacing them, and a job no longer replaces rows another job wrote into the same interval. The sink gives no exactly-once or replay guarantee: a submission Druid accepted but whose response the sink did not receive, for example after a network failure, is not deduplicated, so a retried or re-run job can write its rows again. Rows written before an upgrade are not changed.
+  - **Migration Guide**: No configuration change is needed. Before re-running a job, delete the rows the earlier run wrote if duplicates are not acceptable, or write to a new datasource. If you need the previous replacement behavior, arrange an explicit Druid replacement flow outside this connector, for example a native batch ingestion task that replaces the time interval (`appendToExisting` disabled) or a SQL-based ingestion with a `REPLACE` clause.
+
 ### Lance sink: BIGINT columns are created as int64
 
 - **Behavior change: a `BIGINT` column in a dataset the Lance sink creates is Arrow `int64`**
