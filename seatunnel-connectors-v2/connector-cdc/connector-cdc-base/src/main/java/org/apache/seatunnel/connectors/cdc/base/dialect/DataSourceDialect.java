@@ -41,8 +41,10 @@ public interface DataSourceDialect<C extends SourceConfig> extends Serializable 
 
     /**
      * Acquires resources that must exist before the enumerator assigns its first snapshot split.
+     *
+     * @param restored whether the enumerator is being restored from checkpoint state
      */
-    default void openEnumerator(C sourceConfig) {}
+    default void openEnumerator(C sourceConfig, boolean restored) {}
 
     /** Discovers the list of data collection to capture. */
     List<TableId> discoverDataCollections(C sourceConfig);

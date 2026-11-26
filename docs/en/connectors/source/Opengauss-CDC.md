@@ -229,6 +229,10 @@ server while the reader is running, so a process crash or node loss can leave an
 `*_st_backfill_*` slot. After confirming that no live reader owns it, drop such an orphaned slot
 manually to release retained WAL.
 
+When restoring from a checkpoint, the configured streaming slot must still exist. SeaTunnel fails
+the restore instead of recreating a missing slot, because a new slot can have a later confirmed
+position and silently skip WAL that the checkpoint still needs.
+
 The snapshot enumerator does not drop the configured streaming slot: an initial job keeps using that
 slot in its incremental phase. To ask Debezium's incremental reader to drop the configured slot on a
 normal shutdown, use the SeaTunnel pass-through syntax below. This setting cannot guarantee cleanup

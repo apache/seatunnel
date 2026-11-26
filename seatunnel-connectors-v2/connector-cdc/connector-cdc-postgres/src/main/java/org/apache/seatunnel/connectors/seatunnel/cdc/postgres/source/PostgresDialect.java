@@ -105,7 +105,7 @@ public class PostgresDialect implements JdbcDataSourceDialect {
      * Creates the configured streaming slot before any snapshot split records its low watermark.
      */
     @Override
-    public void openEnumerator(JdbcSourceConfig sourceConfig) {
+    public void openEnumerator(JdbcSourceConfig sourceConfig, boolean restored) {
         if (!requiresStreamingSlotForSnapshot(sourceConfig)) {
             return;
         }
@@ -124,6 +124,7 @@ public class PostgresDialect implements JdbcDataSourceDialect {
             if (slotState != null) {
                 return;
             }
+            validateStreamingSlotForRestore(slotName, restored);
 
             PostgresConnectorConfig bootstrapConfig =
                     new PostgresConnectorConfig(
@@ -164,6 +165,21 @@ public class PostgresDialect implements JdbcDataSourceDialect {
         } catch (Exception e) {
             throw new SeaTunnelException(
                     "Failed to prepare the PostgreSQL streaming replication slot", e);
+        }
+    }
+
+    /** Prevents a restored job from silently skipping WAL by recreating a missing slot. */
+    static void validateStreamingSlotForRestore(String slotName, boolean restored) {
+        if (restored) {
+            throw new SeaTunnelException(
+                    "PostgreSQL streaming replication slot '"
+                            + slotName
+                            + "' is missing while restoring the snapshot enumerator. The slot"
+                            + " cannot be recreated safely because PostgreSQL would start logical"
+                            + " replication at the new slot's confirmed position and could skip"
+                            + " WAL retained by the checkpoint. Restore the original slot state or"
+                            + " restart the job from a new initial snapshot without checkpoint"
+                            + " state.");
         }
     }
 
