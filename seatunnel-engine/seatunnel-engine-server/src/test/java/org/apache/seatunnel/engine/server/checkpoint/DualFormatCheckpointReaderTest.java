@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
+import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractCheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractChunkSupportStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.ChunkSupportStorage;
@@ -65,6 +66,13 @@ public class DualFormatCheckpointReaderTest {
 
     private AbstractChunkSupportStorage storage;
 
+    /**
+     * Write time put in the next v1 file name. The v1 getters pick the "latest" file by this time
+     * alone, so each store advances it to give test files distinct, ordered names without waiting
+     * on the wall clock.
+     */
+    private long v1WriteTime = 1_000_000L;
+
     /** The two storage plugins implementing {@link ChunkSupportStorage}. */
     enum Backend {
         LOCAL_FILE,
@@ -75,15 +83,41 @@ public class DualFormatCheckpointReaderTest {
         Map<String, String> config = new HashMap<>();
         config.put("namespace", namespace.toString());
         if (backend == Backend.LOCAL_FILE) {
-            storage = new LocalFileStorage(config);
+            storage =
+                    new LocalFileStorage(config) {
+                        @Override
+                        public String getCheckPointName(PipelineState state) {
+                            return v1Name(state);
+                        }
+                    };
         } else {
             // as LocalFileCheckPointTest: the Hadoop local file system needs winutils on Windows
             Assumptions.assumeFalse(
                     OS.WINDOWS.isCurrentOs(), "the Hadoop local file system needs winutils");
             config.put("fs.defaultFS", "file:///");
             config.put("disable.cache", "true");
-            storage = new HdfsStorage(config);
+            storage =
+                    new HdfsStorage(config) {
+                        @Override
+                        public String getCheckPointName(PipelineState state) {
+                            return v1Name(state);
+                        }
+                    };
         }
+    }
+
+    /**
+     * The production v1 file name with {@link #v1WriteTime} in place of the wall clock. It is
+     * stable for one store, since HdfsStorage asks for the name twice (temporary and final file).
+     */
+    private String v1Name(PipelineState state) {
+        return v1WriteTime
+                + "-0-"
+                + state.getPipelineId()
+                + "-"
+                + state.getCheckpointId()
+                + "."
+                + AbstractCheckpointStorage.FILE_FORMAT;
     }
 
     @ParameterizedTest
@@ -557,12 +591,13 @@ public class DualFormatCheckpointReaderTest {
     }
 
     /**
-     * Stores a v1 checkpoint file. Its name carries the write time in milliseconds, and the
-     * existing v1 getters pick the "latest" file by that time alone, keeping whichever file the
-     * directory listing returns first on a tie. Real checkpoints are seconds apart; to give test
-     * files distinct times as well, this returns only once the clock has moved past the write.
+     * Stores a v1 checkpoint file. Its name carries the write time, and the existing v1 getters
+     * pick the "latest" file by that time alone, keeping whichever file the directory listing
+     * returns first on a tie. Each call uses a later {@link #v1WriteTime}, so files stored later
+     * are deterministically newer.
      */
     private void storeV1Raw(long checkpointId, byte[] states) throws Exception {
+        v1WriteTime++;
         storage.storeCheckPoint(
                 PipelineState.builder()
                         .jobId(JOB_ID)
@@ -570,11 +605,6 @@ public class DualFormatCheckpointReaderTest {
                         .checkpointId(checkpointId)
                         .states(states)
                         .build());
-        // read after the write: at or after the time in the file name
-        long writtenAt = System.currentTimeMillis();
-        while (System.currentTimeMillis() <= writtenAt) {
-            Thread.yield();
-        }
     }
 
     /** Commits a v2 checkpoint whose payload is a real serialized {@link CompletedCheckpoint}. */
