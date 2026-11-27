@@ -48,14 +48,22 @@ public class PaimonSinkFactory implements TableSinkFactory {
         return OptionRule.builder()
                 .required(
                         PaimonSinkOptions.WAREHOUSE,
-                        PaimonSinkOptions.DATABASE,
-                        PaimonSinkOptions.TABLE)
+                        Conditions.notBlank(PaimonSinkOptions.WAREHOUSE))
+                .required(
+                        PaimonSinkOptions.DATABASE, Conditions.notBlank(PaimonSinkOptions.DATABASE))
+                .required(PaimonSinkOptions.TABLE, Conditions.notBlank(PaimonSinkOptions.TABLE))
                 .optional(
                         PaimonSinkOptions.CATALOG_NAME,
                         PaimonSinkOptions.HDFS_SITE_PATH,
                         PaimonSinkOptions.HADOOP_CONF,
                         PaimonSinkOptions.HADOOP_CONF_PATH,
                         PaimonSinkOptions.CATALOG_TYPE,
+                        PaimonSinkOptions.TOKEN_PROVIDER,
+                        PaimonSinkOptions.TOKEN,
+                        PaimonSinkOptions.DLF_ACCESS_KEY_ID,
+                        PaimonSinkOptions.DLF_ACCESS_KEY_SECRET,
+                        PaimonSinkOptions.DLF_SECURITY_TOKEN,
+                        PaimonSinkOptions.DLF_REGION,
                         PaimonSinkOptions.USER,
                         PaimonSinkOptions.PASSWORD,
                         PaimonSinkOptions.SCHEMA_SAVE_MODE,
@@ -75,6 +83,11 @@ public class PaimonSinkFactory implements TableSinkFactory {
                         PaimonSinkOptions.CATALOG_TYPE,
                         PaimonCatalogEnum.HIVE,
                         PaimonSinkOptions.CATALOG_URI)
+                .conditional(
+                        PaimonSinkOptions.CATALOG_TYPE,
+                        PaimonCatalogEnum.REST,
+                        PaimonSinkOptions.CATALOG_URI,
+                        PaimonSinkOptions.TOKEN_PROVIDER)
                 .build();
     }
 

@@ -29,15 +29,15 @@ Assert 是一个用于校验任务输出结果的数据接收器。它可以按�
 |------------------------------------------------------------------------------------------------|-------------------------------------------------|----------|---------|
 | rules                                                                                          | ConfigMap                                       | 是       | -       |
 | rules.field_rules                                                                              | ConfigList                                      | 否       | -       |
-| rules.field_rules.field_name                                                                   | string\|ConfigMap                               | 是       | -       |
-| rules.field_rules.field_type                                                                   | string                                          | 否       | -       |
+| rules.field_rules.field_name                                                                   | string                                          | 是       | -       |
+| rules.field_rules.field_type                                                                   | string\|ConfigMap                               | 否       | -       |
 | rules.field_rules.field_value                                                                  | ConfigList                                      | 否       | -       |
 | rules.field_rules.field_value.rule_type                                                        | string                                          | 否       | -       |
 | rules.field_rules.field_value.rule_value                                                       | numeric                                         | 否       | -       |
 | rules.field_rules.field_value.equals_to                                                        | boolean\|numeric\|string\|ConfigList\|ConfigMap | 否       | -       |
 | rules.row_rules                                                                                | ConfigList                                      | 否       | -       |
 | rules.row_rules.rule_type                                                                      | string                                          | 否       | -       |
-| rules.row_rules.rule_value                                                                     | string                                          | 否       | -       |
+| rules.row_rules.rule_value                                                                     | numeric                                         | 否       | -       |
 | rules.catalog_table_rule                                                                       | ConfigMap                                       | 否       | -       |
 | rules.catalog_table_rule.primary_key_rule                                                      | ConfigMap                                       | 否       | -       |
 | rules.catalog_table_rule.primary_key_rule.primary_key_name                                     | string                                          | 否       | -       |
@@ -54,7 +54,8 @@ Assert 是一个用于校验任务输出结果的数据接收器。它可以按�
 | rules.catalog_table_rule.column_rule.column_length                                             | int                                             | 否       | -       |
 | rules.catalog_table_rule.column_rule.nullable                                                  | boolean                                         | 否       | -       |
 | rules.catalog_table_rule.column_rule.default_value                                             | string                                          | 否       | -       |
-| rules.catalog_table_rule.column_rule.comment                                                   | comment                                         | 否       | -       |
+| rules.catalog_table_rule.column_rule.comment                                                   | string                                          | 否       | -       |
+| rules.catalog_table_rule.column_rule.sink_type                                                 | string                                          | 否       | -       |
 | rules.table-names                                                                              | ConfigList                                      | 否       | -       |
 | rules.tables_configs                                                                           | ConfigList                                      | 否       | -       |
 | rules.tables_configs.table_path                                                                | String                                          | 否       | -       |
@@ -78,6 +79,8 @@ Assert 是一个用于校验任务输出结果的数据接收器。它可以按�
 ### field_type [string | ConfigMap]
 
 字段类型。字段类型应符合此[指南](../../introduction/concepts/schema-feature.md#如何声明支持的类型)。
+
+该配置项可选。未配置时，连接器使用上游输入行中该字段的实际类型对字段值进行类型校验，因此无需重复声明字段类型。配置后，字段值必须与声明的类型一致，否则该行校验失败并导致任务失败。两种情况下类型校验都只作用于非空值，且 `field_value` 中的规则始终使用输入行中该字段的实际类型进行判断；是否允许为空由 `field_value` 中的 `NOT_NULL`、`NULL` 规则决定。
 
 ### field_value [ConfigList]
 
@@ -111,6 +114,10 @@ Assert 是一个用于校验任务输出结果的数据接收器。它可以按�
 ### catalog_table_rule [ConfigMap]
 
 用于断言实际 Catalog 表元数据是否与用户定义的表元数据一致。
+
+`column_rule` 会把实际产出的字段与声明的字段逐一比较。`sink_type` 是可选项：声明之后，产出字段的 sink
+类型必须与之一致，适用于会声明 sink 类型的转换，例如
+[DefineSinkType](../../transforms/define-sink-type.md)；不声明时不校验该字段的 sink 类型。
 
 ### table-names [ConfigList]
 
@@ -147,7 +154,7 @@ Assert 是一个终端 sink —— 没有外部存储系统可以写入。它适
 
 ## 流式校验
 
-Assert 同时支持 `BATCH` 与 `STREAMING` 两种作业模式。字段规则（如 `NOT_NULL`、`MIN_LENGTH`、`MAX_LENGTH` 等）会在每一条记录到达 Sink Writer 时进行检查；行数规则（`MIN_ROW` / `MAX_ROW`）只在 Sink Writer 关闭时（作业关闭、savepoint 或失败时）执行一次，对比的是该 Writer 实例自创建以来累计接收的总行数，既不会按 checkpoint 窗口重复校验，也不会在 checkpoint 之间重置。如果需要真正按 checkpoint 窗口的行数校验，这超出了文档更新范围，需要改动源代码。
+Assert 同时支持 `BATCH` 与 `STREAMING` 两种作业模式。字段规则（如 `NOT_NULL`、`MIN_LENGTH`、`MAX_LENGTH` 等）会在每一条记录到达 Sink Writer 时进行检查；行数规则（`MIN_ROW` / `MAX_ROW`）只在 Sink Writer 关闭时（作业关闭、savepoint 或失败时）执行一次。行数计数器由同一张表的所有并行 Writer（Flink 子任务、同一节点上的 Zeta 并行任务）共享，因此规则对比的是该表在进程内所有 Writer 累计的总行数，并由该表最后关闭的 Writer 执行校验；既不会按 checkpoint 窗口重复校验，也不会在 checkpoint 之间重置。如果需要真正按 checkpoint 窗口的行数校验，这超出了文档更新范围，需要改动源代码。
 
 ## 示例
 

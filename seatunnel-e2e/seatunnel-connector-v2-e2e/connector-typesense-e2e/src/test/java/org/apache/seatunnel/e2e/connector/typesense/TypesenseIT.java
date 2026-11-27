@@ -131,6 +131,15 @@ public class TypesenseIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testCompositeKeyEncodingAvoidsDocumentIdCollisions(TestContainer container)
+            throws Exception {
+        Container.ExecResult result =
+                container.executeJob("/fake_to_typesense_composite_key_encoding.conf");
+        Assertions.assertEquals(0, result.getExitCode());
+        Assertions.assertEquals(2, typesenseClient.search(sinkCollection, null, 0).getFound());
+    }
+
+    @TestTemplate
     public void testFakeToTypesenseWithRecreateSchema(TestContainer container) throws Exception {
         List<Field> fields = new ArrayList<>();
         fields.add(new Field().name("T").type(FieldTypes.BOOL));

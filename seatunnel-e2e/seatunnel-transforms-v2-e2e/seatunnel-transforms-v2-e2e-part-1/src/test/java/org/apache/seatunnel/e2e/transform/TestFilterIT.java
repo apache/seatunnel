@@ -29,7 +29,8 @@ public class TestFilterIT extends TestSuiteBase {
 
     @TestTemplate
     public void testFilter(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/filter_transform.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/filter_transform/filter_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -37,7 +38,17 @@ public class TestFilterIT extends TestSuiteBase {
     public void testFilterMultiTable(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/filter_transform_multi_table.conf");
+                container.executeJob("/filter_transform/filter_transform_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    @TestTemplate
+    public void testFilterTableTransformOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/filter_transform/filter_transform_table_transform_only.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

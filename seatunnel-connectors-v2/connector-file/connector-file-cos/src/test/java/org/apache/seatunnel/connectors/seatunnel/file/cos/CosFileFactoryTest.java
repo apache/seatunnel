@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.cos;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.cos.sink.CosFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.cos.source.CosFileSourceFactory;
 
@@ -29,5 +31,34 @@ public class CosFileFactoryTest {
     void optionRule() {
         Assertions.assertNotNull((new CosFileSourceFactory()).optionRule());
         Assertions.assertNotNull((new CosFileSinkFactory()).optionRule());
+    }
+
+    @Test
+    void consumedOptionsAreDeclared() {
+        OptionRule optionRule = (new CosFileSourceFactory()).optionRule();
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.READ_PARTITIONS));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.CSV_USE_HEADER_LINE));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.BINARY_CHUNK_SIZE));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.FILE_FILTER_MODIFIED_START));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.FILE_FILTER_MODIFIED_END));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME));
     }
 }

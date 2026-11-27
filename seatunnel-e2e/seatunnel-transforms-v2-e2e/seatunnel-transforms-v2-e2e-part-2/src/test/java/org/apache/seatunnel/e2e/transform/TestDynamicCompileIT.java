@@ -73,10 +73,10 @@ public class TestDynamicCompileIT extends TestSuiteBase implements TestResource 
                                                                                         "Can not get config file of mockServer"))
                                                                 .getPath())
                                                 .getAbsolutePath()),
-                                TMP_DIR + "/mockserver-config.json")
+                                TMP_DIR + "/llm_transform/mockserver-config.json")
                         .withEnv(
                                 "MOCKSERVER_INITIALIZATION_JSON_PATH",
-                                TMP_DIR + "/mockserver-config.json")
+                                TMP_DIR + "/llm_transform/mockserver-config.json")
                         .withEnv("MOCKSERVER_LOG_LEVEL", "WARN")
                         .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
                         .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));
@@ -259,5 +259,16 @@ public class TestDynamicCompileIT extends TestSuiteBase implements TestResource 
                 execResult.getExitCode(),
                 "Mixed three languages (Java + Groovy + Scala) compilation test failed. Error: "
                         + execResult.getStderr());
+    }
+
+    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    @TestTemplate
+    public void testTableTransformOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob(
+                        basePath
+                                + "single_dynamic_java_compile_transform_table_transform_only.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

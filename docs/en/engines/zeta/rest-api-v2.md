@@ -82,12 +82,15 @@ seatunnel:
 - If HTTP and `enable-dynamic-port = true` are enabled, the actual listening port may not be 8080. Jetty chooses the first available port between `port` and `port + port-range`. Use the Jetty startup log `SeaTunnel REST service started on http port xxx` as the source of truth. `/logs` and `/loggers?scope=cluster` resolve and report each member's actual bound HTTP port. The configured `port` remains unchanged, including when members share an HTTP configuration object.
 - If `context-path = /seatunnel`, both the Web UI and REST endpoints move under that prefix. For example, the overview endpoint becomes `/seatunnel/overview`.
 - The Web UI static resources and REST endpoints share the same Jetty service. If Jetty does not start, both are unavailable together.
+- If the address bar shows a Web UI route such as `/#/overview` but the page is the Jetty `HTTP ERROR 404 Not Found` page with `URI: /%23/overview`, the client sent the URL fragment percent-encoded. A node that serves the Web UI answers such a `GET` or `HEAD` request with `302` and `Location: <context-path>/#<route>`, so the browser lands on the route it meant to open. `curl -i --path-as-is 'http://<host>:8080/%23/overview'` shows that redirect, and when `context-path` is configured the redirect keeps the prefix.
 
 ## Enable HTTPS
 
 Please refer [security](security.md)
 
 ## API reference
+
+The [OpenAPI 3.1 contract for the read-only REST v2 subset](openapi-v2.yaml) currently covers `GET /overview` and `GET /resource/workers` only. Other endpoints below remain documented here but are not yet included in the machine-readable contract. The spec is maintained alongside the servlet route registrations and response tests. Configure the generated client's base URL for your listener, port, and optional context path. Basic authentication depends on your server configuration; use HTTPS when sending credentials beyond localhost.
 
 ### Get Connector Option Rules
 
@@ -175,7 +178,7 @@ Please refer [security](security.md)
     "conditionRules": [],
     "valueConstraints": [
       {
-        "expression": "'row.num' >= 1",
+        "expression": "'row.num' >= 0",
         "conditionTree": {
           "option": {
             "key": "row.num",
@@ -185,7 +188,7 @@ Please refer [security](security.md)
             "fallbackKeys": [],
             "optionValues": null
           },
-          "expectValue": 1,
+          "expectValue": 0,
           "compareOperator": ">=",
           "compareOption": null,
           "conditionOperator": "GREATER_OR_EQUAL",
@@ -224,6 +227,23 @@ Please refer [security](security.md)
 - `requiredOptions[].ruleType` can be `ABSOLUTELY_REQUIRED`, `EXCLUSIVE`, `BUNDLED`, or `CONDITIONAL`.
 - `optionRule.conditionRules` recursively exposes nested conditional option rules and is an empty array when the connector does not define nested rules.
 - For conditional rules, both `expression` and `expressionTree` are returned for dynamic form rendering.
+- Conditional required options and nested rules store each predicate in `expressionTree.condition`. The expression node links to the next predicate. This excerpt shows the links for `A OR B AND C`, which evaluates as `A || (B && C)`. Only the option keys and links are shown.
+
+  ```json
+  {
+    "expressionTree": {
+      "condition": {"option": {"key": "a"}},
+      "operator": "OR",
+      "next": {
+        "condition": {"option": {"key": "b"}},
+        "operator": "AND",
+        "next": {"condition": {"option": {"key": "c"}}}
+      }
+    }
+  }
+  ```
+
+- In standalone `valueConstraints[].conditionTree`, the condition nodes themselves carry `operator` and `next`. The CLI uses the same precedence. [CLI metadata export](../../architecture/configuration-and-option-system.md#export-connector-metadata)
 - `optionRule.valueConstraints` describes value-level validation rules such as numeric ranges, string patterns, and cross-field comparisons. Each entry provides a human-readable `expression` string alongside a structured `conditionTree` for programmatic use. This array is empty when the connector does not define any value constraints.
 - Within `conditionTree`, the `compareOperator` field is `null` for `EQUAL` and otherwise uses the operator symbol exposed by the runtime rule (for example `>=`, `is not blank`, or `extension`). The `compareOption` field is populated only for cross-field comparisons.
 - `conditionOperator` is a stable operator identifier. Possible values include `EQUAL`, `GREATER_OR_EQUAL`, `NOT_BLANK`, `FIELD_LESS_THAN`, `EXTENSION`, etc. `conditionOperatorCategory` indicates the operator category, such as `NUMERIC`, `STRING`, `COLLECTION`, `EQUALITY`, `EXTENSION`, etc.
@@ -248,11 +268,11 @@ Please refer [security](security.md)
 
 ```json
 {
-    "projectVersion":"2.3.10-SNAPSHOT",
+    "projectVersion":"3.1.1-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
-    "works":"1",
+    "workers":"1",
     "runningJobs":"0",
     "pendingJobs":"0",
     "finishedJobs":"0",
@@ -262,8 +282,8 @@ Please refer [security](security.md)
 ```
 
 **Notes:**
-- If you use `dynamic-slot`, the `totalSlot` and `unassignedSlot` always be `0`. when you set it to fix slot number, it will return the correct total and unassigned slot number
-- If the url has tag filter, the `works`, `totalSlot` and `unassignedSlot` will return the result on the matched worker. but the job related metric will always return the cluster level information.
+- If you use `dynamic-slot`, the `unassignedSlot` is always `0` because dynamic slots are created on demand and never pre-registered; `totalSlot` reflects the number of slots currently assigned to jobs. When you set `dynamic-slot: false` with a fixed slot number, it will return the correct total and unassigned slot number
+- If the url has tag filter, the `workers`, `totalSlot` and `unassignedSlot` will return the result on the matched worker. but the job related metric will always return the cluster level information.
 
 </details>
 
@@ -354,6 +374,7 @@ None.
     "envOptions": {
     },
     "createTime": "",
+    "startTime": "",
     "jobDag": {
       "jobId": "",
       "envOptions": [],
@@ -373,12 +394,45 @@ None.
     ],
     "isStartWithSavePoint": false,
     "metrics": {
-      "sourceReceivedCount": "",
-      "sinkWriteCount": ""
+      "SourceReceivedCount": "",
+      "SinkWriteCount": ""
     }
   }
 ]
 ```
+
+**Notes:**
+- The `metrics` object keys follow the engine metric names: besides `SourceReceivedCount` and `SinkWriteCount` it also contains the `SinkCommitted*`, `*Bytes`, `*Qps`, `IntermediateQueueSize`, `FlushSignal*` and `Table*` entries when the job exposes them.
+- When the `page` parameter is supplied, the response is wrapped as `{"data": [...], "total": n}` (same as `/finished-jobs`); without paging the bare array above is returned.
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### Get Running Jobs Summary
+
+<details>
+ <summary><code>GET</code> <code><b>/running-jobs/summary</b></code> <code>(Returns a lightweight running-job list without DAG or metrics.)</code></summary>
+
+#### Parameters
+
+None.
+
+#### Responses
+
+```json
+[
+  {
+    "jobId": "733584788375666689",
+    "jobName": "rest_api_test",
+    "jobStatus": "RUNNING",
+    "createTime": "2024-08-01 12:00:00"
+  }
+]
+```
+
+**Notes:**
+- This is a cheap variant of `/running-jobs` used by the Web UI: it returns only `jobId`, `jobName`, `jobStatus` and `createTime` per job and skips DAG and metrics decoding.
 
 </details>
 
@@ -503,7 +557,7 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
 
 - **queueSummary** – overview of the entire pending queue.
   - `size`: number of jobs currently pending.
-  - `scheduleStrategy`: strategy in use (e.g. `WAIT`, `FAIL_FAST`) that dictates what happens when resources are insufficient.
+  - `scheduleStrategy`: strategy in use (e.g. `WAIT`, `REJECT`) that dictates what happens when resources are insufficient.
   - `oldestEnqueueTimestamp` / `newestEnqueueTimestamp`: timestamps (ms) of the oldest/latest job in the queue.
   - `lackingTaskGroups`: total TaskGroup count still waiting for slots. **Note**: This value reflects only the jobs included in the current response (i.e., the subset limited by the `limit` parameter or filtered by `jobId`), not the entire pending queue. To view the complete statistics for all pending jobs, call this API without the `limit` parameter.
 - **clusterSnapshot** – cluster resource snapshot (can be filtered by tags).
@@ -561,6 +615,7 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
   "jobName": "",
   "jobStatus": "",
   "createTime": "",
+  "startTime": "",
   "jobDag": {
     "jobId": "",
     "envOptions": [],
@@ -603,7 +658,7 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
     "TableSinkCommittedBytes": {},
     "TableSinkCommittedBytesPerSeconds": {}
   },
-  "finishedTime": "",
+  "finishTime": "",
   "errorMsg": null,
   "envOptions": {
   },
@@ -625,6 +680,10 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
         "pipelineStatus": "RUNNING",
         "restoreCount": 7,
         "maxRestoreCount": 100,
+        "restoreCauses": [
+          "restore 6: org.apache.seatunnel.common.exception.SeaTunnelRuntimeException: ErrorCode:[JDBC-05] ... Connection refused",
+          "restore 7: org.apache.seatunnel.common.exception.SeaTunnelRuntimeException: ErrorCode:[JDBC-05] ... Connection refused"
+        ],
         "stateTimestamps": {
           "INITIALIZING": 1755000000000,
           "CREATED": 1755000000200,
@@ -639,13 +698,18 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
-`finishedTime`, `errorMsg` will return when job is finished.
+`finishTime`, `errorMsg` will return when job is finished.
 `diagnostics` will return when the job is running and its diagnostics can be read from the master
 node. It is auxiliary information: if it can not be obtained, the field is omitted instead of
 failing the request. Only this endpoint returns it; `/running-jobs` does not, because collecting it
 for every running job would cost one more round trip to the master per job.
+
+`diagnostics` is read from the master's in-memory job state, so like `restoreCount` it describes
+this master's view of the job rather than its whole history. After a master switch the restore
+counters and `restoreCauses` start again from the recovered job, and causes recorded by the
+previous master are not carried over.
 
 #### Metrics field description
 
@@ -678,14 +742,15 @@ for every running job would cost one more round trip to the master per job.
 | pipelines[].pipelineStatus | Current pipeline state |
 | pipelines[].restoreCount | How many times this pipeline has been restored since the job was submitted. A value that keeps growing while `jobStatus` stays `RUNNING` is a crash loop |
 | pipelines[].maxRestoreCount | Restore limit of this pipeline, from the `job.retry.times` env option |
+| pipelines[].restoreCauses | Why earlier runs of this pipeline ended, oldest first, one entry per restore. The engine keeps only the current attempt's error, so without this a crash loop can be detected from `restoreCount` but not explained. Each entry is truncated, and the list is capped at the last 16 restores. A restore with no recorded error is still listed, because "restarted for an unknown reason" is a different state from "restarted because the sink refused the connection" |
 | pipelines[].stateTimestamps | Epoch millis when the pipeline entered each state. After a restore, the timestamps of the new attempt overwrite the previous ones |
 | totalPipelineRestoreCount | Sum of `restoreCount` over all pipelines of the job |
 
-When we can't get the job info, the response will be:
+When we can't get the job info, the response contains only the requested `jobId`:
 
 ```json
 {
-  "jobId" : ""
+  "jobId" : "733584788375666689"
 }
 ```
 
@@ -714,6 +779,7 @@ This API has been deprecated, please use /job-info/:jobId instead
   "jobName": "",
   "jobStatus": "",
   "createTime": "",
+  "startTime": "",
   "jobDag": {
     "jobId": "",
     "envOptions": [],
@@ -739,6 +805,10 @@ This API has been deprecated, please use /job-info/:jobId instead
     "SinkWriteQPS": "",
     "SinkWriteBytes": "",
     "SinkWriteBytesPerSeconds": "",
+    "SinkCommittedCount": "",
+    "SinkCommittedQPS": "",
+    "SinkCommittedBytes": "",
+    "SinkCommittedBytesPerSeconds": "",
     "TableSourceReceivedCount": {},
     "TableSourceReceivedBytes": {},
     "TableSourceReceivedBytesPerSeconds": {},
@@ -746,9 +816,13 @@ This API has been deprecated, please use /job-info/:jobId instead
     "TableSinkWriteCount": {},
     "TableSinkWriteQPS": {},
     "TableSinkWriteBytes": {},
-    "TableSinkWriteBytesPerSeconds": {}
+    "TableSinkWriteBytesPerSeconds": {},
+    "TableSinkCommittedCount": {},
+    "TableSinkCommittedQPS": {},
+    "TableSinkCommittedBytes": {},
+    "TableSinkCommittedBytesPerSeconds": {}
   },
-  "finishedTime": "",
+  "finishTime": "",
   "errorMsg": null,
   "envOptions": {
   },
@@ -758,15 +832,15 @@ This API has been deprecated, please use /job-info/:jobId instead
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
-`finishedTime`, `errorMsg` will return when job is finished.
+`finishTime`, `errorMsg` will return when job is finished.
 
-When we can't get the job info, the response will be:
+When we can't get the job info, the response contains only the requested `jobId`:
 
 ```json
 {
-  "jobId" : ""
+  "jobId" : "733584788375666689"
 }
 ```
 
@@ -805,6 +879,7 @@ starting beyond the end of the result set also returns `400`, while a page start
     "jobStatus": "",
     "errorMsg": null,
     "createTime": "",
+    "startTime": "",
     "finishTime": "",
     "jobDag": {
       "jobId": "",
@@ -910,8 +985,8 @@ Each member is asked in parallel and awaited against one shared deadline (`seatu
 > | jobId                | optional | string    | job id                                                   |
 > | jobName              | optional | string    | job name                                                 |
 > | isStartWithSavePoint | optional | string    | if job is started with save point                        |
-> | restoreMode          | optional | string    | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. Used together with `restoreSourceJobId`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
-> | restoreSourceJobId   | optional | string    | The job id to restore from when `restoreMode` is set. When only `isStartWithSavePoint` is set (no `restoreMode`), this falls back to `jobId`. |
+> | restoreMode          | optional | string    | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
+> | restoreSourceJobId   | optional | string    | ID of the job to restore. Required for `CHECKPOINT`. In `SAVEPOINT` mode, the server uses `jobId` if this parameter is omitted. |
 > | format               | optional | string    | config format, support json, hocon and sql, default json |
 
 **Note:** The dry-run feature is intentionally not supported via the REST API. It is exclusively available through the SeaTunnel CLI.
@@ -919,6 +994,8 @@ Each member is asked in parallel and awaited against one shared deadline (`seatu
 #### Body
 
 You can choose json, hocon or sql to pass request body.
+For JSON submissions, every key is parsed as a SeaTunnel config path expression: `a->b` creates nested config, while a dot such as in `job.mode` is not a path separator. Keys whose path expression cannot be parsed (for example regex field names such as `^t_nova_.*$`, or keys containing reserved characters such as `$`, `:` or `${...}`) are kept as literal keys instead of failing the request. Parsable keys keep the existing semantics: quotes are removed and surrounding unquoted whitespace is trimmed. The same rule applies to batch submissions.
+For HOCON submissions the body is parsed by the HOCON parser first, so a key containing a reserved character must be quoted in the body: write `"$systemId" = "string"` instead of `$systemId = "string"`. Quoting a key in HOCON does not override the path semantics used during decryption. Keys rejected by the path parser are kept literal; valid expressions such as `a->b` are parsed as paths.
 The json format example:
 ``` json
 {
@@ -1025,7 +1102,7 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 
 ```json
 {
-    "jobId": 733584788375666689,
+    "jobId": "733584788375666689",
     "jobName": "rest_api_test"
 }
 ```
@@ -1046,8 +1123,8 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 > | jobId                | optional | string    | job id                            |
 > | jobName              | optional | string    | job name                          |
 > | isStartWithSavePoint | optional | string    | if job is started with save point |
-> | restoreMode          | optional | string    | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. Used together with `restoreSourceJobId`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
-> | restoreSourceJobId   | optional | string    | The job id to restore from when `restoreMode` is set. When only `isStartWithSavePoint` is set (no `restoreMode`), this falls back to `jobId`. |
+> | restoreMode          | optional | string    | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
+> | restoreSourceJobId   | optional | string    | ID of the job to restore. Required for `CHECKPOINT`. In `SAVEPOINT` mode, the server uses `jobId` if this parameter is omitted. |
 
 #### Request Body
 The name of the uploaded file key is config_file, and supports the following formats:
@@ -1074,7 +1151,7 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 
 ```json
 {
-    "jobId": 733584788375666689,
+    "jobId": "733584788375666689",
     "jobName": "SeaTunnel_Job"
 }
 ```
@@ -1211,7 +1288,7 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 
 ```json
 {
-"jobId": 733584788375666689
+"jobId": "733584788375666689"
 }
 ```
 
@@ -1418,13 +1495,11 @@ If the parameter is an empty `Map` object, it means that the tags of the current
 
 #### Request Parameters
 
-#### Parameters (to be added in the `params` field of the request body)
-
 > |    Parameter Name     |   Required   |  Type   |            Description            |
 > |-----------------------|--------------|---------|------------------------------------|
-> | jobId                 |   optional   | string  | job id                            |
+> | jobId                 |   optional   | string  | job id, appended as the path segment `/logs/{jobId}` |
 
-If `jobId` is empty, the request will return logs from all nodes. Otherwise, it will return the list of logs for the specified `jobId` from all nodes.
+If `jobId` is omitted, the request will return logs from all nodes. Otherwise, it will return the list of logs for the specified `jobId` from all nodes.
 
 #### Response
 
@@ -1501,8 +1576,8 @@ Returns a list of logs from the requested node.
 
 #### Examples
 
-To get a list of logs from the current node: `http://localhost:5801/log`
-To get the content of a log file: `http://localhost:5801/log/job-898380162133917698.log`
+To get a list of logs from the current node: `http://localhost:8080/log`
+To get the content of a log file: `http://localhost:8080/log/job-898380162133917698.log`
 
 Log content is limited by `seatunnel.engine.http.log-response-max-size-mb` in the same way as the
 all-node endpoint above.
@@ -1704,6 +1779,7 @@ More information about `Telemetry` can be found in the [Telemetry](telemetry.md)
 ```json
 {
   "jobId": "1234567890",
+  "generatedAt": 1720000006500,
   "updatedAt": 1720000000123,
   "pipelines": [
     {
@@ -1766,7 +1842,8 @@ More information about `Telemetry` can be found in the [Telemetry](telemetry.md)
 | Field | Description |
 | --- | --- |
 | `jobId` | Job ID. |
-| `updatedAt` | Latest snapshot timestamp (millisecond). |
+| `generatedAt` | When this response was produced, in epoch milliseconds, taken from the clock of the member that served it. Always present, including when there is no overview to report. Use this, not `updatedAt`, to work out how long an `inProgress` checkpoint has been running: subtract its `triggerTimestamp` from this value. That subtraction assumes member clocks are NTP-synchronised: when the master cannot be reached the request is served by another member, so the two timestamps can come from different nodes. |
+| `updatedAt` | When the overview was last written, in epoch milliseconds — that is, the time of the most recent checkpoint event (trigger, acknowledgement, completion, failure or restore). It does **not** advance while a checkpoint is simply waiting, so it is not a response timestamp and cannot be used to age an in-progress checkpoint. Absent when the monitor has nothing recorded for the job. |
 | `pipelines` | List of pipeline statistics. |
 | `pipelines[].pipelineId` | Pipeline ID. |
 | `pipelines[].counts.triggered/completed/failed/inProgress/restored` | Checkpoint statistics:<br/>- `triggered`: total triggered checkpoints.<br/>- `completed`: total successful checkpoints.<br/>- `failed`: total failed checkpoints.<br/>- `inProgress`: checkpoints currently running.<br/>- `restored`: number of restore (including savepoint) attempts. |
@@ -1861,9 +1938,20 @@ See [Realtime Observability](realtime-observability.md) for configuration and me
       "retentionMinutes": 3,
       "latestBucketStartMs": 1700000000000
     }
-  ]
+  ],
+  "collector": {
+    "pollIntervalMs": 5000,
+    "fetchTimeoutMs": 3000,
+    "lastCollectStartMs": 1700000000000,
+    "lastCollectEndMs": 1700000001200,
+    "lastRawMetricsFetchCostMs": 120,
+    "lastRawMetricsBlobs": 2,
+    "collectFailureCount": 0
+  }
 }
 ```
+
+The `collector` object reports the realtime collector lifecycle on the master (poll interval, last collection timings and the failure counter).
 
 </details>
 

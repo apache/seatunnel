@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.TableTransformRuleValidator;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
@@ -41,19 +42,37 @@ public class RegexExtractTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder()
-                .required(RegexExtractTransformConfig.KEY_SOURCE_FIELD)
-                .required(RegexExtractTransformConfig.KEY_REGEX_PATTERN)
-                .required(
-                        RegexExtractTransformConfig.KEY_OUTPUT_FIELDS,
-                        Conditions.notEmpty(RegexExtractTransformConfig.KEY_OUTPUT_FIELDS))
-                .optional(
-                        RegexExtractTransformConfig.KEY_DEFAULT_VALUES,
-                        Conditions.extension(
+        // The rule of a single table: the source field, the pattern and the produced fields,
+        // optionally with default values for unmatched groups.
+        OptionRule tableRule =
+                OptionRule.builder()
+                        .required(RegexExtractTransformConfig.KEY_SOURCE_FIELD)
+                        .required(RegexExtractTransformConfig.KEY_REGEX_PATTERN)
+                        .required(
+                                RegexExtractTransformConfig.KEY_OUTPUT_FIELDS,
+                                Conditions.notEmpty(RegexExtractTransformConfig.KEY_OUTPUT_FIELDS))
+                        .optional(
                                 RegexExtractTransformConfig.KEY_DEFAULT_VALUES,
-                                new DefaultValuesLengthValidator()))
+                                Conditions.extension(
+                                        RegexExtractTransformConfig.KEY_DEFAULT_VALUES,
+                                        new DefaultValuesLengthValidator()))
+                        .build();
+        return OptionRule.builder()
                 .optional(
-                        TransformCommonOptions.MULTI_TABLES, TransformCommonOptions.RULE_MATCH_MODE)
+                        RegexExtractTransformConfig.KEY_SOURCE_FIELD,
+                        RegexExtractTransformConfig.KEY_REGEX_PATTERN,
+                        RegexExtractTransformConfig.KEY_OUTPUT_FIELDS,
+                        RegexExtractTransformConfig.KEY_DEFAULT_VALUES)
+                .optional(
+                        TransformCommonOptions.MULTI_TABLES,
+                        Conditions.extension(
+                                TransformCommonOptions.MULTI_TABLES,
+                                new TableTransformRuleValidator(tableRule)))
+                .optional(TransformCommonOptions.RULE_MATCH_MODE)
+                .conditionalRule(
+                        TransformCommonOptions.MULTI_TABLES,
+                        TransformCommonOptions.MULTI_TABLES.defaultValue(),
+                        tableRule)
                 .build();
     }
 

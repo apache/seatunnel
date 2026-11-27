@@ -27,11 +27,13 @@ import ChangeLog from '../changelog/connector-typesense.md';
 | 名称                       | 类型     | 是否必须 | 默认值                          | 描述                                                |
 |--------------------------|--------|------|------------------------------|---------------------------------------------------|
 | hosts                    | array  | 是    | -                            | Typesense 节点地址，格式为 `host:port`，支持配置多个地址。        |
+| protocol                 | string | 否    | http                         | 连接 Typesense 使用的协议。Typesense Cloud 等启用 TLS 的节点请使用 `https`。 |
 | collection               | string | 是    | -                            | 目标 collection 名。                                 |
 | schema_save_mode         | string | 是    | CREATE_SCHEMA_WHEN_NOT_EXIST | 写入前如何处理目标 collection 结构。                         |
 | data_save_mode           | string | 是    | APPEND_DATA                  | 写入前如何处理目标 collection 中已有文档。                      |
 | primary_keys             | array  | 否    | -                            | 用于生成 Typesense 文档 `id` 的源字段。                     |
 | key_delimiter            | string | 否    | `_`                          | `primary_keys` 配置多个字段时使用的拼接分隔符。                  |
+| key_encoding             | enum   | 否    | LEGACY                       | 可选的复合文档 ID 防冲突编码方式。                             |
 | api_key                  | string | 是    | -                            | Typesense API Key。                                 |
 | max_retry_count          | int    | 否    | 3                            | 单个批量请求的最大重试次数。                                  |
 | max_batch_size           | int    | 否    | 10                           | 单个批量请求最多写入的文档数量。                                |
@@ -41,6 +43,10 @@ import ChangeLog from '../changelog/connector-typesense.md';
 ### hosts [array]
 
 Typesense 的访问地址，格式为 `host:port`，例如：`["typesense-01:8108"]`。配置多个节点时，每个 Writer 只持有一个客户端，不会把写入请求在节点之间负载均衡。
+
+### protocol [string]
+
+连接 Typesense 使用的协议。默认值为 `http`，Typesense Cloud 请使用 `https`。
 
 ### collection [string]
 
@@ -53,6 +59,12 @@ Typesense 的访问地址，格式为 `host:port`，例如：`["typesense-01:810
 ### key_delimiter [string]
 
 设定复合键的分隔符（默认为 `_`）。
+
+### key_encoding [enum]
+
+`LEGACY`（默认）保持现有 ID 不变，但字段值包含 `key_delimiter` 时复合键可能发生 ID 冲突。`LENGTH_PREFIXED` 将每个格式化后的字段值按 `<长度>:<值>` 编码：`["1_1", "2"]` 生成 `3:1_11:2`，`["1", "1_2"]` 生成 `1:13:1_2`。该模式忽略 `key_delimiter`，单字段主键的 ID 不变。
+
+对已有复合键 collection 切换此选项会改变文档 ID。切换前应迁移或重新创建已有文档，否则后续写入可能创建重复文档，而不是更新原文档。
 
 ### api_key [string]
 
@@ -95,7 +107,11 @@ Typesense collection 创建时会使用上游 SeaTunnel 表结构。如果希望
 
 :::tip
 
-连接器使用 Typesense 的批量导入接口。`UPDATE` 和 `DELETE` 行类型不会被解释为 CDC 操作 —— 每条上游记录都会按生成的文档 `id` 被 upsert 到目标 collection。如果希望重复作业行为类似 upsert 而不是追加，可以把 `data_save_mode` 设为 `DROP_DATA`，并配置稳定的 `primary_keys`。
+连接器会按 CDC 行类型处理数据：`INSERT` 和 `UPDATE_AFTER` 记录会通过 Typesense 的批量导入接口按生成的文档 `id` upsert 到目标 collection，`UPDATE_BEFORE` 记录会被跳过，`DELETE` 记录会删除对应生成的 `id` 的文档。请配置 `primary_keys`，保证文档 `id` 在 CDC 事件间保持稳定。
+
+写入器会立即发送删除请求，先到达的 upsert 可能仍在批次中等待刷新。
+当 `max_batch_size > 1` 时，缓冲的 upsert 可能在同一 ID 被删除后重新创建该文档。
+将 `max_batch_size` 设置为 `1` 可保持同一个 sink 写入器内的事件顺序。
 
 :::
 

@@ -75,7 +75,7 @@ the sink may run in environments where the Sentry server is not always reachable
 If loading properties from external sources (such as `sentry.properties` on the classpath) is enabled.
 Set this to `true` to let the Sentry SDK pick up environment-specific configuration files.
 
-### maxCacheItems [number]
+### maxCacheItems [int]
 
 The maximum number of cached events before the SDK starts dropping older ones. Defaults to `30` when
 not set.
@@ -84,7 +84,7 @@ not set.
 
 Controls how many milliseconds to wait while flushing pending events when the writer closes.
 
-### maxQueueSize [number]
+### maxQueueSize [int]
 
 Maximum queue size before events are flushed to disk. Increase this when the sink produces events
 faster than the network can drain them.

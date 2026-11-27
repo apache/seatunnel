@@ -40,19 +40,31 @@ import os
 import re
 import subprocess
 import time
-import urllib.request
-import urllib.error
 from pathlib import Path
+
+from . import rest
 
 logger = logging.getLogger(__name__)
 
 # ─── Runtime API client ───
 
-# Default REST API base — SeaTunnel engine HTTP port.
-# In cluster mode (seatunnel-server.sh): REST API on port 5801 by default.
+# Default REST API base — the engine's Jetty HTTP port, 8080.
+#
+# Not 5801. Every endpoint this CLI calls (/running-jobs, /option-rules,
+# /submit-job, /job-info) is registered as a Jetty servlet in JettyService and
+# served on `seatunnel.engine.http.port`, which is 8080 both as the code
+# default and in the packaged config/seatunnel.yaml. Port 5801 is the
+# Hazelcast member port: there the same handlers answer only under
+# RestConstant.CONTEXT_PATH ("/hazelcast/rest/maps") and only when Hazelcast's
+# own REST API is enabled, which the packaged config does not do. A base URL
+# of localhost:5801 therefore returns 404 for every call the CLI makes.
+#
 # In local mode (-m local): REST API is NOT available.
-# Users can override with SEATUNNEL_API_BASE env var.
-_ENGINE_API_BASE = os.environ.get("SEATUNNEL_API_BASE", "http://localhost:5801")
+# Users can override with SEATUNNEL_API_BASE env var — needed when
+# enable-dynamic-port moves the listener off 8080, when a non-empty
+# seatunnel.engine.http.context-path mounts every servlet under a prefix
+# (the code default is empty), or for a remote cluster.
+_ENGINE_API_BASE = os.environ.get("SEATUNNEL_API_BASE", "http://localhost:8080")
 _API_CACHE: dict[str, dict] = {}  # memory cache: "source:Jdbc" → parsed response
 _ENGINE_AVAILABLE: bool | None = None  # None = not checked yet
 _ENGINE_CHECK_TS: float = 0  # timestamp of last check — recheck after 60s
@@ -72,12 +84,7 @@ def _check_engine() -> bool:
     now = time.monotonic()
     if _ENGINE_AVAILABLE is not None and (now - _ENGINE_CHECK_TS) < 60:
         return _ENGINE_AVAILABLE
-    try:
-        req = urllib.request.Request(f"{_ENGINE_API_BASE}/running-jobs", method="GET")
-        with urllib.request.urlopen(req, timeout=2) as resp:
-            _ENGINE_AVAILABLE = resp.status == 200
-    except Exception:
-        _ENGINE_AVAILABLE = False
+    _ENGINE_AVAILABLE = rest.is_reachable(f"{_ENGINE_API_BASE}/running-jobs", timeout=2)
     _ENGINE_CHECK_TS = now
     return _ENGINE_AVAILABLE
 
@@ -127,13 +134,10 @@ def _fetch_option_rules(plugin_type: str, plugin_name: str) -> dict | None:
     if _check_engine():
         try:
             url = f"{_ENGINE_API_BASE}/option-rules?type={plugin_type}&plugin={plugin_name}"
-            req = urllib.request.Request(url, method="GET")
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                if resp.status == 200:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    _API_CACHE[cache_key] = data
-                    _write_disk_cache(cache_key, data)
-                    return data
+            data = rest.request_json(url, timeout=5)
+            _API_CACHE[cache_key] = data
+            _write_disk_cache(cache_key, data)
+            return data
         except Exception as e:
             logger.debug(f"option-rules API call failed for {cache_key}: {e}")
 
@@ -543,6 +547,79 @@ def _find_metadata_export_sh() -> str | None:
 
 # ─── Unified metadata fetcher (two-tier priority) ───
 
+def _connector_lookup_key(name: str) -> str:
+    """Reduce a connector name to what is the same across spellings.
+
+    Case and separators carry no meaning in a plugin name, so `jdbc`, `JDBC`
+    and `Jdbc` are one connector, and `mysql-cdc`, `MySQL-CDC` and `MySqlCdc`
+    are another.
+    """
+    return re.sub(r"[^a-z0-9]", "", (name or "").lower())
+
+
+def canonicalize_connector(
+    name: str, plugin_type: str | None = None,
+) -> tuple[str | None, list[str]]:
+    """Resolve a plan's connector name to a registered one.
+
+    Returns `(canonical_name, candidates)`. `canonical_name` is set only when
+    the name resolves to exactly one registered connector; otherwise it is
+    `None` and `candidates` lists the registered names the caller could have
+    meant.
+
+    Resolution is deliberately limited to spellings of the same name --
+    case, separators, and for transforms a trailing "transform" (so
+    `SQLTransform` resolves to `Sql`). It does **not** guess at abbreviations:
+    `File` is not resolved to `LocalFile`, because 13 registered connectors
+    end in `File` (`LocalFile`, `S3File`, `OssFile`, `HdfsFile`, `SftpFile`
+    and more), and silently choosing one would point a job at the wrong
+    storage system. Those names come back as candidates instead, which is
+    information the caller can act on; a wrong guess is not.
+    """
+    registered: list[str] = []
+    try:
+        catalog = list_connector_names()
+    except Exception:  # noqa: BLE001 - registry unavailable is not fatal here
+        return (None, [])
+    buckets = {"source": "sources", "sink": "sinks", "transform": "transforms"}
+    keys = [buckets[plugin_type]] if plugin_type in buckets else list(buckets.values())
+    for key in keys:
+        registered.extend(catalog.get(key, []))
+
+    if name in registered:
+        return (name, [])
+
+    # De-duplicate first. Several connectors are registered under more than one
+    # type -- `Jdbc` is both a source and a sink -- so without this a lookup
+    # that is not scoped to a type sees the same name twice and calls one
+    # connector ambiguous with itself.
+    index: dict[str, list[str]] = {}
+    for candidate in dict.fromkeys(registered):
+        index.setdefault(_connector_lookup_key(candidate), []).append(candidate)
+
+    wanted = _connector_lookup_key(name)
+    for probe in [wanted] + (
+        # `SQLTransform` is the transform `Sql` with its kind spelled out.
+        [wanted[: -len("transform")]]
+        if plugin_type == "transform" and wanted.endswith("transform")
+        and len(wanted) > len("transform")
+        else []
+    ):
+        matches = index.get(probe, [])
+        if len(matches) == 1:
+            return (matches[0], [])
+        if len(matches) > 1:
+            return (None, sorted(matches))
+
+    # No spelling of this name is registered. Offer the names that contain it,
+    # which is how `File` surfaces the file connectors.
+    near = sorted(
+        candidate for key, names in index.items() for candidate in names
+        if wanted and (wanted in key or key in wanted)
+    )
+    return (None, near)
+
+
 def fetch_connector_metadata(
     plugin_name: str, plugin_type: str,
 ) -> dict | None:
@@ -572,7 +649,26 @@ def fetch_connector_metadata(
             logger.info(f"Metadata for {plugin_type}:{plugin_name} from runtime JSON")
             return detail
 
-    logger.warning(f"No metadata found for {plugin_type}:{plugin_name}")
+    # Tier 3: the name as written is not registered, but a different spelling
+    # of it may be. Planner output is free text, so `jdbc`, `MYSQL-CDC` and
+    # `SQLTransform` all reach here for connectors whose metadata exists.
+    # Only reached once the name as given has already failed, so a lookup that
+    # worked before behaves identically.
+    canonical, candidates = canonicalize_connector(plugin_name, plugin_type)
+    if canonical and canonical != plugin_name:
+        logger.info(
+            f"Resolved {plugin_type}:{plugin_name} to registered name "
+            f"{canonical}"
+        )
+        return fetch_connector_metadata(canonical, plugin_type)
+
+    if candidates:
+        logger.warning(
+            f"No metadata found for {plugin_type}:{plugin_name} — "
+            f"registered names it could mean: {', '.join(candidates)}"
+        )
+    else:
+        logger.warning(f"No metadata found for {plugin_type}:{plugin_name}")
     return None
 
 
@@ -732,6 +828,7 @@ KEYWORD_ALIASES: dict[str, list[str]] = {
     "rabbitmq": ["RabbitMQ"],
     "rocketmq": ["RocketMQ"],
     "activemq": ["ActiveMQ"],
+    "jms": ["Jms"],
     "mqtt": ["Mqtt"],
     "sqs": ["AmazonSqs"],
 

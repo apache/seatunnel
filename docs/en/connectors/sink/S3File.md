@@ -128,6 +128,7 @@ If write to `csv`, `text` file type, All column will be string.
 | is_enable_transaction                 | boolean | no       | true                                                  |                                                                                                                                                                                 |
 | batch_size                            | int     | no       | 1000000                                               |                                                                                                                                                                                 |
 | compress_codec                        | string  | no       | none                                                  |                                                                                                                                                                                 |
+| multi_table_sink_replica              | int     | no       | 1                                                     | The replica number of sink writers used for each table in a multi-table sink job.                                                                                               |
 | common-options                        | object  | no       | -                                                     |                                                                                                                                                                                 |
 | max_rows_in_memory                    | int     | no       | -                                                     | Only used when file_format is excel.                                                                                                                                            |
 | sheet_max_rows                        | int     | no       | 1048576                                               | Only used when file_format is excel.                                                                                                                                            |
@@ -147,6 +148,9 @@ If write to `csv`, `text` file type, All column will be string.
 | enable_header_write                   | boolean | no       | false                                                 | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.                                                                                   |
 | encoding                              | string  | no       | "UTF-8"                                               | Only used when file_format_type is json,text,csv,xml.                                                                                                                           |
 | merge_update_event                    | boolean | no       | false                                                 | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data |
+| date_format                           | string  | no       | yyyy-MM-dd                                            | Only used when file_format_type is `text`, `csv`, `excel` or `xml`. Date type format, used to tell connector how to write date values. Supported formats (examples): `yyyy-MM-dd`, `yyyy.MM.dd`, `yyyy/MM/dd`. |
+| datetime_format                       | string  | no       | yyyy-MM-dd HH:mm:ss                                   | Only used when file_format_type is `text`, `csv`, `excel` or `xml`. Datetime type format, used to tell connector how to write datetime values. Supported formats (examples): `yyyy-MM-dd HH:mm:ss`, `yyyy.MM.dd HH:mm:ss`, `yyyy/MM/dd HH:mm:ss`, `yyyyMMddHHmmss`. |
+| time_format                           | string  | no       | HH:mm:ss                                              | Only used when file_format_type is `text`, `csv`, `excel` or `xml`. Time type format, used to tell connector how to write time values. Supported formats (examples): `HH:mm:ss`, `HH:mm:ss.SSS`. |
 
 ### path [string]
 
@@ -278,7 +282,7 @@ When file format is Excel, the maximum number of rows per sheet.
 
 Writer the sheet of the workbook
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 When File Format is CSV,The string quote mode of CSV.
 

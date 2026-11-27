@@ -52,37 +52,47 @@ Read data from Apache Paimon.
 
 ## Options
 
-| name                    | type     | required       | default value |
-|-------------------------|----------|----------------|---------------|
-| warehouse               | String   | Yes            | -             |
-| catalog_name            | String   | No             | paimon        |
-| catalog_type            | String   | No             | filesystem    |
-| catalog_uri             | String   | Yes when `catalog_type` is `hive` | -             |
-| database                | String   | Yes            | -             |
-| table                   | String   | Yes when `table_list` is absent | -             |
-| table_list              | array    | Yes when `table` is absent | -             |
-| user                    | String   | No             | -             |
-| password                | String   | No             | -             |
-| hdfs_site_path          | String   | No             | -             |
-| query                   | String   | No             | -             |
-| paimon.hadoop.conf      | Map      | No             | -             |
-| paimon.hadoop.conf-path | String   | No             | -             |
+| name                    | type     | required       | default value | description                                                                                                                  |
+|-------------------------|----------|----------------|---------------|------------------------------------------------------------------------------------------------------------------------------|
+| warehouse               | String   | Yes            | -             | Paimon warehouse path. For `rest`, use the managed warehouse name instead of a path.                                                                                                       |
+| catalog_name            | String   | No             | paimon        | The name of the Paimon catalog.                                                                                              |
+| catalog_type            | String   | No             | filesystem    | Catalog type of Paimon, supports `filesystem`, `hive` and `rest`.                                                                    |
+| catalog_uri             | String   | Yes when `catalog_type` is `hive` or `rest` | -             | Catalog URI of Paimon: the Hive metastore URI, or the REST catalog endpoint. Required when `catalog_type` is `hive` or `rest`.                                                                |
+| token.provider          | String   | Yes when `catalog_type` is `rest` | -             | Authentication provider for the REST catalog: exactly `bear` or `dlf`. |
+| token                   | String   | Yes when `token.provider` is `bear` | -             | Bearer token for the REST catalog. |
+| dlf.access-key-id       | String   | Yes when `token.provider` is `dlf` | -             | DLF access key ID. |
+| dlf.access-key-secret   | String   | Yes when `token.provider` is `dlf` | -             | DLF access key secret. |
+| dlf.security-token      | String   | No             | -             | Optional temporary DLF security token. |
+| dlf.region              | String   | No             | -             | DLF region. Inferred from `catalog_uri` when omitted. |
+| database                | String   | Yes when `table_list` is absent | -             | The database you want to access. Not used when reading via `table_list`; each `table_list` item carries its own `database`.  |
+| table                   | String   | Yes when `table_list` is absent | -             | The table you want to access. Configure exactly one of `table` and `table_list`.                                              |
+| table_list              | array    | Yes when `table` is absent | -             | The list of tables to read. Each item must contain `database` and `table`, and may contain its own `query`.                                  |
+| user                    | String   | No             | -             | The Paimon user used to access the table (for example, with a `hive` catalog that enables authentication).                   |
+| password                | String   | No             | -             | The Paimon user password. Required when `user` is configured.                                                                 |
+| hdfs_site_path          | String   | No             | -             | The file path of `hdfs-site.xml`. Deprecated; prefer `paimon.hadoop.conf` or `paimon.hadoop.conf-path` for new jobs.        |
+| query                   | String   | No             | -             | The filter condition applied to the table read. If not specified, all rows are read.                                         |
+| paimon.hadoop.conf      | Map      | No             | -             | Properties applied to the Hadoop configuration.                                                                              |
+| paimon.hadoop.conf-path | String   | No             | -             | The loading path for `core-site.xml`, `hdfs-site.xml`, and `hive-site.xml` files.                                            |
 
 ### warehouse [string]
 
-Paimon warehouse path
+Paimon warehouse path, or the managed warehouse name for REST catalogs. Must not be blank.
+
+### catalog_name [string]
+
+The name of the Paimon catalog. Default value is `paimon`.
 
 ### catalog_type [string]
 
-Catalog type of Paimon, support filesystem and hive
+Catalog type of Paimon. Supports `filesystem`, `hive` and `rest`. Default value is `filesystem`.
 
 ### catalog_uri [string]
 
-Catalog URI of Paimon. This option is required when `catalog_type` is `hive`.
+Catalog URI of Paimon. Required when `catalog_type` is `hive` (for example, `thrift://hadoop04:9083`) or `rest` (the REST catalog endpoint, for example `https://dlf.cn-hangzhou.aliyuncs.com`).
 
 ### database [string]
 
-The database you want to access
+The database you want to access.
 
 ### table [string]
 
@@ -90,7 +100,29 @@ The table you want to access. Configure exactly one of `table` and `table_list`.
 
 ### table_list [array]
 
-The list of tables to read. Configure exactly one of `table` and `table_list`. Each item must contain `table`, and can contain its own `query`.
+The list of tables to read. Configure exactly one of `table` and `table_list`. Each item must contain `database` and `table`, and may contain its own `query` filter.
+
+```hocon
+table_list = [
+  {
+    database = "default"
+    table = "table1"
+    query = "select * from table1 where id > 100"
+  },
+  {
+    database = "default"
+    table = "table2"
+  }
+]
+```
+
+### user [string]
+
+The Paimon user used to access the table. Use it together with `password`. This is mainly required when the underlying catalog enforces authentication.
+
+### password [string]
+
+The Paimon user password. Required when `user` is configured.
 
 ### hdfs_site_path [string]
 
@@ -123,7 +155,7 @@ The field data types currently supported by where conditions are as follows:
 * timestamp
 * time
 
-### paimon.hadoop.conf [string]
+### paimon.hadoop.conf [map]
 
 Properties in hadoop conf
 
@@ -137,6 +169,58 @@ If you use the s3 filesystem. You can configure the `fs.s3a.access-key`、`fs.s3
 Besides, the warehouse should start with `s3a://`.
 
 ## Examples
+
+### REST catalog authentication
+
+`catalog_type = "rest"` uses the REST implementation included in Paimon 1.1.1. Set `catalog_uri` to the HTTPS catalog endpoint and `warehouse` to the managed warehouse **name**, not an HDFS/S3 path. The REST server supplies table locations; workers still need access and credentials for the underlying storage. Existing filesystem and Hive configurations are unchanged.
+
+For REST, `catalog_uri` must be an HTTP or HTTPS URL with a host and no user information. Use HTTPS outside loopback testing: HTTP to a non-loopback host produces a warning because authentication credentials travel in clear text. `token.provider` is required and accepts exactly `bear` or `dlf`. `bear` requires a non-blank `token`; `dlf` requires both `dlf.access-key-id` and `dlf.access-key-secret`.
+
+Bearer tokens and DLF credentials are masked in parsed-configuration logs. For configuration encryption, `token` is included in the default `shade.identifier` handling; add the DLF secret keys explicitly to `shade.options` to encrypt and decrypt them. Log masking alone does not encrypt configuration. Do not put credentials in endpoint URLs. Supply secrets through environment variables or your deployment's secret mechanism.
+
+Only explicitly configured Hadoop storage properties are forwarded to REST. Catalog and authentication keys (`uri`, `warehouse`, `metastore`, `token`, `token.*`, `dlf.*`, including `hadoop.`-prefixed forms) are rejected in `paimon.hadoop.conf` and the configured Hadoop XML files. Configure REST authentication with the top-level options shown below. `dlf.token-path`, `dlf.token-loader`, `dlf.token-ecs-*`, and `token.refresh-time` are not supported in this version and cannot be enabled through `paimon.hadoop.conf`.
+
+Parsed-configuration masking does not redact dependency logs. Paimon 1.1.1 logs Hadoop storage-property values, which may include credentials, when `org.apache.paimon.utils.HadoopUtils` DEBUG logging is enabled. Keep this logger at INFO or higher when using credential-bearing storage configuration.
+
+Paimon 1.1.1's shared OkHttp client follows cross-host redirects and forwards `x-dlf-security-token`, although it strips bearer `Authorization`. Use trusted catalog endpoints that do not redirect to another host; do not rely on redirects to protect DLF temporary credentials. This dependency limitation is not changed by the connector.
+
+Bearer example:
+
+```hocon
+source {
+  Paimon {
+    catalog_type = "rest"
+    catalog_uri = "https://catalog.example.com"
+    warehouse = "managed-warehouse"
+    database = "example_db"
+    table = "example_table"
+    "token.provider" = "bear"
+    token = ${PAIMON_REST_TOKEN}
+  }
+}
+```
+
+DLF example (replace `catalog_uri` with your DLF endpoint):
+
+```hocon
+source {
+  Paimon {
+    catalog_type = "rest"
+    catalog_uri = "https://catalog.example.com"
+    warehouse = "managed-warehouse"
+    database = "example_db"
+    table = "example_table"
+    "token.provider" = "dlf"
+    "dlf.access-key-id" = ${DLF_ACCESS_KEY_ID}
+    "dlf.access-key-secret" = ${DLF_ACCESS_KEY_SECRET}
+    "dlf.security-token" = ${?DLF_SECURITY_TOKEN}
+    "dlf.region" = "cn-hangzhou"
+  }
+}
+```
+
+`dlf.security-token` is optional and only needed for temporary credentials. `dlf.region` may be omitted if Paimon can infer it from the DLF endpoint. The connector forwards static credentials; it does not implement automatic refresh of temporary credentials. Live DLF authentication and cloud-storage permissions must be verified in the target deployment.
+
 
 ### Simple example
 
@@ -159,10 +243,12 @@ source {
     database = "default"
     table_list = [
       {
+        database = "default"
         table = "table1"
         query = "select * from table1 where id > 100"
       },
       {
+        database = "default"
         table = "table2"
         query = "select * from table2 where id > 100"
       }
@@ -259,18 +345,33 @@ source {
 }
 ```
 
-## Changelog
+### paimon enable privilege example
+
+```hocon
+source {
+ Paimon {
+     warehouse = "/tmp/paimon"
+     database = "default"
+     table = "st_test"
+     user = "paimon"
+     password = "******"
+   }
+}
+```
+
+## Read Paimon Table Changelog
 If you want to read the changelog of the Paimon table, first set the `changelog-producer` for the Paimon source table and then use the SeaTunnel stream task to read it.
 
 ### Note
 
-Currently, batch reads are always the latest snapshot read, so to read full changelog data, you need to use stream reads and start stream reads before writing data to the Paimon table, and to ensure order, the parallelism of the stream read task should be set to 1.
+Currently, batch reads are always the latest snapshot read, so to read full changelog data, you need to use stream reads and start stream reads before writing data to the Paimon table. To ensure ordering, the parallelism of the stream read task should be set to 1.
 
 ### Streaming read example
+
 ```hocon
 env {
   parallelism = 1
-  job.mode = "Streaming"
+  job.mode = "STREAMING"
 }
 
 source {
@@ -291,20 +392,6 @@ sink {
 }
 ```
 
-### paimon enable privilege example
-
-```hocon
-source {
- Paimon {
-     warehouse = "/tmp/paimon"
-     database = "default"
-     table = "st_test"
-     user = "paimon"
-     password = "******"
-   }
-}
-```
-
 ## FAQ
 
 ### Which read modes does the Paimon source support?
@@ -313,11 +400,13 @@ The SeaTunnel Paimon source supports both batch snapshot queries and streaming c
 
 ### How do I configure storage and catalog backends for Paimon?
 
-Configure `warehouse` pointing to the storage root (e.g. `hdfs:///paimon/warehouse`, `s3a://bucket/warehouse`, or local path) and set `paimon.catalog.type` (such as `filesystem` or `hive`). Required storage or authentication properties can be provided via `paimon.hadoop.conf`.
+Configure `warehouse` pointing to the storage root (e.g. `hdfs:///paimon/warehouse`, `s3a://bucket/warehouse`, or local path) and set `catalog_type` (such as `filesystem` or `hive`). Required storage or authentication properties can be provided via `paimon.hadoop.conf`.
+
+For `catalog_type = "rest"`, use the managed warehouse name instead of a storage path and set `catalog_uri` and the catalog authentication options shown above. Storage properties still belong in `paimon.hadoop.conf`; they are separate from REST catalog credentials.
 
 ### Does Paimon source support column projection?
 
-Yes. The Paimon source reads only the projection fields defined in the SeaTunnel job schema, avoiding unnecessary column deserialization and optimizing read performance on columnar formats like ORC and Parquet.
+Yes. The Paimon source reads only the columns listed in the `SELECT` clause of the `query` option (for example, `select id, name from st_test`). Columns that are not selected are not read, avoiding unnecessary column deserialization and improving read performance on columnar formats like ORC and Parquet. Note that a job-level `schema` block is not used for column projection.
 
 ## Changelog
 

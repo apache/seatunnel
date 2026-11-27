@@ -271,11 +271,20 @@ class SessionManager:
         return data.get("conversation_history", []), data.get("last_config")
 
     def list_sessions(self, limit: int = 10) -> list[dict]:
+        if limit <= 0:
+            return []
         result = []
-        for f in sorted(self.sessions_dir.glob("*.json"), reverse=True):
+        for f in self.sessions_dir.glob("*.json"):
             try:
                 with open(f, "r", encoding="utf-8") as fh:
                     data = json.load(fh)
+                if not isinstance(data, dict) or any(
+                    not isinstance(data.get(key, fallback), str)
+                    for key, fallback in (
+                        ("session_id", f.stem), ("created_at", ""), ("last_active", "")
+                    )
+                ):
+                    continue
                 result.append({
                     "session_id": data.get("session_id", f.stem),
                     "created_at": data.get("created_at", ""),
@@ -285,20 +294,20 @@ class SessionManager:
                 })
             except Exception:
                 continue
-            if len(result) >= limit:
-                break
-        return result
+        # A resumed session keeps its creation-time ID, so filenames do not
+        # identify the session most recently used. Apply the limit after sorting.
+        result.sort(
+            key=lambda session: (
+                session["last_active"] or session["created_at"],
+                session["session_id"],
+            ),
+            reverse=True,
+        )
+        return result[:limit]
 
     def get_latest_session_id(self) -> str | None:
-        files = sorted(self.sessions_dir.glob("*.json"), reverse=True)
-        if files:
-            try:
-                with open(files[0], "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                return data.get("session_id", files[0].stem)
-            except Exception:
-                pass
-        return None
+        sessions = self.list_sessions(limit=1)
+        return sessions[0]["session_id"] if sessions else None
 
     def update_summary(self, summary: str) -> None:
         if not self.current_session_id:
@@ -309,7 +318,7 @@ class SessionManager:
         try:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            data["summary"] = summary
+            data["summary"] = redact_credentials(summary)
             _atomic_write(path, data)
         except Exception:
             pass
@@ -318,18 +327,20 @@ class SessionManager:
         if len(conversation_history) < 2:
             return ""
         snippets = []
-        for msg in conversation_history[:4] + conversation_history[-2:]:
+        summary_history = conversation_history[:4] + conversation_history[-2:]
+        for msg in _redact_conversation_history(summary_history):
             for block in msg.get("content", []):
                 if "text" in block:
                     snippets.append(f"{msg['role']}: {block['text'][:200]}")
         conversation_text = "\n".join(snippets)[:1500]
 
-        return client.quick_chat(
+        summary = client.quick_chat(
             f"Summarize this SeaTunnel conversation in one sentence (max 80 chars, "
             f"language should match the conversation):\n\n{conversation_text}",
             system="Output ONLY the summary sentence, nothing else.",
             use_fast_model=True,
         ).strip()
+        return redact_credentials(summary)
 
 
 # ─── Memory Store ───

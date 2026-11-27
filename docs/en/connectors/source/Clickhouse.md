@@ -40,13 +40,17 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 |                                                             Clickhouse Data Type                                                              | SeaTunnel Data Type |
 |-----------------------------------------------------------------------------------------------------------------------------------------------|---------------------|
 | String / Int128 / UInt128 / Int256 / UInt256 / Point / Ring / Polygon MultiPolygon                                                            | STRING              |
-| Int8 / UInt8 / Int16 / UInt16 / Int32                                                                                                         | INT                 |
-| UInt64 / Int64 / IntervalYear / IntervalQuarter / IntervalMonth / IntervalWeek / IntervalDay / IntervalHour / IntervalMinute / IntervalSecond | BIGINT              |
+| Int8                                                                                                                                          | TINYINT             |
+| Int16 / UInt8                                                                                                                                 | SMALLINT            |
+| Int32 / UInt16                                                                                                                                | INT                 |
+| Int64 / UInt32 / UInt64 / IntervalYear / IntervalQuarter / IntervalMonth / IntervalWeek / IntervalDay / IntervalHour / IntervalMinute / IntervalSecond | BIGINT       |
+| Bool                                                                                                                                          | BOOLEAN             |
 | Float64                                                                                                                                       | DOUBLE              |
 | Decimal                                                                                                                                       | DECIMAL             |
 | Float32                                                                                                                                       | FLOAT               |
 | Date                                                                                                                                          | DATE                |
-| DateTime                                                                                                                                      | TIME                |
+| DateTime / DateTime32 / DateTime64                                                                                                            | TIMESTAMP           |
+| UUID / IPv4 / IPv6                                                                                                                            | STRING              |
 | Array                                                                                                                                         | ARRAY               |
 | Map                                                                                                                                           | MAP                 |
 
@@ -60,6 +64,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | table_list        | Array  | NO       | -                      | The list of tables to be read.                                                                                                                                                                                                                                                                              |
 | clickhouse.config | Map    | No       | -                      | In addition to the above mandatory parameters that must be specified by `clickhouse-jdbc` , users can also specify multiple optional parameters, which cover all the [parameters](https://github.com/ClickHouse/clickhouse-jdbc/tree/master/clickhouse-client#configuration) provided by `clickhouse-jdbc`. |
 | server_time_zone  | String | No       | ZoneId.systemDefault() | The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone.                                                                                                                                                                                |
+| split.size        | Int    | No       | Integer.MAX_VALUE      | The number of ClickHouse parts grouped into each SeaTunnel split at the outer source level. Only used when a single table's `table_list` configuration is flattened to the outer layer; inside `table_list` entries configure `split_size` instead. The minimum value is `1`. Smaller values create more splits for higher parallelism. |
 | common-options    |        | No       | -                      | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                          |
 
 Table list configuration:
@@ -74,6 +79,8 @@ Table list configuration:
 | batch_size        | int    | NO       | 1024                   | The maximum rows of data that can be obtained by reading from Clickhouse once.                                                                                                                                                                                                                              |
 
 Note: When this configuration corresponds to a single table, you can flatten the configuration items in table_list to the outer layer. In that flattened form, configure `split.size` instead of `split_size`.
+
+Note: Each `table_list` entry (or the flattened outer-level configuration) must set at least one of `table_path` or `sql`. The connector fails with `table_path` and `sql` parameter cannot be both empty when both are missing.
 
 ## Parallel Reader
 The Clickhouse source connector supports parallel reading of data.
@@ -197,26 +204,30 @@ sink {
 ```
 
 ### Multiple table
+
+When `table_list` contains multiple entries, SeaTunnel emits one row stream per upstream table and uses `${table_name}` in
+the downstream connector to route each stream to the matching target. Combine this with the Clickhouse sink's
+`table = "${table_name}_multi_table_sink"` style configuration to land each upstream table in its own target table.
+
 ```hocon
 env {
   job.mode = "BATCH"
-  parallelism = 5
+  parallelism = 3
 }
 
 source {
   Clickhouse {
     host = "localhost:8123"
-    username = "xxx"
-    password = "xxx"
+    username = "default"
+    password = ""
     table_list = [
       {
-        table_path = "default.table1"
-        sql = "select * from default.table1 where id > 2 and type = 1"
+        table_path = "default.source_table"
+        sql = "select * from source_table"
       },
       {
-        table_path = "default.table2"
-        sql = "select * from default.table2 where age > 18"
-        split_size = 1
+        table_path = "default.source_merge_tree_table"
+        filter_query = "id < 47"
       }
     ]
     server_time_zone = "UTC"
@@ -226,13 +237,45 @@ source {
   }
 }
 
-# Console printing of the read Clickhouse data
+# Each upstream table is written to a separate target table.
 sink {
-  Console {
-    parallelism = 1
+  Clickhouse {
+    host = "localhost:8123"
+    database = "default"
+    table = "${table_name}_multi_table_sink"
+    username = "default"
+    password = ""
   }
 }
 ```
+
+## FAQ
+
+### How do I read only some partitions or rows of a ClickHouse table?
+
+Prefer `partition_list` to filter partitions or `filter_query` to apply a server-side predicate. Both avoid full-table
+scans when the upstream table is large. Combine them with `sql` if you also need to project specific columns; in that
+case the connector runs in SQL mode and uses the partition/filter hints alongside the user query.
+
+### When should I use SQL mode vs query table mode?
+
+Use SQL mode (`sql` is set) when you need joins, aggregations, subqueries, or projections on multiple tables. Use
+query table mode (`table_path` only) when you want to read one logical table with parallel `system.parts`-based
+splits and the lowest read latency. The connector falls back to single parallelism for any SQL that needs to run
+on a single shard, even when a higher `parallelism` is configured.
+
+### How do I tune read throughput and memory pressure?
+
+The two main knobs are `split.size` (how many ClickHouse parts are grouped into one SeaTunnel split) and `batch_size`
+(how many rows are pulled per round-trip). Decrease `split.size` to raise parallelism on small part counts, and
+increase `batch_size` to amortise round-trip cost on larger parts. The `clickhouse.config` map exposes every
+`clickhouse-jdbc` option for further tuning, for example `socket_timeout`.
+
+### How are `table_list` and a single `table_path` related?
+
+When the configuration has exactly one logical table, you can flatten the table-list entry to the outer level and
+configure `split.size` (note the dot) instead of `split_size`. With multiple entries in `table_list`, keep each
+table's options inside its own entry and keep `split_size` inside the entry.
 
 ## Changelog
 

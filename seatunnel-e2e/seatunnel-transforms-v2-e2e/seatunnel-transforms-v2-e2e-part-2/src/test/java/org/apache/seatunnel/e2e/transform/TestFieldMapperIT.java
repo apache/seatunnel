@@ -29,11 +29,13 @@ public class TestFieldMapperIT extends TestSuiteBase {
 
     @TestTemplate
     public void testFieldMapper(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/field_mapper_transform.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/field_mapper_transform/field_mapper_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
         Container.ExecResult execResult1 =
-                container.executeJob("/field_mapper_transform_without_result_table.conf");
+                container.executeJob(
+                        "/field_mapper_transform/field_mapper_transform_without_result_table.conf");
         Assertions.assertEquals(0, execResult1.getExitCode());
     }
 
@@ -41,7 +43,18 @@ public class TestFieldMapperIT extends TestSuiteBase {
     public void testFieldMapperMultiTable(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/field_mapper_transform_multi_table.conf");
+                container.executeJob(
+                        "/field_mapper_transform/field_mapper_transform_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    @TestTemplate
+    public void testFieldMapperTableTransformOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/field_mapper_transform/field_mapper_transform_table_transform_only.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

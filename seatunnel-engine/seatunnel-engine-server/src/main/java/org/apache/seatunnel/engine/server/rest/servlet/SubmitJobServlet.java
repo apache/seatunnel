@@ -41,7 +41,8 @@ public class SubmitJobServlet extends BaseServlet {
     @Override
     public void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
 
-        Map<String, String> requestParams = getParameterMap(req);
+        // The job config is the request body, so the parameters come from the query string only
+        Map<String, String> requestParams = getQueryParameterMap(req);
         ConfigFormat configFormat = ConfigFormat.fromString(requestParams.get(CONFIG_FORMAT));
         writeJson(resp, jobInfoService.submitJob(requestParams, requestBody(req, configFormat)));
     }

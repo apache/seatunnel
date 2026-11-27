@@ -32,7 +32,7 @@ Neo4j Sink 连接器通过执行 Cypher 语句把 SeaTunnel 数据写入 Neo4j�
 | kerberos_ticket            | String  | 否    | -          | 用于 Neo4j 认证的 Kerberos ticket。                                                                             |
 | database                   | String  | 是    | -          | Neo4j 数据库名。                                                                                                |
 | query                      | String  | 是    | -          | 写入数据使用的 Cypher 语句。`ONE_BY_ONE` 模式使用 `$name` 这类占位符；`BATCH` 模式使用 `UNWIND $batch AS row`。             |
-| queryParamPosition         | Object  | 仅 ONE_BY_ONE | -          | Cypher 参数名和输入行字段位置的映射。`write_mode = "ONE_BY_ONE"` 时必须填写。                                               |
+| queryParamPosition         | map     | 仅 ONE_BY_ONE | -          | Cypher 参数名和输入行字段位置的映射。`write_mode = "ONE_BY_ONE"` 时必须填写。                                               |
 | max_batch_size             | Integer | 否    | 500        | `write_mode = "BATCH"` 时，单个事务最多写入的数据条数，必须大于 0。                                                         |
 | write_mode                 | String  | 否    | ONE_BY_ONE | 写入模式。可选值为 `ONE_BY_ONE` 和 `BATCH`。                                                                         |
 | max_transaction_retry_time | Long    | 否    | 30         | 最大事务重试时间，单位为秒。                                                                                            |

@@ -22,9 +22,23 @@ seatunnel:
 
 ## 指标
 
+> [!NOTE]
+> 指标接口通过 Hazelcast REST API 提供，而发行包中 `config/hazelcast.yaml` 默认**关闭**了 REST API。
+> 抓取指标前，需要在每个节点的 `hazelcast.yaml` 中启用它：
+>
+> ```yaml
+> hazelcast:
+>   network:
+>     rest-api:
+>       enabled: true
+> ```
+
 Prometheus 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/instance/metrics` 获取。
 
-OpenMetrics 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics` 获取。
+OpenMetrics 的指标文本可通过 `http://{instanceHost}:8080/openmetrics` 获取。
+
+Hazelcast REST API 也在 `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics` 提供 OpenMetrics。
+使用 Hazelcast 端点时，请在 `hazelcast.yaml` 中设置 `hazelcast.network.rest-api.enabled: true`。
 
 可用的指标包括以下类别。
 
@@ -188,7 +202,7 @@ worker 发送 `RequestSlotOperation` 请求以预留 slot。这些指标用于�
 
 | MetricName | Type  | Labels                                                                                                  | 描述                  |
 |------------|-------|---------------------------------------------------------------------------------------------------------|---------------------|
-| job_count  | Gauge | **type**，作业的类型，包括："canceled" "cancelling" "created" "failed" "failing" "finished" "running" "scheduled" | seatunnel 集群的所有作业计数 |
+| job_count  | Gauge | **type**，作业的类型，包括："canceled" "cancelling" "created" "failed" "failing" "finished" "pending" "running" "scheduled" | seatunnel 集群的所有作业计数 |
 
 ### JVM 指标
 
@@ -207,7 +221,7 @@ worker 发送 `RequestSlotOperation` 请求以预留 slot。这些指标用于�
 | jvm_memory_pool_allocated_bytes_total      | Counter | **pool**，包括："Code Cache" "PS Eden Space" "PS Old Gen" "PS Survivor Space" "Compressed Class Space" "Metaspace" | 在给定 JVM 内存池中分配的总字节数。仅在垃圾收集后更新，而不是持续更新。 |
 | jvm_gc_collection_seconds_count            | Summary | **gc**，包括："PS Scavenge" "PS MarkSweep"                                                                        | 在给定 JVM 垃圾收集器中花费的时间（以秒为单位）             |
 | jvm_gc_collection_seconds_sum              | Summary | **gc**，包括："PS Scavenge" "PS MarkSweep"                                                                        | 在给定 JVM 垃圾收集器中花费的时间（以秒为单位）             
-| jvm_info                                   | Gauge   | **runtime**，例如：“Java(TM) SE Runtime Environment”。**供应商**，例如：“Oracle Corporation”。**版本**，例如：“1.8.0_212-b10”    | VM 版本信息                                |
+| jvm_info                                   | Gauge   | **runtime**，例如：“Java(TM) SE Runtime Environment”。**供应商**，例如：“Oracle Corporation”。**版本**，例如：“11.0.22+7”       | VM 版本信息                                |
 | process_cpu_seconds_total                  | Counter | -                                                                                                             | 用户和系统 CPU 时间总计，以秒为单位                   |
 | process_start_time_seconds                 | Gauge   | -                                                                                                             | 进程自 Unix 纪元以来的启动时间，以秒为单位               |
 | process_open_fds                           | Gauge   | -                                                                                                             | 打开的文件描述符数量                             |
@@ -249,12 +263,13 @@ scrape_configs:
   # 默认分配给抓取指标的作业名称。
   - job_name: 'seatunnel'
     scrape_interval: 5s
-    # 指标导出路径 
-    metrics_path: /hazelcast/rest/instance/metrics
+    # 指标导出路径（由 Jetty HTTP 服务器提供；仅当开启了 Hazelcast rest-api 时，
+    # 才使用 5801 端口上的 /hazelcast/rest/instance/metrics）
+    metrics_path: /metrics
     # 此作业静态配置的目标列表。
     static_configs:
       # 静态配置中指定的目标。
-      - targets: [ 'localhost:5801' ]
+      - targets: [ 'localhost:8080' ]
       # 为从目标抓取的所有指标分配的标签。
       # labels: [<labelName>:<labelValue>]
 ```

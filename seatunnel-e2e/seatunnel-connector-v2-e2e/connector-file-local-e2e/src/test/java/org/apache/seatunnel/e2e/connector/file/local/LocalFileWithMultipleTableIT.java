@@ -26,9 +26,13 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.Container;
 
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
 
 @DisabledOnContainer(
         value = {TestContainerId.SPARK_2_4},
@@ -70,7 +74,13 @@ public class LocalFileWithMultipleTableIT extends TestSuiteBase {
                         "/seatunnel/read/binary/name=tyrantlucifer/hobby=coding/cat.png",
                         container);
 
-                container.execInContainer("mkdir", "-p", "/tmp/fake_empty");
+                Container.ExecResult create =
+                        container.execInContainer("mkdir", "-p", "/tmp/fake_empty");
+                Assertions.assertEquals(0, create.getExitCode(), create.getStderr());
+                // Fixture setup runs as root; engine workers may run as a different user.
+                Container.ExecResult permissions =
+                        container.execInContainer("chmod", "1777", "/tmp/fake_empty");
+                Assertions.assertEquals(0, permissions.getExitCode(), permissions.getStderr());
             };
 
     @TestTemplate
@@ -78,6 +88,30 @@ public class LocalFileWithMultipleTableIT extends TestSuiteBase {
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(testContainer);
         helper.execute("/text/fake_to_local_file_with_multiple_table.conf");
+        Set<String> committedTables = new HashSet<>();
+        testContainer.executeExtraCommands(
+                container -> {
+                    for (String table : new String[] {"fake1", "fake2"}) {
+                        String path = "/tmp/fake_empty/text/" + table;
+                        Container.ExecResult output =
+                                container.execInContainer(
+                                        "sh",
+                                        "-c",
+                                        "if test -d '"
+                                                + path
+                                                + "'; then find '"
+                                                + path
+                                                + "' -type f -name '*.txt' -size +0c -print -quit; fi");
+                        Assertions.assertEquals(0, output.getExitCode(), output.getStderr());
+                        if (!output.getStdout().trim().isEmpty()) {
+                            committedTables.add(table);
+                        }
+                    }
+                });
+        Assertions.assertTrue(
+                committedTables.contains("fake1"), "Missing committed output for fake1");
+        Assertions.assertTrue(
+                committedTables.contains("fake2"), "Missing committed output for fake2");
     }
 
     @TestTemplate

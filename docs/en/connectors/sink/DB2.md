@@ -46,10 +46,10 @@ Write data to DB2 through JDBC. Supports batch and streaming jobs, concurrent wr
 |                                            DB2 Data Type                                             | SeaTunnel Data Type |
 |------------------------------------------------------------------------------------------------------|---------------------|
 | BOOLEAN                                                                                              | BOOLEAN             |
-| SMALLINT                                                                                             | SHORT               |
-| INT<br/>INTEGER<br/>                                                                                 | INTEGER             |
-| BIGINT                                                                                               | LONG                |
-| DECIMAL<br/>DEC<br/>NUMERIC<br/>NUM                                                                  | DECIMAL(38,18)      |
+| SMALLINT                                                                                             | SMALLINT            |
+| INT<br/>INTEGER<br/>                                                                                 | INT             |
+| BIGINT                                                                                               | BIGINT                |
+| DECIMAL<br/>DEC<br/>NUMERIC<br/>NUM                                                                  | DECIMAL((Get the designated column's specified column size),<br/>(Gets the designated column's number of digits to right of the decimal point.)))      |
 | REAL                                                                                                 | FLOAT               |
 | FLOAT<br/>DOUBLE<br/>DOUBLE PRECISION<br/>DECFLOAT                                                   | DOUBLE              |
 | CHAR<br/>VARCHAR<br/>LONG VARCHAR<br/>CLOB<br/>GRAPHIC<br/>VARGRAPHIC<br/>LONG VARGRAPHIC<br/>DBCLOB<br/>XML | STRING              |

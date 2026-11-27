@@ -29,7 +29,8 @@ public class TestSplitIT extends TestSuiteBase {
 
     @TestTemplate
     public void testSplit(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/split_transform.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/split_transform/split_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -37,7 +38,16 @@ public class TestSplitIT extends TestSuiteBase {
     public void testSplitMultiTable(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/rowkind_extractor_transform_case1_multi_table.conf");
+                container.executeJob("/split_transform/split_transform_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    @TestTemplate
+    public void testSplitTableTransformOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/split_transform/split_transform_table_transform_only.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

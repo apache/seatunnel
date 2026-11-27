@@ -83,6 +83,21 @@ Apache License 2.0，并以 Java 8 为目标版本。shaded GCS Hadoop 库已打
 | encoding | string | 条件必填 | `UTF-8` | text、CSV、JSON 和 XML 的编码。 |
 | enable_header_write | boolean | 条件必填 | `false` | 为 text 或 CSV 输出写入表头。 |
 | compress_codec | string | 否 | `none` | 所选格式支持的压缩编码。 |
+| date_format | string | 否 | `yyyy-MM-dd` | 使用 `text`、`csv`、`excel` 或 `xml` 格式写入 date 类型数据时使用的日期格式。 |
+| datetime_format | string | 否 | `yyyy-MM-dd HH:mm:ss` | 使用 `text`、`csv`、`excel` 或 `xml` 格式写入 timestamp 类型数据时使用的时间格式。 |
+| time_format | string | 否 | `HH:mm:ss` | 使用 `text`、`csv`、`excel` 或 `xml` 格式写入 time 类型数据时使用的时间格式。 |
+| multi_table_sink_replica | int | 否 | `1` | 多表写入模式下每张表的 Sink writer 副本数，必须至少为 1。 |
+| max_rows_in_memory | int | 否 | - | 仅在 file_format_type 为 excel 时使用。 |
+| sheet_max_rows | int | 否 | 1048576 | 仅在 file_format_type 为 excel 时使用。 |
+| sheet_name | string | 否 | Sheet0 | 仅在 file_format_type 为 excel 时使用。 |
+| csv_string_quote_mode | enum | 否 | MINIMAL | 仅在文件格式为 CSV 时使用。 |
+| xml_root_tag | string | 否 | RECORDS | 适用于 `file_format_type` 为 `xml` 的写入。 |
+| xml_row_tag | string | 否 | RECORD | 适用于 `file_format_type` 为 `xml` 的写入。 |
+| xml_use_attr_format | boolean | 条件必填 | - | `file_format_type` 为 `xml` 时必填。 |
+| parquet_avro_write_timestamp_as_int96 | boolean | 否 | false | 仅在 `file_format_type` 为 parquet 时使用 |
+| parquet_avro_write_fixed_as_int96 | array | 否 | - | 仅在 `file_format_type` 为 parquet 时使用 |
+| merge_update_event | boolean | 否 | false | 仅当 file_format_type 为 canal_json、debezium_json 或 maxwell_json 时使用。设为 true 时，UPDATE_AFTER 和 UPDATE_BEFORE 事件会合并为 UPDATE 事件数据 |
+| schema_evolution_enabled | boolean | 否 | false | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
 | common-options | | 否 | - | 参见 [Sink 通用配置](../common-options/sink-common-options.md)。 |
 
 Sink 也支持对应 SeaTunnel 文件格式定义的格式专用配置，包括 Parquet INT96 和 XML 元素配置。
