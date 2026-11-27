@@ -35,6 +35,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.cluster.Address;
@@ -45,7 +46,13 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 /**
@@ -111,6 +118,18 @@ public class TagFilterLateWorkerPlacementIT {
     private static final long CLUSTER_TIMEOUT_SECONDS = 60;
     private static final long JOB_TIMEOUT_SECONDS = 120;
 
+    /**
+     * Deadline for a single cancellation RPC. {@code ClientJobProxy#cancelJob} joins a future bound
+     * to the master, so without this bound a wedged master would block the test thread forever.
+     */
+    private static final long CANCEL_TIMEOUT_SECONDS = 30;
+
+    /**
+     * Deadline for a single job-status read. {@code ClientJobProxy#getJobStatus} synchronously
+     * invokes the master, so a lost master would otherwise strand a poll loop before teardown.
+     */
+    private static final long CLIENT_CALL_TIMEOUT_SECONDS = 30;
+
     /** How long the queued job must stay PENDING to prove it is not merely slow to start. */
     private static final long PENDING_STABILITY_SECONDS = 6;
 
@@ -124,6 +143,10 @@ public class TagFilterLateWorkerPlacementIT {
         HazelcastInstanceImpl matchingWorker = null;
         SeaTunnelClient engineClient = null;
         ClientJobProxy job = null;
+        // The cancel and status calls join master-bound futures. Run them on a test-owned daemon
+        // executor and await each with a deadline, so a wedged master fails the test instead of
+        // stranding it before teardown.
+        ExecutorService clientCalls = boundedClientCallExecutor();
 
         try {
             SeaTunnelConfig masterConfig =
@@ -171,7 +194,7 @@ public class TagFilterLateWorkerPlacementIT {
                             () -> {
                                 Assertions.assertEquals(
                                         JobStatus.PENDING,
-                                        submittedJob.getJobStatus(),
+                                        jobStatusWithinDeadline(clientCalls, submittedJob),
                                         "A job whose tag filter matches no registered worker must"
                                                 + " stay queued instead of running on a"
                                                 + " non-matching worker");
@@ -187,7 +210,7 @@ public class TagFilterLateWorkerPlacementIT {
                     SeaTunnelServerStarter.createWorkerHazelcastInstance(matchingWorkerConfig);
             awaitClusterSize(masterNode, 3);
             awaitWorkerCount(masterNode, MATCHING_TEAM, 1);
-            awaitJobStatus(submittedJob, JobStatus.RUNNING);
+            awaitJobStatus(clientCalls, submittedJob, JobStatus.RUNNING);
 
             Address nonMatchingWorkerAddress =
                     nonMatchingWorker.getCluster().getLocalMember().getAddress();
@@ -236,14 +259,22 @@ public class TagFilterLateWorkerPlacementIT {
                     .untilAsserted(
                             () -> {
                                 Assertions.assertEquals(
-                                        JobStatus.RUNNING, submittedJob.getJobStatus());
+                                        JobStatus.RUNNING,
+                                        jobStatusWithinDeadline(clientCalls, submittedJob));
                                 Assertions.assertEquals(
                                         EXPECTED_SLOTS,
                                         assignedSlotsForJob(masterNode, jobId).size());
                             });
 
-            submittedJob.cancelJob();
-            awaitJobStatus(submittedJob, JobStatus.CANCELED);
+            callWithinDeadline(
+                    clientCalls,
+                    "cancellation request of job " + jobId,
+                    CANCEL_TIMEOUT_SECONDS,
+                    () -> {
+                        submittedJob.cancelJob();
+                        return null;
+                    });
+            awaitJobStatus(clientCalls, submittedJob, JobStatus.CANCELED);
             Awaitility.await()
                     .atMost(CLUSTER_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .pollInterval(500, TimeUnit.MILLISECONDS)
@@ -255,19 +286,58 @@ public class TagFilterLateWorkerPlacementIT {
                                                     + assignedSlotsForJob(masterNode, jobId)));
             job = null;
         } finally {
-            cancelJobQuietly(job);
-            if (engineClient != null) {
-                engineClient.close();
-            }
-            if (master != null) {
-                master.shutdown();
-            }
-            if (nonMatchingWorker != null) {
-                nonMatchingWorker.shutdown();
-            }
-            if (matchingWorker != null) {
-                matchingWorker.shutdown();
-            }
+            // Every teardown step is independently guarded: a failure in one step must not skip the
+            // remaining steps, and no teardown exception may mask an assertion failure that is
+            // already propagating. The cancellation itself is bounded, so a wedged master cannot
+            // keep the created members alive past this method.
+            final ClientJobProxy jobToCancel = job;
+            cleanupQuietly(
+                    "cancel job",
+                    () -> {
+                        if (jobToCancel != null) {
+                            callWithinDeadline(
+                                    clientCalls,
+                                    "teardown cancellation of job " + jobToCancel.getJobId(),
+                                    CANCEL_TIMEOUT_SECONDS,
+                                    () -> {
+                                        jobToCancel.cancelJob();
+                                        return null;
+                                    });
+                        }
+                    });
+            final SeaTunnelClient clientToClose = engineClient;
+            cleanupQuietly(
+                    "close engine client",
+                    () -> {
+                        if (clientToClose != null) {
+                            clientToClose.close();
+                        }
+                    });
+            final HazelcastInstanceImpl matchingWorkerToStop = matchingWorker;
+            cleanupQuietly(
+                    "shut down matching worker",
+                    () -> {
+                        if (matchingWorkerToStop != null) {
+                            matchingWorkerToStop.shutdown();
+                        }
+                    });
+            final HazelcastInstanceImpl nonMatchingWorkerToStop = nonMatchingWorker;
+            cleanupQuietly(
+                    "shut down non-matching worker",
+                    () -> {
+                        if (nonMatchingWorkerToStop != null) {
+                            nonMatchingWorkerToStop.shutdown();
+                        }
+                    });
+            final HazelcastInstanceImpl masterToStop = master;
+            cleanupQuietly(
+                    "shut down master",
+                    () -> {
+                        if (masterToStop != null) {
+                            masterToStop.shutdown();
+                        }
+                    });
+            cleanupQuietly("shut down bounded client-call executor", clientCalls::shutdownNow);
         }
     }
 
@@ -367,7 +437,8 @@ public class TagFilterLateWorkerPlacementIT {
                                         "Unexpected worker count for tag " + tagFilter));
     }
 
-    private static void awaitJobStatus(ClientJobProxy job, JobStatus expectedStatus) {
+    private static void awaitJobStatus(
+            ExecutorService clientCalls, ClientJobProxy job, JobStatus expectedStatus) {
         Awaitility.await()
                 .atMost(JOB_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .pollInterval(1, TimeUnit.SECONDS)
@@ -375,8 +446,18 @@ public class TagFilterLateWorkerPlacementIT {
                         () ->
                                 Assertions.assertEquals(
                                         expectedStatus,
-                                        job.getJobStatus(),
+                                        jobStatusWithinDeadline(clientCalls, job),
                                         "Unexpected status for job " + job.getJobId()));
+    }
+
+    /** Reads the job status with a deadline, so a lost master cannot block the polling thread. */
+    private static JobStatus jobStatusWithinDeadline(
+            ExecutorService clientCalls, ClientJobProxy job) throws Exception {
+        return callWithinDeadline(
+                clientCalls,
+                "status of job " + job.getJobId(),
+                CLIENT_CALL_TIMEOUT_SECONDS,
+                job::getJobStatus);
     }
 
     /**
@@ -395,15 +476,62 @@ public class TagFilterLateWorkerPlacementIT {
         return server.getCoordinatorService().getResourceManager();
     }
 
-    private static void cancelJobQuietly(ClientJobProxy job) {
-        if (job == null) {
-            return;
-        }
+    /**
+     * Creates the daemon executor used to bound master-bound client calls. Daemon threads cannot
+     * prevent JVM exit if an invocation ignores interruption, and the test's finally block calls
+     * {@link ExecutorService#shutdownNow()} so the pool is always released.
+     */
+    private static ExecutorService boundedClientCallExecutor() {
+        return Executors.newCachedThreadPool(
+                runnable -> {
+                    Thread thread =
+                            new Thread(runnable, "TagFilterLateWorkerPlacementIT-client-call");
+                    thread.setDaemon(true);
+                    return thread;
+                });
+    }
+
+    /**
+     * Runs one client RPC on the bounded executor and fails once {@code timeoutSeconds} elapse.
+     * {@code ClientJobProxy#cancelJob} joins a master-bound future and {@code getJobStatus} invokes
+     * the master synchronously, so neither returns on its own when the master is gone. Turning that
+     * into a bounded failure keeps the test from hanging and lets teardown run.
+     */
+    private static <T> T callWithinDeadline(
+            ExecutorService executor, String description, long timeoutSeconds, Callable<T> call)
+            throws Exception {
+        Future<T> future = executor.submit(call);
         try {
-            job.cancelJob();
+            return future.get(timeoutSeconds, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            throw new AssertionError(
+                    "Timed out after " + timeoutSeconds + "s waiting for " + description, e);
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause() == null ? e : e.getCause();
+            if (cause instanceof Exception) {
+                throw (Exception) cause;
+            }
+            if (cause instanceof Error) {
+                throw (Error) cause;
+            }
+            throw new IllegalStateException(description + " failed", cause);
+        } catch (InterruptedException e) {
+            future.cancel(true);
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Interrupted while waiting for " + description, e);
+        }
+    }
+
+    /**
+     * Runs one teardown step. Failures are logged instead of thrown, so the remaining steps still
+     * run and an assertion failure that is already propagating is preserved.
+     */
+    private static void cleanupQuietly(String description, Executable cleanup) {
+        try {
+            cleanup.execute();
         } catch (Throwable e) {
-            log.warn(
-                    "Best-effort cancellation of job {} failed during teardown", job.getJobId(), e);
+            log.warn("Teardown step '{}' failed; continuing with teardown", description, e);
         }
     }
 }
