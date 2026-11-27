@@ -69,6 +69,10 @@ semantics (using XA transaction guarantee).
 | BINARY<br />VARBINARY<br />IMAGE<br />TIMESTAMP                 | BYTES                                                                                                                                                     |
 | UNKNOWN                                                         | Not supported yet                                                                                                                                         |
 
+## Nullable decimal columns
+
+For automatically generated sink SQL, null decimal values retain the scale declared by the SeaTunnel decimal type when destination metadata identifies a DECIMAL or NUMERIC column and the logical scale is between 0 and 38. This prevents Microsoft JDBC from switching parameter declarations to scale zero and fragmenting batches when null and non-null decimals alternate. Other destination types, missing destination type metadata and unsupported logical scales retain their previous null binding. No additional configuration is required. Custom SQL retains its existing parameter binding so that expressions such as `ISNULL` keep their original type inference. Non-null decimal values retain their existing binding.
+
 ## Sink Options
 
 |                   Name                    |  Type   | Required | Default |                                                                                                                 Description                                                                                                                  |
