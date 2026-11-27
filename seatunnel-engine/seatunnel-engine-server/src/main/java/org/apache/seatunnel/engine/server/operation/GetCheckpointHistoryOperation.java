@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.operation;
 
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointHistoryEntry;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
@@ -30,7 +31,6 @@ import com.hazelcast.spi.impl.AllowedDuringPassiveState;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Client protocol operation that returns the retained checkpoint history of a job.
