@@ -289,9 +289,7 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
 
     private String summarizeRecord(Object dirtyRecord, CatalogTable catalogTable) {
         if (!(dirtyRecord instanceof SeaTunnelRow)) {
-            return dirtyRecord == null
-                    ? "null"
-                    : "payloadType=" + dirtyRecord.getClass().getSimpleName();
+            return dirtyRecord == null ? "null" : "payloadType=" + dirtyRecord.getClass().getName();
         }
         SeaTunnelRow row = (SeaTunnelRow) dirtyRecord;
         if ("fields".equals(logPayload)) {
@@ -304,7 +302,11 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
     }
 
     private String summarizeFieldNames(SeaTunnelRow row, CatalogTable catalogTable) {
-        List<String> fieldNames = getFieldNames(row, catalogTable);
+        List<String> authoritativeFieldNames = getAuthoritativeFieldNames(row, catalogTable);
+        List<String> fieldNames =
+                authoritativeFieldNames != null
+                        ? authoritativeFieldNames
+                        : buildPositionalFieldNames(row.getArity());
         List<String> nonNullFields = new ArrayList<>();
         for (int i = 0; i < row.getArity(); i++) {
             if (row.getField(i) != null) {
@@ -315,10 +317,22 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
     }
 
     private String summarizeFullRow(SeaTunnelRow row, CatalogTable catalogTable) {
-        List<String> fieldNames = getFieldNames(row, catalogTable);
-        List<String> values = new ArrayList<>();
+        List<String> authoritativeFieldNames = getAuthoritativeFieldNames(row, catalogTable);
+        if (authoritativeFieldNames == null) {
+            List<String> positionalFieldNames = buildPositionalFieldNames(row.getArity());
+            boolean failClosedMask = !maskFields.isEmpty();
+            List<String> values = new ArrayList<>(row.getArity());
+            for (int i = 0; i < row.getArity(); i++) {
+                values.add(
+                        positionalFieldNames.get(i)
+                                + "="
+                                + (failClosedMask ? "***" : row.getField(i)));
+            }
+            return values.toString();
+        }
+        List<String> values = new ArrayList<>(row.getArity());
         for (int i = 0; i < row.getArity(); i++) {
-            String fieldName = fieldNames.get(i);
+            String fieldName = authoritativeFieldNames.get(i);
             Object value = row.getField(i);
             values.add(
                     fieldName
@@ -330,15 +344,26 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
         return values.toString();
     }
 
-    private List<String> getFieldNames(SeaTunnelRow row, CatalogTable catalogTable) {
+    /**
+     * Resolves authoritative column names for {@code row}, or {@code null} when schema metadata is
+     * missing, incomplete, or disagrees with row arity so named masks fail closed.
+     */
+    private List<String> getAuthoritativeFieldNames(SeaTunnelRow row, CatalogTable catalogTable) {
         if (catalogTable == null || catalogTable.getTableSchema() == null) {
-            return buildPositionalFieldNames(row.getArity());
+            return null;
         }
         List<Column> columns = catalogTable.getTableSchema().getColumns();
         if (columns == null || columns.size() != row.getArity()) {
-            return buildPositionalFieldNames(row.getArity());
+            return null;
         }
-        return columns.stream().map(Column::getName).collect(Collectors.toList());
+        List<String> fieldNames = new ArrayList<>(columns.size());
+        for (Column column : columns) {
+            if (column == null || column.getName() == null || column.getName().isEmpty()) {
+                return null;
+            }
+            fieldNames.add(column.getName());
+        }
+        return fieldNames;
     }
 
     private List<String> buildPositionalFieldNames(int arity) {

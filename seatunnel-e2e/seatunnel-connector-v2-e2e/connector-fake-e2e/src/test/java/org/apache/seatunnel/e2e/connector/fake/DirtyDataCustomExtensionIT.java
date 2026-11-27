@@ -41,7 +41,7 @@ import java.util.regex.Pattern;
  *       registered via SPI can define "what counts as dirty" before the write happens.
  * </ul>
  *
- * Both tests use the FakeSource → Console pipeline with configuration in {@code env}.
+ * Both tests use the FakeSource → TestSingleTableSink pipeline with configuration in {@code env}.
  */
 @Slf4j
 @DisabledOnContainer(

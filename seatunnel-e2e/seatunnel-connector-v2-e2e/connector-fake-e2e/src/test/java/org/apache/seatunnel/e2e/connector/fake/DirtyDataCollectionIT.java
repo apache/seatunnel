@@ -35,8 +35,8 @@ import java.util.Map;
 
 /**
  * Integration test for dirty data collection functionality on Flink and Spark engines. Tests the
- * complete workflow using FakeSource -> Console pipeline where dirty data is defined via {@code
- * dirty.validator} in env config.
+ * complete workflow using FakeSource -> TestSingleTableSink pipeline where dirty data is defined
+ * via {@code dirty.validator} in env config.
  */
 @Slf4j
 @DisabledOnContainer(

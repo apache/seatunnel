@@ -19,7 +19,12 @@ package org.apache.seatunnel.api.sink;
 
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import java.io.IOException;
@@ -37,7 +42,9 @@ public class DirtyDataAwareSinkWriter<T, CommitInfoT, StateT>
     private final SinkWriter<T, CommitInfoT, StateT> delegate;
     private final DirtyRecordCollector collector;
     private final int subtaskIndex;
-    private final CatalogTable catalogTable;
+    private CatalogTable catalogTable;
+    private final TableSchemaChangeEventDispatcher schemaChangeDispatcher =
+            new TableSchemaChangeEventDispatcher();
 
     DirtyDataAwareSinkWriter(
             SinkWriter<T, CommitInfoT, StateT> delegate,
@@ -124,6 +131,49 @@ public class DirtyDataAwareSinkWriter<T, CommitInfoT, StateT>
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
         delegate.applySchemaChange(event);
+        updateCatalogTable(event);
+    }
+
+    /**
+     * Keeps validator and collector schema metadata aligned after a delegate successfully applies a
+     * schema change event. Unrecognized events without an explicit post-change table clear the
+     * cached schema so named payload masks fail closed rather than relying on stale positions.
+     */
+    protected void updateCatalogTable(SchemaChangeEvent event) {
+        if (event == null) {
+            return;
+        }
+        CatalogTable changeAfter = event.getChangeAfter();
+        if (changeAfter != null && changeAfter.getTableSchema() != null) {
+            this.catalogTable = changeAfter;
+            return;
+        }
+        if (catalogTable == null || catalogTable.getTableSchema() == null) {
+            return;
+        }
+        if (!(event instanceof AlterTableEvent) && !(event instanceof RestoreTableSchemaEvent)) {
+            this.catalogTable = null;
+            return;
+        }
+        TableSchema updatedSchema =
+                schemaChangeDispatcher.reset(catalogTable.getTableSchema()).apply(event);
+        if (updatedSchema == null) {
+            this.catalogTable = null;
+            return;
+        }
+        TableIdentifier tableId =
+                event.tableIdentifier() != null
+                        ? event.tableIdentifier()
+                        : catalogTable.getTableId();
+        this.catalogTable =
+                CatalogTable.of(
+                        tableId,
+                        updatedSchema,
+                        catalogTable.getOptions(),
+                        catalogTable.getPartitionKeys(),
+                        catalogTable.getComment(),
+                        catalogTable.getCatalogName(),
+                        catalogTable.getMetadataSchema());
     }
 
     @Override
@@ -190,6 +240,7 @@ public class DirtyDataAwareSinkWriter<T, CommitInfoT, StateT>
         @Override
         public void applySchemaChange(SchemaChangeEvent event) throws IOException {
             schemaWriter.applySchemaChange(event);
+            updateCatalogTable(event);
         }
 
         @Override

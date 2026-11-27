@@ -26,7 +26,13 @@ import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.logging.log4j.Level;
@@ -143,16 +149,21 @@ public class DirtyRecordCollectorTest {
         try {
             Locale.setDefault(new Locale("tr", "TR"));
             LogDirtyRecordCollector collector = new LogDirtyRecordCollector();
-            collector.init(ConfigFactory.parseString("log_payload=FULL\nmask_fields=[FIELD_0]"));
-            SeaTunnelRow row = new SeaTunnelRow(new Object[] {"private-value"});
-            collector.collectFromUserRule(0, row, "locale-mask", null);
+            collector.init(
+                    ConfigFactory.parseString("log_payload=FULL\nmask_fields=[SECRET_INFO]"));
+            CatalogTable table =
+                    catalogTable(
+                            column("id", BasicType.INT_TYPE),
+                            column("secret_info", BasicType.STRING_TYPE));
+            SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "private-value"});
+            collector.collectFromUserRule(0, row, "locale-mask", table);
             Awaitility.await()
                     .atMost(Duration.ofSeconds(5))
                     .untilAsserted(
                             () -> {
                                 Assertions.assertEquals(
                                         Collections.singletonList(
-                                                "Dirty record collected (user rule) - SubTask: 0, Table: unknown, Count: 1, Record: [field_0=***], Reason: locale-mask"),
+                                                "Dirty record collected (user rule) - SubTask: 0, Table: db.schema.users, Count: 1, Record: [id=1, secret_info=***], Reason: locale-mask"),
                                         messages);
                                 Assertions.assertFalse(messages.get(0).contains("private-value"));
                             });
@@ -659,6 +670,253 @@ public class DirtyRecordCollectorTest {
         Assertions.assertEquals(1, error.getSuppressed().length);
         Assertions.assertEquals("collector-close", error.getSuppressed()[0].getMessage());
         Assertions.assertTrue(collector.closed);
+    }
+
+    @Test
+    void testNamedPayloadMaskFailsClosedOnArityMismatch() throws Exception {
+        List<String> messages = new CopyOnWriteArrayList<>();
+        withLogMessages(
+                messages,
+                () -> {
+                    LogDirtyRecordCollector collector = new LogDirtyRecordCollector();
+                    collector.init(
+                            ConfigFactory.parseString("log_payload=full\nmask_fields=[password]"));
+                    CatalogTable oneColumnSchema =
+                            catalogTable(column("password", BasicType.STRING_TYPE));
+                    SeaTunnelRow widerRow = new SeaTunnelRow(new Object[] {"top-secret", "extra"});
+
+                    collector.collectFromUserRule(0, widerRow, "arity-mismatch", oneColumnSchema);
+
+                    Awaitility.await()
+                            .atMost(Duration.ofSeconds(5))
+                            .untilAsserted(
+                                    () -> {
+                                        Assertions.assertEquals(
+                                                Collections.singletonList(
+                                                        "Dirty record collected (user rule) - SubTask: 0, Table: db.schema.users, Count: 1, Record: [field_0=***, field_1=***], Reason: arity-mismatch"),
+                                                messages);
+                                        Assertions.assertFalse(
+                                                messages.get(0).contains("top-secret"));
+                                        Assertions.assertFalse(messages.get(0).contains("extra"));
+                                    });
+                });
+    }
+
+    @Test
+    void testNamedPayloadMaskFailsClosedWithoutCatalogTable() throws Exception {
+        List<String> messages = new CopyOnWriteArrayList<>();
+        withLogMessages(
+                messages,
+                () -> {
+                    LogDirtyRecordCollector collector = new LogDirtyRecordCollector();
+                    collector.init(
+                            ConfigFactory.parseString("log_payload=full\nmask_fields=[password]"));
+                    SeaTunnelRow row = new SeaTunnelRow(new Object[] {"alice", "top-secret"});
+
+                    collector.collectFromUserRule(0, row, "no-schema", null);
+
+                    Awaitility.await()
+                            .atMost(Duration.ofSeconds(5))
+                            .untilAsserted(
+                                    () -> {
+                                        Assertions.assertEquals(
+                                                Collections.singletonList(
+                                                        "Dirty record collected (user rule) - SubTask: 0, Table: unknown, Count: 1, Record: [field_0=***, field_1=***], Reason: no-schema"),
+                                                messages);
+                                        Assertions.assertFalse(
+                                                messages.get(0).contains("top-secret"));
+                                        Assertions.assertFalse(messages.get(0).contains("alice"));
+                                    });
+                });
+    }
+
+    @Test
+    void testSchemaEvolutionUpdatesMetadataForPostDdlNamedMasking() throws Exception {
+        List<String> messages = new CopyOnWriteArrayList<>();
+        withLogMessages(
+                messages,
+                () -> {
+                    LogDirtyRecordCollector logCollector = new LogDirtyRecordCollector();
+                    logCollector.init(
+                            ConfigFactory.parseString("log_payload=full\nmask_fields=[password]"));
+                    List<CatalogTable> observedTables = new ArrayList<>();
+                    DirtyDataValidator validator =
+                            (row, table) -> {
+                                observedTables.add(table);
+                                return DirtyDataValidator.ValidationResult.dirty("post-ddl");
+                            };
+                    ValidatingDirtyRecordCollector validatingCollector =
+                            new ValidatingDirtyRecordCollector(logCollector, validator);
+                    CatalogTable initialTable =
+                            catalogTable(
+                                    column("id", BasicType.INT_TYPE),
+                                    column("password", BasicType.STRING_TYPE));
+                    TrackingRowSchemaWriter raw = new TrackingRowSchemaWriter();
+                    SinkWriter<SeaTunnelRow, Void, Void> wrapped =
+                            DirtyDataAwareSinkWriter.wrap(
+                                    raw, validatingCollector, 0, initialTable, null);
+
+                    AlterTableAddColumnEvent addFirst =
+                            AlterTableAddColumnEvent.addFirst(
+                                    initialTable.getTableId(),
+                                    column("tenant", BasicType.STRING_TYPE));
+                    ((SupportSchemaEvolutionSinkWriter) wrapped).applySchemaChange(addFirst);
+
+                    wrapped.write(new SeaTunnelRow(new Object[] {"acme", 7, "s3cr3t"}));
+
+                    Assertions.assertTrue(raw.rows.isEmpty());
+                    Assertions.assertEquals(1, observedTables.size());
+                    Assertions.assertEquals(
+                            Arrays.asList("tenant", "id", "password"),
+                            Arrays.asList(observedTables.get(0).getTableSchema().getFieldNames()));
+                    Awaitility.await()
+                            .atMost(Duration.ofSeconds(5))
+                            .untilAsserted(
+                                    () -> {
+                                        Assertions.assertEquals(
+                                                Collections.singletonList(
+                                                        "Dirty record collected (user rule) - SubTask: 0, Table: db.schema.users, Count: 1, Record: [tenant=acme, id=7, password=***], Reason: post-ddl"),
+                                                messages);
+                                        Assertions.assertFalse(messages.get(0).contains("s3cr3t"));
+                                    });
+                });
+    }
+
+    @Test
+    void testFailedSchemaChangeLeavesCachedMetadataUnchanged() throws Exception {
+        List<String> messages = new CopyOnWriteArrayList<>();
+        withLogMessages(
+                messages,
+                () -> {
+                    LogDirtyRecordCollector logCollector = new LogDirtyRecordCollector();
+                    logCollector.init(
+                            ConfigFactory.parseString("log_payload=full\nmask_fields=[password]"));
+                    DirtyDataValidator validator =
+                            (row, table) -> DirtyDataValidator.ValidationResult.dirty("still-v1");
+                    CatalogTable initialTable =
+                            catalogTable(
+                                    column("id", BasicType.INT_TYPE),
+                                    column("password", BasicType.STRING_TYPE));
+                    TrackingRowSchemaWriter raw =
+                            new TrackingRowSchemaWriter() {
+                                @Override
+                                public void applySchemaChange(SchemaChangeEvent event)
+                                        throws IOException {
+                                    throw new IOException("ddl-failed");
+                                }
+                            };
+                    SinkWriter<SeaTunnelRow, Void, Void> wrapped =
+                            DirtyDataAwareSinkWriter.wrap(
+                                    raw,
+                                    new ValidatingDirtyRecordCollector(logCollector, validator),
+                                    0,
+                                    initialTable,
+                                    null);
+
+                    AlterTableAddColumnEvent addFirst =
+                            AlterTableAddColumnEvent.addFirst(
+                                    initialTable.getTableId(),
+                                    column("tenant", BasicType.STRING_TYPE));
+                    Assertions.assertThrows(
+                            IOException.class,
+                            () ->
+                                    ((SupportSchemaEvolutionSinkWriter) wrapped)
+                                            .applySchemaChange(addFirst));
+
+                    wrapped.write(new SeaTunnelRow(new Object[] {1, "s3cr3t"}));
+
+                    Awaitility.await()
+                            .atMost(Duration.ofSeconds(5))
+                            .untilAsserted(
+                                    () -> {
+                                        Assertions.assertEquals(
+                                                Collections.singletonList(
+                                                        "Dirty record collected (user rule) - SubTask: 0, Table: db.schema.users, Count: 1, Record: [id=1, password=***], Reason: still-v1"),
+                                                messages);
+                                        Assertions.assertFalse(messages.get(0).contains("s3cr3t"));
+                                    });
+                });
+    }
+
+    @Test
+    void testUnrecognizedSchemaChangeWithoutChangeAfterFailsClosedForNamedMasks() throws Exception {
+        List<String> messages = new CopyOnWriteArrayList<>();
+        withLogMessages(
+                messages,
+                () -> {
+                    LogDirtyRecordCollector logCollector = new LogDirtyRecordCollector();
+                    logCollector.init(
+                            ConfigFactory.parseString("log_payload=full\nmask_fields=[password]"));
+                    DirtyDataValidator validator =
+                            (row, table) ->
+                                    DirtyDataValidator.ValidationResult.dirty("unknown-ddl");
+                    CatalogTable initialTable =
+                            catalogTable(
+                                    column("id", BasicType.INT_TYPE),
+                                    column("password", BasicType.STRING_TYPE));
+                    TrackingRowSchemaWriter raw = new TrackingRowSchemaWriter();
+                    SinkWriter<SeaTunnelRow, Void, Void> wrapped =
+                            DirtyDataAwareSinkWriter.wrap(
+                                    raw,
+                                    new ValidatingDirtyRecordCollector(logCollector, validator),
+                                    0,
+                                    initialTable,
+                                    null);
+
+                    SchemaChangeEvent customEvent = Mockito.mock(SchemaChangeEvent.class);
+                    ((SupportSchemaEvolutionSinkWriter) wrapped).applySchemaChange(customEvent);
+
+                    wrapped.write(new SeaTunnelRow(new Object[] {"s3cr3t", 1}));
+
+                    Awaitility.await()
+                            .atMost(Duration.ofSeconds(5))
+                            .untilAsserted(
+                                    () -> {
+                                        Assertions.assertEquals(
+                                                Collections.singletonList(
+                                                        "Dirty record collected (user rule) - SubTask: 0, Table: unknown, Count: 1, Record: [field_0=***, field_1=***], Reason: unknown-ddl"),
+                                                messages);
+                                        Assertions.assertFalse(messages.get(0).contains("s3cr3t"));
+                                    });
+                });
+    }
+
+    private static Column column(
+            String name, org.apache.seatunnel.api.table.type.SeaTunnelDataType<?> type) {
+        return new PhysicalColumn(name, type, 100L, null, true, null, null);
+    }
+
+    private static CatalogTable catalogTable(Column... columns) {
+        return CatalogTable.of(
+                TableIdentifier.of("catalog", "db", "schema", "users"),
+                TableSchema.builder().columns(Arrays.asList(columns)).build(),
+                Collections.emptyMap(),
+                Collections.emptyList(),
+                "test");
+    }
+
+    private static class TrackingRowSchemaWriter
+            implements SinkWriter<SeaTunnelRow, Void, Void>, SupportSchemaEvolutionSinkWriter {
+        private final List<SeaTunnelRow> rows = new ArrayList<>();
+
+        @Override
+        public void write(SeaTunnelRow element) {
+            rows.add(element);
+        }
+
+        @Override
+        public void applySchemaChange(SchemaChangeEvent event) throws IOException {}
+
+        @Override
+        public Optional<Void> prepareCommit() {
+            return Optional.empty();
+        }
+
+        @Override
+        public void abortPrepare() {}
+
+        @Override
+        public void close() {}
     }
 
     private Object roundTrip(Object value) throws IOException, ClassNotFoundException {

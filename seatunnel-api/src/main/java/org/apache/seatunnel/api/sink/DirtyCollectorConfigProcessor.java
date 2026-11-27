@@ -111,7 +111,7 @@ public class DirtyCollectorConfigProcessor {
                 DirtyRecordCollectorFactory.createCollector(collectorConfig);
         log.info(
                 "Successfully initialized dirty record collector: {}",
-                collector.getClass().getSimpleName());
+                collector.getClass().getName());
         return collector;
     }
 

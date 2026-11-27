@@ -46,7 +46,10 @@ source {
   }
 }
 sink {
-  Console {}
+  Kafka {
+    topic = "clean_events"
+    bootstrap.servers = "kafka:9092"
+  }
 }
 ```
 
@@ -69,7 +72,7 @@ sink {
 
 log 收集器默认只输出前 10 条及之后每第 1000 条记录的诊断日志，采样在每个收集器实例内独立执行。所有记录仍逐条增加计数并判断阈值，包括未采样的记录和配置日志级别未启用的记录。只有日志级别已启用的采样记录才格式化 payload 和异常信息。关闭时，收集器按配置级别最多输出一次已观察、已记录和已抑制条数的汇总。需要逐条诊断时，可明确设置 `log_every_n_records = 1`。
 
-不能出现在日志中的数据应保持关闭 payload 日志。如明确启用 `full` 模式，应通过 `mask_fields` 配置敏感字段掩码。校验器必须配合有效收集器使用，不能用 `noop` 静默丢弃拒绝记录。
+不能出现在日志中的数据应保持关闭 payload 日志。如明确启用 `full` 模式，应通过 `mask_fields` 配置敏感字段掩码。当 `mask_fields` 非空且缺少权威字段名映射时（例如缺少 schema 元数据或行字段数与 schema 不一致），log 收集器按 fail-closed 原则对所有字段值进行掩码，避免按位置回退名泄露敏感值。校验器必须配合有效收集器使用，不能用 `noop` 静默丢弃拒绝记录。
 
 ## 自定义 SPI
 
@@ -88,7 +91,9 @@ env {
   jars = "file:///path/to/my-dirty-extensions.jar"
 }
 sink {
-  Console {
+  Kafka {
+    topic = "clean_events"
+    bootstrap.servers = "kafka:9092"
     dirty.collector { type = "log", threshold = 1, fail_on_threshold = true }
     dirty.validator { type = "com.example.RequiredFieldsValidator" }
   }
@@ -99,4 +104,4 @@ sink {
 
 包装器位于 Flink 与 Spark 的真实 Sink writer 外层，仅支持单表输入及同步单表 writer。启用脏数据处理时，规划阶段会拒绝多个输入 CatalogTable，包括逐表 sink template 回退场景；配置和输入限制的校验先于 Sink 准备和 save-mode 副作用。支持多表的 Sink（即使仅有一个输入表）及已聚合的多表 Sink 会在规划阶段被拒绝，且发生在调用 save-mode handler 之前。启用脏数据处理时，异步 writer、行级错误路由及延迟终态上报会在 writer 启动时被明确拒绝。未启用脏数据处理时，已有链路保持原有行为。
 
-校验发生在 `write` 前，所有 delegate 写入异常原样传播，因此批量或已锁存的 flush 失败不会将当前健康记录错误收集。支持模式演进的 delegate 仍保留其模式回调和物理下游表标识。提交、checkpoint、模式变更和关闭阶段的异常仍按既有生命周期传播。包装器转发状态与提交调用，并随 writer 关闭收集器，不提供持久化错误存储和重放。需要持久保存拒绝记录时应使用自定义收集器。
+校验发生在 `write` 前，所有 delegate 写入异常原样传播，因此批量或已锁存的 flush 失败不会将当前健康记录错误收集。支持模式演进的 delegate 仍保留其模式回调和物理下游表标识，并在 delegate 成功应用模式变更事件后同步更新包装器缓存的表元数据（遇到无变更后元数据的未知事件时清空缓存以 fail-closed）。提交、checkpoint、模式变更和关闭阶段的异常仍按既有生命周期传播。包装器转发状态与提交调用，并随 writer 关闭收集器，不提供持久化错误存储和重放。需要持久保存拒绝记录时应使用自定义收集器。
