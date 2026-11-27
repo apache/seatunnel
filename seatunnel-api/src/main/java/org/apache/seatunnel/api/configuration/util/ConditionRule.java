@@ -17,19 +17,40 @@
 
 package org.apache.seatunnel.api.configuration.util;
 
-import lombok.Getter;
-
 import java.util.Objects;
 
-@Getter
 public class ConditionRule {
 
-    private final Expression expression;
+    private final Condition<?> condition;
     private final OptionRule optionRule;
 
-    public ConditionRule(Expression expression, OptionRule optionRule) {
-        this.expression = expression;
+    private ConditionRule(Condition<?> condition, OptionRule optionRule) {
+        this.condition = Objects.requireNonNull(condition, "condition");
         this.optionRule = optionRule;
+    }
+
+    public static ConditionRule of(Condition<?> condition, OptionRule optionRule) {
+        return new ConditionRule(condition, optionRule);
+    }
+
+    /** @deprecated Use {@link #of(Condition, OptionRule)}. */
+    @Deprecated
+    public ConditionRule(Expression expression, OptionRule optionRule) {
+        this(Objects.requireNonNull(expression, "expression").toCondition(), optionRule);
+    }
+
+    /** @deprecated Use {@link #getCondition()}. Returns a detached compatibility view. */
+    @Deprecated
+    public Expression getExpression() {
+        return Expression.fromCondition(condition);
+    }
+
+    public Condition<?> getCondition() {
+        return condition;
+    }
+
+    public OptionRule getOptionRule() {
+        return optionRule;
     }
 
     @Override
@@ -41,12 +62,12 @@ public class ConditionRule {
             return false;
         }
         ConditionRule that = (ConditionRule) o;
-        return Objects.equals(expression, that.expression)
+        return Objects.equals(condition, that.condition)
                 && Objects.equals(optionRule, that.optionRule);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(expression, optionRule);
+        return Objects.hash(condition, optionRule);
     }
 }
