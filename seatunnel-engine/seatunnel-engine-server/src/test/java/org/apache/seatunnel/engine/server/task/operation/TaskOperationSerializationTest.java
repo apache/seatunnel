@@ -20,7 +20,6 @@ package org.apache.seatunnel.engine.server.task.operation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
-import org.apache.seatunnel.engine.server.task.Progress;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
 
 import org.junit.jupiter.api.AfterEach;
@@ -85,7 +84,8 @@ class TaskOperationSerializationTest {
 
     @Test
     void splitAssignmentRejectsDifferentClassIdFromSameFactory() throws IOException {
-        assertRejected(new WrongLocation(), true, Progress.class.getName());
+        assertRejected(
+                new WrongLocation(), true, "class ID is " + TaskDataSerializerHook.PROGRESS_TYPE);
     }
 
     @Test
@@ -104,14 +104,73 @@ class TaskOperationSerializationTest {
         SideEffectPayload.constructions = 0;
         SideEffectPayload.reads = 0;
 
-        assertThrows(
-                IOException.class,
-                () ->
-                        new TaskFixture(null)
-                                .readInternal(serializationService.createObjectDataInput(bytes)));
+        IOException error =
+                assertThrows(
+                        IOException.class,
+                        () ->
+                                new TaskFixture(null)
+                                        .readInternal(
+                                                serializationService.createObjectDataInput(bytes)));
 
+        assertTrue(error.getMessage().contains("expects an identified"));
+        assertTrue(error.getMessage().contains(TaskFixture.class.getName()));
+        assertTrue(error.getMessage().contains("wire header is 0"));
         assertEquals(0, SideEffectPayload.constructions);
         assertEquals(0, SideEffectPayload.reads);
+    }
+
+    @Test
+    void splitAssignmentRejectsClassNamedPayloadBeforeConstruction() throws IOException {
+        byte[] bytes = encode(new WireFixture(new SideEffectPayload(), true)::writeInternal);
+        SideEffectPayload.constructions = 0;
+        SideEffectPayload.reads = 0;
+        IOException error =
+                assertThrows(
+                        IOException.class,
+                        () ->
+                                new SplitFixture(null)
+                                        .readWire(
+                                                serializationService.createObjectDataInput(bytes)));
+        assertTrue(error.getMessage().contains("expects an identified"));
+        assertTrue(error.getMessage().contains(SplitFixture.class.getName()));
+        assertTrue(error.getMessage().contains("wire header is 0"));
+        assertEquals(0, SideEffectPayload.constructions);
+        assertEquals(0, SideEffectPayload.reads);
+    }
+
+    @Test
+    void splitAssignmentRejectsOtherFactoryBeforeConstruction() throws IOException {
+        byte[] bytes = encode(new WireFixture(new ObservedLocation(), true)::writeInternal);
+        SideEffectPayload.constructions = 0;
+        SideEffectPayload.reads = 0;
+        IOException error =
+                assertThrows(
+                        IOException.class,
+                        () ->
+                                new SplitFixture(null)
+                                        .readWire(
+                                                serializationService.createObjectDataInput(bytes)));
+        assertTrue(error.getMessage().contains("factory ID is " + OBSERVED_FACTORY_ID));
+        assertEquals(0, SideEffectPayload.constructions);
+        assertEquals(0, SideEffectPayload.reads);
+    }
+
+    @Test
+    void splitAssignmentRoundTripsWithLittleEndianInput() throws IOException {
+        InternalSerializationService littleEndian =
+                new DefaultSerializationServiceBuilder()
+                        .setByteOrder(ByteOrder.LITTLE_ENDIAN)
+                        .setAllowUnsafe(false)
+                        .build();
+        try {
+            SplitFixture original = new SplitFixture(LOCATION);
+            byte[] bytes = encode(littleEndian, original::writeWire);
+            SplitFixture decoded = new SplitFixture(null);
+            decoded.readWire(littleEndian.createObjectDataInput(bytes));
+            assertArrayEquals(bytes, encode(littleEndian, decoded::writeWire));
+        } finally {
+            littleEndian.dispose();
+        }
     }
 
     @Test
@@ -221,6 +280,12 @@ class TaskOperationSerializationTest {
                             }
                         });
         assertTrue(error.getMessage().contains(TaskLocation.class.getName()));
+        assertTrue(
+                error.getMessage()
+                        .contains(
+                                splitAssignment
+                                        ? SplitFixture.class.getName()
+                                        : TaskFixture.class.getName()));
         assertTrue(error.getMessage().contains(decodedType));
     }
 

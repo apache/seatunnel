@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.builder.HashCodeBuild
 
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
+import com.hazelcast.internal.nio.BufferObjectDataInput;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
@@ -29,6 +30,9 @@ import lombok.ToString;
 
 import java.io.IOException;
 import java.io.Serializable;
+
+import static com.hazelcast.internal.serialization.impl.SerializationConstants.CONSTANT_TYPE_DATA_SERIALIZABLE;
+import static com.hazelcast.internal.serialization.impl.SerializationConstants.CONSTANT_TYPE_NULL;
 
 @ToString
 public class TaskLocation implements IdentifiedDataSerializable, Serializable {
@@ -42,6 +46,62 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
     private static final long TASK_GROUP_FACTOR = 10000L;
 
     public TaskLocation() {}
+
+    /**
+     * Reads an operation's location after checking its top-level Hazelcast wire identity. Absolute
+     * header reads preserve the cursor and configured byte order. This does not validate nested
+     * objects decoded by {@link #readData(ObjectDataInput)}.
+     *
+     * @param in the operation input positioned at the location field
+     * @param operation the concrete operation name for decode diagnostics
+     * @return the decoded location
+     * @throws IOException if the input cannot prove the expected top-level identity
+     */
+    public static TaskLocation readFrom(ObjectDataInput in, String operation) throws IOException {
+        if (!(in instanceof BufferObjectDataInput)) {
+            throw new IOException(
+                    operation
+                            + " requires a buffered input to validate "
+                            + TaskLocation.class.getName()
+                            + "; actual input is "
+                            + in.getClass().getName());
+        }
+        BufferObjectDataInput buffer = (BufferObjectDataInput) in;
+        int position = buffer.position();
+        int serializerType = buffer.readInt(position);
+        if (serializerType != CONSTANT_TYPE_DATA_SERIALIZABLE) {
+            throw new IOException(
+                    operation
+                            + " expects "
+                            + TaskLocation.class.getName()
+                            + " but wire serializer type is "
+                            + (serializerType == CONSTANT_TYPE_NULL ? "null" : serializerType));
+        }
+        // Bit zero is Hazelcast DataSerializableSerializer's IDS_FLAG.
+        int header = Byte.toUnsignedInt(buffer.readByte(position + Integer.BYTES));
+        if ((header & 1) == 0) {
+            throw new IOException(
+                    operation
+                            + " expects an identified "
+                            + TaskLocation.class.getName()
+                            + " but wire header is "
+                            + header);
+        }
+        int factoryId = buffer.readInt(position + Integer.BYTES + Byte.BYTES);
+        int classId = buffer.readInt(position + 2 * Integer.BYTES + Byte.BYTES);
+        if (factoryId != TaskDataSerializerHook.FACTORY_ID
+                || classId != TaskDataSerializerHook.TASK_LOCATION_TYPE) {
+            throw new IOException(
+                    operation
+                            + " expects "
+                            + TaskLocation.class.getName()
+                            + " but wire factory ID is "
+                            + factoryId
+                            + " and class ID is "
+                            + classId);
+        }
+        return in.readObject(TaskLocation.class);
+    }
 
     public TaskLocation(
             TaskGroupLocation taskGroupLocation, long taskInGroupIndex, int taskParallelismIndex) {
