@@ -25,28 +25,47 @@ import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
-public class TestMetadataIT extends TestSuiteBase {
+public class TestFieldEncryptIT extends TestSuiteBase {
 
     @TestTemplate
-    public void testMetadataMultiTable(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/metadata_multi_table.conf");
+    public void testEncryption(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/field_encrypt_transform/field_encrypt_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
-    public void testMetadataSingleTable(TestContainer container)
+    public void testDecryption(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/field_encrypt_transform/field_decrypt_transform.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testEncryptionMultiTable(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/metadata_single_table.conf");
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/field_encrypt_transform/field_encrypt_transform_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testDecryptionMultiTable(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/field_encrypt_transform/field_decrypt_transform_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     /** A transform configured only through {@code table_transform} entries must be accepted. */
     @TestTemplate
-    public void testMetadataTableTransformOnly(TestContainer container)
+    public void testEncryptionTableTransformOnly(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/metadata_table_transform_only.conf");
+                container.executeJob(
+                        "/field_encrypt_transform/field_encrypt_transform_table_transform_only.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
