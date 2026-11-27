@@ -95,12 +95,14 @@ public class IncrementalSourceRecordEmitter<T>
     public void emitRecord(
             SourceRecords sourceRecords, Collector<T> collector, SourceSplitStateBase splitState)
             throws Exception {
-        final Iterator<SourceRecord> elementIterator = sourceRecords.iterator();
-        while (elementIterator.hasNext()) {
-            SourceRecord next = elementIterator.next();
-            reportMetrics(next);
-            processElement(next, collector, splitState);
-            markEnterPureIncrementPhase(next, splitState);
+        try (SourceRecords records = sourceRecords) {
+            final Iterator<SourceRecord> elementIterator = records.iterator();
+            while (elementIterator.hasNext()) {
+                SourceRecord next = elementIterator.next();
+                reportMetrics(next);
+                processElement(next, collector, splitState);
+                markEnterPureIncrementPhase(next, splitState);
+            }
         }
     }
 

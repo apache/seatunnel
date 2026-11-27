@@ -24,7 +24,7 @@ import java.util.Iterator;
 import java.util.List;
 
 /** Data structure to describe a set of {@link SourceRecord}. */
-public final class SourceRecords {
+public final class SourceRecords implements AutoCloseable {
 
     private final List<SourceRecord> sourceRecords;
 
@@ -38,6 +38,14 @@ public final class SourceRecords {
 
     public Iterator<SourceRecord> iterator() {
         return sourceRecords.iterator();
+    }
+
+    /** Releases an ephemeral snapshot backing store after emission, including failed emission. */
+    @Override
+    public void close() throws Exception {
+        if (sourceRecords instanceof AutoCloseable) {
+            ((AutoCloseable) sourceRecords).close();
+        }
     }
 
     public static SourceRecords fromSingleRecord(SourceRecord record) {

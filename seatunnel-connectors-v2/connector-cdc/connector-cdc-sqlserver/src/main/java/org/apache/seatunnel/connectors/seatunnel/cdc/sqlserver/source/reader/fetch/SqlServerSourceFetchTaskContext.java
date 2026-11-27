@@ -116,13 +116,8 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
 
         this.taskContext = new SqlServerTaskContext(connectorConfig, databaseSchema);
 
-        // If in the snapshot read phase and enable exactly-once, the queue needs to be set to a
-        // maximum size of `Integer.MAX_VALUE` (buffered a current snapshot all data). otherwise,
-        // use the configuration queue size.
-        final int queueSize =
-                sourceSplitBase.isSnapshotSplit() && isExactlyOnce()
-                        ? Integer.MAX_VALUE
-                        : getSourceConfig().getDbzConnectorConfig().getMaxQueueSize();
+        // Reconciliation drains concurrently into a bounded buffer; retain queue backpressure.
+        final int queueSize = getSourceConfig().getDbzConnectorConfig().getMaxQueueSize();
 
         this.queue =
                 new ChangeEventQueue.Builder<DataChangeEvent>()
