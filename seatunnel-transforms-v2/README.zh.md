@@ -245,7 +245,8 @@ public class TestCopyFieldTransformIT extends TestSuiteBase {
 
     @TestTemplate
     public void testCopyFieldTransform(TestContainer container) {
-        Container.ExecResult execResult = container.executeJob("/copy_transform.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/copy_transform/copy_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

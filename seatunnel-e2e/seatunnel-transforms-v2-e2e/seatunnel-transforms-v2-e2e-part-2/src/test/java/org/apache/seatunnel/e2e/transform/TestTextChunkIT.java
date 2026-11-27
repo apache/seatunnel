@@ -25,28 +25,38 @@ import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
-public class TestTableMergeIT extends TestSuiteBase {
+public class TestTextChunkIT extends TestSuiteBase {
 
     @TestTemplate
-    public void testMergeMultiTable(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/table_merge_multi_table.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+    public void testTextChunk(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/text_chunk_transform/text_chunk_transform.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
     @TestTemplate
-    public void testMergeSingleTable(TestContainer container)
+    public void testTextChunkMultiTable(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/table_merge_single_table.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Container.ExecResult execResult =
+                container.executeJob("/text_chunk_transform/text_chunk_transform_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testTextChunkOverlapWithSeparatorsAndNonBmp(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/text_chunk_transform/text_chunk_transform_overlap.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
     /** A transform configured only through {@code table_transform} entries must be accepted. */
     @TestTemplate
-    public void testMergeTableTransformOnly(TestContainer container)
+    public void testTextChunkTableTransformOnly(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/table_merge_table_transform_only.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+                container.executeJob(
+                        "/text_chunk_transform/text_chunk_transform_table_transform_only.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 }

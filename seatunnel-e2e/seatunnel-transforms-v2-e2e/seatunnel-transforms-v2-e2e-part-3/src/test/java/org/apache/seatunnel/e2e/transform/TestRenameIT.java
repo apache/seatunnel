@@ -25,36 +25,21 @@ import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
-public class TestTextChunkIT extends TestSuiteBase {
+public class TestRenameIT extends TestSuiteBase {
 
     @TestTemplate
-    public void testTextChunk(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/text_chunk_transform.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    public void testRenameMultiTable(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/field_rename/table_field_rename_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
-    public void testTextChunkMultiTable(TestContainer container)
+    public void testFieldRenameRegexDefault(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/text_chunk_transform_multi_table.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-    }
-
-    @TestTemplate
-    public void testTextChunkOverlapWithSeparatorsAndNonBmp(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                container.executeJob("/text_chunk_transform_overlap.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-    }
-
-    /** A transform configured only through {@code table_transform} entries must be accepted. */
-    @TestTemplate
-    public void testTextChunkTableTransformOnly(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                container.executeJob("/text_chunk_transform_table_transform_only.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+                container.executeJob("/field_rename/field_rename_regex_default.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
