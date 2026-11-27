@@ -52,7 +52,7 @@ public final class SeaTunnelSavePointJobCodec {
 
     public static ClientMessage encodeRequest(long jobId) {
         ClientMessage clientMessage = ClientMessage.createForEncode();
-        clientMessage.setRetryable(true);
+        clientMessage.setRetryable(false);
         clientMessage.setOperationName("SeaTunnel.SavePointJob");
         ClientMessage.Frame initialFrame =
                 new ClientMessage.Frame(new byte[REQUEST_INITIAL_FRAME_SIZE], UNFRAGMENTED_MESSAGE);

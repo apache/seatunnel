@@ -209,7 +209,11 @@ methods:
     since: 2.0
     doc: ''
     request:
-      retryable: true
+      # A savepoint is not idempotent: a retry after the client loses the member that owned the
+      # request would re-execute it on the newly active master, where the restored job is then
+      # pushed back into DOING_SAVEPOINT and finally fails on checkpoint timeout. Let the caller
+      # observe the failure and decide whether to request the savepoint again.
+      retryable: false
       partitionIdentifier: -1
       params:
         - name: jobId
