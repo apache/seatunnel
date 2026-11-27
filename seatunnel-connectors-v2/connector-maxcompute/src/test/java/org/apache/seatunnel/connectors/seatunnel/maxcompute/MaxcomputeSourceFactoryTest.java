@@ -158,14 +158,6 @@ public class MaxcomputeSourceFactoryTest {
         Assertions.assertTrue(error.getMessage().contains("blank"), error.getMessage());
     }
 
-    private Map<String, Object> sinkConfig() {
-        Map<String, Object> config = new HashMap<>();
-        config.put(MaxcomputeSinkOptions.ENDPOINT.key(), "http://service.odps.aliyun.com/api");
-        config.put(MaxcomputeSinkOptions.PROJECT.key(), "test_project");
-        config.put(MaxcomputeSinkOptions.TABLE_NAME.key(), "test_table");
-        return config;
-    }
-
     @Test
     void optionRule() {
         Assertions.assertNotNull((new MaxcomputeSourceFactory()).optionRule());
