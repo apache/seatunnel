@@ -44,15 +44,22 @@ import java.util.function.Function;
 @RequiredArgsConstructor
 public class OrderedBufferedBatchStatementExecutor
         implements JdbcBatchStatementExecutor<SeaTunnelRow> {
+    /** Takes whole rows; this executor prepares, runs and closes it. */
     @NonNull private final JdbcBatchStatementExecutor<SeaTunnelRow> upsertExecutor;
+
+    /** Takes key rows only; this executor prepares, runs and closes it. */
     @NonNull private final JdbcBatchStatementExecutor<SeaTunnelRow> deleteExecutor;
+
     @NonNull private final Function<SeaTunnelRow, SeaTunnelRow> keyExtractor;
     @NonNull private final Function<SeaTunnelRow, SeaTunnelRow> valueTransform;
+
+    /** Set when the driver may merge a batch of upserts into one statement. */
     private final boolean oneRowPerStatement;
 
     /** Kept until a flush succeeds, so a retry replays every change. */
     @NonNull private final List<SeaTunnelRow> buffer = new ArrayList<>();
 
+    /** After a failed flush, closing must not send the buffer again. */
     private boolean flushFailed;
 
     @Override

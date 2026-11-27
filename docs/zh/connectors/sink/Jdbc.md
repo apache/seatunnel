@@ -674,7 +674,7 @@ WHERE (EXCLUDED."update_time" > target."update_time")
 
 语法：
 
-- `:column` 表示输入行的值，`target.column` 表示已存储行的值。列必须是 Sink 写入的列。其他名称请使用双引号，例如 `:"Update Time"` 和 `target."Update Time"`。
+- `:column` 表示输入行的值，`target.column` 表示已存储行的值。列必须是 Sink 写入的列。其他名称请使用双引号，例如 `:"Update Time"` 和 `target."Update Time"`，名称内部的双引号需写两次。使用该选项时，包含点或双引号的列名会作为一个完整名称加引号。如果写入的列名包含 `:` 或 `?`，或以空格、引号等字符开头，任务会被拒绝。
 - 支持比较运算 `=`、`<>`、`<`、`<=`、`>`、`>=`，运算符 `AND`、`OR`、`NOT`、`IS NULL`、`IS NOT NULL` 以及括号。
 - 函数、类型转换、字面量以及其他列引用方式会在任务启动时被拒绝。SeaTunnel 会解析条件并据此生成 SQL，不会把原始文本直接传给数据库。
 

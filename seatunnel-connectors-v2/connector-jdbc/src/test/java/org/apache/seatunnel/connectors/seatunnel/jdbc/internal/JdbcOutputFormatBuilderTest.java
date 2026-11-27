@@ -299,6 +299,36 @@ public class JdbcOutputFormatBuilderTest {
         Assertions.assertTrue(
                 isRewriteEnabled(url + "?loggerLevel=OFF&reWriteBatchedInserts=TRUE", null));
         Assertions.assertTrue(isRewriteEnabled(url, "true"));
+        // The driver decodes url values, and the url wins over the properties.
+        Assertions.assertTrue(isRewriteEnabled(url + "?reWriteBatchedInserts=%74rue", null));
+        Assertions.assertTrue(isRewriteEnabled(url + "?reWriteBatchedInserts=%54RUE", null));
+        Assertions.assertFalse(isRewriteEnabled(url + "?reWriteBatchedInserts=false", "true"));
+        Assertions.assertTrue(isRewriteEnabled("not a postgres url", null));
+    }
+
+    @Test
+    public void testUpdateConditionRejectsColumnNamesThatCannotBeBound() {
+        for (String name : new String[] {"a:b", "q?y", " padded", "\"quoted", "(x)"}) {
+            JdbcConnectorException exception =
+                    Assertions.assertThrows(
+                            JdbcConnectorException.class, () -> resolveWithExtraColumn(name), name);
+            Assertions.assertTrue(
+                    exception.getMessage().contains("cannot be used as a statement parameter"),
+                    exception.getMessage());
+        }
+        for (String name : new String[] {"Update Time", "a.b", "say\"hi", "p)q", "it's"}) {
+            Assertions.assertDoesNotThrow(() -> resolveWithExtraColumn(name), name);
+        }
+    }
+
+    private static void resolveWithExtraColumn(String name) {
+        TableSchema schema =
+                TableSchema.builder()
+                        .columns(updateConditionTableSchema().getColumns())
+                        .column(PhysicalColumn.of(name, BasicType.INT_TYPE, 22L, true, null, ""))
+                        .build();
+        JdbcOutputFormatBuilder.resolveUpdateCondition(
+                new PostgresDialect(), updateConditionConfig().build(), schema);
     }
 
     private static boolean isRewriteEnabled(String url, String property) {

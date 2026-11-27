@@ -33,6 +33,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
@@ -784,8 +785,37 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     private void writeConcurrently(int id, long firstTime, long secondTime) throws Exception {
         SimpleJdbcConnectionProvider firstConnection = updateConditionConnection();
         SimpleJdbcConnectionProvider secondConnection = updateConditionConnection();
-        JdbcOutputFormat<SeaTunnelRow, ?> first = openUpdateConditionWriter(firstConnection);
-        JdbcOutputFormat<SeaTunnelRow, ?> second = openUpdateConditionWriter(secondConnection);
+        // Resources close in reverse order, and each one even if another fails to open or close.
+        try (AutoCloseable closeFirstConnection = firstConnection::closeConnection;
+                AutoCloseable closeSecondConnection = secondConnection::closeConnection) {
+            JdbcOutputFormat<SeaTunnelRow, ?> first = openUpdateConditionWriter(firstConnection);
+            try (AutoCloseable closeFirst = first::close) {
+                JdbcOutputFormat<SeaTunnelRow, ?> second =
+                        openUpdateConditionWriter(secondConnection);
+                try (AutoCloseable closeSecond = second::close) {
+                    writeOverlapping(
+                            id,
+                            firstTime,
+                            secondTime,
+                            first,
+                            firstConnection,
+                            second,
+                            secondConnection);
+                }
+            }
+        }
+    }
+
+    private void writeOverlapping(
+            int id,
+            long firstTime,
+            long secondTime,
+            JdbcOutputFormat<SeaTunnelRow, ?> first,
+            SimpleJdbcConnectionProvider firstConnection,
+            JdbcOutputFormat<SeaTunnelRow, ?> second,
+            SimpleJdbcConnectionProvider secondConnection)
+            throws Exception {
+        int secondBackend = backendPid(secondConnection);
         CompletableFuture<Void> secondWrite = null;
         try {
             first.writeRecord(new SeaTunnelRow(new Object[] {id, "v" + firstTime, firstTime}));
@@ -811,7 +841,9 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                             () ->
                                     !querySql(
                                                     "SELECT 1 FROM pg_stat_activity"
-                                                            + " WHERE wait_event_type = 'Lock'")
+                                                            + " WHERE wait_event_type = 'Lock'"
+                                                            + " AND pid = "
+                                                            + secondBackend)
                                             .isEmpty());
             Assertions.assertFalse(secondWrite.isDone());
 
@@ -820,16 +852,22 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         } finally {
             // Releases the row lock if an assertion failed before the first writer committed.
             if (secondWrite != null && !secondWrite.isDone()) {
-                firstConnection.getConnection().rollback();
-                secondWrite.get(30, TimeUnit.SECONDS);
+                try {
+                    firstConnection.getConnection().rollback();
+                } finally {
+                    secondWrite.get(30, TimeUnit.SECONDS);
+                }
             }
-            first.close();
-            second.close();
-            firstConnection.closeConnection();
-            secondConnection.closeConnection();
         }
     }
 
+    private int backendPid(SimpleJdbcConnectionProvider connectionProvider) throws SQLException {
+        try (Statement statement = connectionProvider.getConnection().createStatement();
+                ResultSet resultSet = statement.executeQuery("SELECT pg_backend_pid()")) {
+            resultSet.next();
+            return resultSet.getInt(1);
+        }
+    }
     /**
      * Verifies {@code update_condition_sql} with {@code reWriteBatchedInserts=true} for two keys
      * that PostgreSQL treats as equal while Java does not, so they must not share a statement.
@@ -872,7 +910,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 schema,
                                 schema)
                         .build();
-        try {
+        try (AutoCloseable closeConnection = connectionProvider::closeConnection;
+                AutoCloseable closeWriter = writer::close) {
             writer.open();
             writer.writeRecord(new SeaTunnelRow(new Object[] {new BigDecimal("1.0"), 300L}));
             writer.writeRecord(new SeaTunnelRow(new Object[] {new BigDecimal("1.00"), 200L}));
@@ -882,8 +921,64 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     Collections.singletonList(Arrays.asList(new BigDecimal("1.00"), 300L)),
                     querySql("SELECT id, update_time FROM " + UPDATE_CONDITION_CONCURRENT_TABLE));
         } finally {
-            writer.close();
-            connectionProvider.closeConnection();
+            executeSQL("DROP TABLE IF EXISTS " + UPDATE_CONDITION_CONCURRENT_TABLE);
+        }
+    }
+
+    /**
+     * Verifies {@code update_condition_sql} for column names with a dot and a double quote, with
+     * rewriting enabled by a percent-encoded url value.
+     */
+    @Test
+    public void testUpdateConditionSqlWithQuotedNamesAndEncodedRewrite() throws Exception {
+        executeSQL("DROP TABLE IF EXISTS " + UPDATE_CONDITION_CONCURRENT_TABLE);
+        executeSQL(
+                "CREATE TABLE "
+                        + UPDATE_CONDITION_CONCURRENT_TABLE
+                        + " (\"a.b\" INT PRIMARY KEY, \"say\"\"hi\" BIGINT)");
+        Map<String, Object> config = new HashMap<>();
+        String url = POSTGRESQL_CONTAINER.getJdbcUrl();
+        config.put("url", url + (url.contains("?") ? "&" : "?") + "reWriteBatchedInserts=%74rue");
+        config.put("driver", POSTGRESQL_CONTAINER.getDriverClassName());
+        config.put("username", POSTGRESQL_CONTAINER.getUsername());
+        config.put("password", POSTGRESQL_CONTAINER.getPassword());
+        config.put("database", POSTGRESQL_CONTAINER.getDatabaseName());
+        config.put("table", "public." + UPDATE_CONDITION_CONCURRENT_TABLE);
+        config.put("primary_keys", Collections.singletonList("a.b"));
+        config.put("update_condition_sql", ":\"say\"\"hi\" > target.\"say\"\"hi\"");
+        JdbcSinkConfig sinkConfig = JdbcSinkConfig.of(ReadonlyConfig.fromMap(config));
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("a.b", BasicType.INT_TYPE, 22L, false, null, ""))
+                        .column(
+                                PhysicalColumn.of(
+                                        "say\"hi", BasicType.LONG_TYPE, 22L, true, null, ""))
+                        .build();
+        SimpleJdbcConnectionProvider connectionProvider =
+                new SimpleJdbcConnectionProvider(sinkConfig.getJdbcConnectionConfig());
+        JdbcOutputFormat<SeaTunnelRow, ?> writer =
+                new JdbcOutputFormatBuilder(
+                                new PostgresDialect(),
+                                connectionProvider,
+                                sinkConfig,
+                                schema,
+                                schema)
+                        .build();
+        try (AutoCloseable closeConnection = connectionProvider::closeConnection;
+                AutoCloseable closeWriter = writer::close) {
+            writer.open();
+            writer.writeRecord(new SeaTunnelRow(new Object[] {1, 300L}));
+            writer.writeRecord(new SeaTunnelRow(new Object[] {1, 200L}));
+            writer.writeRecord(new SeaTunnelRow(new Object[] {2, 100L}));
+            SeaTunnelRow delete = new SeaTunnelRow(new Object[] {2, 100L});
+            delete.setRowKind(RowKind.DELETE);
+            writer.writeRecord(delete);
+            writer.flush();
+
+            Assertions.assertEquals(
+                    Collections.singletonList(Arrays.asList(1, 300L)),
+                    querySql("SELECT * FROM " + UPDATE_CONDITION_CONCURRENT_TABLE));
+        } finally {
             executeSQL("DROP TABLE IF EXISTS " + UPDATE_CONDITION_CONCURRENT_TABLE);
         }
     }

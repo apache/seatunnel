@@ -224,23 +224,23 @@ public class PostgresDialect implements JdbcDialect {
             UpdateCondition condition) {
         String columns =
                 Arrays.stream(fieldNames)
-                        .map(this::quoteIdentifier)
+                        .map(this::quoteColumnName)
                         .collect(Collectors.joining(", "));
         String placeholders =
                 Arrays.stream(fieldNames)
                         .map(fieldName -> ":" + fieldName)
                         .collect(Collectors.joining(", "));
         String uniqueColumns =
-                Arrays.stream(pkNames).map(this::quoteIdentifier).collect(Collectors.joining(", "));
+                Arrays.stream(pkNames).map(this::quoteColumnName).collect(Collectors.joining(", "));
         final Set<String> pkNamesSet = new HashSet<>(Arrays.asList(pkNames));
         String updateClause =
                 Arrays.stream(fieldNames)
                         .filter(fieldName -> !pkNamesSet.contains(fieldName))
                         .map(
                                 fieldName ->
-                                        quoteIdentifier(fieldName)
+                                        quoteColumnName(fieldName)
                                                 + "=EXCLUDED."
-                                                + quoteIdentifier(fieldName))
+                                                + quoteColumnName(fieldName))
                         .collect(Collectors.joining(", "));
         // When every written column is a key column there is nothing to update.
         String conflictAction =
@@ -250,7 +250,7 @@ public class PostgresDialect implements JdbcDialect {
                                 "DO UPDATE SET %s WHERE (%s)",
                                 updateClause,
                                 condition.toSql(
-                                        this::quoteIdentifier,
+                                        this::quoteColumnName,
                                         "EXCLUDED",
                                         UPDATE_CONDITION_TARGET_ALIAS));
         return String.format(
@@ -261,6 +261,25 @@ public class PostgresDialect implements JdbcDialect {
                 placeholders,
                 uniqueColumns,
                 conflictAction);
+    }
+
+    /** The delete statement used with {@code update_condition_sql}. */
+    public String getConditionalDeleteStatement(
+            String database, String tableName, String[] pkNames) {
+        String conditionClause =
+                Arrays.stream(pkNames)
+                        .map(pkName -> quoteColumnName(pkName) + " = :" + pkName)
+                        .collect(Collectors.joining(" AND "));
+        return String.format(
+                "DELETE FROM %s WHERE %s", tableIdentifier(database, tableName), conditionClause);
+    }
+
+    /**
+     * Quotes one column name literally. Unlike {@link #quoteIdentifier(String)}, a dot is part of
+     * the name and a double quote is escaped.
+     */
+    private String quoteColumnName(String columnName) {
+        return "\"" + getFieldIde(columnName, fieldIde).replace("\"", "\"\"") + "\"";
     }
 
     @Override

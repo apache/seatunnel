@@ -41,6 +41,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatc
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.OrderedBufferedBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.SimpleBatchStatementExecutor;
 
+import org.postgresql.Driver;
+
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,8 +50,11 @@ import lombok.extern.slf4j.Slf4j;
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
@@ -107,7 +112,7 @@ public class JdbcOutputFormatBuilder {
             statementExecutorFactory =
                     () ->
                             createConditionalUpsertBufferedExecutor(
-                                    dialect,
+                                    (PostgresDialect) dialect,
                                     database,
                                     table,
                                     tableSchema,
@@ -230,8 +235,13 @@ public class JdbcOutputFormatBuilder {
                 upsertExecutor, deleteExecutor, keyExtractor, Function.identity());
     }
 
+    /**
+     * Builds the executor for {@code update_condition_sql}: upserts and deletes are kept in arrival
+     * order and replayed together after a failed flush. The output format owns the connection and
+     * prepares the statements again after a reconnect.
+     */
     private static JdbcBatchStatementExecutor<SeaTunnelRow> createConditionalUpsertBufferedExecutor(
-            JdbcDialect dialect,
+            PostgresDialect dialect,
             String database,
             String table,
             TableSchema tableSchema,
@@ -254,34 +264,27 @@ public class JdbcOutputFormatBuilder {
         return new OrderedBufferedBatchStatementExecutor(
                 createSimpleExecutor(
                         upsertSQL, tableSchema, databaseTableSchema, dialect.getRowConverter()),
-                createDeleteExecutor(
-                        dialect, database, table, pkNames, pkSchema, databaseTableSchema),
+                createSimpleExecutor(
+                        dialect.getConditionalDeleteStatement(database, table, pkNames),
+                        pkSchema,
+                        databaseTableSchema,
+                        dialect.getRowConverter()),
                 createKeyExtractor(pkFields),
                 Function.identity(),
                 oneRowPerStatement);
     }
 
     /**
-     * Whether the url or the connection properties ask the PostgreSQL driver to merge the rows of a
-     * batch into one statement.
+     * Whether the PostgreSQL driver may merge the rows of a batch into one statement. The driver
+     * reads the url itself, which decodes its values and lets them override the properties.
      */
     static boolean isRewriteBatchedInsertsEnabled(JdbcConnectionConfig connectionConfig) {
-        String url = connectionConfig.getUrl();
-        int queryStart = url.indexOf('?');
-        if (queryStart >= 0) {
-            for (String parameter : url.substring(queryStart + 1).split("&")) {
-                String[] pair = parameter.split("=", 2);
-                if (pair.length == 2 && isRewriteBatchedInserts(pair[0], pair[1])) {
-                    return true;
-                }
-            }
-        }
-        return connectionConfig.getProperties().entrySet().stream()
-                .anyMatch(entry -> isRewriteBatchedInserts(entry.getKey(), entry.getValue()));
-    }
-
-    private static boolean isRewriteBatchedInserts(String name, String value) {
-        return "reWriteBatchedInserts".equalsIgnoreCase(name) && "true".equalsIgnoreCase(value);
+        Properties properties = new Properties();
+        properties.putAll(connectionConfig.getProperties());
+        Properties effective = Driver.parseURL(connectionConfig.getUrl(), properties);
+        // A url the driver cannot read does not connect either, so assume the safe answer.
+        return effective == null
+                || Boolean.parseBoolean(effective.getProperty("reWriteBatchedInserts"));
     }
 
     /**
@@ -330,8 +333,32 @@ public class JdbcOutputFormatBuilder {
             throw invalidUpdateCondition(
                     "it cannot be used with support_upsert_by_insert_only = true");
         }
-        return Optional.of(
-                UpdateCondition.parse(condition, Arrays.asList(tableSchema.getFieldNames())));
+        String[] fieldNames = tableSchema.getFieldNames();
+        for (String fieldName : fieldNames) {
+            if (!isBindableColumnName(fieldName, fieldNames)) {
+                throw invalidUpdateCondition(
+                        String.format(
+                                "the column name '%s' cannot be used as a statement parameter, it"
+                                        + " contains ':' or '?' or starts with a character such as a"
+                                        + " space or a quote",
+                                fieldName));
+            }
+        }
+        return Optional.of(UpdateCondition.parse(condition, Arrays.asList(fieldNames)));
+    }
+
+    /**
+     * Whether {@code :name} is read back as one parameter of that name. A {@code ?} is excluded as
+     * well, because the statement would count it as another parameter.
+     */
+    private static boolean isBindableColumnName(String name, String[] fieldNames) {
+        Map<String, List<Integer>> parameters = new HashMap<>();
+        return name.indexOf('?') < 0
+                && "?"
+                        .equals(
+                                FieldNamedPreparedStatement.parseNamedStatement(
+                                        ":" + name, parameters, fieldNames))
+                && parameters.containsKey(name);
     }
 
     private static JdbcConnectorException invalidUpdateCondition(String reason) {

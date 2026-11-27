@@ -69,6 +69,26 @@ public class PostgresDialectTest {
     }
 
     @Test
+    void testConditionalStatementsQuoteColumnNamesLiterally() {
+        PostgresDialect dialect = new PostgresDialect();
+        String[] fieldNames = {"a.b", "say\"hi"};
+        UpdateCondition condition =
+                UpdateCondition.parse(
+                        ":\"say\"\"hi\" > target.\"say\"\"hi\"", Arrays.asList(fieldNames));
+
+        Assertions.assertEquals(
+                "INSERT INTO \"db\".\"public\".\"t\" AS target (\"a.b\", \"say\"\"hi\")"
+                        + " VALUES (:a.b, :say\"hi) ON CONFLICT (\"a.b\") DO UPDATE SET"
+                        + " \"say\"\"hi\"=EXCLUDED.\"say\"\"hi\""
+                        + " WHERE (EXCLUDED.\"say\"\"hi\" > target.\"say\"\"hi\")",
+                dialect.getConditionalUpsertStatement(
+                        "db", "public.t", fieldNames, new String[] {"a.b"}, condition));
+        Assertions.assertEquals(
+                "DELETE FROM \"db\".\"public\".\"t\" WHERE \"a.b\" = :a.b",
+                dialect.getConditionalDeleteStatement("db", "public.t", new String[] {"a.b"}));
+    }
+
+    @Test
     void testConditionalUpsertStatement() {
         PostgresDialect dialect = new PostgresDialect();
         String[] fieldNames = {"id", "name", "update_time"};

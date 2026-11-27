@@ -678,7 +678,7 @@ Results:
 
 Syntax:
 
-- `:column` is the value of the incoming row and `target.column` the value of the stored row. The column must be one of the columns written by the sink. Use double quotes for other names, for example `:"Update Time"` and `target."Update Time"`.
+- `:column` is the value of the incoming row and `target.column` the value of the stored row. The column must be one of the columns written by the sink. Use double quotes for other names, for example `:"Update Time"` and `target."Update Time"`, and write a double quote inside a name twice. With this option, column names containing dots or double quotes are quoted as one name. The job is rejected when a written column name contains `:` or `?`, or starts with a character such as a space or a quote.
 - Supported are the comparisons `=`, `<>`, `<`, `<=`, `>`, `>=`, the operators `AND`, `OR`, `NOT`, `IS NULL`, `IS NOT NULL` and parentheses.
 - Functions, casts, literals and any other column reference are rejected when the job starts. The condition is parsed and SeaTunnel builds the SQL from it, the text is never passed to the database as it is.
 
