@@ -117,6 +117,44 @@ for %%I in (%*) do (
     )
 )
 
+REM SeaTunnel requires Java 11 or newer. Fail fast with an actionable message instead of letting a
+REM JDK 8 launcher abort on the JDK 9+ module flags below with a cryptic "Unrecognized option" error.
+REM This mirrors the check in seatunnel.sh and seatunnel-cluster.sh. If the version cannot be parsed
+REM the check is skipped rather than blocking startup.
+set "JAVA_VERSION_TEXT="
+for /f "tokens=3" %%V in ('java -version 2^>^&1 ^| findstr /i "version"') do (
+    if not defined JAVA_VERSION_TEXT set "JAVA_VERSION_TEXT=%%~V"
+)
+set "JAVA_MAJOR_VERSION=0"
+if defined JAVA_VERSION_TEXT (
+    for /f "tokens=1,2 delims=._-+" %%A in ("!JAVA_VERSION_TEXT!") do (
+        if "%%A"=="1" (set "JAVA_MAJOR_VERSION=%%B") else (set "JAVA_MAJOR_VERSION=%%A")
+    )
+)
+set /a JAVA_MAJOR_NUM=0
+set /a JAVA_MAJOR_NUM=!JAVA_MAJOR_VERSION! 2>nul
+if !JAVA_MAJOR_NUM! GTR 0 if !JAVA_MAJOR_NUM! LSS 11 (
+    echo Error: SeaTunnel requires Java 11 or newer, but Java !JAVA_MAJOR_NUM! was detected. Point JAVA_HOME/PATH at a Java 11+ JDK. 1>&2
+    exit /b 1
+)
+
+REM These JDK module flags are mandatory on Java 11+: Hazelcast needs reflective access to JDK
+REM internals, plugin loading needs java.net, Arrow based connectors need java.nio, and the Kerberos
+REM krb5.conf reload needs the jgss export. They are appended here, not only shipped in the
+REM config\jvm_*_options templates, so an in-place upgrade that keeps an old config directory
+REM cannot silently drop them. A flag the effective options already carry is not added again.
+for %%F in (
+    "--add-opens=java.base/java.lang=ALL-UNNAMED"
+    "--add-opens=java.base/java.net=ALL-UNNAMED"
+    "--add-opens=java.base/java.nio=ALL-UNNAMED"
+    "--add-opens=java.base/java.util=ALL-UNNAMED"
+    "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"
+    "--add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED"
+) do (
+    echo !JAVA_OPTS! | findstr /c:%%F >nul 2>&1
+    if errorlevel 1 set "JAVA_OPTS=!JAVA_OPTS! %%~F"
+)
+
 REM Ensure HeapDumpPath directory exists to avoid OOM dump failures.
 set "HEAP_DUMP_PATH="
 for %%I in (!JAVA_OPTS!) do (
