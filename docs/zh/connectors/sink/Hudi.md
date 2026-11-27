@@ -65,7 +65,7 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 
 注意：写入单表时，可以把 `table_list` 中的表配置项平铺到外层。多表作业中，表级配置需放在各自的 `table_list` 条目内；`table_dfs_path`、`conf_files_path`、`schema_save_mode` 和 `data_save_mode` 保持在 sink 层级。
 
-`record_key_fields` 在 `UPSERT` 模式下必填（启动时校验），在 `BULK_INSERT` 模式下也必填（当前未校验——缺少该配置会在写入时抛出 `NullPointerException`，而不是配置期错误）。对于 CDC 输入，上游记录必须包含 `record_key_fields` 引用的字段；仅当需要 Hudi CDC 变更日志时才设置 `cdc_enabled = true`。
+`record_key_fields` 在 `UPSERT` 模式下必填（启动时校验）。在 `INSERT` 和 `BULK_INSERT` 模式下可以省略，未配置时每行使用随机 UUID 作为 record key。对于 CDC 输入，上游记录必须包含 `record_key_fields` 引用的字段；仅当需要 Hudi CDC 变更日志时才设置 `cdc_enabled = true`。
 
 ### table_name [string]
 
@@ -85,7 +85,7 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 
 ### record_key_fields [string]
 
-`record_key_fields` Hudi 表的记录键字段。当 `op_type` 为 `UPSERT` 时，必须配置该项。
+`record_key_fields` Hudi 表的记录键字段。当 `op_type` 为 `UPSERT` 时，必须配置该项；在 `INSERT` 或 `BULK_INSERT` 下省略时，每行使用随机 UUID 作为记录键。
 
 ### partition_fields [string]
 
@@ -177,7 +177,7 @@ env {
 ```
 
 Hudi 定时刷新复用连接器现有的同步批量刷新和 Hudi 客户端 auto-commit 行为。Hudi Sink 没有 2PC 精确一次
-写入器，因此定时刷新提供的是至少一次语义，重试可能产生额外的 commit。使用 `INSERT` 时，自动生成的
+写入器，因此定时刷新提供的是至少一次语义，重试可能产生额外的 commit。使用 `INSERT` 或 `BULK_INSERT` 时，自动生成的
 record key 还可能在恢复后产生重复行；使用具有稳定 `record_key_fields` 的 `UPSERT` 可以减少逻辑记录重复。
 
 ## 示例

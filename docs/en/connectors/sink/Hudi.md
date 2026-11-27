@@ -66,7 +66,7 @@ Table list configuration:
 
 Note: When this configuration corresponds to a single table, you can flatten the configuration items in `table_list` to the outer layer. For a multi-table job, keep table-specific options inside each `table_list` entry; `table_dfs_path`, `conf_files_path`, `schema_save_mode`, and `data_save_mode` remain at the sink level.
 
-`record_key_fields` is required for `UPSERT` (validated at startup) and for `BULK_INSERT` (currently unvalidated — omitting it causes a `NullPointerException` during writing, not a config-time error). For CDC input, the upstream record must contain the fields used by `record_key_fields`; set `cdc_enabled = true` only when the Hudi CDC change log is required.
+`record_key_fields` is required for `UPSERT` (validated at startup). For `INSERT` and `BULK_INSERT`, omitting it gives each row a random UUID record key. For CDC input, the upstream record must contain the fields used by `record_key_fields`; set `cdc_enabled = true` only when the Hudi CDC change log is required.
 
 ### table_name [string]
 
@@ -86,7 +86,7 @@ Note: When this configuration corresponds to a single table, you can flatten the
 
 ### record_key_fields [string]
 
-`record_key_fields` The record key fields of hudi table, its are used to generate record key. It must be configured when op_type is `UPSERT`.
+`record_key_fields` The record key fields of hudi table, its are used to generate record key. It must be configured when op_type is `UPSERT`. When it is omitted for `INSERT` or `BULK_INSERT`, each row gets a random UUID record key.
 
 ### partition_fields [string]
 
@@ -182,8 +182,8 @@ env {
 
 Hudi timer flush reuses the connector's synchronized batch flush and the Hudi client's auto-commit behavior. The Hudi
 sink does not provide a 2PC exactly-once writer, so timer flush provides at-least-once delivery. Retries can create
-additional commits. With `INSERT`, generated record keys can also produce duplicate rows after recovery; `UPSERT` with
-stable `record_key_fields` limits duplicate logical records.
+additional commits. With `INSERT` or `BULK_INSERT`, generated record keys can also produce duplicate rows after
+recovery; `UPSERT` with stable `record_key_fields` limits duplicate logical records.
 
 ## Examples
 
