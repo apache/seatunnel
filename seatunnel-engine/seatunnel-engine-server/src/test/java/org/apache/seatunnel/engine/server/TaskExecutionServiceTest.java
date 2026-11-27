@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
@@ -63,6 +64,7 @@ import org.mockito.Mockito;
 
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.spi.impl.operationservice.OperationAccessor;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 
@@ -70,6 +72,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -78,11 +81,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -105,6 +108,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
     static FlakeIdGenerator FLAKE_ID_GENERATOR;
+
+    /**
+     * Watchdog of the sink registration tests: generous on a loaded runner, and about half the time
+     * that the registration retries take, so a wait that runs them out still fails.
+     */
+    private static final Duration REGISTRATION_WATCHDOG =
+            Duration.ofMillis(
+                    (long) Constant.OPERATION_RETRY_TIME * Constant.OPERATION_RETRY_SLEEP / 2);
+
     long taskRunTime = 2000;
     long jobId = 10001;
     int pipeLineId = 100001;
@@ -942,20 +954,23 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
         TaskLocation committer = deployAndFinishCommitterTaskGroup(taskExecutionService);
         TaskLocation writer = new TaskLocation(newTaskGroupLocation(), 1L, 0);
+        TaskExecutionService lookups = Mockito.spy(taskExecutionService);
         try {
-            long start = System.nanoTime();
-            ExecutionException e =
-                    Assertions.assertThrows(
-                            ExecutionException.class,
-                            () -> sendSinkRegister(writer, committer).get(10, TimeUnit.SECONDS));
-            long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+            SeaTunnelEngineException e =
+                    Assertions.assertTimeoutPreemptively(
+                            REGISTRATION_WATCHDOG,
+                            () ->
+                                    Assertions.assertThrows(
+                                            SeaTunnelEngineException.class,
+                                            () ->
+                                                    newSinkRegisterOperation(
+                                                                    writer, committer, lookups)
+                                                            .runInternal()));
 
             Assertions.assertTrue(
-                    elapsedMs < Constant.OPERATION_RETRY_SLEEP,
-                    "registration was retried, took " + elapsedMs + " ms");
-            Assertions.assertTrue(
-                    e.getCause().getMessage().contains("task group has already ended"),
-                    e.getCause().getMessage());
+                    e.getMessage().contains("task group has already ended"), e.getMessage());
+            // One lookup and no retry.
+            Mockito.verify(lookups, Mockito.times(1)).getTask(committer);
         } finally {
             taskExecutionService.notifyCleanTaskGroupContext(committer.getTaskGroupLocation());
         }
@@ -992,14 +1007,38 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                                 Lists.newArrayList(restoredCommitter)));
         ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts =
                 getField(taskExecutionService, "executionContexts");
+        TaskExecutionService lookups = Mockito.spy(taskExecutionService);
+        // The first lookup and one retry.
+        CountDownLatch failedLookups = new CountDownLatch(2);
+        Mockito.doAnswer(
+                        invocation -> {
+                            try {
+                                return invocation.callRealMethod();
+                            } catch (TaskGroupContextNotFoundException e) {
+                                failedLookups.countDown();
+                                throw e;
+                            }
+                        })
+                .when(lookups)
+                .getTask(committer);
+        SinkRegisterOperation operation = newSinkRegisterOperation(writer, committer, lookups);
         try {
-            InvocationFuture<Object> registration = sendSinkRegister(writer, committer);
-            // Longer than one retry interval: the registration must still be waiting.
-            Thread.sleep(Constant.OPERATION_RETRY_SLEEP + 1000L);
+            Future<Void> registration =
+                    CompletableFuture.runAsync(
+                            () -> {
+                                try {
+                                    operation.runInternal();
+                                } catch (Exception e) {
+                                    throw new CompletionException(e);
+                                }
+                            });
+            Assertions.assertTrue(
+                    failedLookups.await(REGISTRATION_WATCHDOG.toMillis(), TimeUnit.MILLISECONDS),
+                    "the registration did not retry the lookup");
             Assertions.assertFalse(registration.isDone());
 
             executionContexts.put(location, restoredContext);
-            registration.get(10, TimeUnit.SECONDS);
+            registration.get(REGISTRATION_WATCHDOG.toMillis(), TimeUnit.MILLISECONDS);
 
             Mockito.verify(restoredCommitter)
                     .receivedWriterRegister(writer, nodeEngine.getThisAddress());
@@ -1078,7 +1117,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
             writerThread.interrupt();
 
             Assertions.assertTrue(
-                    opened.await(Constant.OPERATION_RETRY_SLEEP, TimeUnit.MILLISECONDS),
+                    opened.await(REGISTRATION_WATCHDOG.toMillis(), TimeUnit.MILLISECONDS),
                     "open() kept waiting after the interrupt");
             Assertions.assertInstanceOf(InterruptedException.class, openResult.get());
         } finally {
@@ -1119,11 +1158,18 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         return new TaskLocation(location, committerTask.getTaskID(), 0);
     }
 
-    private InvocationFuture<Object> sendSinkRegister(TaskLocation writer, TaskLocation committer) {
-        return NodeEngineUtil.sendOperationToMemberNode(
-                nodeEngine,
-                new SinkRegisterOperation(writer, committer),
-                nodeEngine.getThisAddress());
+    /**
+     * Creates a registration from this node's address that runs on the calling thread and looks the
+     * committer up in {@code lookups}.
+     */
+    private SinkRegisterOperation newSinkRegisterOperation(
+            TaskLocation writer, TaskLocation committer, TaskExecutionService lookups) {
+        SeaTunnelServer service = Mockito.mock(SeaTunnelServer.class);
+        Mockito.when(service.getTaskExecutionService()).thenReturn(lookups);
+        SinkRegisterOperation operation = new SinkRegisterOperation(writer, committer);
+        operation.setService(service);
+        OperationAccessor.setCallerAddress(operation, nodeEngine.getThisAddress());
+        return operation;
     }
 
     private TaskGroupLocation newTaskGroupLocation() {

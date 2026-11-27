@@ -77,12 +77,15 @@ public class SinkRegisterOperation extends TracingOperation implements Identifie
     /**
      * Looks up the committer task. While its task group is not active, for example while a restored
      * pipeline is still being deployed, the lookup fails with the retryable {@link
-     * TaskGroupContextNotFoundException}. If the task group has ended on this node, for example
-     * because the job is being cancelled, retrying cannot succeed, so this fails at once with an
-     * exception that is not retried. A pipeline restore cleans the finished context before it
-     * deploys the committer again; if that best-effort cleanup failed, a restored writer that
-     * registers before the new committer is active fails the same way, and the restore attempt
-     * fails instead of waiting.
+     * TaskGroupContextNotFoundException}. If the task group has ended on this node ({@link
+     * TaskExecutionService#isTaskGroupEnded}), for example because the job is being cancelled, this
+     * fails at once with an exception that is not retried.
+     *
+     * <p>That check reads the context maps at the time of the lookup and does not prove that the
+     * location is not deployed again. A pipeline restore cleans the finished context before it
+     * deploys the committer again, so a restored writer keeps retrying until the new committer is
+     * active. If that best-effort cleanup failed, a restored writer that registers before the new
+     * committer is active fails the same way, and the restore attempt fails instead of waiting.
      */
     private SinkAggregatedCommitterTask<?, ?> getCommitterTask(
             TaskExecutionService taskExecutionService) {

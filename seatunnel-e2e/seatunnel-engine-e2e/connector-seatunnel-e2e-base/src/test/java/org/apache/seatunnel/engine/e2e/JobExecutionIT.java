@@ -27,12 +27,18 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.e2e.committerregistration.CommitterRegistrationTestSink;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.TaskExecutionService;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
+import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
+import org.apache.seatunnel.engine.server.execution.Task;
+import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -43,9 +49,14 @@ import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.extern.slf4j.Slf4j;
 
+import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -57,6 +68,9 @@ public class JobExecutionIT {
     private static HazelcastInstanceImpl hazelcastInstance;
 
     private static SeaTunnelConfig SEATUNNEL_CONFIG;
+
+    /** Writer subtasks of the committer registration jobs, one per FakeSource subtask. */
+    private static final int COMMITTER_REGISTRATION_WRITERS = 2;
 
     @BeforeEach
     public void beforeClass() {
@@ -337,6 +351,181 @@ public class JobExecutionIT {
                             () ->
                                     Assertions.assertEquals(
                                             JobStatus.UNKNOWABLE, clientJobProxy.getJobStatus()));
+        }
+    }
+
+    /**
+     * A writer that registers with an aggregated committer whose task group has already ended fails
+     * the job with an error that names the ended committer, instead of retrying the registration
+     * for about a minute (#13477).
+     */
+    @Test
+    public void testSinkRegistrationWithEndedCommitterFailsTheJob() throws Exception {
+        Common.setDeployMode(DeployMode.CLIENT);
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
+        try (SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig)) {
+            HeldRegistration held =
+                    endCommitterBeforeWritersRegister(
+                            engineClient,
+                            "batch_fake_to_committer_registration_retry_0.conf",
+                            "committer_registration_retry_0");
+
+            CompletableFuture<JobStatus> jobStatus =
+                    CompletableFuture.supplyAsync(held.clientJobProxy::waitForJobComplete);
+            await().atMost(300, TimeUnit.SECONDS).until(jobStatus::isDone);
+
+            JobResult result = held.clientJobProxy.getJobResultCache();
+            Assertions.assertEquals(JobStatus.FAILED, result.getStatus());
+            Assertions.assertTrue(
+                    result.getError()
+                            .contains("because the committer's task group has already ended"),
+                    result.getError());
+            Assertions.assertTrue(
+                    CommitterRegistrationTestSink.committedByDeployment().isEmpty(),
+                    CommitterRegistrationTestSink.committedByDeployment().toString());
+        }
+    }
+
+    /**
+     * After a writer fails to register with an ended committer, the restored pipeline deploys a new
+     * committer at the same task group location, and that committer receives and commits every
+     * writer of the restored pipeline.
+     */
+    @Test
+    public void testRestoredPipelineRegistersWritersWithTheNewCommitter() throws Exception {
+        Common.setDeployMode(DeployMode.CLIENT);
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
+        try (SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig)) {
+            HeldRegistration held =
+                    endCommitterBeforeWritersRegister(
+                            engineClient,
+                            "batch_fake_to_committer_registration_retry_1.conf",
+                            "committer_registration_retry_1");
+
+            CompletableFuture<JobStatus> jobStatus =
+                    CompletableFuture.supplyAsync(held.clientJobProxy::waitForJobComplete);
+            await().atMost(300, TimeUnit.SECONDS).until(jobStatus::isDone);
+
+            JobResult result = held.clientJobProxy.getJobResultCache();
+            Assertions.assertEquals(JobStatus.FINISHED, result.getStatus(), result.getError());
+            Map<Integer, Set<String>> committed =
+                    CommitterRegistrationTestSink.committedByDeployment();
+            Assertions.assertEquals(1, committed.size(), committed.toString());
+            Assertions.assertFalse(
+                    committed.containsKey(held.endedCommitterDeployment), committed.toString());
+            Assertions.assertEquals(
+                    new HashSet<>(Arrays.asList("subtask-0", "subtask-1")),
+                    committed.values().iterator().next());
+        }
+    }
+
+    /**
+     * Starts a job of {@link CommitterRegistrationTestSink} and ends its aggregated committer
+     * before the writers register with it.
+     *
+     * <p>Zeta creates each writer in {@code SinkFlowLifeCycle#restoreState} and registers it in
+     * {@code SinkFlowLifeCycle#open}, which runs once the restore is done. The test sink holds the
+     * writers in {@code createWriter}, so their registration has not started yet. The test then
+     * cancels the committer's task group on this node with {@link
+     * TaskExecutionService#cancelTaskGroup}, the call that a job cancellation makes for each task
+     * group, and waits until the committer's task group has ended. Cancelling one task group does
+     * not cancel the others, so the job is still running and the writers register once they are
+     * released.
+     */
+    private HeldRegistration endCommitterBeforeWritersRegister(
+            SeaTunnelClient engineClient, String confFile, String jobName) throws Exception {
+        CommitterRegistrationTestSink.reset(COMMITTER_REGISTRATION_WRITERS);
+        try {
+            JobConfig jobConfig = new JobConfig();
+            jobConfig.setName(jobName);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            TestUtils.getResource(confFile), jobConfig, SEATUNNEL_CONFIG);
+            ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            Assertions.assertTrue(
+                    CommitterRegistrationTestSink.awaitWritersHeld(60, TimeUnit.SECONDS),
+                    "The writers were not created within 60 seconds");
+
+            TaskExecutionService taskExecutionService =
+                    ((SeaTunnelServer)
+                                    hazelcastInstance
+                                            .node
+                                            .getNodeEngine()
+                                            .getService(SeaTunnelServer.SERVICE_NAME))
+                            .getTaskExecutionService();
+            TaskGroupContext committerContext = findCommitterContext(taskExecutionService);
+            TaskGroupLocation committerLocation =
+                    committerContext.getTaskGroup().getTaskGroupLocation();
+            int endedCommitterDeployment = committerDeployment(committerContext);
+
+            taskExecutionService.cancelTaskGroup(committerLocation);
+            await().atMost(60, TimeUnit.SECONDS)
+                    .until(() -> hasEnded(taskExecutionService, committerLocation));
+            Assertions.assertEquals(JobStatus.RUNNING, clientJobProxy.getJobStatus());
+            return new HeldRegistration(clientJobProxy, endedCommitterDeployment);
+        } finally {
+            CommitterRegistrationTestSink.releaseWriters();
+        }
+    }
+
+    /** Whether the task group's deployment has finished on this node and none is active. */
+    private static boolean hasEnded(
+            TaskExecutionService taskExecutionService, TaskGroupLocation taskGroupLocation) {
+        try {
+            taskExecutionService.getActiveExecutionContext(taskGroupLocation);
+            return false;
+        } catch (TaskGroupContextNotFoundException notActive) {
+            try {
+                taskExecutionService.getExecutionContext(taskGroupLocation);
+                return true;
+            } catch (TaskGroupContextNotFoundException notFinished) {
+                return false;
+            }
+        }
+    }
+
+    private static TaskGroupContext findCommitterContext(TaskExecutionService taskExecutionService)
+            throws Exception {
+        Field executionContextsField =
+                TaskExecutionService.class.getDeclaredField("executionContexts");
+        executionContextsField.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        ConcurrentMap<TaskGroupLocation, TaskGroupContext> contexts =
+                (ConcurrentMap<TaskGroupLocation, TaskGroupContext>)
+                        executionContextsField.get(taskExecutionService);
+        for (TaskGroupContext context : contexts.values()) {
+            for (Task task : context.getTaskGroup().getTasks()) {
+                if (task instanceof SinkAggregatedCommitterTask) {
+                    return context;
+                }
+            }
+        }
+        throw new AssertionError("No active SinkAggregatedCommitterTask: " + contexts.keySet());
+    }
+
+    private static int committerDeployment(TaskGroupContext committerContext) throws Exception {
+        Field aggregatedCommitterField =
+                SinkAggregatedCommitterTask.class.getDeclaredField("aggregatedCommitter");
+        aggregatedCommitterField.setAccessible(true);
+        for (Task task : committerContext.getTaskGroup().getTasks()) {
+            if (task instanceof SinkAggregatedCommitterTask) {
+                return CommitterRegistrationTestSink.committerDeployment(
+                        aggregatedCommitterField.get(task));
+            }
+        }
+        throw new AssertionError("No SinkAggregatedCommitterTask in " + committerContext);
+    }
+
+    /** A job whose first committer ended before its writers registered. */
+    private static final class HeldRegistration {
+        private final ClientJobProxy clientJobProxy;
+        private final int endedCommitterDeployment;
+
+        private HeldRegistration(ClientJobProxy clientJobProxy, int endedCommitterDeployment) {
+            this.clientJobProxy = clientJobProxy;
+            this.endedCommitterDeployment = endedCommitterDeployment;
         }
     }
 
