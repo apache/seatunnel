@@ -201,37 +201,17 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
     public void onCompletedSplits(List<SnapshotSplitWatermark> completedSplitWatermarks) {
         completedSplitWatermarks.forEach(
                 watermark -> this.splitCompletedOffsets.put(watermark.getSplitId(), watermark));
-        if (allSplitsCompleted()) {
-            if (currentParallelism == 1) {
-                // A single-reader job completes immediately. Zeta disables checkpointing
-                // entirely for batch jobs without 'checkpoint.interval', so waiting for
-                // notifyCheckpointComplete would hang such a job forever. The failover risk
-                // of skipping the checkpoint wait is covered by the durable finished-unacked
-                // splits in the reader's own checkpoint, whose re-report on restore and the
-                // back-fill in restoreCompletedSnapshotSplit reconstruct the completion state
-                // without replaying the splits.
-                assignerCompleted = true;
-                LOG.info(
-                        "Snapshot split assigner received all splits completed at parallelism 1, snapshot split assigner is turn into completed status.");
-            } else {
-                // Multi-reader jobs must wait for a complete checkpoint before switching to
-                // the incremental phase, so that all records of snapshot splits are completely
-                // processed in the pipeline and no incremental record can overtake a snapshot
-                // record of the same key.
-                LOG.info(
-                        "Snapshot split assigner received all splits completed at parallelism {}, waiting for a complete checkpoint to mark the assigner completed.",
-                        currentParallelism);
-            }
-        }
+        markAssignerCompletedIfNeeded();
     }
 
     @Override
     public void addSplits(Collection<SourceSplitBase> splits) {
-        boolean restoredCompletedSplit = false;
+        if (splits.isEmpty()) {
+            return;
+        }
         for (SourceSplitBase split : splits) {
             SnapshotSplit snapshotSplit = split.asSnapshotSplit();
             if (restoreCompletedSnapshotSplit(snapshotSplit)) {
-                restoredCompletedSplit = true;
                 LOG.info(
                         "Restore completed snapshot split {} from checkpoint without replaying it",
                         snapshotSplit.splitId());
@@ -243,17 +223,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
             assignedSplits.remove(snapshotSplit.splitId());
             splitCompletedOffsets.remove(snapshotSplit.splitId());
         }
-        if (restoredCompletedSplit && !assignerCompleted && allSplitsCompleted()) {
-            if (currentParallelism == 1) {
-                assignerCompleted = true;
-                LOG.info(
-                        "Snapshot split assigner received all splits completed at parallelism 1 after restore, snapshot split assigner is turn into completed status.");
-            } else {
-                LOG.info(
-                        "Snapshot split assigner received all splits completed at parallelism {} after restore, waiting for a complete checkpoint to mark the assigner completed.",
-                        currentParallelism);
-            }
-        }
+        markAssignerCompletedIfNeeded();
     }
 
     @Override
@@ -311,6 +281,32 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
      */
     private boolean allSplitsCompleted() {
         return noMoreSplits() && assignedSplits.size() == splitCompletedOffsets.size();
+    }
+
+    private void markAssignerCompletedIfNeeded() {
+        if (assignerCompleted || !allSplitsCompleted()) {
+            return;
+        }
+        if (currentParallelism == 1) {
+            // A single-reader job completes immediately. Zeta disables checkpointing
+            // entirely for batch jobs without 'checkpoint.interval', so waiting for
+            // notifyCheckpointComplete would hang such a job forever. The failover risk
+            // of skipping the checkpoint wait is covered by the durable finished-unacked
+            // splits in the reader's own checkpoint, whose re-report on restore and the
+            // back-fill in restoreCompletedSnapshotSplit reconstruct the completion state
+            // without replaying the splits.
+            assignerCompleted = true;
+            LOG.info(
+                    "Snapshot split assigner received all splits completed at parallelism 1, snapshot split assigner is turn into completed status.");
+        } else {
+            // Multi-reader jobs must wait for a complete checkpoint before switching to
+            // the incremental phase, so that all records of snapshot splits are completely
+            // processed in the pipeline and no incremental record can overtake a snapshot
+            // record of the same key.
+            LOG.info(
+                    "Snapshot split assigner received all splits completed at parallelism {}, waiting for a complete checkpoint to mark the assigner completed.",
+                    currentParallelism);
+        }
     }
 
     /**

@@ -925,6 +925,135 @@ public class IncrementalSourceEnumeratorTest {
         }
     }
 
+    @Test
+    public void shouldPreserveCheckpointWatermarkAndDeferCompletionUntilWholeAddBackBatchProcessed()
+            throws Exception {
+        CatalogTable table = InMemoryCdcRestoreTestFixture.createCatalogTable();
+        IncrementalSource<SeaTunnelRow, SourceConfig> source =
+                InMemoryCdcRestoreTestFixture.createSource(
+                        null, table, false, StopMode.NEVER, false);
+        Serializer<PendingSplitsState> enumSerializer = source.getEnumeratorStateSerializer();
+        Serializer<SourceSplitBase> splitSerializer = source.getSplitSerializer();
+
+        SnapshotSplit finishedSplit0 =
+                new SnapshotSplit(
+                        InMemoryCdcRestoreTestFixture.SPLIT_0_ID,
+                        TABLE_ID,
+                        InMemoryCdcRestoreTestFixture.ROW_TYPE,
+                        new Object[] {1L},
+                        new Object[] {100L},
+                        InMemoryCdcRestoreTestFixture.offset(100L),
+                        InMemoryCdcRestoreTestFixture.offset(120L));
+        SnapshotSplit unfinishedSplit1 =
+                new SnapshotSplit(
+                        InMemoryCdcRestoreTestFixture.SPLIT_1_ID,
+                        TABLE_ID,
+                        InMemoryCdcRestoreTestFixture.ROW_TYPE,
+                        new Object[] {100L},
+                        null);
+
+        Map<String, SnapshotSplit> assigned = new HashMap<>();
+        assigned.put(finishedSplit0.splitId(), finishedSplit0);
+        assigned.put(unfinishedSplit1.splitId(), unfinishedSplit1);
+
+        Map<String, SnapshotSplitWatermark> completed = new HashMap<>();
+        completed.put(
+                finishedSplit0.splitId(),
+                new SnapshotSplitWatermark(
+                        finishedSplit0.splitId(),
+                        InMemoryCdcRestoreTestFixture.offset(90L),
+                        InMemoryCdcRestoreTestFixture.offset(125L)));
+        completed.put(
+                unfinishedSplit1.splitId(),
+                new SnapshotSplitWatermark(
+                        unfinishedSplit1.splitId(),
+                        InMemoryCdcRestoreTestFixture.offset(95L),
+                        InMemoryCdcRestoreTestFixture.offset(115L)));
+
+        HybridPendingSplitsState state =
+                new HybridPendingSplitsState(
+                        new SnapshotPhaseState(
+                                Collections.singletonList(TABLE_ID),
+                                Collections.emptyList(),
+                                assigned,
+                                completed,
+                                false,
+                                Collections.emptyList(),
+                                false,
+                                true),
+                        new IncrementalPhaseState());
+
+        PendingSplitsState restoredState =
+                enumSerializer.deserialize(enumSerializer.serialize(state));
+        SourceSplitBase restoredSplit0 =
+                splitSerializer.deserialize(splitSerializer.serialize(finishedSplit0));
+        SourceSplitBase restoredUnfinishedSplit1 =
+                splitSerializer.deserialize(splitSerializer.serialize(unfinishedSplit1));
+
+        MultiSubtaskEnumeratorContext context = new MultiSubtaskEnumeratorContext(1);
+        SourceSplitEnumerator<SourceSplitBase, PendingSplitsState> enumerator =
+                source.restoreEnumerator(context, restoredState);
+        enumerator.open();
+        try {
+            // Empty add-back must not evaluate completion before real reader splits arrive.
+            enumerator.addSplitsBack(Collections.emptyList(), 0);
+            Assertions.assertFalse(
+                    ((HybridPendingSplitsState) enumerator.snapshotState(1L))
+                            .getSnapshotPhaseState()
+                            .isAssignerCompleted());
+
+            // Mixed batch [finishedSplit0, unfinishedSplit1] must preserve split0's existing
+            // checkpoint watermark (90..125) via putIfAbsent and wait until unfinishedSplit1 is
+            // requeued before checking completion.
+            enumerator.addSplitsBack(Arrays.asList(restoredSplit0, restoredUnfinishedSplit1), 0);
+            SnapshotPhaseState afterBatch =
+                    ((HybridPendingSplitsState) enumerator.snapshotState(2L))
+                            .getSnapshotPhaseState();
+            Assertions.assertFalse(afterBatch.isAssignerCompleted());
+            Assertions.assertEquals(
+                    Collections.singletonMap(
+                            finishedSplit0.splitId(), completed.get(finishedSplit0.splitId())),
+                    afterBatch.getSplitCompletedOffsets());
+
+            enumerator.run();
+            enumerator.handleSplitRequest(0);
+
+            Assertions.assertEquals(1, context.assignedSplits.size());
+            Assertions.assertTrue(context.assignedSplits.get(0).isSnapshotSplit());
+            Assertions.assertEquals(
+                    unfinishedSplit1.splitId(), context.assignedSplits.get(0).splitId());
+
+            CompletedSnapshotSplitsReportEvent report = new CompletedSnapshotSplitsReportEvent();
+            report.setCompletedSnapshotSplitWatermarks(
+                    Collections.singletonList(
+                            new SnapshotSplitWatermark(
+                                    unfinishedSplit1.splitId(),
+                                    InMemoryCdcRestoreTestFixture.offset(95L),
+                                    InMemoryCdcRestoreTestFixture.offset(130L))));
+            enumerator.handleSourceEvent(0, report);
+            enumerator.handleSplitRequest(0);
+
+            Assertions.assertEquals(2, context.assignedSplits.size());
+            IncrementalSplit dispatched = context.assignedSplits.get(1).asIncrementalSplit();
+            Assertions.assertEquals(
+                    90L, InMemoryCdcRestoreTestFixture.offsetPos(dispatched.getStartupOffset()));
+            Map<String, SnapshotSplitWatermark> expectedWatermarks = new HashMap<>(completed);
+            expectedWatermarks.put(
+                    unfinishedSplit1.splitId(),
+                    report.getCompletedSnapshotSplitWatermarks().get(0));
+            Assertions.assertEquals(
+                    expectedWatermarks,
+                    dispatched.getCompletedSnapshotSplitInfos().stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            CompletedSnapshotSplitInfo::getSplitId,
+                                            CompletedSnapshotSplitInfo::getWatermark)));
+
+        } finally {
+            enumerator.close();
+        }
+    }
+
     private static final class MultiSubtaskEnumeratorContext
             implements SourceSplitEnumerator.Context<SourceSplitBase> {
 
