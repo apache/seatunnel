@@ -24,6 +24,7 @@ import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
+import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
@@ -67,6 +68,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
@@ -88,6 +90,20 @@ public class CheckpointCoordinatorFailoverIT {
 
     private static final String TRIGGER_DISPATCH_FAILURE_TEMPLATE_CONF =
             "stream_fake_to_localfile_checkpoint_trigger_dispatch_failure_template.conf";
+
+    /**
+     * A BATCH job whose env intentionally omits {@code checkpoint.interval}: Zeta disables
+     * checkpointing for the job even though the engine keeps a default interval configured.
+     */
+    private static final String CHECKPOINT_DISABLED_BATCH_CONF =
+            "batch_fake_to_console_checkpoint_disabled.conf";
+
+    /**
+     * Engine-level default {@code checkpoint.interval} used by the failover test for the
+     * checkpoint-disabled job. Kept short so that an illegally triggered periodic checkpoint shows
+     * up during the test's observation window instead of hours later.
+     */
+    private static final long ENGINE_DEFAULT_CHECKPOINT_INTERVAL_MS = 1000L;
 
     private static final String DYNAMIC_TEST_CASE_NAME = "dynamic_test_case_name";
 
@@ -223,6 +239,289 @@ public class CheckpointCoordinatorFailoverIT {
                 masterNode2.shutdown();
             }
         }
+    }
+
+    /**
+     * Guards the checkpoint-enable contract of a BATCH job across a master failover.
+     *
+     * <p><b>Why this is a boundary with real regression risk.</b> A BATCH job without {@code
+     * checkpoint.interval} has checkpointing explicitly disabled by {@code
+     * JobMaster#createJobCheckpointConfig}, but the engine still carries a configured default
+     * interval for jobs that do enable checkpoints. The healthy-master path honours the flag in
+     * {@code CheckpointCoordinator#allTaskReady}: it never schedules a periodic checkpoint. The
+     * failover path is a different entry point: {@code CheckpointCoordinator#restoreCoordinator}
+     * rebuilds a coordinator on the new active master and, when the tasks already run on the
+     * surviving worker ({@code alreadyStarted == true}), used to call {@code
+     * tryTriggerPendingCheckpoint(CHECKPOINT_TYPE)} unconditionally. Because the restored
+     * coordinator's {@code latestTriggerTimestamp} starts at {@code 0}, that call fires a periodic
+     * checkpoint immediately and schedules the next one from the engine default interval. Worse,
+     * the checkpoint timeout future is only armed when {@code isCheckpointEnable()} is true, so the
+     * illegal periodic checkpoints run without any timeout: a stalled subtask leaves {@code
+     * pendingCounter > 0} and can hang the job's final close barrier indefinitely. Existing tests
+     * never combine "checkpointing disabled for the job" with "master failover while the tasks are
+     * already running", because the failover tests all use a job that explicitly enables
+     * checkpoints and therefore cannot distinguish a legitimate checkpoint from an illegal one.
+     *
+     * <p><b>Contract asserted here.</b> Before the failover the job stores no checkpoint and its
+     * per-pipeline checkpoint id counter stays at the initial value. After the active master is
+     * killed and the surviving master restores the job while its task runs on the worker, the job
+     * must still be RUNNING, must not persist any checkpoint, and must not advance the checkpoint
+     * id counter for several engine default intervals. The normal final {@code
+     * COMPLETED_POINT_TYPE} checkpoint is not exercised here because the job is cancelled while it
+     * is still running; this test is about the periodic schedule that must not exist.
+     *
+     * <p>See <a href="https://github.com/apache/seatunnel/issues/13497">#13497</a>.
+     */
+    @Test
+    public void testCheckpointDisabledBatchJobDoesNotCheckpointAfterMasterFailover()
+            throws Exception {
+        String testCaseName = "testCheckpointDisabledBatchJobDoesNotCheckpointAfterMasterFailover";
+        String testClusterName = "CheckpointCoordinatorFailoverIT_" + testCaseName;
+
+        HazelcastInstanceImpl masterNode1 = null;
+        HazelcastInstanceImpl masterNode2 = null;
+        HazelcastInstanceImpl workerNode = null;
+        SeaTunnelClient engineClient = null;
+        ClientJobProxy clientJobProxy = null;
+
+        SeaTunnelConfig masterNode1Config = checkpointDisabledFailoverConfig(testClusterName);
+        SeaTunnelConfig masterNode2Config = checkpointDisabledFailoverConfig(testClusterName);
+        SeaTunnelConfig workerNodeConfig = checkpointDisabledFailoverConfig(testClusterName);
+
+        try {
+            masterNode1 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode1Config);
+            masterNode2 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode2Config);
+            workerNode = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerNodeConfig);
+
+            HazelcastInstanceImpl finalMaster1 = masterNode1;
+            Awaitility.await()
+                    .atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            3, finalMaster1.getCluster().getMembers().size()));
+
+            Common.setDeployMode(DeployMode.CLUSTER);
+            JobConfig jobConfig = new JobConfig();
+            jobConfig.setName(testCaseName);
+
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+            clientJobProxy =
+                    engineClient
+                            .createExecutionContext(
+                                    TestUtils.getResource(CHECKPOINT_DISABLED_BATCH_CONF),
+                                    jobConfig,
+                                    masterNode1Config)
+                            .execute();
+            long jobId = clientJobProxy.getJobId();
+            final ClientJobProxy jobProxy = clientJobProxy;
+            final SeaTunnelClient client = engineClient;
+
+            Awaitility.await()
+                    .atMost(3, TimeUnit.MINUTES)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.RUNNING, jobProxy.getJobStatus()));
+            long rowsBeforeFailover = awaitSourceActivelyEmitting(engineClient, jobId);
+
+            // The job's env omits checkpoint.interval, so the healthy master must respect the
+            // disabled flag even when several engine default intervals elapse.
+            Thread.sleep(3 * ENGINE_DEFAULT_CHECKPOINT_INTERVAL_MS);
+            assertNoJobCheckpoint(masterNode1, jobId, "on the healthy master");
+
+            log.info(
+                    "Checkpoint-disabled batch job {} is RUNNING with {} rows read and no"
+                            + " checkpoint. Triggering master failover by shutting down"
+                            + " masterNode1.",
+                    jobId,
+                    rowsBeforeFailover);
+
+            masterNode1.shutdown();
+            masterNode1 = null;
+
+            // The surviving members are the standby master and the checkpoint-disabled job's
+            // worker; only the killed active master leaves the cluster.
+            HazelcastInstanceImpl finalMaster2 = masterNode2;
+            Awaitility.await()
+                    .atMost(1, TimeUnit.MINUTES)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, finalMaster2.getCluster().getMembers().size()));
+
+            Awaitility.await()
+                    .atMost(3, TimeUnit.MINUTES)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.RUNNING, jobProxy.getJobStatus()));
+            // The restored job must resume producing rows on the surviving worker; this also
+            // proves the new coordinator reached the alreadyStarted restore path.
+            Awaitility.await()
+                    .atMost(3, TimeUnit.MINUTES)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            readSourceReceivedCount(client, jobId)
+                                                    > rowsBeforeFailover,
+                                            "Waiting for the restored source to resume emitting"
+                                                    + " rows"));
+
+            // Observe several engine default intervals on the new master. A periodic checkpoint
+            // triggered by restoreCoordinator would advance the id counter immediately and persist
+            // a checkpoint within this window.
+            long observationDeadline =
+                    System.currentTimeMillis() + 5 * ENGINE_DEFAULT_CHECKPOINT_INTERVAL_MS;
+            while (System.currentTimeMillis() < observationDeadline) {
+                Assertions.assertEquals(
+                        JobStatus.RUNNING,
+                        jobProxy.getJobStatus(),
+                        "The batch job must still be running while the absence of periodic"
+                                + " checkpoints is observed");
+                assertNoJobCheckpoint(masterNode2, jobId, "after master failover");
+                Thread.sleep(200L);
+            }
+
+            Assertions.assertTrue(
+                    readSourceReceivedCount(client, jobId) > rowsBeforeFailover,
+                    "The checkpoint-disabled batch job must keep reading rows after the master"
+                            + " failover");
+
+            clientJobProxy.cancelJob();
+            Awaitility.await()
+                    .atMost(1, TimeUnit.MINUTES)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.CANCELED, jobProxy.getJobStatus()));
+        } finally {
+            if (clientJobProxy != null) {
+                try {
+                    clientJobProxy.cancelJob();
+                } catch (Exception e) {
+                    log.warn("Best-effort cancellation failed: {}", e.getMessage());
+                }
+            }
+            if (engineClient != null) {
+                engineClient.close();
+            }
+            if (workerNode != null) {
+                workerNode.shutdown();
+            }
+            if (masterNode2 != null) {
+                masterNode2.shutdown();
+            }
+            if (masterNode1 != null) {
+                masterNode1.shutdown();
+            }
+        }
+    }
+
+    /**
+     * Builds a node config whose engine default checkpoint interval is short enough for an illegal
+     * periodic checkpoint to surface inside the test window. The job under test never inherits this
+     * interval because its BATCH env omits {@code checkpoint.interval}, which disables
+     * checkpointing for the job.
+     */
+    private static SeaTunnelConfig checkpointDisabledFailoverConfig(String testClusterName) {
+        SeaTunnelConfig config = ConfigProvider.locateAndGetSeaTunnelConfig();
+        config.getHazelcastConfig().setClusterName(TestUtils.getClusterName(testClusterName));
+        config.getEngineConfig().getHttpConfig().setEnabled(false);
+        config.getEngineConfig()
+                .getCheckpointConfig()
+                .setCheckpointInterval(ENGINE_DEFAULT_CHECKPOINT_INTERVAL_MS);
+        return config;
+    }
+
+    /**
+     * Waits until the source has emitted at least one row and then grows further between two
+     * samples, proving that the job is genuinely running before the failover.
+     */
+    private static long awaitSourceActivelyEmitting(SeaTunnelClient engineClient, long jobId) {
+        Awaitility.await()
+                .atMost(3, TimeUnit.MINUTES)
+                .pollInterval(200, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        readSourceReceivedCount(engineClient, jobId) > 0,
+                                        "Source has not emitted any rows yet"));
+        long firstSample = readSourceReceivedCount(engineClient, jobId);
+        Awaitility.await()
+                .atMost(3, TimeUnit.MINUTES)
+                .pollInterval(200, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        readSourceReceivedCount(engineClient, jobId) > firstSample,
+                                        "Source stopped emitting at " + firstSample + " rows"));
+        return readSourceReceivedCount(engineClient, jobId);
+    }
+
+    /**
+     * Reads the aggregated source read count; metrics RPCs can fail transiently while the job is
+     * being restored, so a failure is reported as {@code -1} and the surrounding poll retries.
+     */
+    private static long readSourceReceivedCount(SeaTunnelClient engineClient, long jobId) {
+        try {
+            return engineClient.getJobMetricsSummary(jobId).getSourceReadCount();
+        } catch (RuntimeException e) {
+            log.warn("Transient failure reading metrics of job {}: {}", jobId, e.getMessage());
+            return -1L;
+        }
+    }
+
+    /**
+     * Asserts that the job has persisted no checkpoint and that its single pipeline's checkpoint id
+     * counter is still at the initial value. Both checks are needed: the counter advances when a
+     * checkpoint is created, while storage only shows it once it completes.
+     */
+    private void assertNoJobCheckpoint(HazelcastInstanceImpl masterNode, long jobId, String phase)
+            throws CheckpointStorageException {
+        List<PipelineState> checkpoints =
+                checkpointStorage(masterNode).getAllCheckpoints(String.valueOf(jobId));
+        Assertions.assertTrue(
+                checkpoints.isEmpty(),
+                () ->
+                        String.format(
+                                "A batch job with checkpointing disabled must not persist any"
+                                        + " checkpoint %s, but found %d: %s",
+                                phase,
+                                checkpoints.size(),
+                                checkpoints.stream()
+                                        .map(
+                                                state ->
+                                                        "pipeline="
+                                                                + state.getPipelineId()
+                                                                + ", checkpoint="
+                                                                + state.getCheckpointId())
+                                        .collect(java.util.stream.Collectors.toList())));
+
+        Long counter =
+                checkpointCounterStore(masterNode)
+                        .get(StateStoreCheckpointIDCounter.convertLongIntToBase64(jobId, 1));
+        Assertions.assertEquals(
+                Long.valueOf(1L),
+                counter,
+                () ->
+                        String.format(
+                                "The checkpoint id counter of a checkpoint-disabled job must stay"
+                                        + " at the initial value %s, but was %s",
+                                1L, counter));
+    }
+
+    private static CheckpointStorage checkpointStorage(HazelcastInstanceImpl masterNode) {
+        SeaTunnelServer server =
+                masterNode.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        return server.getCheckpointService().getCheckpointStorage();
     }
 
     @Test
