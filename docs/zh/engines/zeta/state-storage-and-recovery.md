@@ -103,6 +103,11 @@ curl -X POST http://<master>:8080/stop-job \
 $SEATUNNEL_HOME/bin/seatunnel.sh --config job.conf --restore <job-id>
 ```
 
+如果源作业没有 Savepoint，客户端会在作业规划阶段、创建作业之前拒绝提交，错误信息为
+`No checkpoint found for jobId=<源作业ID>, restoreMode=SAVEPOINT, restoreSourceJobId=<源作业ID>`，
+客户端不会退化为从头开始的重新运行。REST 与 Application 提交路径也执行相同的快速失败约束
+（参见 [REST API 作业生命周期](rest-api-job-lifecycle.md)）。
+
 ### 从最新成功完成的 Checkpoint 恢复
 
 ```bash
@@ -110,6 +115,13 @@ $SEATUNNEL_HOME/bin/seatunnel.sh --config job.conf --restore <job-id>
 # 新一次运行会生成新的运行时 jobId。
 $SEATUNNEL_HOME/bin/seatunnel.sh --config job.conf --restore-with-checkpoint <job-id>
 ```
+
+如果源作业没有可用于恢复的成功 Checkpoint，提交会以
+`No checkpoint found for jobId=..., restoreMode=CHECKPOINT, restoreSourceJobId=...` 被拒绝，
+而不会重新开始一次全新执行。只有作业在取消时设置了
+`checkpoint.retain-after-job-cancelled: true`（或 `seatunnel.yaml` 中的对应配置），其 Checkpoint
+才会被保留；默认值为 `false`，取消时会删除 Checkpoint 数据，之后无法再从 Checkpoint 恢复。
+参见 [Checkpoint 保留与清理](#checkpoint-保留与清理)。
 
 ### Savepoint 路径结构
 

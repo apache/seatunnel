@@ -42,7 +42,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -59,16 +58,15 @@ import java.util.concurrent.atomic.AtomicReference;
  * every sink that is not idempotent duplicates the already committed rows. The job looks RUNNING
  * and the operator only discovers the data duplication downstream.
  *
- * <p><b>Why the existing coverage does not reach it.</b> The server-side restore entry points are
- * already guarded and unit-tested: {@code RestJobExecutionEnvironment} and {@code
- * ApplicationJobExecutionEnvironment} throw {@code "No checkpoint found for jobId=..."}, and {@code
- * RestApiSubmitJobStartWithSavePointTest} pins the HTTP 400 response. The CLI/client entry point
- * {@code ClientJobExecutionEnvironment} has no such guard, so the same request that REST rejects is
- * silently accepted through the client API. Existing E2E restore tests always restore from a source
- * job whose checkpoint data still exists, so an empty-checkpoint fallback is invisible to them.
- * This test drives the client API only: it produces a real checkpoint, cancels the job with the
- * default retention setting, waits until the storage has been cleaned up, and then asserts that a
- * checkpoint restore into a new job id is rejected instead of being turned into a fresh run.
+ * <p><b>What this test pins.</b> The client entry point {@code ClientJobExecutionEnvironment} must
+ * reject a restore whose source job has no restore-eligible checkpoint data, exactly like the
+ * server-side entry points {@code RestJobExecutionEnvironment} and {@code
+ * ApplicationJobExecutionEnvironment} (both covered separately, together with the HTTP 400 shape in
+ * {@code RestApiSubmitJobStartWithSavePointTest}). Existing E2E restore tests always restore from a
+ * source job whose checkpoint data still exists, so an empty-checkpoint fallback is invisible to
+ * them. This test drives the client API only: it produces a real checkpoint, cancels the job with
+ * the default retention setting, waits until the storage has been cleaned up, and then asserts that
+ * a checkpoint restore into a new job id is rejected instead of being turned into a fresh run.
  *
  * <p>Kept as its own in-JVM cluster class rather than a {@code SeaTunnelEngineContainer} subclass:
  * the contract is about client/server restore bookkeeping and needs no containerized connector, so
@@ -193,7 +191,16 @@ public class ClientCheckpointRestoreMissingDataIT {
                             + ", but got: "
                             + message);
 
-            // A rejected restore must not leave any checkpoint data behind for the destination job.
+            // The destination job itself must not exist: the guard has to run before the job is
+            // submitted, not after. An unknown job id is reported as UNKNOWABLE, so this fails if a
+            // later refactor moves the check below createJobProxy().
+            Assertions.assertEquals(
+                    JobStatus.UNKNOWABLE.name(),
+                    engineClient.getJobStatus(restoreJobId),
+                    "Rejected checkpoint restore must not submit destination job " + restoreJobId);
+
+            // Secondary check: the rejected destination must not have left checkpoint data either,
+            // even though a very young job would not have completed one yet.
             Assertions.assertTrue(
                     jobClient.getCheckpointData(restoreJobId, RestoreMode.CHECKPOINT).isEmpty(),
                     "Rejected checkpoint restore must not create checkpoint data for job "
@@ -290,7 +297,6 @@ public class ClientCheckpointRestoreMissingDataIT {
 
     /** Waits until the checkpoint storage holds no restore-eligible data for the job. */
     private static void awaitNoCheckpointData(JobClient jobClient, long jobId) {
-        AtomicInteger observed = new AtomicInteger(-1);
         Awaitility.await()
                 .atMost(STATE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .pollInterval(1, TimeUnit.SECONDS)
@@ -298,7 +304,6 @@ public class ClientCheckpointRestoreMissingDataIT {
                         () -> {
                             List<JobPipelineCheckpointData> checkpoints =
                                     jobClient.getCheckpointData(jobId, RestoreMode.CHECKPOINT);
-                            observed.set(checkpoints.size());
                             Assertions.assertTrue(
                                     checkpoints.isEmpty(),
                                     "Canceled job "
@@ -306,7 +311,7 @@ public class ClientCheckpointRestoreMissingDataIT {
                                             + " must have its checkpoint data deleted when"
                                             + " checkpoint.retain-after-job-cancelled is false, but"
                                             + " "
-                                            + observed.get()
+                                            + checkpoints.size()
                                             + " checkpoint(s) are still stored: "
                                             + checkpoints);
                         });

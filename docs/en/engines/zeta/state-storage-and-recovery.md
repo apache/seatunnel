@@ -109,6 +109,13 @@ curl -X POST http://<master>:8080/stop-job \
 $SEATUNNEL_HOME/bin/seatunnel.sh --config job.conf --restore <job-id>
 ```
 
+If the source job has no savepoint, the client rejects the submission while it is planned, before
+any job is created, with
+`No checkpoint found for jobId=<source-job-id>, restoreMode=SAVEPOINT, restoreSourceJobId=<source-job-id>`;
+the client never falls back to a fresh run from offset zero. The same fail-fast contract is enforced
+by the REST and application submission paths (see
+[REST API job lifecycle](rest-api-job-lifecycle.md)).
+
 ### Restoring from the latest completed checkpoint
 
 ```bash
@@ -116,6 +123,14 @@ $SEATUNNEL_HOME/bin/seatunnel.sh --config job.conf --restore <job-id>
 # The new run gets a new runtime job ID.
 $SEATUNNEL_HOME/bin/seatunnel.sh --config job.conf --restore-with-checkpoint <job-id>
 ```
+
+If the source job has no restore-eligible completed checkpoint, the submission is rejected with
+`No checkpoint found for jobId=..., restoreMode=CHECKPOINT, restoreSourceJobId=...` instead of
+starting a fresh execution. A canceled job keeps its checkpoints only when it was canceled with
+`checkpoint.retain-after-job-cancelled: true` (or the matching `seatunnel.yaml` setting); with the
+default `false` its checkpoint data is deleted on cancellation and the job can no longer be
+restored from a checkpoint. See
+[Checkpoint retention and cleanup](#checkpoint-retention-and-cleanup).
 
 ### Savepoint path layout
 

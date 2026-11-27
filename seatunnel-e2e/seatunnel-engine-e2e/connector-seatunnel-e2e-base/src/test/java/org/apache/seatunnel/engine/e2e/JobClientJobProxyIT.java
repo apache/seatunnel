@@ -19,6 +19,9 @@ package org.apache.seatunnel.engine.e2e;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
+
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -129,7 +132,8 @@ public class JobClientJobProxyIT extends SeaTunnelEngineContainer {
     }
 
     @Test
-    public void testSaveModeOnMasterOrClient() throws IOException, InterruptedException {
+    public void testSaveModeOnMasterOrClient()
+            throws IOException, InterruptedException, java.util.concurrent.ExecutionException {
         Container.ExecResult execResult =
                 executeJob(server, "/savemode/fake_to_inmemory_savemode.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -148,14 +152,52 @@ public class JobClientJobProxyIT extends SeaTunnelEngineContainer {
                 serverLogs.contains(
                         "org.apache.seatunnel.e2e.sink.inmemory.InMemorySaveModeHandler - handle data savemode with table path: test.table2"));
 
-        // restore will not execute savemode
-        execResult = restoreJob(server, "/savemode/fake_to_inmemory_savemode.conf", "1", null);
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        // restore will not execute savemode. A real savepoint is required since the client now
+        // rejects a restore whose source job has no restore-eligible checkpoint data, so this
+        // submits a streaming job with checkpointing enabled, stops it with a savepoint and
+        // restores that savepoint.
+        String streamingConf = "/savemode/stream_fake_to_inmemory_savemode.conf";
+        long restoreSourceJobId = JobIdGenerator.newJobId();
+        CompletableFuture<Container.ExecResult> sourceJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return executeJob(
+                                        streamingConf, String.valueOf(restoreSourceJobId));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        awaitJobStatus(String.valueOf(restoreSourceJobId), "RUNNING");
+        Container.ExecResult savepointResult = savepointJob(String.valueOf(restoreSourceJobId));
+        Assertions.assertEquals(0, savepointResult.getExitCode(), savepointResult.getStderr());
+        awaitJobStatus(String.valueOf(restoreSourceJobId), "SAVEPOINT_DONE");
+        Assertions.assertEquals(0, sourceJobFuture.get().getExitCode());
+
         // clear old logs
-        serverLogLength += serverLogs.length();
+        serverLogs = server.getLogs();
+        serverLogLength = serverLogs.length();
+
+        CompletableFuture<Container.ExecResult> restoreFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return restoreJob(
+                                        streamingConf, String.valueOf(restoreSourceJobId));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        awaitJobStatus(String.valueOf(restoreSourceJobId), "RUNNING");
         serverLogs = server.getLogs().substring(serverLogLength);
         Assertions.assertFalse(serverLogs.contains("handle schema savemode with table path"));
         Assertions.assertFalse(serverLogs.contains("handle data savemode with table path"));
+
+        stopJob(String.valueOf(restoreSourceJobId));
+        awaitJobStatus(String.valueOf(restoreSourceJobId), "CANCELED");
+        execResult = restoreFuture.get();
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        serverLogs = server.getLogs().substring(serverLogLength);
 
         // test savemode on client side
         Container.ExecResult execResult2 =
@@ -183,5 +225,13 @@ public class JobClientJobProxyIT extends SeaTunnelEngineContainer {
                                 .getStderr()
                                 .contains(
                                         "org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException"));
+    }
+
+    private void awaitJobStatus(String jobId, String expectedStatus) {
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals(expectedStatus, getJobStatus(jobId), jobId));
     }
 }
