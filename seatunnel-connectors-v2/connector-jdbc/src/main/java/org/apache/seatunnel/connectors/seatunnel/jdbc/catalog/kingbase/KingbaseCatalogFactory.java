@@ -25,20 +25,19 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.google.auto.service.AutoService;
 
-import java.sql.Connection;
-
+/**
+ * Catalog factory for KingbaseES.
+ *
+ * <p>The compatibility mode is taken exclusively from the explicit {@code compatible_mode} option;
+ * no connection is opened while resolving it. An absent mode keeps the native Kingbase catalog,
+ * which is the pre-existing behavior.
+ */
 @AutoService(Factory.class)
 public class KingbaseCatalogFactory implements CatalogFactory {
-    private static final Logger LOG = LoggerFactory.getLogger(KingbaseCatalogFactory.class);
 
     @Override
     public String factoryIdentifier() {
@@ -49,11 +48,15 @@ public class KingbaseCatalogFactory implements CatalogFactory {
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
         String urlWithDatabase = options.get(JdbcCommonOptions.URL);
         JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(urlWithDatabase);
-        String compatibleMode = detectCompatibleMode(options);
-        if (isMySQL(compatibleMode)) {
-            return getMySqlCatalog(catalogName, options, urlInfo);
+        if (resolvesToMySqlCatalog(options.get(JdbcCommonOptions.COMPATIBLE_MODE))) {
+            return createMySqlCatalog(
+                    catalogName,
+                    options.get(JdbcCommonOptions.USERNAME),
+                    options.get(JdbcCommonOptions.PASSWORD),
+                    urlInfo,
+                    options.get(JdbcCommonOptions.DRIVER));
         }
-        return new KingbaseCatalog(
+        return createKingbaseCatalog(
                 catalogName,
                 options.get(JdbcCommonOptions.USERNAME),
                 options.get(JdbcCommonOptions.PASSWORD),
@@ -70,46 +73,30 @@ public class KingbaseCatalogFactory implements CatalogFactory {
     }
 
     /**
-     * Resolves the KingbaseES compatibility mode. An explicitly configured {@code compatible_mode}
-     * wins and skips the live probe, mirroring {@code KingbaseDialectFactory}; only when it is
-     * absent is the mode read from the driver connection.
+     * Whether the given explicit compatibility mode selects the MySQL catalog implementation. This
+     * is a pure function of configuration: it never contacts the database, so mode selection is
+     * deterministic and independent of transient connectivity.
      */
-    private String detectCompatibleMode(ReadonlyConfig config) {
-        String configuredMode = config.get(JdbcCommonOptions.COMPATIBLE_MODE);
-        if (configuredMode != null && !configuredMode.trim().isEmpty()) {
-            return configuredMode.trim();
-        }
-        JdbcConnectionConfig jdbcConnectionConfig = JdbcConnectionConfig.of(config);
-        SimpleJdbcConnectionProvider provider =
-                new SimpleJdbcConnectionProvider(jdbcConnectionConfig);
-        try {
-            Connection connection = provider.getOrEstablishConnection();
-            if (connection instanceof com.kingbase8.jdbc.KbConnection) {
-                return ((com.kingbase8.jdbc.KbConnection) connection).getCompatibleLevel();
-            }
-        } catch (Exception e) {
-            // Same fallback as KingbaseDialectFactory: an undetectable mode means the native
-            // Kingbase (PostgreSQL-compatible) catalog, which is the pre-existing behavior.
-            LOG.warn(
-                    "Failed to detect KingbaseES compatible mode from connection, fallback to default.",
-                    e);
-        } finally {
-            provider.closeConnection();
-        }
-        return null;
+    static boolean resolvesToMySqlCatalog(String compatibleMode) {
+        return compatibleMode != null && "mysql".equalsIgnoreCase(compatibleMode.trim());
     }
 
-    private MySqlCatalog getMySqlCatalog(
-            String catalogName, ReadonlyConfig options, JdbcUrlUtil.UrlInfo urlInfo) {
-        return new MySqlCatalog(
-                catalogName,
-                options.get(JdbcCommonOptions.USERNAME),
-                options.get(JdbcCommonOptions.PASSWORD),
-                urlInfo,
-                options.get(JdbcCommonOptions.DRIVER));
+    MySqlCatalog createMySqlCatalog(
+            String catalogName,
+            String username,
+            String pwd,
+            JdbcUrlUtil.UrlInfo urlInfo,
+            String driverClass) {
+        return new MySqlCatalog(catalogName, username, pwd, urlInfo, driverClass);
     }
 
-    private boolean isMySQL(String compatibleMode) {
-        return "mysql".equalsIgnoreCase(compatibleMode);
+    KingbaseCatalog createKingbaseCatalog(
+            String catalogName,
+            String username,
+            String pwd,
+            JdbcUrlUtil.UrlInfo urlInfo,
+            String defaultSchema,
+            String driverClass) {
+        return new KingbaseCatalog(catalogName, username, pwd, urlInfo, defaultSchema, driverClass);
     }
 }

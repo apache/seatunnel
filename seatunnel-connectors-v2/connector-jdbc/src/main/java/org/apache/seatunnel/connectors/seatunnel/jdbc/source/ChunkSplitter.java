@@ -65,6 +65,9 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         this.config = config;
         this.autoCommit = config.getJdbcConnectionConfig().isAutoCommit();
         this.fetchSize = config.getFetchSize();
+        // Same explicit compatible_mode value that JdbcInputFormat passes to the dialect factory,
+        // so the splitter and the reader agree on the dialect. No connection config is passed
+        // because the dialect used here is only built from configuration; nothing is probed.
         this.jdbcDialect =
                 JdbcDialectLoader.load(
                         config.getJdbcConnectionConfig().getUrl(),

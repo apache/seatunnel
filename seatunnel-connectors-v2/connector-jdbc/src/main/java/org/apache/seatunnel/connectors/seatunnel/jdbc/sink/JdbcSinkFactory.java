@@ -174,8 +174,7 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                         sinkConfig.getJdbcConnectionConfig().getUrl(),
                         sinkConfig.getJdbcConnectionConfig().getCompatibleMode(),
                         sinkConfig.getJdbcConnectionConfig().getDialect(),
-                        fieldIdeEnum == null ? null : fieldIdeEnum.getValue(),
-                        sinkConfig.getJdbcConnectionConfig());
+                        fieldIdeEnum == null ? null : fieldIdeEnum.getValue());
         dialect.connectionUrlParse(
                 sinkConfig.getJdbcConnectionConfig().getUrl(),
                 sinkConfig.getJdbcConnectionConfig().getProperties(),

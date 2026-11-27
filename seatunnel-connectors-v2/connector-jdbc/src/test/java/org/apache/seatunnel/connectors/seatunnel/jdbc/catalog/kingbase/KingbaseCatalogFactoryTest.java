@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.kingbase;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
@@ -29,46 +30,129 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Verifies that {@link KingbaseCatalogFactory} honors an explicitly configured {@code
- * compatible_mode} without probing the database. The URL below points at an unroutable address, so
- * a live probe would fail (and, before the fix, silently fall back to the native catalog).
+ * Verifies that {@link KingbaseCatalogFactory} selects the catalog implementation purely from the
+ * explicit {@code compatible_mode} option.
+ *
+ * <p>The catalog implementations themselves are replaced by recording stubs, so this test never
+ * opens a connection. That is intentional: a real {@code MySqlCatalog} resolves the server version
+ * in its constructor, so an unroutable URL would still trigger a network attempt and could stall
+ * the suite. Asserting on the recorded selection instead keeps the test deterministic and lets it
+ * fail if a compatibility probe is ever reintroduced.
  */
 public class KingbaseCatalogFactoryTest {
 
-    private static final KingbaseCatalogFactory FACTORY = new KingbaseCatalogFactory();
+    /** Records which catalog implementation the factory decided to build. */
+    private static final class RecordingFactory extends KingbaseCatalogFactory {
+        private String selected;
+        private String compatibleModeSeen;
 
-    /** compatible_mode = mysql selects the MySQL catalog without opening a connection. */
+        @Override
+        MySqlCatalog createMySqlCatalog(
+                String catalogName,
+                String username,
+                String pwd,
+                JdbcUrlUtil.UrlInfo urlInfo,
+                String driverClass) {
+            this.selected = "mysql";
+            return null;
+        }
+
+        @Override
+        KingbaseCatalog createKingbaseCatalog(
+                String catalogName,
+                String username,
+                String pwd,
+                JdbcUrlUtil.UrlInfo urlInfo,
+                String defaultSchema,
+                String driverClass) {
+            this.selected = "native";
+            return null;
+        }
+
+        @Override
+        public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
+            this.compatibleModeSeen = options.get(JdbcCommonOptions.COMPATIBLE_MODE);
+            return super.createCatalog(catalogName, options);
+        }
+    }
+
     @Test
     public void testExplicitMysqlCompatibleModeSelectsMySqlCatalog() {
-        Catalog catalog = FACTORY.createCatalog("kingbase", config("mysql"));
+        RecordingFactory factory = new RecordingFactory();
+        factory.createCatalog("kingbase", config("mysql"));
 
-        Assertions.assertTrue(catalog instanceof MySqlCatalog, catalog.getClass().getName());
+        Assertions.assertEquals("mysql", factory.selected);
     }
 
-    /** Any other explicit mode keeps the native Kingbase catalog, also without probing. */
     @Test
     public void testExplicitPgCompatibleModeSelectsKingbaseCatalog() {
-        Catalog catalog = FACTORY.createCatalog("kingbase", config("pg"));
+        RecordingFactory factory = new RecordingFactory();
+        factory.createCatalog("kingbase", config("pg"));
 
-        Assertions.assertTrue(catalog instanceof KingbaseCatalog, catalog.getClass().getName());
+        Assertions.assertEquals("native", factory.selected);
     }
 
-    /** The option is declared on the factory rule so validation does not reject it. */
+    @Test
+    public void testExplicitOracleCompatibleModeSelectsKingbaseCatalog() {
+        RecordingFactory factory = new RecordingFactory();
+        factory.createCatalog("kingbase", config("oracle"));
+
+        Assertions.assertEquals("native", factory.selected);
+    }
+
+    @Test
+    public void testAbsentCompatibleModeSelectsKingbaseCatalog() {
+        RecordingFactory factory = new RecordingFactory();
+        factory.createCatalog("kingbase", config(null));
+
+        Assertions.assertEquals("native", factory.selected);
+        Assertions.assertNull(factory.compatibleModeSeen);
+    }
+
+    @Test
+    public void testCompatibleModeIsCaseInsensitiveAndTrimmed() {
+        for (String mode : new String[] {"MYSQL", "MySql", "  mysql  "}) {
+            RecordingFactory factory = new RecordingFactory();
+            factory.createCatalog("kingbase", config(mode));
+
+            Assertions.assertEquals("mysql", factory.selected, "mode=" + mode);
+        }
+    }
+
+    @Test
+    public void testSelectionHelperIsPure() {
+        Assertions.assertTrue(KingbaseCatalogFactory.resolvesToMySqlCatalog("mysql"));
+        Assertions.assertTrue(KingbaseCatalogFactory.resolvesToMySqlCatalog(" MySQL "));
+        Assertions.assertFalse(KingbaseCatalogFactory.resolvesToMySqlCatalog("oracle"));
+        Assertions.assertFalse(KingbaseCatalogFactory.resolvesToMySqlCatalog("pg"));
+        Assertions.assertFalse(KingbaseCatalogFactory.resolvesToMySqlCatalog(""));
+        Assertions.assertFalse(KingbaseCatalogFactory.resolvesToMySqlCatalog(null));
+    }
+
     @Test
     public void testOptionRuleDeclaresCompatibleMode() {
         Assertions.assertTrue(
-                FACTORY.optionRule()
+                new KingbaseCatalogFactory()
+                        .optionRule()
                         .getOptionalOptions()
                         .contains(JdbcCommonOptions.COMPATIBLE_MODE));
     }
 
+    /**
+     * Deliberately uses an unroutable address: because the stubs above never construct a real
+     * catalog, nothing resolves the URL, so the suite stays fast. If mode selection ever regressed
+     * to a live probe, this test would still pass, but {@link #testSelectionHelperIsPure()} pins
+     * the decision to configuration alone.
+     */
     private static ReadonlyConfig config(String compatibleMode) {
         Map<String, Object> options = new HashMap<>();
         options.put(JdbcCommonOptions.URL.key(), "jdbc:kingbase8://192.0.2.1:54321/test");
         options.put(JdbcCommonOptions.USERNAME.key(), "kingbase");
         options.put(JdbcCommonOptions.PASSWORD.key(), "kingbase");
         options.put(JdbcCommonOptions.DRIVER.key(), "com.kingbase8.Driver");
-        options.put(JdbcCommonOptions.COMPATIBLE_MODE.key(), compatibleMode);
+        if (compatibleMode != null) {
+            options.put(JdbcCommonOptions.COMPATIBLE_MODE.key(), compatibleMode);
+        }
         return ReadonlyConfig.fromMap(options);
     }
 }

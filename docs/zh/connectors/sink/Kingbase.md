@@ -78,11 +78,14 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | auto_commit                               | Boolean | 否   | true    | 默认启用自动事务提交                                                                                                                                                                           |
 | common-options                            |         | 否   | -       | Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-common-options.md) 详见                                                                                                                                  |
 | enable_upsert                             | Boolean | 否   | true    | 如果存在 primary_keys，启用 upsert。如果任务没有重复数据，将此参数设置为 `false` 可以加快数据导入                                                                                                       |
+| compatible_mode                           | String  | 否   | -       | KingbaseES 服务端的兼容模式。当 KingbaseES 以 MySQL 兼容模式运行时，将其设为 `mysql`，连接器会使用 MySQL 风格的类型映射、行转换和 `ON DUPLICATE KEY UPDATE` 形式的 upsert；不设置时保持原生 Kingbase/PostgreSQL 行为。同时接受 `compatibleMode` 作为备选键名。 |
 
 ### 提示
 
 > 1. 如果未设置 partition_column，它将以单并发运行，如果设置了 partition_column，它将根据任务的并发性并行执行。
-> 2. 当 Kingbase 以 MySQL 兼容模式启动时，可直接复用现有的 Kingbase 连接器配置。系统在构建 KingbaseDialect 和 KingbaseCatalog 时，会自动连接数据库并动态获取其兼容模式（compatibleMode）。
+> 2. 当 KingbaseES 以 MySQL 兼容模式运行时，请设置 `compatible_mode = "mysql"` 以复用现有的 Kingbase 连接器配置：连接器会使用 MySQL 风格的类型映射、行转换，以及 `ON DUPLICATE KEY UPDATE` 形式的 upsert。本改动没有引入新的选项名，`compatible_mode` 原本就已存在（供其他多模式数据库使用）。
+> 3. 兼容模式**只从配置读取**。连接器在作业规划阶段**不会**连接数据库去探测兼容模式，因此提交作业不会产生额外的网络调用。未设置或无法识别的模式会确定性地保持原生 Kingbase/PostgreSQL 行为，而不会去“猜”一个模式，也不会在瞬时连接故障后静默降级。
+> 4. 未设置 `compatible_mode` 的现有作业行为不变，也不会新增规划阶段的连接。那些此前“碰巧能用”地指向 MySQL 模式 KingbaseES 的作业，在显式设置该模式后可能生成不同的 SQL/类型映射，升级前请予以确认。
 
 ## 任务示例
 

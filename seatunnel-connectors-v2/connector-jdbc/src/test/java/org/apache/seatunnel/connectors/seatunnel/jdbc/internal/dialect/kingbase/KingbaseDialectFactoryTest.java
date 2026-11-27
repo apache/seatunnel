@@ -19,13 +19,38 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kingbase
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlJdbcRowConverter;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
+/**
+ * Covers the mode-selection contract of {@link KingbaseDialectFactory}: the mode comes only from
+ * the explicit {@code compatible_mode} value, and an absent mode deterministically selects the
+ * native Kingbase behavior.
+ *
+ * <p>Every case passes a connection config whose URL points at an unroutable Documentation address.
+ * Because this factory performs no live probe, none of them can block on the network; a
+ * reintroduced probe would make these tests slow or hang rather than silently pass.
+ */
 public class KingbaseDialectFactoryTest {
 
+    private static final String UNROUTABLE_URL = "jdbc:kingbase8://192.0.2.1:54321/test";
+
     private final KingbaseDialectFactory factory = new KingbaseDialectFactory();
+
+    private static JdbcConnectionConfig unroutableConfig(String compatibleMode) {
+        return JdbcConnectionConfig.builder()
+                .url(UNROUTABLE_URL)
+                .driverName("com.kingbase8.Driver")
+                .compatibleMode(compatibleMode)
+                .build();
+    }
 
     @Test
     public void testDialectFactoryName() {
@@ -34,68 +59,118 @@ public class KingbaseDialectFactoryTest {
 
     @Test
     public void testAcceptsURL() {
-        Assertions.assertTrue(factory.acceptsURL("jdbc:kingbase8://localhost:54321/test"));
+        Assertions.assertTrue(factory.acceptsURL(UNROUTABLE_URL));
         Assertions.assertFalse(factory.acceptsURL("jdbc:mysql://localhost:3306/test"));
+        Assertions.assertFalse(factory.acceptsURL("jdbc:postgresql://localhost:5432/test"));
     }
 
     @Test
     public void testCreateNoArgs() {
         JdbcDialect dialect = factory.create();
         Assertions.assertInstanceOf(KingbaseDialect.class, dialect);
-        Assertions.assertEquals(
-                "KingbaseJdbcRowConverter", dialect.getRowConverter().getClass().getSimpleName());
+        Assertions.assertInstanceOf(KingbaseJdbcRowConverter.class, dialect.getRowConverter());
+        Assertions.assertInstanceOf(KingbaseTypeMapper.class, dialect.getJdbcDialectTypeMapper());
     }
 
     @Test
-    public void testCreateWithCompatibleModeAndFieldIde() {
-        JdbcDialect dialect = factory.create("mysql", "UPPERCASE");
+    public void testExplicitMysqlModeSelectsMysqlBehavior() {
+        JdbcDialect dialect = factory.create("mysql", FieldIdeEnum.ORIGINAL.getValue());
+
         Assertions.assertInstanceOf(KingbaseDialect.class, dialect);
-        Assertions.assertInstanceOf(
-                org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql
-                        .MysqlJdbcRowConverter.class,
-                dialect.getRowConverter());
+        Assertions.assertInstanceOf(MysqlJdbcRowConverter.class, dialect.getRowConverter());
+        Assertions.assertInstanceOf(MySqlTypeMapper.class, dialect.getJdbcDialectTypeMapper());
     }
 
     @Test
-    public void testCreateWithConfigAndExplicitCompatibleMode() {
-        JdbcConnectionConfig config =
-                JdbcConnectionConfig.builder()
-                        .url("jdbc:kingbase8://localhost:54321/test")
-                        .driverName("com.kingbase8.Driver")
-                        .compatibleMode("mysql")
-                        .build();
-
-        JdbcDialect dialect = factory.create("mysql", "ORIGINAL", config);
-        Assertions.assertInstanceOf(KingbaseDialect.class, dialect);
-        Assertions.assertInstanceOf(
-                org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql
-                        .MysqlJdbcRowConverter.class,
-                dialect.getRowConverter());
+    public void testExplicitModeIsCaseInsensitiveAndTrimmed() {
+        for (String mode : new String[] {"MYSQL", "MySql", "  mysql  "}) {
+            JdbcDialect dialect = factory.create(mode, FieldIdeEnum.ORIGINAL.getValue());
+            Assertions.assertInstanceOf(
+                    MysqlJdbcRowConverter.class, dialect.getRowConverter(), "mode=" + mode);
+        }
     }
 
     @Test
-    public void testCreateWithNullCompatibleModeAndNullConfig() {
-        // When both compatibleMode and config are null, should fallback to default Kingbase
-        JdbcDialect dialect = factory.create(null, "ORIGINAL", null);
-        Assertions.assertInstanceOf(KingbaseDialect.class, dialect);
-        Assertions.assertEquals(
-                "KingbaseJdbcRowConverter", dialect.getRowConverter().getClass().getSimpleName());
+    public void testNonMysqlExplicitModesKeepNativeBehavior() {
+        for (String mode : new String[] {"pg", "oracle", "PG", "sqlserver"}) {
+            JdbcDialect dialect = factory.create(mode, FieldIdeEnum.ORIGINAL.getValue());
+            Assertions.assertInstanceOf(
+                    KingbaseJdbcRowConverter.class, dialect.getRowConverter(), "mode=" + mode);
+        }
+    }
+
+    /** Absent mode plus a real config must not contact the database and must stay native. */
+    @Test
+    public void testAbsentModeWithConnectionConfigStaysNativeWithoutProbing() {
+        JdbcDialect dialect =
+                factory.create(null, FieldIdeEnum.ORIGINAL.getValue(), unroutableConfig(null));
+
+        Assertions.assertInstanceOf(KingbaseJdbcRowConverter.class, dialect.getRowConverter());
+        Assertions.assertInstanceOf(KingbaseTypeMapper.class, dialect.getJdbcDialectTypeMapper());
+    }
+
+    /** A mode carried only by the config is not used: the explicit argument is the sole source. */
+    @Test
+    public void testConfigCompatibleModeIsNotConsulted() {
+        JdbcDialect dialect =
+                factory.create("mysql", FieldIdeEnum.ORIGINAL.getValue(), unroutableConfig("pg"));
+
+        Assertions.assertInstanceOf(MysqlJdbcRowConverter.class, dialect.getRowConverter());
     }
 
     @Test
-    public void testCreatePreservesExplicitModeOverConfig() {
-        // Even if config suggests something else, explicit compatibleMode should win
-        JdbcConnectionConfig config =
-                JdbcConnectionConfig.builder()
-                        .url("jdbc:kingbase8://localhost:54321/test")
-                        .driverName("com.kingbase8.Driver")
-                        .compatibleMode("oracle")
-                        .build();
+    public void testExplicitModeIsPreservedWhenConfigDisagrees() {
+        JdbcDialect dialect =
+                factory.create(
+                        "oracle", FieldIdeEnum.ORIGINAL.getValue(), unroutableConfig("mysql"));
 
-        JdbcDialect dialect = factory.create("mysql", "ORIGINAL", config);
-        Assertions.assertInstanceOf(
-                org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql
-                        .MysqlJdbcRowConverter.class,
-                dialect.getRowConverter());
+        Assertions.assertInstanceOf(KingbaseJdbcRowConverter.class, dialect.getRowConverter());
+    }
+
+    @Test
+    public void testNullConfigAndNullModeFallsBackToNative() {
+        JdbcDialect dialect = factory.create(null, FieldIdeEnum.ORIGINAL.getValue(), null);
+
+        Assertions.assertInstanceOf(KingbaseJdbcRowConverter.class, dialect.getRowConverter());
+    }
+
+    @Test
+    public void testFieldIdeIsPropagatedInMysqlMode() {
+        KingbaseDialect dialect =
+                (KingbaseDialect)
+                        factory.create(
+                                "mysql", FieldIdeEnum.UPPERCASE.getValue(), unroutableConfig(null));
+
+        // MySQL-compatible quoting still honors field_ide instead of silently using ORIGINAL.
+        Assertions.assertEquals(FieldIdeEnum.UPPERCASE.getValue(), dialect.fieldIde);
+
+        Optional<String> upsert =
+                dialect.getUpsertStatement(
+                        "db", "tbl", new String[] {"id", "name"}, new String[] {"id"});
+        Assertions.assertTrue(upsert.isPresent());
+        Assertions.assertTrue(
+                upsert.get().contains("ON DUPLICATE KEY UPDATE"),
+                "expected MySQL-style upsert, got: " + upsert.get());
+        // The delegated MysqlDialect must receive the same field_ide value.
+        String expected =
+                new MysqlDialect(FieldIdeEnum.UPPERCASE.getValue())
+                        .getUpsertStatement(
+                                "db", "tbl", new String[] {"id", "name"}, new String[] {"id"})
+                        .orElseThrow(IllegalStateException::new);
+        Assertions.assertEquals(expected, upsert.get());
+    }
+
+    @Test
+    public void testNativeModeUsesOnConflictUpsert() {
+        KingbaseDialect dialect =
+                (KingbaseDialect) factory.create("pg", FieldIdeEnum.ORIGINAL.getValue());
+
+        String upsert =
+                dialect.getUpsertStatement(
+                                "db", "tbl", new String[] {"id", "name"}, new String[] {"id"})
+                        .orElseThrow(IllegalStateException::new);
+
+        Assertions.assertTrue(upsert.contains("ON CONFLICT"), upsert);
+        Assertions.assertFalse(upsert.contains("ON DUPLICATE KEY UPDATE"), upsert);
     }
 }

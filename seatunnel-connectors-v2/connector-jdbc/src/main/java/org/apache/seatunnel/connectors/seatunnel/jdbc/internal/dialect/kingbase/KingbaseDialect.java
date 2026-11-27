@@ -41,6 +41,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public class KingbaseDialect implements JdbcDialect {
+
     /** Kingbase (PostgreSQL-compatible) FILLFACTOR legal range (inclusive): 10-100. */
     private static final int FILLFACTOR_MIN = 10;
 
@@ -54,12 +55,13 @@ public class KingbaseDialect implements JdbcDialect {
                                     KingbaseCatalog.TABLE_OPTION_FILLFACTOR)));
 
     /**
-     * Kingbase runtime compatibility mode detected from the JDBC connection or supplied by config.
+     * Kingbase runtime compatibility mode supplied by the explicit {@code compatible_mode} option.
+     * {@code null} means the native Kingbase (PostgreSQL-compatible) behavior.
      */
     private final String compatibleLevel;
 
     /** Field identifier normalization strategy used when quoting Kingbase identifiers. */
-    private final String fieldIde;
+    public String fieldIde;
 
     public KingbaseDialect() {
         this(null, FieldIdeEnum.ORIGINAL.getValue());
@@ -237,6 +239,6 @@ public class KingbaseDialect implements JdbcDialect {
 
     /** Returns whether this Kingbase connection should reuse MySQL JDBC dialect behavior. */
     private boolean isMySQL() {
-        return "mysql".equalsIgnoreCase(this.compatibleLevel);
+        return compatibleLevel != null && "mysql".equalsIgnoreCase(compatibleLevel.trim());
     }
 }

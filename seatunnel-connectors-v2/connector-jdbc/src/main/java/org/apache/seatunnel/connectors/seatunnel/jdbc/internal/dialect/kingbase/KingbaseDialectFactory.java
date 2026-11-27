@@ -17,26 +17,24 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kingbase;
 
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.google.auto.service.AutoService;
 
 import javax.annotation.Nonnull;
 
-import java.sql.Connection;
-
-/** Factory for {@link KingbaseDialect}. */
+/**
+ * Factory for {@link KingbaseDialect}.
+ *
+ * <p>The KingbaseES compatibility mode is taken exclusively from the explicit {@code
+ * compatible_mode} option. This factory never opens a connection during planning: an absent mode
+ * deterministically selects the native Kingbase (PostgreSQL-compatible) behavior, which is the
+ * pre-existing behavior of this connector.
+ */
 @AutoService(JdbcDialectFactory.class)
 public class KingbaseDialectFactory implements JdbcDialectFactory {
-
-    private static final Logger LOG = LoggerFactory.getLogger(KingbaseDialectFactory.class);
 
     @Override
     public String dialectFactoryName() {
@@ -56,33 +54,5 @@ public class KingbaseDialectFactory implements JdbcDialectFactory {
     @Override
     public JdbcDialect create(@Nonnull String compatibleMode, String fieldIde) {
         return new KingbaseDialect(compatibleMode, fieldIde);
-    }
-
-    @Override
-    public JdbcDialect create(
-            String compatibleMode, String fieldIde, JdbcConnectionConfig jdbcConnectionConfig) {
-        String detectedCompatibleMode = compatibleMode;
-        if (detectedCompatibleMode == null && jdbcConnectionConfig != null) {
-            detectedCompatibleMode = detectCompatibleMode(jdbcConnectionConfig);
-        }
-        return new KingbaseDialect(detectedCompatibleMode, fieldIde);
-    }
-
-    private String detectCompatibleMode(JdbcConnectionConfig config) {
-        SimpleJdbcConnectionProvider provider = new SimpleJdbcConnectionProvider(config);
-        try {
-            Connection connection = provider.getOrEstablishConnection();
-            if (connection instanceof com.kingbase8.jdbc.KbConnection) {
-                String level = ((com.kingbase8.jdbc.KbConnection) connection).getCompatibleLevel();
-                return level;
-            }
-        } catch (Exception e) {
-            LOG.warn(
-                    "Failed to detect KingbaseES compatible mode from connection, fallback to default.",
-                    e);
-        } finally {
-            provider.closeConnection();
-        }
-        return null;
     }
 }
