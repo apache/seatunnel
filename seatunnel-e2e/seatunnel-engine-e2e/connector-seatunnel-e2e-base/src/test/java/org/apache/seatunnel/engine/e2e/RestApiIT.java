@@ -51,6 +51,7 @@ import com.hazelcast.instance.impl.Node;
 import io.restassured.common.mapper.TypeRef;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -64,7 +65,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -126,6 +131,12 @@ public class RestApiIT {
      * here would mean the real failure text was lost during the restore.
      */
     private static final String NO_ERROR_RECORDED_PLACEHOLDER = "no error was recorded";
+
+    /**
+     * Deadline for the best-effort cancellation of the restore diagnostics job. It must stay far
+     * below the scenario's own bounds so a canceling job can never decide how long teardown takes.
+     */
+    private static final long CANCEL_TIMEOUT_SECONDS = 30;
 
     @BeforeEach
     void beforeClass() throws Exception {
@@ -1102,16 +1113,77 @@ public class RestApiIT {
                     "The other member must report the same restore causes: "
                             + otherMemberDiagnostics);
         } finally {
-            if (restoredJob != null) {
-                try {
-                    restoredJob.cancelJob();
-                } catch (RuntimeException e) {
-                    log.warn("Failed to cancel the restore diagnostics test job", e);
-                }
+            // Best-effort cancellation runs first, under a bounded deadline: {@code
+            // ClientJobProxy#cancelJob} joins a remote future that rejects cancel and has no
+            // caller-controlled timeout, so an unacknowledged cancel must not be able to keep this
+            // method from returning and the @AfterEach client/node teardown from ever running.
+            try {
+                cancelRestoredJobQuietly(restoredJob);
+            } finally {
+                // Temporary files are cleaned up whatever happened above, and a cleanup failure is
+                // logged instead of replacing this scenario's primary failure.
+                deleteTemporaryFilesQuietly(confFile, marker, markerDirectory);
             }
-            Files.deleteIfExists(confFile);
-            Files.deleteIfExists(marker);
-            Files.deleteIfExists(markerDirectory);
+        }
+    }
+
+    /**
+     * Cancels the restored job from a test-owned daemon executor with a bounded wait.
+     *
+     * <p>{@link ClientJobProxy#cancelJob()} joins a remote future without a caller-controlled
+     * timeout, and that future rejects {@code cancel}, so {@link Future#cancel} cannot interrupt
+     * the join. Running the call on a daemon worker and waiting with a deadline therefore keeps a
+     * lifecycle regression from turning this scenario's cleanup into an unbounded hang, and lets
+     * the caller always reach the temporary-file cleanup and the {@code @AfterEach} teardown.
+     *
+     * @param restoredJob job to cancel; {@code null} when the job was never created
+     */
+    private static void cancelRestoredJobQuietly(ClientJobProxy restoredJob) {
+        if (restoredJob == null) {
+            return;
+        }
+        ExecutorService cancelExecutor =
+                Executors.newSingleThreadExecutor(
+                        runnable -> {
+                            Thread thread = new Thread(runnable, "restore-cause-cancel");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
+        try {
+            Future<?> cancel = cancelExecutor.submit(restoredJob::cancelJob);
+            cancel.get(CANCEL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (TimeoutException timeout) {
+            log.warn(
+                    "Cancelling restored job {} did not acknowledge within {}s, continuing with"
+                            + " cleanup",
+                    restoredJob.getJobId(),
+                    CANCEL_TIMEOUT_SECONDS);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            log.warn(
+                    "Interrupted while cancelling restored job {} during cleanup",
+                    restoredJob.getJobId(),
+                    interrupted);
+        } catch (Throwable cancelFailure) {
+            log.warn(
+                    "Could not cancel restored job {} during cleanup",
+                    restoredJob.getJobId(),
+                    cancelFailure);
+        } finally {
+            // The remote join is not interruptible through Future#cancel, so the daemon-backed
+            // executor is abandoned after this bounded wait instead of being awaited again.
+            cancelExecutor.shutdownNow();
+        }
+    }
+
+    /** Deletes this scenario's temporary paths without masking the scenario's own failure. */
+    private static void deleteTemporaryFilesQuietly(Path... paths) {
+        for (Path path : paths) {
+            try {
+                Files.deleteIfExists(path);
+            } catch (IOException cleanupFailure) {
+                log.warn("Could not delete temporary restore-cause path {}", path, cleanupFailure);
+            }
         }
     }
 
