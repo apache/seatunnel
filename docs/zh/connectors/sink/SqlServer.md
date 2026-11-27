@@ -67,6 +67,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | BINARY<br />VARBINARY<br />IMAGE<br />TIMESTAMP | BYTES                                                                                               |
 | UNKNOWN                                 | 尚未支持                                                                                            |
 
+## 可空 decimal 列
+
+使用自动生成的写入 SQL 时，若目标列元数据明确为 DECIMAL 或 NUMERIC，且逻辑 scale 为 0～38，decimal NULL 会保留 SeaTunnel 类型声明的 scale，避免 Microsoft JDBC 驱动在 NULL 与非 NULL 之间切换到 scale 为 0 的参数声明并拆分批次。其他目标类型、缺少目标类型元数据或来源 scale 超出该范围时，NULL 继续使用原有绑定。无需新增配置。自定义 SQL 保留原有参数绑定，避免改变 `ISNULL` 等表达式的类型推断；非 NULL 数值也保持原有绑定方式。
+
 ## 接收器选项
 
 | 名称                           | 类型    | 是否必填 | 默认值  | 描述                                                                                                                                                                                                 |

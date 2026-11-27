@@ -21,14 +21,23 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormatBuilder;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlServerDialect;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
@@ -42,6 +51,8 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
@@ -327,6 +338,310 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
         }
 
         return Pair.of(fieldNames, rows);
+    }
+
+    /**
+     * Scale-zero null declarations split a batch into many round trips even though values are
+     * correct. Count server response packets instead of asserting a machine-dependent duration.
+     */
+    @Test
+    public void testNullableDecimalBatchRetainsScale() throws Exception {
+        String table = "dbo.decimal_batch_" + UUID.randomUUID().toString().replace("-", "");
+        connection.setAutoCommit(false);
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE "
+                            + table
+                            + " (id INT PRIMARY KEY, amount DECIMAL(20,4), fractional DECIMAL(38,38), over_scale DECIMAL(20,4), negative_scale DECIMAL(20,4))");
+            connection.commit();
+        }
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("id")
+                                        .dataType(BasicType.INT_TYPE)
+                                        .nullable(false)
+                                        .build())
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("amount")
+                                        .dataType(new DecimalType(20, 4))
+                                        .sourceType("DECIMAL(20,4)")
+                                        .build())
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("fractional")
+                                        .dataType(new DecimalType(38, 38))
+                                        .sourceType("DECIMAL(38,38)")
+                                        .build())
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("over_scale")
+                                        .dataType(new DecimalType(76, 39))
+                                        .sourceType("DECIMAL(20,4)")
+                                        .build())
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("negative_scale")
+                                        .dataType(new DecimalType(76, -2))
+                                        .sourceType("NUMERIC(20,4)")
+                                        .build())
+                        .build();
+        String[] modes = {"insert", "merge", "fallback"};
+        for (int phase = 0; phase < modes.length; phase++) {
+            JdbcConnectionConfig connectionConfig = decimalBatchConnectionConfig();
+            SimpleJdbcConnectionProvider provider =
+                    new SimpleJdbcConnectionProvider(connectionConfig);
+            JdbcSinkConfig config =
+                    JdbcSinkConfig.builder()
+                            .jdbcConnectionConfig(connectionConfig)
+                            .database(connection.getCatalog())
+                            .table(table)
+                            .primaryKeys(
+                                    phase == 0
+                                            ? java.util.Collections.emptyList()
+                                            : java.util.Collections.singletonList("id"))
+                            .enableUpsert("merge".equals(modes[phase]))
+                            .build();
+            JdbcOutputFormat format =
+                    new JdbcOutputFormatBuilder(
+                                    new SqlServerDialect(), provider, config, schema, schema)
+                            .commitOnFlush(true)
+                            .build();
+            format.open();
+            try {
+                long before = sqlServerResponsePacketCount(provider.getConnection());
+                for (int id = 1; id <= 1000; id++) {
+                    SeaTunnelRow row = decimalBatchRow(id, phase);
+                    // With upsert disabled, row kind chooses INSERT versus UPDATE.
+                    if (phase > 0) {
+                        row.setRowKind(RowKind.UPDATE_AFTER);
+                    }
+                    format.writeRecord(row);
+                }
+                format.flush();
+                long packets = sqlServerResponsePacketCount(provider.getConnection()) - before;
+                if (phase == 0) {
+                    Assertions.assertTrue(
+                            packets <= 80,
+                            "Ten decimal batches should not fragment at null transitions; response packets="
+                                    + packets);
+                }
+            } finally {
+                format.close();
+            }
+            try (Statement statement = connection.createStatement();
+                    ResultSet rows =
+                            statement.executeQuery(
+                                    "SELECT id,amount,fractional,over_scale,negative_scale FROM "
+                                            + table
+                                            + " ORDER BY id")) {
+                for (int id = 1; id <= 1000; id++) {
+                    Assertions.assertTrue(rows.next(), "Missing decimal row " + id);
+                    SeaTunnelRow expected = decimalBatchRow(id, phase);
+                    Assertions.assertEquals(id, rows.getInt(1));
+                    Assertions.assertEquals(expected.getField(1), rows.getBigDecimal(2));
+                    Assertions.assertEquals(expected.getField(2), rows.getBigDecimal(3));
+                    Assertions.assertNull(rows.getBigDecimal(4));
+                    Assertions.assertNull(rows.getBigDecimal(5));
+                }
+                Assertions.assertFalse(rows.next(), "Unexpected decimal rows");
+            }
+        }
+    }
+
+    /** Custom expressions must keep their original inferred parameter type. */
+    @Test
+    public void testCustomSqlPreservesDecimalNullInference() throws Exception {
+        String table = "dbo.decimal_custom_" + UUID.randomUUID().toString().replace("-", "");
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE "
+                            + table
+                            + " (id INT PRIMARY KEY, formatted NVARCHAR(64), amount DECIMAL(20,4))");
+            connection.commit();
+        }
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("id")
+                                        .dataType(BasicType.INT_TYPE)
+                                        .build())
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("amount")
+                                        .dataType(new DecimalType(20, 4))
+                                        .sourceType("DECIMAL(20,4)")
+                                        .build())
+                        .build();
+        JdbcConnectionConfig connectionConfig = decimalBatchConnectionConfig();
+        JdbcSinkConfig config =
+                JdbcSinkConfig.builder()
+                        .jdbcConnectionConfig(connectionConfig)
+                        .table(table)
+                        .simpleSql(
+                                "INSERT INTO "
+                                        + table
+                                        + " (id,formatted) VALUES (:id,ISNULL(:amount,'fallback'))")
+                        .build();
+        JdbcOutputFormat format =
+                new JdbcOutputFormatBuilder(
+                                new SqlServerDialect(),
+                                new SimpleJdbcConnectionProvider(connectionConfig),
+                                config,
+                                schema,
+                                schema)
+                        .commitOnFlush(true)
+                        .build();
+        format.open();
+        try {
+            for (int id = 1; id <= 3; id++) {
+                format.writeRecord(new SeaTunnelRow(new Object[] {id, null}));
+            }
+            format.flush();
+        } finally {
+            format.close();
+        }
+        try (Statement statement = connection.createStatement();
+                ResultSet rows =
+                        statement.executeQuery(
+                                "SELECT id,formatted FROM " + table + " ORDER BY id")) {
+            for (int id = 1; id <= 3; id++) {
+                Assertions.assertTrue(rows.next());
+                Assertions.assertEquals(id, rows.getInt(1));
+                Assertions.assertEquals("fallback", rows.getString(2));
+            }
+            Assertions.assertFalse(rows.next());
+        }
+    }
+
+    /** A logical decimal null must remain writable to other or unknown target types. */
+    @Test
+    public void testGeneratedSqlPreservesNullForDifferentTargetType() throws Exception {
+        String table = "dbo.decimal_null_target_" + UUID.randomUUID().toString().replace("-", "");
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE "
+                            + table
+                            + " (id INT PRIMARY KEY, as_date DATE, unknown_date DATE)");
+            connection.commit();
+        }
+        TableSchema sourceSchema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("id")
+                                        .dataType(BasicType.INT_TYPE)
+                                        .build())
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("as_date")
+                                        .dataType(new DecimalType(20, 4))
+                                        .build())
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("unknown_date")
+                                        .dataType(new DecimalType(20, 4))
+                                        .build())
+                        .build();
+        TableSchema targetSchema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("id")
+                                        .dataType(BasicType.INT_TYPE)
+                                        .sourceType("INT")
+                                        .build())
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("as_date")
+                                        .dataType(LocalTimeType.LOCAL_DATE_TYPE)
+                                        .sourceType("DATE")
+                                        .build())
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("unknown_date")
+                                        .dataType(LocalTimeType.LOCAL_DATE_TYPE)
+                                        .build())
+                        .build();
+        JdbcConnectionConfig connectionConfig = decimalBatchConnectionConfig();
+        JdbcSinkConfig config =
+                JdbcSinkConfig.builder()
+                        .jdbcConnectionConfig(connectionConfig)
+                        .database(connection.getCatalog())
+                        .table(table)
+                        .enableUpsert(false)
+                        .build();
+        JdbcOutputFormat format =
+                new JdbcOutputFormatBuilder(
+                                new SqlServerDialect(),
+                                new SimpleJdbcConnectionProvider(connectionConfig),
+                                config,
+                                sourceSchema,
+                                targetSchema)
+                        .commitOnFlush(true)
+                        .build();
+        format.open();
+        try {
+            for (int id = 1; id <= 3; id++) {
+                format.writeRecord(new SeaTunnelRow(new Object[] {id, null, null}));
+            }
+            format.flush();
+        } finally {
+            format.close();
+        }
+        try (Statement statement = connection.createStatement();
+                ResultSet rows =
+                        statement.executeQuery(
+                                "SELECT id,as_date,unknown_date FROM " + table + " ORDER BY id")) {
+            for (int id = 1; id <= 3; id++) {
+                Assertions.assertTrue(rows.next());
+                Assertions.assertEquals(id, rows.getInt(1));
+                Assertions.assertNull(rows.getDate(2));
+                Assertions.assertNull(rows.getDate(3));
+            }
+            Assertions.assertFalse(rows.next());
+        }
+    }
+
+    private JdbcConnectionConfig decimalBatchConnectionConfig() {
+        return JdbcConnectionConfig.builder()
+                .url(jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost()))
+                .driverName(DRIVER_CLASS)
+                .username(jdbcCase.getUserName())
+                .password(jdbcCase.getPassword())
+                .autoCommit(false)
+                .batchSize(100)
+                .batchIntervalMs(0)
+                .maxRetries(0)
+                .build();
+    }
+
+    /**
+     * Exercises independent null transitions, high-precision values and the supported scale limit.
+     */
+    private SeaTunnelRow decimalBatchRow(int id, int phase) {
+        BigDecimal amount = (id + phase) % 2 == 0 ? null : new BigDecimal("1234567890123456.1234");
+        if (amount != null && (id + phase) % 4 == 3) {
+            amount = amount.negate();
+        }
+        BigDecimal fractional = (id + phase) % 3 == 0 ? null : BigDecimal.valueOf(id + phase, 38);
+        return new SeaTunnelRow(new Object[] {id, amount, fractional, null, null});
+    }
+
+    /**
+     * The dedicated connection's response packets expose extra driver round trips without timing.
+     */
+    private long sqlServerResponsePacketCount(Connection writerConnection) throws SQLException {
+        try (Statement statement = writerConnection.createStatement();
+                ResultSet result =
+                        statement.executeQuery(
+                                "SELECT num_writes FROM sys.dm_exec_connections WHERE session_id=@@SPID")) {
+            Assertions.assertTrue(result.next(), "SQL Server connection statistics unavailable");
+            return result.getLong(1);
+        }
     }
 
     @Override
