@@ -90,11 +90,14 @@ import java.util.stream.Stream;
  *   <li>the sibling job that did not opt in exposes no checkpoint data and owns no files, proving
  *       the decision is per job instead of per cluster;
  *   <li>the retained data is a genuine recovery point: a {@code RestoreMode#CHECKPOINT} submission
- *       with the cancelled job as source and a new job id reaches {@code RUNNING} and completes a
- *       checkpoint whose id is above the retained one. {@code CheckpointManager} seeds the
+ *       with the cancelled job as source and a new job id reaches {@code RUNNING}, produces exactly
+ *       one checkpoint, and that checkpoint is numbered exactly {@code retainedId + 1}. The restore
+ *       fixture's checkpoint interval is long enough that no periodic checkpoint can allocate a
+ *       checkpoint id while the restore is observed, so the savepoint the test triggers is the
+ *       restored job's first allocated checkpoint. {@code CheckpointManager} seeds the
  *       checkpoint-id counter with {@code retainedId + 1} only when it actually read the retained
- *       pipeline state, so a restore that silently started from scratch would number its first
- *       checkpoint from 1 and fail this assertion.
+ *       pipeline state, so a restore that silently started from scratch would number that
+ *       checkpoint from {@code 1} and fail the assertion.
  * </ul>
  */
 @Slf4j
@@ -107,6 +110,14 @@ public class CancelledJobCheckpointRetentionIT {
     /** The same pipeline as {@link #RETAINED_JOB_CONF}, without the retention option. */
     private static final String DEFAULT_JOB_CONF =
             "stream_fake_to_console_cancel_drop_checkpoint.conf";
+
+    /**
+     * The same pipeline again, restored from the retained checkpoint. Its checkpoint interval is
+     * long enough that no periodic checkpoint can allocate an id while the restore is observed, so
+     * the savepoint the test triggers is the first checkpoint of the restored job.
+     */
+    private static final String RESTORE_JOB_CONF =
+            "stream_fake_to_console_restore_retained_checkpoint.conf";
 
     /** Upper bound to wait for the one-master/one-worker cluster to form. */
     private static final long CLUSTER_FORMATION_TIMEOUT_SECONDS = 60L;
@@ -151,10 +162,15 @@ public class CancelledJobCheckpointRetentionIT {
                     submitJob(engineClient, masterConfig, RETAINED_JOB_CONF, "retained-on-cancel");
             long retainedJobId = retainedJob.getJobId();
             awaitJobStatus(retainedJob, JobStatus.RUNNING);
-            long retainedCheckpointId = awaitCompletedCheckpointAbove(jobClient, retainedJobId, 0L);
-            log.info("Job {} completed checkpoint {}", retainedJobId, retainedCheckpointId);
+            awaitCompletedCheckpointAbove(jobClient, retainedJobId, 0L);
 
             cancelAndAwaitJobCleanup(engineClient, masterNode, retainedJob);
+
+            // The job master is gone, so the checkpoint store is stable: this is the exact recovery
+            // point the restore below has to resume from.
+            long retainedCheckpointId =
+                    latestCheckpointId(jobClient, retainedJobId, RestoreMode.CHECKPOINT);
+            log.info("Job {} retained checkpoint {}", retainedJobId, retainedCheckpointId);
 
             Assertions.assertFalse(
                     jobClient.getCheckpointData(retainedJobId, RestoreMode.CHECKPOINT).isEmpty(),
@@ -204,7 +220,7 @@ public class CancelledJobCheckpointRetentionIT {
             restoredJob =
                     engineClient
                             .restoreFromCheckpointExecutionContext(
-                                    TestUtils.getResource(RETAINED_JOB_CONF),
+                                    TestUtils.getResource(RESTORE_JOB_CONF),
                                     Collections.emptyList(),
                                     restoredJobConfig,
                                     masterConfig,
@@ -216,23 +232,30 @@ public class CancelledJobCheckpointRetentionIT {
                     restoredJob.getJobId(),
                     "A checkpoint restore must run under the destination job id it was given");
             awaitJobStatus(restoredJob, JobStatus.RUNNING);
-            long firstCheckpointAfterRestore =
-                    awaitCompletedCheckpointAbove(jobClient, restoredJobId, retainedCheckpointId);
-            Assertions.assertTrue(
-                    firstCheckpointAfterRestore > retainedCheckpointId,
+
+            // The restore fixture cannot run a periodic checkpoint for an hour, so this
+            // savepoint is the first checkpoint the restored job allocates. The checkpoint id
+            // counter is seeded with retainedCheckpointId + 1 only when the retained pipeline
+            // state was read; a bypassed restore starts again from 1 and fails the equality.
+            long restoredCheckpointId =
+                    triggerSavepointCheckpoint(masterNode, jobClient, restoredJobId);
+            Assertions.assertEquals(
+                    retainedCheckpointId + 1,
+                    restoredCheckpointId,
                     "The restored job "
                             + restoredJobId
-                            + " resumed at checkpoint "
-                            + firstCheckpointAfterRestore
-                            + ", which is not above the retained checkpoint "
+                            + " must continue the checkpoint sequence of the retained checkpoint "
                             + retainedCheckpointId
-                            + "; the retained state was not loaded");
+                            + " of job "
+                            + retainedJobId
+                            + ", but its first checkpoint is "
+                            + restoredCheckpointId
+                            + "; the retained state was not loaded and the restored job started"
+                            + " a fresh checkpoint sequence");
 
-            // Stop the restored job while the cluster is still up, so the teardown below cannot
-            // race its cancellation cleanup.
-            engineClient.cancelJob(restoredJobId);
-            awaitJobStatus(restoredJob, JobStatus.CANCELED);
-            awaitJobMasterRemoved(masterNode, restoredJobId);
+            // The savepoint ends the restored job, so tear down by waiting for its terminal state
+            // instead of cancelling it.
+            awaitJobStatus(restoredJob, JobStatus.SAVEPOINT_DONE);
             restoredJob = null;
         } finally {
             if (engineClient != null && restoredJob != null) {
@@ -314,6 +337,58 @@ public class CancelledJobCheckpointRetentionIT {
                 .mapToLong(JobPipelineCheckpointData::getCheckpointId)
                 .max()
                 .orElseThrow(() -> new AssertionError("No checkpoint data was stored"));
+    }
+
+    /**
+     * Returns the latest checkpoint id stored for the job under the given restore mode, failing
+     * when the job has no such checkpoint data.
+     */
+    private static long latestCheckpointId(
+            JobClient jobClient, long jobId, RestoreMode restoreMode) {
+        List<JobPipelineCheckpointData> checkpoints =
+                jobClient.getCheckpointData(jobId, restoreMode);
+        return checkpoints.stream()
+                .mapToLong(JobPipelineCheckpointData::getCheckpointId)
+                .max()
+                .orElseThrow(
+                        () ->
+                                new AssertionError(
+                                        "Job "
+                                                + jobId
+                                                + " has no checkpoint data for restore mode "
+                                                + restoreMode
+                                                + "; stored checkpoints: "
+                                                + checkpoints));
+    }
+
+    /**
+     * Triggers exactly one checkpoint on the restored job through the savepoint path and returns
+     * its id.
+     *
+     * <p>The restore fixture's checkpoint interval is long enough that the periodic scheduler
+     * cannot allocate a checkpoint id while the restored job is observed, so the checkpoint
+     * produced here is the first one the restored job allocates. Retrying only covers the window in
+     * which the restored tasks are not all ready for a savepoint; that precondition failure does
+     * not allocate a checkpoint id, so a retry cannot shift the id being verified.
+     */
+    private static long triggerSavepointCheckpoint(
+            HazelcastInstanceImpl masterNode, JobClient jobClient, long restoredJobId) {
+        Awaitility.await()
+                .atMost(CHECKPOINT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .ignoreExceptions()
+                .until(
+                        () -> {
+                            SeaTunnelServer server = seaTunnelServer(masterNode);
+                            if (server.getCoordinatorService() == null) {
+                                return false;
+                            }
+                            server.getCoordinatorService()
+                                    .savePoint(restoredJobId)
+                                    .get(JOB_STATUS_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                            return true;
+                        });
+        return latestCheckpointId(jobClient, restoredJobId, RestoreMode.SAVEPOINT);
     }
 
     private static void awaitJobStatus(ClientJobProxy jobProxy, JobStatus expected) {
