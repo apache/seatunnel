@@ -58,6 +58,7 @@ import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.PathResolver;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.DryRunSampleConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -340,7 +341,10 @@ public class MultipleTableJobConfigParser {
      * and the normal runtime parse path use the same discovery contract.
      */
     private List<URL> getConnectorJarList(List<? extends Config> configs, PluginType type) {
-        return JobPluginClasspathHelper.connectorJarList(configs, type, commonPluginJars);
+        List<URL> jarPaths =
+                JobPluginClasspathHelper.connectorJarList(configs, type, commonPluginJars);
+        PathResolver.resolvePathEnv(jarPaths);
+        return jarPaths;
     }
 
     private void fillUsedFactoryUrls(List<Action> actions, Set<URL> result) {
