@@ -5,6 +5,23 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### HBase sink: DELETE rows remove mapped data
+
+`DELETE` rows now remove all cell versions up to the mutation timestamp in the column families
+mapped by this sink. Previously these rows were written as Put mutations of the old values.
+Unmapped families remain intact. If the sink projects only row-key and version columns, it
+rejects DELETE rows because no family is mapped. Include a payload column for the family you
+intend to delete.
+Jobs that need the previous append-only behavior must filter DELETE rows before the sink.
+`UPDATE_BEFORE` rows are now ignored instead of written as Put mutations. Key-changing updates
+require explicit old-key DELETE/new-key
+INSERT events upstream. Use `version_column` to supply correctly ordered timestamps: an equal- or
+older-timestamp Put cannot override a delete tombstone. Checkpoint flushes wait for region-server
+acceptance when the HBase client periodic flush is disabled (the default). Keep it disabled when
+relying on checkpoint flushes. `wal_write = false` still does not protect against a region-server
+crash.
+No configuration or checkpoint-format migration is required.
+
 ### MongoDB sink: omitted buffer and retry options now use their documented defaults
 
 - **Behavior change: a non-transactional MongoDB sink without `buffer-flush.*` or `retry.*` options writes in batches and retries failed writes**
@@ -38,6 +55,13 @@ for connector requirements and the restrictions on shared physical destinations.
   - **Description**: With `array_mode = true`, the Http sink added each serialized row to the request array as a string, so the body was `["{\"id\":1}","{\"id\":2}"]` instead of the documented JSON array of rows. It now sends `[{"id":1},{"id":2}]`. Every version since 2.3.11 sent the array of strings. `array_mode = false` is not affected.
   - **Impact**: An endpoint that rejected the old body with an error now accepts it. A receiver written for the old body, which decodes each element as a JSON string, now receives objects and has to be changed.
   - **Migration Guide**: No configuration change is needed. If a receiver decodes each array element from a string, change it to use the element directly.
+
+### Doris source: `case_sensitive = false` now lowercases a single-table `database`/`table`
+
+- **Behavior change: a single-table Doris source configured with `case_sensitive = false` resolves the `database` and `table` names in lowercase**
+  - **Description**: The `case_sensitive` option was introduced for the Doris source in 2.3.11, but the lowercase conversion was applied to an intermediate object that was then discarded, so the option never took effect and the configured spelling reached the query-plan requests unchanged. The conversion now applies to the table configuration the source actually uses. The option only affects a single table configured through `database` and `table`; `table_list` entries and the default (`true`) keep their behavior.
+  - **Impact**: A job that sets `case_sensitive = false` with mixed-case names now resolves `TestDB.TestTable` to `testdb.testtable`. On a cluster whose name matching is case-sensitive this selects a different object, or the lookup fails. A saved checkpoint from an earlier version can also hold splits with the original mixed-case names: restored into a source that now keys its tables by the lowercase names, the reader fails with `the table 'TestDB.TestTable' cannot be found in table_list of job configuration` instead of reading the split.
+  - **Migration Guide**: To keep the historical spelling, set `case_sensitive = true` or remove the option (the default is `true`). To keep using `case_sensitive = false`, restart the job from a new checkpoint after the upgrade instead of restoring an old one; saved splits are not rewritten, so an old mixed-case checkpoint cannot serve a job whose identifiers are now lowercase.
 
 ### Lance sink: BIGINT columns are created as int64
 
@@ -182,6 +206,27 @@ The same strictness applies wherever the shared JSON-to-row conversion is used w
   - **Description**: With `file_format_type = "xml"`, DATE, TIME and TIMESTAMP values were written with Java `toString()`, ignoring `date_format`, `datetime_format` and `time_format`. Timestamps came out as `2026-01-02T10:13:45.123`, and as `2026-01-02T10:13` when the seconds were zero, so a file could mix several layouts and could not be read back with a single `datetime_format`. They are now formatted with the configured options, like the CSV, Text and Excel writers.
   - **Impact**: With the defaults, timestamps are written as `yyyy-MM-dd HH:mm:ss` (a space instead of `T`, fractional seconds dropped) and times as `HH:mm:ss`. Readers that expect the previous ISO layout must be adjusted.
   - **Migration Guide**: To keep an ISO layout, set `datetime_format` on the sink, for example `YYYY_MM_DD_HH_MM_SS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss`) or `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss.SSS`) to keep milliseconds, and read the files with the matching source `datetime_format`.
+
+### Conditional option rules use AND-before-OR precedence
+
+SeaTunnel uses `Condition` to validate conditional option rules and to describe them in the Zeta REST API and metadata export CLI. The deprecated public `Expression` class, constructor, factories, getters and validator method from 3.1.0 remain available to existing plugin jars.
+
+On upgrade, the runtime flattens a legacy expression into a chain of conditions and evaluates AND before OR. This applies to precompiled plugins too. For example, 3.1.0 evaluated `A.and(B).or(C)` as `A && (B || C)`. It now means `(A && B) || C`. With A and B false and C true, the required option is enforced. Group boundaries inside a chain of legacy expression nodes also disappear. If your rule depends on grouping, rewrite it explicitly, for example `A && (B || C)` as `(A && B) || (A && C)`.
+
+New rules can pass a trigger to `conditional(trigger, requiredOptions...)` or `conditionalRule(trigger, nestedRule)`. Declare the referenced options first and read the trigger with `getCondition()`. Legacy `getExpression()` returns a detached view with one outer node per OR alternative. Each node holds its AND conditions. To change a rule, construct it with the new trigger.
+
+```java
+Condition<?> trigger = Condition.of(MODE, "snapshot").or(REPLAY, true);
+OptionRule rule = OptionRule.builder()
+        .optional(MODE, REPLAY)
+        .conditional(trigger, START_TIME)
+        .conditionalRule(trigger, OptionRule.builder().bundled(USERNAME, PASSWORD).build())
+        .build();
+```
+
+Tools that consume validation messages or metadata should expect AND-before-OR grouping in the rendered text. In a conditional rule's exported trigger tree, follow `operator` and `next` on the expression nodes. Each node's `condition` describes one predicate.
+
+`Condition.equals` and `hashCode` include each node's `ConditionExtension`. Factories that need equivalent rules to compare equal can reuse an extension instance or give it value-based `equals` and `hashCode` implementations.
 
 ### Native CLI help exit code
 
