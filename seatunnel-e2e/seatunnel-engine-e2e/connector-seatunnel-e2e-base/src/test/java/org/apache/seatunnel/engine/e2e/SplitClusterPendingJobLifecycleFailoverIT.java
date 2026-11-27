@@ -107,6 +107,14 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             "pending_jobs_streaming_unschedulable.conf";
 
     /**
+     * Minimal STREAMING job that needs exactly two fixed slots (one split-enumerator task plus one
+     * fused reader/writer task, no committer) and checkpoints every 5s, so a savepoint can be taken
+     * for it. Used to fill a two-slot worker exactly.
+     */
+    private static final String TWO_SLOT_STREAMING_JOB_CONFIG_FILE =
+            "stream_fakesource_to_console_minimal.conf";
+
+    /**
      * Number of rapid kill-and-replace rounds used by {@link
      * #testMasterElectionLoopRecoversFromRapidFailoverChurn()}. Each round is a real Hazelcast
      * membership delta (one join, one leave) fired back-to-back without waiting for the cluster to
@@ -1336,6 +1344,132 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
         }
     }
 
+    /**
+     * End-to-end coverage for the resource side of the stop-with-savepoint terminal path: a job
+     * that ends in {@code SAVEPOINT_DONE} must release the fixed slots it owns and the WAIT queue
+     * must then dispatch the next job.
+     *
+     * <p>Contract under test:
+     *
+     * <ol>
+     *   <li>While the holder runs, the victim needs the entire worker and is queued as {@code
+     *       PENDING} in the master's pending queue without owning any slot.
+     *   <li>A real client stop-with-savepoint request completes, the holder reaches {@code
+     *       SAVEPOINT_DONE}, and the coordinator releases its {@code JobMaster}.
+     *   <li>The victim is scheduled afterwards without any further trigger: it reaches {@code
+     *       RUNNING}, leaves the queue and owns the two fixed slots. Fixed slots are inelastic, so
+     *       a slot the savepoint-ended job failed to release strands the victim forever.
+     * </ol>
+     *
+     * <p>Why this boundary has real regression risk: {@code SAVEPOINT_DONE} is the one terminal
+     * state that keeps its checkpoint data ({@code CheckpointManager#clearCheckpointIfNeed} skips
+     * deletion while {@code isSavePointEnd()} is true), and its pipelines end through {@code
+     * stopPipelineWithCheckpointFallback} rather than the cancel or force-stop paths. A change that
+     * ties slot release to checkpoint cleanup, or that keeps the finished job registered because
+     * its savepoint must remain usable, silently starves every queued job on a fixed-slot cluster.
+     *
+     * <p>Existing coverage does not reach it: {@code SavepointBusySourceBarrierIT} runs on dynamic
+     * slots and never queues a second job, {@code
+     * SplitClusterFaultToleranceIT#testFixedSlotStreamJobReusesSlotsAfterMasterDown} covers a
+     * master switch instead of a savepoint, and this class's queue-dispatch tests free capacity by
+     * cancelling the holder rather than by stopping it with a savepoint.
+     */
+    @Test
+    public void testSavepointStopReleasesFixedSlotsSoQueuedJobRuns() throws Exception {
+        String testCaseName = "testSavepointStopReleasesFixedSlotsSoQueuedJobRuns";
+        String testClusterName = "SplitClusterPendingJobLifecycleFailoverIT_" + testCaseName;
+        HazelcastInstanceImpl masterNode = null;
+        HazelcastInstanceImpl workerNode = null;
+        SeaTunnelClient engineClient = null;
+        ClientJobProxy holderJob = null;
+        ClientJobProxy pendingJob = null;
+
+        SeaTunnelConfig masterNodeConfig = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig workerNodeConfig = getSeaTunnelConfig(testClusterName);
+        configurePendingLifecycleTest(masterNodeConfig);
+        configurePendingLifecycleTest(workerNodeConfig);
+        // The minimal streaming job needs exactly two slots (split enumerator + fused
+        // reader/writer), so a two-slot worker can host exactly one job at a time.
+        masterNodeConfig.getEngineConfig().getSlotServiceConfig().setSlotNum(2);
+        workerNodeConfig.getEngineConfig().getSlotServiceConfig().setSlotNum(2);
+
+        try {
+            masterNode = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNodeConfig);
+            workerNode = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerNodeConfig);
+
+            HazelcastInstanceImpl finalMasterNode = masterNode;
+            Awaitility.await()
+                    .atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, finalMasterNode.getCluster().getMembers().size()));
+
+            Common.setDeployMode(DeployMode.CLUSTER);
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+
+            HazelcastInstanceImpl activeMaster = waitAndFindActiveMaster(masterNode, null);
+            assertPendingQueueState(activeMaster, null, 0);
+
+            holderJob =
+                    submitJob(
+                            engineClient,
+                            masterNodeConfig,
+                            "savepoint_slot_holder",
+                            TestUtils.getResource(TWO_SLOT_STREAMING_JOB_CONFIG_FILE));
+            long holderJobId = holderJob.getJobId();
+            assertJobStatusWithTimeout(holderJob, JobStatus.RUNNING, 120);
+            assertFixedSlotOwnership(activeMaster, holderJobId, true);
+
+            // The victim needs the whole worker, which the holder occupies: it must be queued
+            // rather than scheduled, and it must not hold any slot while queued.
+            pendingJob =
+                    submitJob(
+                            engineClient,
+                            masterNodeConfig,
+                            "savepoint_slot_victim",
+                            TestUtils.getResource(TWO_SLOT_STREAMING_JOB_CONFIG_FILE));
+            long pendingJobId = pendingJob.getJobId();
+            assertJobStatusWithTimeout(pendingJob, JobStatus.PENDING, 120);
+            assertPendingQueueContainsJob(activeMaster, pendingJobId, 1);
+            assertFixedSlotOwnership(activeMaster, pendingJobId, false);
+
+            // Stop the holder with a real client savepoint request. It ends SAVEPOINT_DONE, the
+            // one terminal state that deliberately keeps its checkpoint data.
+            SeaTunnelClient finalEngineClient = engineClient;
+            CompletableFuture<Void> savepointRequest =
+                    CompletableFuture.runAsync(() -> finalEngineClient.savePointJob(holderJobId));
+            savepointRequest.get(120, TimeUnit.SECONDS);
+            assertJobStatusWithTimeout(holderJob, JobStatus.SAVEPOINT_DONE, 120);
+
+            // The coordinator must release the savepoint-ended job (a retained savepoint is not a
+            // reason to keep it registered as running) and every slot it owned.
+            assertJobReleasedByCoordinator(activeMaster, holderJobId);
+            assertFixedSlotOwnership(activeMaster, holderJobId, false);
+
+            // The queued job must now be dispatched by the normal scheduler, with no extra trigger.
+            assertJobStatusWithTimeout(pendingJob, JobStatus.RUNNING, 120);
+            assertPendingQueueNotContainsJob(activeMaster, pendingJobId);
+            assertFixedSlotOwnership(activeMaster, pendingJobId, true);
+
+            pendingJob.cancelJob();
+            assertEventuallyCanceled(pendingJob);
+            assertFixedSlotOwnership(activeMaster, pendingJobId, false);
+        } finally {
+            if (engineClient != null) {
+                engineClient.close();
+            }
+            if (masterNode != null) {
+                masterNode.shutdown();
+            }
+            if (workerNode != null) {
+                workerNode.shutdown();
+            }
+        }
+    }
+
     @NotNull private static SeaTunnelConfig getSeaTunnelConfig(String testClusterName) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig
@@ -1662,6 +1796,55 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
         TestUtils.createTestConfigFileFromTemplate(
                 "cluster_batch_fake_to_localfile_template.conf", valueMap, targetConfigFilePath);
         return new ImmutablePair<>(targetDir, targetConfigFilePath);
+    }
+
+    /**
+     * Waits until the coordinator no longer holds a {@code JobMaster} for the job.
+     *
+     * <p>{@code CoordinatorService#getJobMaster} is the same lookup {@code submitJob} uses to
+     * detect a duplicate submission and the pending scheduler uses to decide whether a job is still
+     * owned, so a finished job that is still resolvable here is still holding coordinator-side
+     * state even though its status is terminal.
+     */
+    private static void assertJobReleasedByCoordinator(
+            HazelcastInstanceImpl masterNode, long jobId) {
+        SeaTunnelServer server =
+                masterNode.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertNull(
+                                        server.getCoordinatorService().getJobMaster(jobId),
+                                        "Coordinator still holds the finished job " + jobId));
+    }
+
+    /**
+     * Asserts whether the master's fixed-slot ownership map contains any pipeline entry for the
+     * given job.
+     *
+     * <p>The map is written by {@code ResourceUtils#applyResourceForPipeline} only when a pipeline
+     * is actually deployed, so this distinguishes "the job was scheduled and owns its slots" from
+     * "the job is still queued (or already released everything)". Asserted with {@link Awaitility}
+     * because slot release happens asynchronously after the terminal status is published.
+     */
+    private static void assertFixedSlotOwnership(
+            HazelcastInstanceImpl masterNode, long jobId, boolean expected) {
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
+                masterNode
+                        .node
+                        .getNodeEngine()
+                        .getHazelcastInstance()
+                        .getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        expected,
+                                        ownedSlotProfilesIMap.keySet().stream()
+                                                .anyMatch(location -> location.getJobId() == jobId),
+                                        "Job " + jobId + " slot ownership should be " + expected));
     }
 
     /**
