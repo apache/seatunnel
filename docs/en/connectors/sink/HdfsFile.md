@@ -274,7 +274,7 @@ HdfsFile {
 
 Only used when file_format_type is text,csv.false:don't write header,true:write header.
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 When File Format is CSV,The string quote mode of CSV.
 

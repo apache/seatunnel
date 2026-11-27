@@ -130,6 +130,7 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
         this.restoredFromCheckpoint = true;
         this.startupOffset = checkpointState == null ? null : checkpointState.getStartupOffset();
         this.resolvedStopOffset = checkpointState == null ? null : checkpointState.getStopOffset();
+        this.splitAssigned = checkpointState != null && checkpointState.isSplitAssigned();
     }
 
     @Override
@@ -157,7 +158,7 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
 
     /** Indicates there is no more splits available in this assigner. */
     public boolean noMoreSplits() {
-        return getRemainingTables().isEmpty() && remainingSplits.isEmpty();
+        return (splitAssigned || getRemainingTables().isEmpty()) && remainingSplits.isEmpty();
     }
 
     private Set<TableId> getRemainingTables() {
@@ -181,6 +182,9 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
 
     @Override
     public void addSplits(Collection<SourceSplitBase> splits) {
+        if (!splits.isEmpty()) {
+            this.splitAssigned = false;
+        }
         // we don't store the split, but will re-create incremental split later
         splits.stream()
                 .map(SourceSplitBase::asIncrementalSplit)
@@ -250,7 +254,7 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
 
     @Override
     public IncrementalPhaseState snapshotState(long checkpointId) {
-        return new IncrementalPhaseState(startupOffset, resolvedStopOffset);
+        return new IncrementalPhaseState(startupOffset, resolvedStopOffset, splitAssigned);
     }
 
     @Override

@@ -37,7 +37,8 @@ import lombok.extern.slf4j.Slf4j;
  *   <li><b>No dead flag path</b>: the timer callback fires on the Flink <em>task thread</em> via
  *       {@code ProcessingTimeService.registerTimer}, so {@link #handleFallbackTimerOnTaskThread()}
  *       is always reachable even when no more source data arrives and {@code processElement} is
- *       never called again. This is the exact scenario this workaround targets on Flink 1.13.
+ *       never called again. The callback either releases at-least-once work or fails an
+ *       exactly-once task without bypassing its checkpoint fence.
  * </ol>
  *
  * <p>The base {@link SchemaOperator} carries none of this timer infrastructure; Flink 1.15 and
@@ -56,9 +57,31 @@ public class SchemaOperator13 extends SchemaOperator {
         super(jobId, source, pluginConfig);
     }
 
+    public SchemaOperator13(
+            String jobId,
+            SupportSchemaEvolution source,
+            Config pluginConfig,
+            boolean exactlyOnceMode) {
+        super(jobId, source, pluginConfig, exactlyOnceMode);
+    }
+
+    public SchemaOperator13(
+            String jobId,
+            SupportSchemaEvolution source,
+            Config pluginConfig,
+            boolean exactlyOnceMode,
+            long checkpointIntervalMs) {
+        super(
+                jobId,
+                source,
+                pluginConfig,
+                exactlyOnceMode,
+                checkpointStallTimeout(checkpointIntervalMs));
+    }
+
     /**
      * Registers a processing-time timer that will call {@link #handleFallbackTimerOnTaskThread()}
-     * on the Flink task thread after {@link #CHECKPOINT_STALL_TIMEOUT_MS} milliseconds.
+     * on the Flink task thread after the checkpoint-aware stall timeout.
      *
      * <p>Using {@link ProcessingTimeService#registerTimer} instead of a background {@code
      * ScheduledExecutorService} achieves two goals:
@@ -80,7 +103,7 @@ public class SchemaOperator13 extends SchemaOperator {
         fallbackTimerPending = true;
 
         ProcessingTimeService pts = getProcessingTimeService();
-        long fireAt = pts.getCurrentProcessingTime() + CHECKPOINT_STALL_TIMEOUT_MS;
+        long fireAt = pts.getCurrentProcessingTime() + checkpointStallTimeoutMs;
 
         pts.registerTimer(
                 fireAt,
@@ -100,7 +123,22 @@ public class SchemaOperator13 extends SchemaOperator {
 
         log.debug(
                 "Registered Flink processing-time fallback timer to fire in {}ms for job {}",
-                CHECKPOINT_STALL_TIMEOUT_MS,
+                checkpointStallTimeoutMs,
                 jobId);
+    }
+
+    static long checkpointStallTimeout(long checkpointIntervalMs) {
+        if (checkpointIntervalMs <= 0 || checkpointIntervalMs == Long.MAX_VALUE) {
+            return DEFAULT_CHECKPOINT_STALL_TIMEOUT_MS;
+        }
+        try {
+            return Math.max(
+                    DEFAULT_CHECKPOINT_STALL_TIMEOUT_MS,
+                    Math.addExact(
+                            Math.multiplyExact(checkpointIntervalMs, 2L),
+                            DEFAULT_CHECKPOINT_STALL_TIMEOUT_MS));
+        } catch (ArithmeticException overflow) {
+            return Long.MAX_VALUE / 4;
+        }
     }
 }

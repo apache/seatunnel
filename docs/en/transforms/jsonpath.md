@@ -12,6 +12,9 @@
 |----------------------|-------|----------|---------------|
 | columns              | Array | Yes      |               |
 | row_error_handle_way | Enum  | No       | FAIL          |
+| table_match_regex    | String | no      | `.*`          |
+| table_transform      | Array&lt;Map&gt; | no | -       |
+| rule_match_mode      | String | no      | `FIRST_MATCH` |
 
 ### common options [string]
 
