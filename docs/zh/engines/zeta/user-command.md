@@ -4,7 +4,7 @@ sidebar_position: 13
 
 # 客户端命令行工具
 
-SeaTunnel Engine 提供了一个命令行工具，用于管理 SeaTunnel Engine 的作业。您可以使用命令行工具提交、停止、暂停、恢复、删除作业，查看作业状态和监控指标等。
+SeaTunnel Engine 提供了一个命令行工具，用于管理 SeaTunnel Engine 的作业。您可以使用命令行工具提交、停止、savepoint、恢复作业，查看作业状态和监控指标等。（目前没有专门的删除作业命令；已结束的作业记录会在 `history-job-expire-minutes` 到期后被自动清除。）
 
 可以通过如下命令获取命令行工具的帮助信息：
 
@@ -281,9 +281,9 @@ sh bin/seatunnel-cluster.sh -m -cn my_cluster
 **输出示例：**
 ```
 Member ID                            Address              Role                 Version
-a1b2c3d4-e5f6-7890-abcd-ef1234567890 192.168.1.100:5801  ACTIVE MASTER        5.3.0
-b2c3d4e5-f6g7-8901-bcde-f23456789012 192.168.1.101:5801  MASTER               5.3.0
-c3d4e5f6-g7h8-9012-cdef-345678901234 192.168.1.102:5801  WORKER               5.3.0
+a1b2c3d4-e5f6-7890-abcd-ef1234567890 192.168.1.100:5801  ACTIVE MASTER        5.1.7
+b2c3d4e5-f6a7-8901-bcde-f23456789012 192.168.1.101:5801  MASTER               5.1.7
+c3d4e5f6-a7b8-9012-cdef-345678901234 192.168.1.102:5801  WORKER               5.1.7
 ```
 
 **注意**: 必须使用 `-cn` 参数指定集群名称。集群必须处于运行状态才能执行此命令。

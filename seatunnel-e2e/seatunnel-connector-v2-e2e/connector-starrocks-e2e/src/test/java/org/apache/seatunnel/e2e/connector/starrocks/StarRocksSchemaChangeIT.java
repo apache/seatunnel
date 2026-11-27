@@ -17,9 +17,20 @@
 
 package org.apache.seatunnel.e2e.connector.starrocks;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.StarRocksSinkWriter;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -33,6 +44,7 @@ import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -52,13 +64,17 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
 import static org.awaitility.Awaitility.given;
+import static org.mockito.Mockito.mock;
 
 @Slf4j
 @DisabledOnContainer(
@@ -152,6 +168,104 @@ public class StarRocksSchemaChangeIT extends TestSuiteBase implements TestResour
                 .await()
                 .atMost(360, TimeUnit.SECONDS)
                 .untilAsserted(this::initializeJdbcConnection);
+    }
+
+    @Test
+    public void flushesRowsBufferedBelowBatchThresholdBeforeSchemaChange() throws Exception {
+        String table = "schema_change_buffered_rows";
+        String qualifiedTable = DATABASE + "." + table;
+        try (Statement statement = starRocksConnection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE "
+                            + qualifiedTable
+                            + " (id INT NOT NULL, quantity INT NOT NULL)"
+                            + " DUPLICATE KEY(id) DISTRIBUTED BY HASH(id) BUCKETS 1"
+                            + " PROPERTIES (\"replication_num\" = \"1\")");
+        }
+
+        TablePath tablePath = TablePath.of(DATABASE, table);
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "id", BasicType.INT_TYPE, (Long) null, false, null, null))
+                        .column(
+                                PhysicalColumn.of(
+                                        "quantity",
+                                        BasicType.INT_TYPE,
+                                        (Long) null,
+                                        false,
+                                        null,
+                                        null))
+                        .build();
+        SinkConfig config =
+                SinkConfig.of(
+                        ReadonlyConfig.fromMap(
+                                Map.of(
+                                        "nodeUrls",
+                                        Collections.singletonList(
+                                                starRocksServer.getHost()
+                                                        + ":"
+                                                        + starRocksServer.getMappedPort(
+                                                                BE_HTTP_PORT)),
+                                        "base-url",
+                                        "jdbc:mysql://"
+                                                + starRocksServer.getHost()
+                                                + ":"
+                                                + starRocksServer.getMappedPort(QUERY_PORT),
+                                        "database",
+                                        DATABASE,
+                                        "table",
+                                        table,
+                                        "username",
+                                        USERNAME,
+                                        "password",
+                                        PASSWORD,
+                                        "batch_max_rows",
+                                        10,
+                                        "batch_max_bytes",
+                                        1048576L,
+                                        "starrocks.config.format",
+                                        "JSON")));
+        String select = "SELECT id, quantity, note FROM " + qualifiedTable + " ORDER BY id";
+        List<List<Object>> beforeChange =
+                Arrays.asList(Arrays.asList(1, 10, null), Arrays.asList(2, 20, null));
+
+        // No engine callback runs between these writes and the DDL. The real writer must flush
+        // them.
+        StarRocksSinkWriter writer =
+                new StarRocksSinkWriter(mock(SinkWriter.Context.class), config, schema, tablePath);
+        try (AutoCloseable closeWriter = writer::close) {
+            writer.write(new SeaTunnelRow(new Object[] {1, 10}));
+            writer.write(new SeaTunnelRow(new Object[] {2, 20}));
+            Assertions.assertTrue(
+                    query("SELECT id FROM " + qualifiedTable, starRocksConnection).isEmpty(),
+                    "The old rows must still be buffered when the schema changes");
+
+            writer.applySchemaChange(
+                    AlterTableAddColumnEvent.add(
+                            TableIdentifier.of("starrocks", tablePath),
+                            PhysicalColumn.of(
+                                    "note", BasicType.STRING_TYPE, 64L, true, null, null)));
+            await().ignoreExceptions()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            beforeChange, query(select, starRocksConnection)));
+
+            writer.write(new SeaTunnelRow(new Object[] {3, 30, "new schema"}));
+            writer.prepareCommit();
+        }
+
+        List<List<Object>> expected = new ArrayList<>(beforeChange);
+        expected.add(Arrays.asList(3, 30, "new schema"));
+        await().ignoreExceptions()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        expected, query(select, starRocksConnection)));
     }
 
     @TestTemplate
@@ -418,8 +532,8 @@ public class StarRocksSchemaChangeIT extends TestSuiteBase implements TestResour
     }
 
     private List<List<Object>> query(String sql, Connection connection) {
-        try {
-            ResultSet resultSet = connection.createStatement().executeQuery(sql);
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
             List<List<Object>> result = new ArrayList<>();
             int columnCount = resultSet.getMetaData().getColumnCount();
             while (resultSet.next()) {

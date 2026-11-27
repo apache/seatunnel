@@ -142,6 +142,15 @@ public class Condition<T> {
         return hasNext() ? this.next.getTailCondition() : this;
     }
 
+    /** Copies the mutable chain links while retaining the options, operands and extensions. */
+    Condition<T> copyChain() {
+        Condition<T> copy =
+                new Condition<>(option, operator, expectValue, compareOption, extension);
+        copy.and = and;
+        copy.next = next == null ? null : next.copyChain();
+        return copy;
+    }
+
     public boolean hasNext() {
         return this.next != null;
     }
@@ -163,6 +172,7 @@ public class Condition<T> {
                 && Objects.equals(this.expectValue, that.expectValue)
                 && Objects.equals(this.operator, that.operator)
                 && Objects.equals(this.compareOption, that.compareOption)
+                && Objects.equals(this.extension, that.extension)
                 && Objects.equals(this.and, that.and)
                 && Objects.equals(this.next, that.next);
     }
@@ -174,6 +184,7 @@ public class Condition<T> {
                 this.expectValue,
                 this.operator,
                 this.compareOption,
+                this.extension,
                 this.and,
                 this.next);
     }

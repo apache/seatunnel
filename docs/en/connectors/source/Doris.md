@@ -48,9 +48,9 @@ Used to read data from Apache Doris.
 | TINYINT                              | TINYINT                                                                                                                                             |
 | SMALLINT                             | SMALLINT                                                                                                                                            |
 | BIGINT                               | BIGINT                                                                                                                                              |
-| LARGEINT                             | STRING                                                                                                                                              |
+| LARGEINT                             | DECIMAL(20,0)                                                                                                                                       |
 | BOOLEAN                              | BOOLEAN                                                                                                                                             |
-| DECIMAL                              | DECIMAL((Get the designated column's specified column size)+1,<br/>(Gets the designated column's number of digits to right of the decimal point.))) |
+| DECIMAL                              | DECIMAL(p, s), where `p` is the column precision and `s` is the column scale; when the column does not define them, DECIMAL(38, 10) is used. On Doris 1.2.x a defined scale of 0 also falls back to 10.         |
 | FLOAT                                | FLOAT                                                                                                                                               |
 | DOUBLE                               | DOUBLE                                                                                                                                              |
 | CHAR<br/>VARCHAR<br/>STRING<br/>TEXT | STRING                                                                                                                                              |
@@ -80,7 +80,10 @@ Base configuration:
 | doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | The number of Doris tablets grouped into each SeaTunnel split. The minimum value is `1`.       |
 | doris.deserialize.arrow.async    | boolean | no      | false      | Whether to deserialize Arrow data asynchronously.                                                    |
 | doris.deserialize.queue.size     | int    | no       | 64         | Queue size used by asynchronous Arrow deserialization.                                               |
+| database                         | string | yes      | -          | The name of Doris database. Required at the top level when `table_list` is not configured.           |
+| table                            | string | yes      | -          | The name of Doris table. Required at the top level when `table_list` is not configured.              |
 | table_list                       | Array  | no       | -          | List of Doris tables to read.                                                                        |
+| case_sensitive                   | boolean | no      | true       | Whether to preserve the original case of the database and table names. When set to false, the database and table names will be converted to lowercase. Only takes effect when a single table is configured via `database` and `table`. |
 
 Table list configuration:
 
