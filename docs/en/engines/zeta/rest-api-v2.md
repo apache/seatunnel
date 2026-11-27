@@ -227,6 +227,23 @@ The [OpenAPI 3.1 contract for the read-only REST v2 subset](openapi-v2.yaml) cur
 - `requiredOptions[].ruleType` can be `ABSOLUTELY_REQUIRED`, `EXCLUSIVE`, `BUNDLED`, or `CONDITIONAL`.
 - `optionRule.conditionRules` recursively exposes nested conditional option rules and is an empty array when the connector does not define nested rules.
 - For conditional rules, both `expression` and `expressionTree` are returned for dynamic form rendering.
+- Conditional required options and nested rules store each predicate in `expressionTree.condition`. The expression node links to the next predicate. This excerpt shows the links for `A OR B AND C`, which evaluates as `A || (B && C)`. Only the option keys and links are shown.
+
+  ```json
+  {
+    "expressionTree": {
+      "condition": {"option": {"key": "a"}},
+      "operator": "OR",
+      "next": {
+        "condition": {"option": {"key": "b"}},
+        "operator": "AND",
+        "next": {"condition": {"option": {"key": "c"}}}
+      }
+    }
+  }
+  ```
+
+- In standalone `valueConstraints[].conditionTree`, the condition nodes themselves carry `operator` and `next`. The CLI uses the same precedence. [CLI metadata export](../../architecture/configuration-and-option-system.md#export-connector-metadata)
 - `optionRule.valueConstraints` describes value-level validation rules such as numeric ranges, string patterns, and cross-field comparisons. Each entry provides a human-readable `expression` string alongside a structured `conditionTree` for programmatic use. This array is empty when the connector does not define any value constraints.
 - Within `conditionTree`, the `compareOperator` field is `null` for `EQUAL` and otherwise uses the operator symbol exposed by the runtime rule (for example `>=`, `is not blank`, or `extension`). The `compareOption` field is populated only for cross-field comparisons.
 - `conditionOperator` is a stable operator identifier. Possible values include `EQUAL`, `GREATER_OR_EQUAL`, `NOT_BLANK`, `FIELD_LESS_THAN`, `EXTENSION`, etc. `conditionOperatorCategory` indicates the operator category, such as `NUMERIC`, `STRING`, `COLLECTION`, `EQUALITY`, `EXTENSION`, etc.
@@ -251,7 +268,7 @@ The [OpenAPI 3.1 contract for the read-only REST v2 subset](openapi-v2.yaml) cur
 
 ```json
 {
-    "projectVersion":"3.1.0-SNAPSHOT",
+    "projectVersion":"3.1.1-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
@@ -357,6 +374,7 @@ None.
     "envOptions": {
     },
     "createTime": "",
+    "startTime": "",
     "jobDag": {
       "jobId": "",
       "envOptions": [],
@@ -680,7 +698,7 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
 `finishTime`, `errorMsg` will return when job is finished.
 `diagnostics` will return when the job is running and its diagnostics can be read from the master
@@ -798,7 +816,11 @@ This API has been deprecated, please use /job-info/:jobId instead
     "TableSinkWriteCount": {},
     "TableSinkWriteQPS": {},
     "TableSinkWriteBytes": {},
-    "TableSinkWriteBytesPerSeconds": {}
+    "TableSinkWriteBytesPerSeconds": {},
+    "TableSinkCommittedCount": {},
+    "TableSinkCommittedQPS": {},
+    "TableSinkCommittedBytes": {},
+    "TableSinkCommittedBytesPerSeconds": {}
   },
   "finishTime": "",
   "errorMsg": null,
@@ -810,7 +832,7 @@ This API has been deprecated, please use /job-info/:jobId instead
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
 `finishTime`, `errorMsg` will return when job is finished.
 
@@ -857,6 +879,7 @@ starting beyond the end of the result set also returns `400`, while a page start
     "jobStatus": "",
     "errorMsg": null,
     "createTime": "",
+    "startTime": "",
     "finishTime": "",
     "jobDag": {
       "jobId": "",
@@ -962,8 +985,8 @@ Each member is asked in parallel and awaited against one shared deadline (`seatu
 > | jobId                | optional | string    | job id                                                   |
 > | jobName              | optional | string    | job name                                                 |
 > | isStartWithSavePoint | optional | string    | if job is started with save point                        |
-> | restoreMode          | optional | string    | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. Used together with `restoreSourceJobId`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
-> | restoreSourceJobId   | optional | string    | The job id to restore from when `restoreMode` is set. When only `isStartWithSavePoint` is set (no `restoreMode`), this falls back to `jobId`. |
+> | restoreMode          | optional | string    | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
+> | restoreSourceJobId   | optional | string    | ID of the job to restore. Required for `CHECKPOINT`. In `SAVEPOINT` mode, the server uses `jobId` if this parameter is omitted. |
 > | format               | optional | string    | config format, support json, hocon and sql, default json |
 
 **Note:** The dry-run feature is intentionally not supported via the REST API. It is exclusively available through the SeaTunnel CLI.
@@ -1100,8 +1123,8 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 > | jobId                | optional | string    | job id                            |
 > | jobName              | optional | string    | job name                          |
 > | isStartWithSavePoint | optional | string    | if job is started with save point |
-> | restoreMode          | optional | string    | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. Used together with `restoreSourceJobId`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
-> | restoreSourceJobId   | optional | string    | The job id to restore from when `restoreMode` is set. When only `isStartWithSavePoint` is set (no `restoreMode`), this falls back to `jobId`. |
+> | restoreMode          | optional | string    | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
+> | restoreSourceJobId   | optional | string    | ID of the job to restore. Required for `CHECKPOINT`. In `SAVEPOINT` mode, the server uses `jobId` if this parameter is omitted. |
 
 #### Request Body
 The name of the uploaded file key is config_file, and supports the following formats:

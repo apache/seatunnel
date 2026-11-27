@@ -53,13 +53,13 @@ Zeta 的 `--dry-run connect` 会校验 Redis 是否可达以及是否接受配�
 | host               | string  | `mode = SINGLE` 时必填      | -      | 单节点模式下的 Redis 主机地址。 |
 | port               | int     | 否                          | 6379   | 单节点模式下的 Redis 端口。 |
 | nodes              | list    | `mode = CLUSTER` 时必填     | -      | Redis Cluster 节点，例如 `["redis-0:6379", "redis-1:6379"]`。 |
-| mode               | string  | 否                          | SINGLE | Redis 部署模式，支持 `SINGLE` 和 `CLUSTER`。 |
+| mode               | enum    | 否                          | SINGLE | Redis 部署模式，支持 `SINGLE` 和 `CLUSTER`。 |
 | user               | string  | 否                          | -      | Redis ACL 用户名。 |
 | auth               | string  | 否                          | -      | Redis 认证密码。 |
 | db_num             | int     | 否                          | 0      | Redis 数据库编号，主要用于单节点模式。 |
 | key                | string  | 是                          | -      | Redis key、上游字段名，或开启 `support_custom_key` 后的 key 模板。 |
-| data_type          | string  | 是                          | -      | Redis 数据类型，支持 `KEY`、`STRING`、`HASH`、`LIST`、`SET`、`ZSET`。 |
-| format             | string  | 否                          | JSON   | 未配置 value 字段时的序列化格式，支持 `JSON` 和 `TEXT`。 |
+| data_type          | enum    | 是                          | -      | Redis 数据类型，支持 `KEY`、`STRING`、`HASH`、`LIST`、`SET`、`ZSET`。 |
+| format             | enum    | 否                          | JSON   | 未配置 value 字段时的序列化格式，支持 `JSON` 和 `TEXT`。 |
 | field_delimiter    | string  | 否                          | `,`    | `format = TEXT` 时使用的字段分隔符。 |
 | batch_size         | int     | 否                          | 10     | 每次批量写入前最多缓存的行数。 |
 | expire             | long    | 否                          | -1     | Redis key 过期时间，单位秒。小于等于 0 表示不设置过期时间。 |
@@ -213,24 +213,6 @@ sink {
     value_field = "name"
     batch_size = 20
     expire = 30
-  }
-}
-```
-
-### 按上游字段动态生成键
-
-将 `support_custom_key` 设为 `true` 后，`key` 中可以包含占位符 `${field}`（同时也兼容旧的 `{field}` 写法），
-连接器在写入时会把占位符替换为对应上游字段的值。常用于把同一 Redis 数据类型按上游主键写入不同键的场景。
-
-```hocon
-sink {
-  Redis {
-    host = "localhost"
-    port = 6379
-    key = "person:${id}"
-    support_custom_key = true
-    data_type = KEY
-    format = JSON
   }
 }
 ```

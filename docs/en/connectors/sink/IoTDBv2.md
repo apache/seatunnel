@@ -1,4 +1,4 @@
-import ChangeLog from '../changelog/connector-iotdb.md';
+import ChangeLog from '../changelog/connector-iotdb-v2.md';
 
 # IoTDBv2
 
@@ -29,6 +29,8 @@ Used to write data to IoTDB 2.x. The connector name in job configuration is `IoT
 
 ## Data Type Mapping
 
+The mapping below applies to the default tree model (`sql_dialect = "tree"`). In tree mode `STRING` is written as IoTDB `TEXT`, and types not listed here (for example `TIMESTAMP` and `DATE`) are rejected with `UNSUPPORTED_DATA_TYPE`. The table model (`sql_dialect = "table"`) maps `STRING` to `STRING` and additionally supports `TIMESTAMP` and `DATE`.
+
 | SeaTunnel Data Type | IoTDB Data Type | 
 |---------------------|-----------------|
 | BOOLEAN             | BOOLEAN         |
@@ -38,9 +40,7 @@ Used to write data to IoTDB 2.x. The connector name in job configuration is `IoT
 | BIGINT              | INT64           |
 | FLOAT               | FLOAT           |
 | DOUBLE              | DOUBLE          |
-| STRING              | STRING          |
-| TIMESTAMP           | TIMESTAMP       |
-| DATE                | DATE            |
+| STRING              | TEXT            |
 
 ## Sink Options
 
@@ -56,7 +56,7 @@ Used to write data to IoTDB 2.x. The connector name in job configuration is `IoT
 | key_measurement_fields      | Array   | No       | refer to description | IoTDB-tree: Specify the field names in SeaTunnelRow to be used as measurement (all fields excluding `key_device`&`key_timestamp` will be used by default) <br/> IoTDB-table: Specify the field names in SeaTunnelRow to be used as FIELD columns (all fields excluding `key_device`, `key_timestamp`, `key_tag_fields` and `key_attribute_fields` will be used by default) |
 | key_tag_fields              | Array   | No       | -                    | IoTDB-tree: invalid <br/> IoTDB-table: Specify the field names in SeaTunnelRow to be used as TAG columns                                                                                                                                                                                                                                                                   |
 | key_attribute_fields        | Array   | No       | -                    | IoTDB-tree: invalid <br/> IoTDB-table: Specify the field names in SeaTunnelRow to be used as ATTRIBUTE columns                                                                                                                                                                                                                                                             |
-| batch_size                  | Integer | No       | 1024                 | The connector flushes buffered records to IoTDB when the number of buffered records reaches `batch_size`. It also flushes before checkpoint commit and when the writer is closed.                                                                                                                             |
+| batch_size                  | Integer | No       | 1024 (see note)      | The connector flushes buffered records to IoTDB when the number of buffered records reaches `batch_size`. It also flushes before checkpoint commit and when the writer is closed. NOTE: the built-in default is currently NOT applied when the option is omitted — if unset, rows are only flushed on checkpoint/close. Set `batch_size` explicitly to enable size-based flushing. |
 | max_retries                 | Integer | No       | -                    | The maximum number of retries when flushing records fails.                                                                                                                                                                                                                                                                                                                 |
 | retry_backoff_multiplier_ms | Integer | No       | -                    | The multiplier used to calculate the retry backoff delay.                                                                                                                                                                                                                                                                                                                  |
 | max_retry_backoff_ms        | Integer | No       | -                    | The maximum retry backoff delay in milliseconds.                                                                                                                                                                                                                                                                                                                          |
@@ -125,6 +125,7 @@ sink {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
+    storage_group = "" # required option; empty string because `key_device` already contains the full device path
     key_device = "device_name" # specify the `deviceId` use device_name field
   }
 }
@@ -155,6 +156,7 @@ sink {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
+    storage_group = "" # required option; empty string because `key_device` already contains the full device path
     key_device = "device_name" # specify the `deviceId` use device_name field
     key_timestamp = "event_ts" # specify the `timestamp` use event_ts field
   }
@@ -186,6 +188,7 @@ sink {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
+    storage_group = "" # required option; empty string because `key_device` already contains the full device path
     key_device = "device_name"
     key_timestamp = "event_ts"
     key_measurement_fields = ["temperature", "moisture"]
