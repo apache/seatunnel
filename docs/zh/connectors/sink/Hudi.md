@@ -38,7 +38,7 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 | kerberos_principal         | string | 否        | -                            | Kerberos 身份，须与 kerberos_keytab_path 一起设置。 |
 | kerberos_keytab_path       | string | 否        | -                            | catalog 和各 writer 进程可读取的本地 keytab 路径。 |
 | krb5_path                  | string | 否        | -                            | 可选的本地 Kerberos 配置文件，会修改 JVM 全局配置。 |
-| table_list                 | array  | 否        | -                            | 多表作业中每张表的配置。 |
+| table_list                 | Array  | 否        | -                            | 多表作业中每张表的配置。 |
 | schema_save_mode           | enum   | 否        | CREATE_SCHEMA_WHEN_NOT_EXIST | 作业启动前如何处理目标 schema。 |
 | data_save_mode             | enum   | 否        | APPEND_DATA                  | 作业启动前如何处理已存在的表数据。 |
 | multi_table_sink_replica   | int    | 否        | 1                            | 多表写入模式下每张表写入器的副本数。 |
@@ -55,15 +55,15 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 | record_key_fields          | string  | 否        | -              | 用于构建 Hudi record key 的字段；`UPSERT` 时必填。 |
 | partition_fields           | string  | 否        | -              | 用于构建分区路径的字段。 |
 | precombine_field           | string  | 否        | -              | 用于合并同一记录多次更新的字段。 |
-| batch_interval_ms          | int     | 否        | 1000           | 当前未使用；刷写仅由 `batch_size` 或 checkpoint 触发。 |
-| batch_size                 | int     | 否        | 1000           | 刷写前最多缓存的行数。 |
-| insert_shuffle_parallelism | int     | 否        | 2              | insert 操作的 shuffle 并行度。 |
-| upsert_shuffle_parallelism | int     | 否        | 2              | upsert 操作的 shuffle 并行度。 |
-| min_commits_to_keep        | int     | 否        | 20             | 清理期间保留的最小提交数。 |
-| max_commits_to_keep        | int     | 否        | 30             | 清理期间保留的最大提交数。 |
+| batch_interval_ms          | Int     | 否        | 1000           | 当前未使用；刷写仅由 `batch_size` 或 checkpoint 触发。 |
+| batch_size                 | Int     | 否        | 1000           | 刷写前最多缓存的行数。 |
+| insert_shuffle_parallelism | Int     | 否        | 2              | insert 操作的 shuffle 并行度。 |
+| upsert_shuffle_parallelism | Int     | 否        | 2              | upsert 操作的 shuffle 并行度。 |
+| min_commits_to_keep        | Int     | 否        | 20             | 清理期间保留的最小提交数。 |
+| max_commits_to_keep        | Int     | 否        | 30             | 清理期间保留的最大提交数。 |
 | index_type                 | enum    | 否        | BLOOM          | Hudi 索引类型：`BLOOM`、`SIMPLE` 或 `GLOBAL_BLOOM`。 |
 | index_class_name           | string  | 否        | -              | 自定义 Hudi 索引类的全限定名。 |
-| record_byte_size           | int     | 否        | 1024           | 以字节为单位的平均记录大小估计值。 |
+| record_byte_size           | Int     | 否        | 1024           | 以字节为单位的平均记录大小估计值。 |
 | cdc_enabled                | boolean | 否        | false          | 启用后持久化 Hudi CDC 变更日志数据。 |
 
 注意：写入单表时，可以把 `table_list` 中的表配置项平铺到外层。多表作业中，表级配置需放在各自的 `table_list` 条目内；`table_dfs_path`、`conf_files_path`、`schema_save_mode` 和 `data_save_mode` 保持在 sink 层级。
@@ -80,7 +80,8 @@ JDBC 风格的 `use.kerberos`、`kerberos.principal`、`kerberos.principal.file`
 登录和票据续期失败会报告为认证错误。Catalog 操作保留缺库、缺表、对象已存在等
 异常类型；其他认证后的 I/O 错误保留操作及异常类别，不保留可能含有凭据的原始消息或原因链。
 每个 catalog/write-client provider 独立持有身份及延迟创建的线程池。关闭前必须等待所有
-操作完成，不支持关闭与 I/O 并发执行。中断等待线程不会取消已经开始的文件系统操作。
+操作结束。等待线程被中断时，provider 会等已经接收的操作结束后再报告中断；关闭时也会先等待操作和客户端清理完成，再释放文件系统和身份。失败或中断的 writer 批次不会在关闭时重试。
+这些保证不会撤销已经生效的提交，取消也可能需要等待底层文件系统操作返回。请为部署配置合理的 HDFS 和网络超时；线程中断本身不是强制 I/O 截止时间。
 
 `conf_files_path` 加载的配置必须包含 `hadoop.security.authentication=kerberos`
 以及目标 HDFS 配置。加载 XML 本身不会登录；连接器会通过 keytab 登录，无需在 worker

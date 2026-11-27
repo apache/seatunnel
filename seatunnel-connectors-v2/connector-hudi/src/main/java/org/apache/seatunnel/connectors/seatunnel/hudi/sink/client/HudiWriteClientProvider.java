@@ -50,18 +50,21 @@ public class HudiWriteClientProvider implements WriteClientProvider, Serializabl
     }
 
     @Override
-    public synchronized HoodieJavaWriteClient<HoodieAvroPayload> getOrCreateClient() {
-        if (client == null) {
-            client =
-                    execute(
-                            () ->
-                                    createHoodieJavaWriteClient(
-                                            hudiSinkConfig,
-                                            seaTunnelRowType,
-                                            tableName,
-                                            authentication.getConfiguration()));
-        }
-        return client;
+    public HoodieJavaWriteClient<HoodieAvroPayload> getOrCreateClient() {
+        // Creation shares the authentication lifecycle, without holding this provider's monitor
+        // while a worker may need it for a nested getOrCreateClient call.
+        return execute(
+                () -> {
+                    if (client == null) {
+                        client =
+                                createHoodieJavaWriteClient(
+                                        hudiSinkConfig,
+                                        seaTunnelRowType,
+                                        tableName,
+                                        authentication.getConfiguration());
+                    }
+                    return client;
+                });
     }
 
     @Override

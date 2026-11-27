@@ -129,11 +129,21 @@ public class HudiRecordWriter implements Serializable {
     }
 
     public synchronized void flush() {
+        checkFlushException();
+        try {
+            flushBufferedRecords();
+        } catch (RuntimeException e) {
+            // A failed/interrupted write may already have committed. Teardown must not replay it.
+            flushException = e;
+            throw e;
+        }
+    }
+
+    private void flushBufferedRecords() {
         if (batchCount == 0) {
             log.debug("No data needs to be refreshed, waiting for incoming data.");
             return;
         }
-        checkFlushException();
         Boolean preChangeFlag = null;
         Set<Map.Entry<HoodieKey, Pair<Boolean, HoodieRecord<HoodieAvroPayload>>>> entries =
                 buffer.entrySet();

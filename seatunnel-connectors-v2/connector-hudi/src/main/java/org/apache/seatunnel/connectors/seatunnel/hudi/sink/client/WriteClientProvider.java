@@ -30,12 +30,13 @@ public interface WriteClientProvider {
     /**
      * Run the entire client operation (including creation and commit) under the provider's
      * identity. The returned value must not be used to access the raw client outside this scope.
-     * Caller interruption does not guarantee cancellation of in-flight I/O.
+     * The authenticated provider keeps ownership until in-flight I/O settles after caller
+     * interruption; it does not roll back a commit that already took effect.
      */
     default <T> T execute(Supplier<T> action) {
         return action.get();
     }
 
-    /** Close owned client/identity once, after all operations finish; do not race with execute. */
+    /** Close owned client/identity once, after all admitted operations finish. */
     void close();
 }

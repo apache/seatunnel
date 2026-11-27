@@ -18,6 +18,9 @@ SeaTunnel keeps one long-lived Python worker process for each transform instance
 | script_config | map | no | |
 | columns | array | yes | |
 | row_error_handle_way | enum | no | FAIL |
+| table_match_regex | string | no | `.*` |
+| table_transform | array | no | - |
+| rule_match_mode | string | no | `FIRST_MATCH` |
 
 ### common options [string]
 
@@ -47,6 +50,8 @@ Controls what happens when the Python script fails for a row.
 
 - `FAIL`: stop the job and surface the Python error.
 - `SKIP`: skip the current row and continue processing later rows.
+
+Other values (e.g. `ROUTE_TO_TABLE`) pass config validation but are rejected by the Python transform at runtime with an unsupported-error-handle-way error; only `FAIL` and `SKIP` are supported here.
 
 ### columns [array]
 

@@ -39,6 +39,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.seatunnel.e2e.common.container.AbstractTestContainer.HOST_VOLUME_MOUNT_PATH;
@@ -68,6 +70,15 @@ public class HudiIT extends TestSuiteBase {
         String output = result.getStdout() + result.getStderr();
         Assertions.assertNotEquals(0, result.getExitCode(), output);
         Assertions.assertTrue(output.contains("hadoop.security.authentication=kerberos"), output);
+        Assertions.assertFalse(
+                Files.exists(
+                        Paths.get(
+                                HOST_VOLUME_MOUNT_PATH,
+                                "hudi_kerberos_negative",
+                                "default",
+                                "kerberos_negative",
+                                ".hoodie")),
+                "Rejected authentication must not leave a Hudi table or commit timeline");
     }
 
     @TestTemplate

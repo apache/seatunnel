@@ -58,7 +58,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | filename_time_format                  | string  | 否    | "yyyy.MM.dd"                               | 仅在 `custom_filename` 为 `true` 时使用                                         |
 | file_format_type                      | string  | 否    | "csv"                                      |                                                                           |
 | filename_extension                    | string  | 否    | -                                          | 用自定义的文件扩展名覆盖默认的文件扩展名。例如：`.xml`、`.json`、`dat`、`.customtype`                |
-| field_delimiter                       | string  | 否    | '\001' for text and ',' for csv            | 仅在 `file_format_type` 为 `text` 时使用                                        |
+| field_delimiter                       | string  | 否    | '\001' for text and ',' for csv            | 仅在 `file_format_type` 为 `text` 和 `csv` 时使用                                    |
 | row_delimiter                         | string  | 否    | "\n"                                       | 仅在 `file_format_type` 为 `text`、`csv`、`json` 时使用                           |
 | have_partition                        | boolean | 否    | false                                      | 是否需要处理分区。                                                                 |
 | partition_by                          | array   | 否    | -                                          | 仅在 `have_partition` 为 `true` 时使用                                          |
@@ -86,6 +86,10 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | schema_save_mode                      | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方法                                                                  |
 | data_save_mode                        | string  | 否    | APPEND_DATA                                | 现有数据处理方法                                                                  |
 | multi_table_sink_replica              | int     | 否    | 1                                          | 多表写入时，每张表对应的 Sink Writer 副本数。                                      |
+| date_format                           | string  | 否    | yyyy-MM-dd                                 | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。日期类型格式，用于告知 connector 如何写出 date 值。支持格式（示例）：`yyyy-MM-dd`、`yyyy.MM.dd`、`yyyy/MM/dd`。 |
+| datetime_format                       | string  | 否    | yyyy-MM-dd HH:mm:ss                        | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间戳类型格式，用于告知 connector 如何写出 datetime 值。支持格式：`yyyy-MM-dd HH:mm:ss`、`yyyy.MM.dd HH:mm:ss`、`yyyy/MM/dd HH:mm:ss`、`yyyyMMddHHmmss`。 |
+| time_format                           | string  | 否    | HH:mm:ss                                   | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间类型格式，用于告知 connector 如何写出 time 值。支持格式（示例）：`HH:mm:ss`、`HH:mm:ss.SSS`。 |
+| merge_update_event                    | boolean | 否    | false                                      | 仅当 file_format_type 为 canal_json、debezium_json 或 maxwell_json 时使用。设为 true 时，UPDATE_AFTER 和 UPDATE_BEFORE 事件会合并为 UPDATE 事件数据 |
 
 ### host [string]
 
@@ -247,7 +251,7 @@ Sink 插件的通用参数，请参考[Sink通用选项](../common-options/sink-
 
 写入工作簿的工作表。
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 当文件格式为CSV时，CSV的字符串引号模式： 
 

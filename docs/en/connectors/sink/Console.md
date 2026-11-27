@@ -50,7 +50,7 @@ subtaskIndex=<subtask>  rowIndex=<index>:  SeaTunnelRow#tableId=<table-id> SeaTu
 
 - `subtaskIndex` is the sink task that printed the row.
 - `rowIndex` is counted inside each sink writer.
-- `tableId` identifies the upstream table in multi-table jobs. Single-table jobs usually print `-1`.
+- `tableId` identifies the upstream table. It is the table path string resolved from the source (for example `test.table1`), and prints as an empty string when the source never sets it. Older releases printed the numeric table index `-1`; current versions always print a string.
 - `row-kind` shows the row change type, such as `INSERT`, `UPDATE_BEFORE`, `UPDATE_AFTER`, or `DELETE`.
 
 ## Task Example

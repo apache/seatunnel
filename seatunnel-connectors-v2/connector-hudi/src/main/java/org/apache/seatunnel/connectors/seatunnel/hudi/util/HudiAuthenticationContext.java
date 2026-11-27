@@ -31,12 +31,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.ForkJoinWorkerThread;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 /**
  * Runtime-only identity and resources owned by one catalog or write client. The owner must finish
- * all operations before closing this context; concurrent close/execute is unsupported. Hadoop's
+ * all operations before releasing this context. Close waits for admitted operations. Hadoop's
  * security configuration and krb5 realm settings remain JVM-global, although the returned user and
  * worker pool belong exclusively to this instance.
  */
@@ -45,8 +46,8 @@ public final class HudiAuthenticationContext {
     private final Configuration configuration;
     private final UserGroupInformation user;
     // Lazily created for authenticated operations; workers retain this instance's user until close.
-    private ForkJoinPool pool;
-    // Serial close is idempotent. This flag does not coordinate concurrent resource use/close.
+    private volatile ForkJoinPool pool;
+    private final Object lifecycleLock = new Object();
     private volatile boolean closed;
 
     public HudiAuthenticationContext(
@@ -85,9 +86,9 @@ public final class HudiAuthenticationContext {
     }
 
     /**
-     * Renew before I/O; nested operations and parallel streams retain this client's identity.
-     * Interrupting the waiting caller preserves its interrupt flag but does not cancel in-flight
-     * I/O.
+     * Renew before I/O; nested operations and parallel streams retain this client's identity. An
+     * interrupted caller waits for its in-flight operation to settle before returning an error,
+     * with its interrupt flag restored. This does not roll back an already started commit.
      */
     public <T> T execute(PrivilegedExceptionAction<T> action) {
         return execute(action, HudiAuthenticationContext::operationFailure);
@@ -109,6 +110,20 @@ public final class HudiAuthenticationContext {
             PrivilegedExceptionAction<T> action,
             boolean renew,
             Function<Exception, RuntimeException> failureMapper) {
+        // Nested Hudi work already belongs to the admitted operation. Taking the caller's lock
+        // here would deadlock the waiting caller against its own authenticated worker.
+        if (pool != null && ForkJoinTask.getPool() == pool) {
+            return executeOwned(action, renew, failureMapper);
+        }
+        synchronized (lifecycleLock) {
+            return executeOwned(action, renew, failureMapper);
+        }
+    }
+
+    private <T> T executeOwned(
+            PrivilegedExceptionAction<T> action,
+            boolean renew,
+            Function<Exception, RuntimeException> failureMapper) {
         if (closed) {
             throw new IllegalStateException("Hudi authentication context is closed");
         }
@@ -125,6 +140,9 @@ public final class HudiAuthenticationContext {
             }
         }
         if (renew) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw operationFailure(new InterruptedException());
+            }
             try {
                 synchronized (user) {
                     user.checkTGTAndReloginFromKeytab();
@@ -138,7 +156,7 @@ public final class HudiAuthenticationContext {
             if (ForkJoinTask.getPool() == executor) {
                 return action.run();
             }
-            return executor.submit(() -> user.doAs(action)).get();
+            return awaitOperation(executor.submit(() -> user.doAs(action)), renew);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw operationFailure(e);
@@ -153,6 +171,31 @@ public final class HudiAuthenticationContext {
                 throw (Error) cause;
             }
             throw failureMapper.apply((Exception) cause);
+        }
+    }
+
+    /** Keep resource ownership until actual completion, not merely Future cancellation. */
+    private static <T> T awaitOperation(Future<T> operation, boolean failOnInterrupt)
+            throws ExecutionException, InterruptedException {
+        boolean interrupted = false;
+        try {
+            T result;
+            while (true) {
+                try {
+                    result = operation.get();
+                    break;
+                } catch (InterruptedException e) {
+                    interrupted = true;
+                }
+            }
+            if (interrupted && failOnInterrupt) {
+                throw new InterruptedException("Hudi operation settled after interruption");
+            }
+            return result;
+        } finally {
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 
@@ -221,6 +264,24 @@ public final class HudiAuthenticationContext {
 
     /** Cleanup still runs under the identity if ticket renewal has failed. */
     public void close(PrivilegedExceptionAction<Void> cleanup) {
+        if (pool != null && ForkJoinTask.getPool() == pool) {
+            throw new IllegalStateException("Cannot close Hudi authentication from its own worker");
+        }
+        synchronized (lifecycleLock) {
+            // An interrupted task still owns cleanup. Clear the flag while closing resources,
+            // then restore it for the engine rather than letting cleanup fail immediately.
+            boolean interrupted = Thread.interrupted();
+            try {
+                closeOwned(cleanup);
+            } finally {
+                if (interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+    }
+
+    private void closeOwned(PrivilegedExceptionAction<Void> cleanup) {
         if (closed) {
             return;
         }
@@ -231,57 +292,58 @@ public final class HudiAuthenticationContext {
             failure = e;
         } finally {
             closed = true;
-            if (pool != null) {
-                pool.shutdown();
-                try {
-                    if (!pool.awaitTermination(30, TimeUnit.SECONDS)) {
-                        pool.shutdownNow();
+            boolean interrupted = Thread.interrupted();
+            try {
+                if (pool != null) {
+                    pool.shutdown();
+                    while (!pool.isTerminated()) {
+                        try {
+                            pool.awaitTermination(30, TimeUnit.SECONDS);
+                        } catch (InterruptedException e) {
+                            interrupted = true;
+                        }
+                    }
+                }
+                if (user != null) {
+                    try {
+                        user.doAs(
+                                (PrivilegedExceptionAction<Void>)
+                                        () -> {
+                                            FileSystem.closeAllForUGI(user);
+                                            return null;
+                                        });
+                    } catch (InterruptedException e) {
+                        interrupted = true;
                         failure =
                                 accumulate(
                                         failure,
-                                        failure("Hudi authenticated worker shutdown timed out"));
-                    }
-                } catch (InterruptedException e) {
-                    pool.shutdownNow();
-                    Thread.currentThread().interrupt();
-                    failure =
-                            accumulate(failure, failure("Hudi authenticated cleanup interrupted"));
-                }
-            }
-            if (user != null) {
-                try {
-                    user.doAs(
-                            (PrivilegedExceptionAction<Void>)
-                                    () -> {
-                                        FileSystem.closeAllForUGI(user);
-                                        return null;
-                                    });
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    failure =
-                            accumulate(
-                                    failure,
-                                    failure("Hudi authenticated filesystem cleanup interrupted"));
-                } catch (IOException | RuntimeException e) {
-                    failure =
-                            accumulate(
-                                    failure,
-                                    failure(
-                                            "Hudi authenticated filesystem cleanup failed ("
-                                                    + failureCategory(e)
-                                                    + ")"));
-                } finally {
-                    try {
-                        user.logoutUserFromKeytab();
+                                        failure(
+                                                "Hudi authenticated filesystem cleanup interrupted"));
                     } catch (IOException | RuntimeException e) {
                         failure =
                                 accumulate(
                                         failure,
                                         failure(
-                                                "Hudi Kerberos logout failed ("
+                                                "Hudi authenticated filesystem cleanup failed ("
                                                         + failureCategory(e)
                                                         + ")"));
+                    } finally {
+                        try {
+                            user.logoutUserFromKeytab();
+                        } catch (IOException | RuntimeException e) {
+                            failure =
+                                    accumulate(
+                                            failure,
+                                            failure(
+                                                    "Hudi Kerberos logout failed ("
+                                                            + failureCategory(e)
+                                                            + ")"));
+                        }
                     }
+                }
+            } finally {
+                if (interrupted) {
+                    Thread.currentThread().interrupt();
                 }
             }
         }

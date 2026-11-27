@@ -36,7 +36,9 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -57,6 +59,213 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
 class HudiAuthenticationContextTest {
+
+    @Test
+    void alreadyInterruptedCallerStartsNoWorkButCanClose() throws Exception {
+        UserGroupInformation user = spy(UserGroupInformation.createRemoteUser("hudi-cancelled"));
+        HudiAuthenticationContext context = authenticated(user);
+        AtomicBoolean ran = new AtomicBoolean();
+        AtomicBoolean cleaned = new AtomicBoolean();
+        Thread.currentThread().interrupt();
+        try {
+            assertThrows(
+                    HudiConnectorException.class,
+                    () ->
+                            context.execute(
+                                    () -> {
+                                        ran.set(true);
+                                        return null;
+                                    }));
+            context.close(
+                    () -> {
+                        assertFalse(Thread.currentThread().isInterrupted());
+                        cleaned.set(true);
+                        return null;
+                    });
+            assertTrue(Thread.currentThread().isInterrupted());
+        } finally {
+            Thread.interrupted();
+            context.close(() -> null);
+        }
+        assertFalse(ran.get());
+        assertTrue(cleaned.get());
+        verify(user).logoutUserFromKeytab();
+    }
+
+    @Test
+    void nestedWorkerCannotCloseItsOwnPool() throws Exception {
+        HudiAuthenticationContext context =
+                authenticated(spy(UserGroupInformation.createRemoteUser("hudi-nested-close")));
+        try {
+            assertTrue(
+                    context.execute(
+                            () -> {
+                                assertThrows(
+                                        IllegalStateException.class,
+                                        () -> context.close(() -> null));
+                                return context.execute(() -> true);
+                            }));
+        } finally {
+            context.close(() -> null);
+        }
+    }
+
+    @Test
+    void interruptionDuringCleanupWaitsForCleanupAndPreservesFlag() throws Exception {
+        UserGroupInformation user = spy(UserGroupInformation.createRemoteUser("hudi-cleanup-wait"));
+        HudiAuthenticationContext context = authenticated(user);
+        CountDownLatch entered = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch done = new CountDownLatch(1);
+        AtomicBoolean interrupted = new AtomicBoolean();
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        Thread closer =
+                new Thread(
+                        () -> {
+                            try (MockedStatic<org.apache.hadoop.fs.FileSystem> files =
+                                    Mockito.mockStatic(org.apache.hadoop.fs.FileSystem.class)) {
+                                files.when(
+                                                () ->
+                                                        org.apache.hadoop.fs.FileSystem
+                                                                .closeAllForUGI(user))
+                                        .thenAnswer(
+                                                invocation -> {
+                                                    assertFalse(
+                                                            Thread.currentThread().isInterrupted(),
+                                                            "Restore interruption after filesystem cleanup");
+                                                    return null;
+                                                });
+                                context.close(
+                                        () -> {
+                                            entered.countDown();
+                                            release.await();
+                                            return null;
+                                        });
+                                interrupted.set(Thread.currentThread().isInterrupted());
+                            } catch (Throwable error) {
+                                failure.set(error);
+                            } finally {
+                                done.countDown();
+                            }
+                        });
+        closer.start();
+        try {
+            assertTrue(entered.await(5, TimeUnit.SECONDS));
+            closer.interrupt();
+            assertFalse(done.await(200, TimeUnit.MILLISECONDS));
+            verify(user, Mockito.never()).logoutUserFromKeytab();
+        } finally {
+            release.countDown();
+            closer.join(5_000);
+            context.close(() -> null);
+        }
+        assertFalse(closer.isAlive());
+        assertNull(failure.get());
+        assertTrue(interrupted.get());
+        verify(user).logoutUserFromKeytab();
+    }
+
+    @Test
+    void interruptedCallerWaitsForOwnedOperationBeforeReportingFailure() throws Exception {
+        UserGroupInformation user = spy(UserGroupInformation.createRemoteUser("hudi-interrupt"));
+        HudiAuthenticationContext context = authenticated(user);
+        CountDownLatch entered = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch finished = new CountDownLatch(1);
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        AtomicBoolean interrupted = new AtomicBoolean();
+        Thread caller =
+                new Thread(
+                        () -> {
+                            try {
+                                context.execute(
+                                        () -> {
+                                            entered.countDown();
+                                            release.await();
+                                            return null;
+                                        });
+                            } catch (Throwable error) {
+                                failure.set(error);
+                                interrupted.set(Thread.currentThread().isInterrupted());
+                            } finally {
+                                finished.countDown();
+                            }
+                        });
+        caller.start();
+        try {
+            assertTrue(entered.await(5, TimeUnit.SECONDS));
+            caller.interrupt();
+            assertFalse(
+                    finished.await(200, TimeUnit.MILLISECONDS),
+                    "The caller must retain ownership until the action has settled");
+        } finally {
+            release.countDown();
+            caller.join(5_000);
+            context.close(() -> null);
+        }
+        assertFalse(caller.isAlive());
+        assertTrue(failure.get() instanceof HudiConnectorException);
+        assertTrue(interrupted.get());
+        verify(user).logoutUserFromKeytab();
+    }
+
+    @Test
+    void concurrentCloseDoesNotCleanUpAnActiveOperation() throws Exception {
+        UserGroupInformation user = spy(UserGroupInformation.createRemoteUser("hudi-close"));
+        HudiAuthenticationContext context = authenticated(user);
+        CountDownLatch entered = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch closeEntered = new CountDownLatch(1);
+        CountDownLatch cleaned = new CountDownLatch(1);
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        Thread caller =
+                new Thread(
+                        () -> {
+                            try {
+                                context.execute(
+                                        () -> {
+                                            entered.countDown();
+                                            release.await();
+                                            return null;
+                                        });
+                            } catch (Throwable error) {
+                                failure.set(error);
+                            }
+                        });
+        Thread closer =
+                new Thread(
+                        () -> {
+                            closeEntered.countDown();
+                            try {
+                                context.close(
+                                        () -> {
+                                            cleaned.countDown();
+                                            return null;
+                                        });
+                            } catch (Throwable error) {
+                                failure.set(error);
+                            }
+                        });
+        caller.start();
+        try {
+            assertTrue(entered.await(5, TimeUnit.SECONDS));
+            closer.start();
+            assertTrue(closeEntered.await(5, TimeUnit.SECONDS));
+            assertFalse(
+                    cleaned.await(200, TimeUnit.MILLISECONDS),
+                    "Client cleanup must wait for the admitted operation");
+        } finally {
+            release.countDown();
+            caller.join(5_000);
+            closer.join(5_000);
+            context.close(() -> null);
+        }
+        assertFalse(caller.isAlive());
+        assertFalse(closer.isAlive());
+        assertNull(failure.get());
+        assertEquals(0, cleaned.getCount());
+        verify(user).logoutUserFromKeytab();
+    }
 
     @Test
     void disabledAuthenticationPreservesCallerAndExceptions() throws Exception {

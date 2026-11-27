@@ -52,9 +52,14 @@ import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
+import java.lang.reflect.Field;
 import java.security.PrivilegedExceptionAction;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -64,6 +69,178 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class HudiSinkWriterTest {
+
+    @Test
+    void failedBatchIsNotRetriedByClose() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
+        HudiTableConfig table =
+                HudiTableConfig.builder()
+                        .tableName("orders")
+                        .recordKeyFields("id")
+                        .opType(WriteOperationType.UPSERT)
+                        .batchSize(1)
+                        .build();
+        HoodieJavaWriteClient<HoodieAvroPayload> client = mock(HoodieJavaWriteClient.class);
+        when(client.startCommit()).thenReturn("001");
+        when(client.upsert(Mockito.anyList(), Mockito.anyString()))
+                .thenThrow(new IllegalStateException("unknown commit outcome"))
+                .thenReturn(java.util.Collections.emptyList());
+        AtomicInteger closes = new AtomicInteger();
+        WriteClientProvider provider =
+                new WriteClientProvider() {
+                    @Override
+                    public HoodieJavaWriteClient<HoodieAvroPayload> getOrCreateClient() {
+                        return client;
+                    }
+
+                    @Override
+                    public void close() {
+                        closes.incrementAndGet();
+                    }
+                };
+        HudiRecordWriter writer = new HudiRecordWriter(table, provider, rowType);
+        writer.open();
+        Assertions.assertThrows(
+                HudiConnectorException.class,
+                () -> writer.writeRecord(new SeaTunnelRow(new Object[] {1})));
+        Assertions.assertThrows(HudiConnectorException.class, writer::close);
+        Assertions.assertThrows(HudiConnectorException.class, writer::close);
+        verify(client, times(1)).startCommit();
+        verify(client, times(1)).upsert(Mockito.anyList(), Mockito.anyString());
+        Assertions.assertEquals(1, closes.get());
+    }
+
+    @Test
+    void interruptedWriteSettlesBeforeCloseWithoutResubmittingDirectOrCachedBatch()
+            throws Exception {
+        for (boolean cached : new boolean[] {false, true}) {
+            for (boolean delete : new boolean[] {false, true}) {
+                verifyInterruptedWrite(cached, delete);
+            }
+        }
+    }
+
+    private void verifyInterruptedWrite(boolean cached, boolean delete) throws Exception {
+        UserGroupInformation user = Mockito.spy(UserGroupInformation.createRemoteUser("writer"));
+        Configuration conf = new Configuration(false);
+        conf.set("hadoop.security.authentication", "kerberos");
+        HudiAuthenticationContext authentication;
+        try (MockedStatic<UserGroupInformation> login =
+                Mockito.mockStatic(UserGroupInformation.class)) {
+            login.when(() -> UserGroupInformation.setConfiguration(Mockito.any()))
+                    .thenAnswer(i -> null);
+            login.when(
+                            () ->
+                                    UserGroupInformation.loginUserFromKeytabAndReturnUGI(
+                                            "principal", "keytab"))
+                    .thenReturn(user);
+            authentication = new HudiAuthenticationContext(conf, "principal", "keytab", null);
+        }
+        HudiSinkConfig config = HudiSinkConfig.builder().build();
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
+        HudiClientManager manager = new HudiClientManager(config);
+        HudiWriteClientProvider owned =
+                cached
+                        ? manager.getProvider(0, "orders", rowType)
+                        : new HudiWriteClientProvider(config, "orders", rowType);
+        HoodieJavaWriteClient<HoodieAvroPayload> client = mock(HoodieJavaWriteClient.class);
+        Field authField = HudiWriteClientProvider.class.getDeclaredField("authentication");
+        authField.setAccessible(true);
+        authField.set(owned, authentication);
+        Field clientField = HudiWriteClientProvider.class.getDeclaredField("client");
+        clientField.setAccessible(true);
+        clientField.set(owned, client);
+        WriteClientProvider provider =
+                cached ? new HudiWriteClientProviderProxy(manager, rowType, 0, "orders") : owned;
+        HudiTableConfig table =
+                HudiTableConfig.builder()
+                        .tableName("orders")
+                        .recordKeyFields("id")
+                        .opType(WriteOperationType.UPSERT)
+                        .batchSize(1)
+                        .build();
+        HudiRecordWriter writer = new HudiRecordWriter(table, provider, rowType);
+        CountDownLatch entered = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch finished = new CountDownLatch(1);
+        AtomicBoolean settled = new AtomicBoolean();
+        AtomicBoolean preservedInterrupt = new AtomicBoolean();
+        AtomicReference<Throwable> unexpected = new AtomicReference<>();
+        AtomicInteger writes = new AtomicInteger();
+        when(client.startCommit()).thenReturn("001");
+        org.mockito.stubbing.Answer<Object> write =
+                invocation -> {
+                    Assertions.assertEquals(
+                            "writer", UserGroupInformation.getCurrentUser().getUserName());
+                    writes.incrementAndGet();
+                    entered.countDown();
+                    Assertions.assertTrue(release.await(5, TimeUnit.SECONDS));
+                    settled.set(true);
+                    return java.util.Collections.emptyList();
+                };
+        Mockito.doAnswer(write).when(client).upsert(Mockito.anyList(), Mockito.anyString());
+        Mockito.doAnswer(write).when(client).delete(Mockito.anyList(), Mockito.anyString());
+        Mockito.doAnswer(
+                        i -> {
+                            Assertions.assertTrue(
+                                    settled.get(), "Client closed before the write settled");
+                            Assertions.assertEquals(
+                                    "writer", UserGroupInformation.getCurrentUser().getUserName());
+                            return null;
+                        })
+                .when(client)
+                .close();
+        writer.open();
+        Thread task =
+                new Thread(
+                        () -> {
+                            try {
+                                SeaTunnelRow row = new SeaTunnelRow(new Object[] {1});
+                                if (delete)
+                                    row.setRowKind(
+                                            org.apache.seatunnel.api.table.type.RowKind.DELETE);
+                                Assertions.assertThrows(
+                                        HudiConnectorException.class,
+                                        () -> writer.writeRecord(row));
+                                Assertions.assertTrue(Thread.currentThread().isInterrupted());
+                                Assertions.assertThrows(
+                                        HudiConnectorException.class, writer::close);
+                                preservedInterrupt.set(Thread.currentThread().isInterrupted());
+                            } catch (Throwable error) {
+                                unexpected.set(error);
+                            } finally {
+                                finished.countDown();
+                            }
+                        });
+        task.start();
+        try {
+            Assertions.assertTrue(entered.await(5, TimeUnit.SECONDS));
+            task.interrupt();
+            Assertions.assertFalse(
+                    finished.await(200, TimeUnit.MILLISECONDS),
+                    "Interrupted writer must not close while its action is active");
+        } finally {
+            release.countDown();
+            task.join(5_000);
+            if (!task.isAlive()) {
+                try {
+                    writer.close();
+                } catch (HudiConnectorException expected) {
+                }
+            }
+        }
+        Assertions.assertFalse(task.isAlive());
+        Assertions.assertNull(unexpected.get());
+        Assertions.assertTrue(preservedInterrupt.get());
+        Assertions.assertEquals(1, writes.get(), "Close must not replay the uncertain batch");
+        verify(client, times(1)).close();
+        verify(user, times(1)).logoutUserFromKeytab();
+        if (cached) Assertions.assertFalse(manager.containsClient("orders", 0));
+    }
 
     @Test
     void shouldDeclareAndRetainKerberosOptionsWithoutLeakingThemInConfigText() {

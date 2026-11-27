@@ -87,31 +87,33 @@ public class DorisSourceSplitEnumeratorTest {
         DorisSourceSplitEnumerator dorisSourceSplitEnumerator =
                 new DorisSourceSplitEnumerator(context, dorisSourceConfig, dorisSourceTableMap);
 
-        MockedStatic<RestService> restServiceMockedStatic = Mockito.mockStatic(RestService.class);
+        try (MockedStatic<RestService> restServiceMockedStatic =
+                Mockito.mockStatic(RestService.class)) {
+            restServiceMockedStatic
+                    .when(() -> RestService.findPartitions(any(), any(), any()))
+                    .thenReturn(buildPartitionDefinitions());
 
-        restServiceMockedStatic
-                .when(() -> RestService.findPartitions(any(), any(), any()))
-                .thenReturn(buildPartitionDefinitions());
+            dorisSourceSplitEnumerator.run();
 
-        dorisSourceSplitEnumerator.run();
+            ArgumentCaptor<Integer> subtaskId = ArgumentCaptor.forClass(Integer.class);
+            ArgumentCaptor<List> split = ArgumentCaptor.forClass(List.class);
 
-        ArgumentCaptor<Integer> subtaskId = ArgumentCaptor.forClass(Integer.class);
-        ArgumentCaptor<List> split = ArgumentCaptor.forClass(List.class);
+            Mockito.verify(context, Mockito.times(PARALLELISM))
+                    .assignSplit(subtaskId.capture(), split.capture());
 
-        Mockito.verify(context, Mockito.times(PARALLELISM))
-                .assignSplit(subtaskId.capture(), split.capture());
+            List<Integer> subTaskAllValues = subtaskId.getAllValues();
+            List<List> splitAllValues = split.getAllValues();
 
-        List<Integer> subTaskAllValues = subtaskId.getAllValues();
-        List<List> splitAllValues = split.getAllValues();
+            for (int i = 0; i < PARALLELISM; i++) {
+                Assertions.assertEquals(i, subTaskAllValues.get(i));
+                Assertions.assertEquals(
+                        allocateFiles(i, PARALLELISM, PARTITION_NUMS),
+                        splitAllValues.get(i).size());
+            }
 
-        for (int i = 0; i < PARALLELISM; i++) {
-            Assertions.assertEquals(i, subTaskAllValues.get(i));
-            Assertions.assertEquals(
-                    allocateFiles(i, PARALLELISM, PARTITION_NUMS), splitAllValues.get(i).size());
+            // check no duplicate file assigned
+            Assertions.assertEquals(0, dorisSourceSplitEnumerator.currentUnassignedSplitSize());
         }
-
-        // check no duplicate file assigned
-        Assertions.assertEquals(0, dorisSourceSplitEnumerator.currentUnassignedSplitSize());
     }
 
     private List<PartitionDefinition> buildPartitionDefinitions() {

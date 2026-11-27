@@ -151,7 +151,7 @@ Cursor reset strategy for Pulsar consumer valid values are `'EARLIEST'`, `'LATES
 **Note, This option only works if the "cursor.startup.mode" option used `'SUBSCRIPTION'`.**
 It has no default value and must be configured in that mode.
 
-### cursor.stop.mode [String]
+### cursor.stop.mode [Enum]
 
 Stop mode for Pulsar consumer, valid values are `'NEVER'`, `'LATEST'`and `'TIMESTAMP'`.
 
@@ -170,7 +170,7 @@ reference to [Schema-Feature](../../introduction/concepts/schema-feature.md)
 
 ### format [String]
 
-Data format. The default format is json. Supported formats are json, canal_json, avro and text. The `schema` option is required when using avro format. Text format is supported only in single-table mode. See [formats](../formats) for more details. When the producer writes ROW fields as nullable Avro unions, set `avro_row_nullable = true` so a `null` ROW value can be decoded; see [Avro format](../formats/avro.md#avro_row_nullable).
+Data format. The default format is json. Supported formats are json, canal_json, avro and text. The `schema` option is required when using avro format. Text format is supported only in single-table mode. See [formats](../formats/overview.md) for more details. When the producer writes ROW fields as nullable Avro unions, set `avro_row_nullable = true` so a `null` ROW value can be decoded; see [Avro format](../formats/avro.md#avro_row_nullable).
 
 ### field_delimiter [String]
 
@@ -370,9 +370,13 @@ source {
 
 ### Read From a Topic Pattern With Discovery
 
-When the topic list grows over time, combine `topic-pattern` with `topic-discovery.interval` to pick up newly created topics automatically.
+When the topic list grows over time, combine `topic-pattern` with `topic-discovery.interval` to pick up newly created topics automatically. Dynamic discovery only works for unbounded reads: run the job in `STREAMING` mode with `cursor.stop.mode = "NEVER"`, otherwise the source fails with `Bounded streams do not support dynamic partition discovery.`
 
 ```hocon
+env {
+  job.mode = "STREAMING"
+}
+
 source {
   Pulsar {
     topic-pattern = "persistent://public/default/orders-.*"
@@ -381,7 +385,7 @@ source {
     admin.service-url = "http://localhost:8080"
     topic-discovery.interval = 30000
     cursor.startup.mode = "EARLIEST"
-    cursor.stop.mode = "LATEST"
+    cursor.stop.mode = "NEVER"
     format = json
     schema = {
       fields {
