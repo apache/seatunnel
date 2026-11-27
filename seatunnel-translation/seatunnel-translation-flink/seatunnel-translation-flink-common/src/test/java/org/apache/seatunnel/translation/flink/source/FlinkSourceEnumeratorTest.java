@@ -17,8 +17,13 @@
 
 package org.apache.seatunnel.translation.flink.source;
 
+import org.apache.seatunnel.api.event.DefaultEventProcessor;
+import org.apache.seatunnel.api.event.Event;
+import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.event.EnumeratorCloseEvent;
+import org.apache.seatunnel.api.source.event.EnumeratorOpenEvent;
 
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 
@@ -27,6 +32,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -149,5 +157,42 @@ class FlinkSourceEnumeratorTest {
             addReaderFuture.get(1, TimeUnit.SECONDS);
             executorService.shutdownNow();
         }
+    }
+
+    /**
+     * Lifecycle events must use the supplied context's listener, preserving its job identity.
+     * Recreating a context in the four-argument constructor loses these enriched events.
+     */
+    @Test
+    void testLifecycleEventsUseSharedContext() throws Exception {
+        SourceSplitEnumerator<DummySplit, Serializable> sourceSplitEnumerator =
+                Mockito.mock(SourceSplitEnumerator.class);
+        SplitEnumeratorContext<SplitWrapper<DummySplit>> enumeratorContext =
+                Mockito.mock(SplitEnumeratorContext.class);
+        List<Event> events = new ArrayList<>();
+        EventListener listener =
+                new DefaultEventProcessor("restored-job", Collections.singletonList(events::add));
+        SourceSplitEnumerator.Context<DummySplit> sharedContext =
+                new FlinkSourceSplitEnumeratorContext<DummySplit>(enumeratorContext) {
+                    @Override
+                    public EventListener getEventListener() {
+                        return listener;
+                    }
+                };
+        FlinkSourceEnumerator<DummySplit, Serializable> enumerator =
+                new FlinkSourceEnumerator<>(
+                        sourceSplitEnumerator,
+                        enumeratorContext,
+                        sharedContext,
+                        ConcurrentHashMap.newKeySet());
+
+        enumerator.start();
+        enumerator.close();
+
+        Assertions.assertEquals(2, events.size());
+        Assertions.assertEquals(EnumeratorOpenEvent.class, events.get(0).getClass());
+        Assertions.assertEquals(EnumeratorCloseEvent.class, events.get(1).getClass());
+        Assertions.assertEquals("restored-job", events.get(0).getJobId());
+        Assertions.assertEquals("restored-job", events.get(1).getJobId());
     }
 }
