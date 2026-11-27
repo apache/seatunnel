@@ -95,12 +95,25 @@ class TaskReportStatusOperationSerializationTest {
     }
 
     @Test
+    void testRejectsNullStatusBeforeExecution() {
+        Data data = service.toData(new TaskReportStatusOperation(LOCATION, null));
+        HazelcastSerializationException exception =
+                Assertions.assertThrows(
+                        HazelcastSerializationException.class, () -> service.toObject(data));
+        Throwable cause = exception;
+        while (cause.getCause() != null) {
+            cause = cause.getCause();
+        }
+        Assertions.assertInstanceOf(IOException.class, cause);
+        Assertions.assertTrue(cause.getMessage().contains("null status"));
+    }
+
+    @Test
     void testRejectsClassNamedLocationBeforeConstruction() {
         Data data = service.toData(new ReportWire(new SideEffectLocation()));
         SideEffectLocation.constructions = 0;
         SideEffectLocation.reads = 0;
-        Assertions.assertThrows(
-                HazelcastSerializationException.class, () -> service.toObject(data));
+        assertDecodeFailure(data, "expects an identified");
         Assertions.assertEquals(0, SideEffectLocation.constructions);
         Assertions.assertEquals(0, SideEffectLocation.reads);
     }
@@ -172,6 +185,10 @@ class TaskReportStatusOperationSerializationTest {
 
     private void assertInvalidLocation(Object location, String actualType) {
         Data data = service.toData(new ReportWire(location));
+        assertDecodeFailure(data, actualType);
+    }
+
+    private void assertDecodeFailure(Data data, String actualType) {
         HazelcastSerializationException exception =
                 Assertions.assertThrows(
                         HazelcastSerializationException.class, () -> service.toObject(data));

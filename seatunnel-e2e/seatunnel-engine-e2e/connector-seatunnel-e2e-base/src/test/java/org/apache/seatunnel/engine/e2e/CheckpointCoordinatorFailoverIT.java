@@ -689,7 +689,7 @@ public class CheckpointCoordinatorFailoverIT {
                                 Assertions.assertEquals(
                                         20,
                                         FileUtils.getFileLineNumberFromDir(resources.getLeft()));
-                                // Every worker task must report its original ID to the master.
+                                // Valid-path guard: all task identities survive master failover.
                                 JobMaster runningJobMaster = getJobMaster(originalMaster, jobId);
                                 Assertions.assertNotNull(runningJobMaster);
                                 CheckpointCoordinator coordinator =
@@ -704,7 +704,10 @@ public class CheckpointCoordinatorFailoverIT {
                                 CheckpointPlan plan =
                                         (CheckpointPlan)
                                                 ReflectionUtils.getField(coordinator, "plan")
-                                                        .orElseThrow(AssertionError::new);
+                                                        .orElseThrow(
+                                                                () ->
+                                                                        new AssertionError(
+                                                                                "CheckpointCoordinator.plan not found"));
                                 Assertions.assertEquals(
                                         plan.getPipelineSubtasks().stream()
                                                 .map(TaskLocation::getTaskID)

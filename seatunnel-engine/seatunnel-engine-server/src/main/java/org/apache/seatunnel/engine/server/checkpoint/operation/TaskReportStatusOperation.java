@@ -71,32 +71,42 @@ public class TaskReportStatusOperation extends TracingOperation
         super.readInternal(in);
         if (!(in instanceof BufferObjectDataInput)) {
             throw new IOException(
-                    "Task status report requires a buffered input to validate "
-                            + TaskLocation.class.getName());
+                    getClass().getName()
+                            + " requires a buffered input to validate "
+                            + TaskLocation.class.getName()
+                            + "; actual input is "
+                            + in.getClass().getName());
         }
         BufferObjectDataInput buffer = (BufferObjectDataInput) in;
         int position = buffer.position();
-        // Validate Hazelcast's object/IDS identity before constructing the declared object.
+        // Validate only the top-level location identity, not its nested objects or status.
         // Absolute reads leave the cursor unchanged for the constrained typed read below.
         int serializerType = buffer.readInt(position);
         if (serializerType != CONSTANT_TYPE_DATA_SERIALIZABLE) {
             throw new IOException(
-                    "Task status report expects "
+                    getClass().getName()
+                            + " expects "
                             + TaskLocation.class.getName()
                             + " but wire serializer type is "
                             + (serializerType == CONSTANT_TYPE_NULL ? "null" : serializerType));
         }
         // Bit zero is Hazelcast DataSerializableSerializer's IDS_FLAG.
-        if ((buffer.readByte(position + Integer.BYTES) & 1) == 0) {
+        int header = Byte.toUnsignedInt(buffer.readByte(position + Integer.BYTES));
+        if ((header & 1) == 0) {
             throw new IOException(
-                    "Task status report expects an identified " + TaskLocation.class.getName());
+                    getClass().getName()
+                            + " expects an identified "
+                            + TaskLocation.class.getName()
+                            + " but wire header is "
+                            + header);
         }
         int factoryId = buffer.readInt(position + Integer.BYTES + Byte.BYTES);
         int classId = buffer.readInt(position + 2 * Integer.BYTES + Byte.BYTES);
         if (factoryId != TaskDataSerializerHook.FACTORY_ID
                 || classId != TaskDataSerializerHook.TASK_LOCATION_TYPE) {
             throw new IOException(
-                    "Task status report expects "
+                    getClass().getName()
+                            + " expects "
                             + TaskLocation.class.getName()
                             + " but wire factory ID is "
                             + factoryId
@@ -105,6 +115,9 @@ public class TaskReportStatusOperation extends TracingOperation
         }
         location = in.readObject(TaskLocation.class);
         status = in.readObject();
+        if (status == null) {
+            throw new IOException(getClass().getName() + " received null status for " + location);
+        }
     }
 
     @Override
