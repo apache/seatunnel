@@ -34,8 +34,10 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -98,7 +100,7 @@ class LineageJobStatusHookTest {
     @Test
     void emitsTheTerminalEventTypeThatMatchesTheCallback() throws Throwable {
         LineageJobStatusHook hook =
-                new LineageJobStatusHook(config(null), Collections.singletonList(event()), false);
+                new LineageJobStatusHook(config(null), Collections.singletonList(event()));
 
         hook.onFinished(JOB_1);
         hook.onFailed(JOB_2, new IllegalStateException("boom"));
@@ -121,30 +123,116 @@ class LineageJobStatusHookTest {
     }
 
     /**
-     * An attached client reports the successful terminal event itself. Only the successful callback
-     * is handed over: a failed or cancelled job resolves the client's result future exceptionally,
-     * so the client reports nothing and the hook stays the only source of those events.
+     * The submitting client does not send COMPLETE. {@code onFinished} is the terminal owner even
+     * when the client was attached and has already died, and the heartbeat must have stopped.
      */
     @Test
-    void leavesTheSuccessfulTerminalEventToAnAttachedClient() throws Throwable {
+    void emitsCompleteWhenTheClientIsGoneAndStopsHeartbeats() throws Throwable {
         LineageJobStatusHook hook =
-                new LineageJobStatusHook(config(null), Collections.singletonList(event()), true);
+                new LineageJobStatusHook(config(null, 30L), Collections.singletonList(event()));
 
+        hook.onCreated(JOB_1);
+        Assertions.assertNotNull(RecordingLineageBackend.EMISSIONS.poll(5, TimeUnit.SECONDS));
+        Assertions.assertFalse(RecordingLineageBackend.EVENTS.isEmpty());
+        for (LineageEvent emitted : RecordingLineageBackend.EVENTS) {
+            Assertions.assertEquals(LineageEventType.RUNNING, emitted.eventType());
+        }
+
+        // The client listener never runs. The job still reaches FINISHED on the JobManager.
         hook.onFinished(JOB_1);
         awaitEmissions();
-        Assertions.assertTrue(
-                RecordingLineageBackend.EVENTS.isEmpty(),
-                "the attached client owns the successful terminal event");
 
-        hook.onFailed(JOB_2, new IllegalStateException("boom"));
-        hook.onCanceled(JOB_3);
+        LineageEvent terminal =
+                RecordingLineageBackend.EVENTS.get(RecordingLineageBackend.EVENTS.size() - 1);
+        Assertions.assertEquals(LineageEventType.COMPLETE, terminal.eventType());
+        Assertions.assertEquals(
+                JOB_1.toString(),
+                terminal.runProperties().get(LineageJobStatusHook.FLINK_JOB_ID_PROPERTY));
+        int afterTerminal = RecordingLineageBackend.EVENTS.size();
+        RecordingLineageBackend.EMISSIONS.clear();
+        Assertions.assertNull(RecordingLineageBackend.EMISSIONS.poll(300, TimeUnit.MILLISECONDS));
+        Assertions.assertEquals(
+                afterTerminal,
+                RecordingLineageBackend.EVENTS.size(),
+                "heartbeats must stop once the terminal event has been sent");
+    }
+
+    /**
+     * One unreachable receiver must not make every other output pay a full retry cycle, and must
+     * not keep the JobManager thread busy for the whole event set.
+     */
+    @Test
+    void skipsRemainingOutputsWhenTheReceiverIsUnreachable() throws Throwable {
+        RecordingLineageBackend.failDelivery = true;
+        RecordingLineageBackend.failAfterMs = 400L;
+        List<LineageEvent> outputs = Arrays.asList(event(), event(), event(), event());
+        LineageJobStatusHook hook = new LineageJobStatusHook(config(null, 0L), outputs);
+
+        long started = System.nanoTime();
+        hook.onFinished(JOB_1);
         awaitEmissions();
+        long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
 
-        Assertions.assertEquals(2, RecordingLineageBackend.EVENTS.size());
         Assertions.assertEquals(
-                LineageEventType.FAIL, RecordingLineageBackend.EVENTS.get(0).eventType());
-        Assertions.assertEquals(
-                LineageEventType.ABORT, RecordingLineageBackend.EVENTS.get(1).eventType());
+                1,
+                RecordingLineageBackend.ATTEMPTS.get(),
+                "only the first output may be attempted");
+        Assertions.assertTrue(RecordingLineageBackend.EVENTS.isEmpty());
+        Assertions.assertTrue(
+                elapsedMs < 900,
+                "four outputs must not each wait out the unreachable send, elapsed " + elapsedMs);
+    }
+
+    /**
+     * A send that never returns occupies only that job's thread. Another job's terminal event still
+     * leaves inside a fixed budget.
+     */
+    @Test
+    void aSlowJobDoesNotDelayAnotherJobsTerminalEvent() throws Throwable {
+        LineageEvent slowEvent = event();
+        LineageEvent fastEvent = event();
+        RecordingLineageBackend.blockedRunId = slowEvent.runId();
+        RecordingLineageBackend.blockedEntered = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        RecordingLineageBackend.blockedRelease = release;
+        LineageJobStatusHook slow =
+                new LineageJobStatusHook(config(null, 0L), Collections.singletonList(slowEvent));
+        LineageJobStatusHook fast =
+                new LineageJobStatusHook(config(null, 0L), Collections.singletonList(fastEvent));
+        long budgetMs = 2000L;
+        try {
+            slow.onFinished(JOB_1);
+            Assertions.assertTrue(
+                    RecordingLineageBackend.blockedEntered.await(5, TimeUnit.SECONDS),
+                    "the slow job must be inside its send");
+
+            long started = System.nanoTime();
+            fast.onFinished(JOB_2);
+            LineageEvent delivered = null;
+            while (TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started) < budgetMs) {
+                for (LineageEvent candidate : RecordingLineageBackend.EVENTS) {
+                    if (fastEvent.runId().equals(candidate.runId())) {
+                        delivered = candidate;
+                        break;
+                    }
+                }
+                if (delivered != null) {
+                    break;
+                }
+                Thread.sleep(20L);
+            }
+            long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
+            Assertions.assertNotNull(
+                    delivered,
+                    "the other job's terminal event must arrive while the slow job is still blocked");
+            Assertions.assertEquals(LineageEventType.COMPLETE, delivered.eventType());
+            Assertions.assertTrue(
+                    elapsedMs < budgetMs,
+                    "the other job waited " + elapsedMs + "ms, past the " + budgetMs + "ms budget");
+        } finally {
+            release.countDown();
+            awaitEmissions();
+        }
     }
 
     /**
@@ -157,8 +245,7 @@ class LineageJobStatusHookTest {
         LineageJobStatusHook hook =
                 new LineageJobStatusHook(
                         config("secret-token").withAuthToken(null),
-                        Collections.singletonList(event()),
-                        false);
+                        Collections.singletonList(event()));
 
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (ObjectOutputStream out = new ObjectOutputStream(bytes)) {
@@ -195,7 +282,7 @@ class LineageJobStatusHookTest {
                         Collections.<String, Object>emptyMap());
 
         LineageJobStatusHook hook =
-                new LineageJobStatusHook(broken, Collections.singletonList(event()), false);
+                new LineageJobStatusHook(broken, Collections.singletonList(event()));
 
         Assertions.assertDoesNotThrow(() -> hook.onFinished(JOB_1));
         awaitEmissions();
@@ -209,8 +296,7 @@ class LineageJobStatusHookTest {
     @Test
     void emitsHeartbeatsWhileTheJobRunsAndStopsAtTheTerminalEvent() throws Throwable {
         LineageJobStatusHook hook =
-                new LineageJobStatusHook(
-                        config(null, 30L), Collections.singletonList(event()), false);
+                new LineageJobStatusHook(config(null, 30L), Collections.singletonList(event()));
 
         Thread callback = new Thread(() -> hook.onCanceled(JOB_1));
         callback.setDaemon(true);
@@ -265,8 +351,7 @@ class LineageJobStatusHookTest {
     @Test
     void doesNotScheduleAHeartbeatWhenTheIntervalIsZero() throws Throwable {
         LineageJobStatusHook hook =
-                new LineageJobStatusHook(
-                        config(null, 0L), Collections.singletonList(event()), false);
+                new LineageJobStatusHook(config(null, 0L), Collections.singletonList(event()));
 
         hook.onCreated(JOB_1);
         awaitEmissions();
@@ -289,8 +374,7 @@ class LineageJobStatusHookTest {
         RecordingLineageBackend.HEARTBEAT_ENTERED = new CountDownLatch(1);
         RecordingLineageBackend.HEARTBEAT_RELEASE = new CountDownLatch(1);
         LineageJobStatusHook hook =
-                new LineageJobStatusHook(
-                        config(null, 20L), Collections.singletonList(event()), false);
+                new LineageJobStatusHook(config(null, 20L), Collections.singletonList(event()));
 
         CountDownLatch release = RecordingLineageBackend.HEARTBEAT_RELEASE;
         CountDownLatch callbackReturned = new CountDownLatch(1);

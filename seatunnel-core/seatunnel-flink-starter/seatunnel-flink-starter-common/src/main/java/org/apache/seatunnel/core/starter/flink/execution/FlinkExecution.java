@@ -113,21 +113,22 @@ public class FlinkExecution implements TaskExecution {
         LineageConfig resolvedLineageConfig = LineageConfig.defaults();
         List<LineageDataset> resolvedLineageInputs = Collections.emptyList();
         List<LineageDataset> resolvedLineageOutputs = Collections.emptyList();
-        LineageConfig candidateLineageConfig = FlinkLineageSupport.resolveConfig(envOptions);
-        if (candidateLineageConfig.enabled() && FlinkLineageSupport.isSupported()) {
-            resolvedLineageConfig = candidateLineageConfig;
-            resolvedLineageInputs =
-                    collectLineageDatasets(
-                            config.getConfigList(Constants.SOURCE), Constants.SOURCE);
-            resolvedLineageOutputs =
-                    collectLineageDatasets(config.getConfigList(Constants.SINK), Constants.SINK);
-        } else if (candidateLineageConfig.enabled()) {
-            // Reporting was asked for and will not happen, which the operator cannot otherwise
-            // tell apart from a working setup that has not reported yet.
-            LOGGER.warn(
-                    "Lineage reporting is enabled but this Flink starter does not support it;"
-                            + " the status hook API requires Flink 1.16 or later, so use the"
-                            + " flink-20-starter. No lineage events will be reported for this job.");
+        if (!FlinkLineageSupport.isSupported()) {
+            // 1.13 and 1.15 never report lineage. Read only the enabled flag for the warning, and
+            // do not resolve timeout, retry, URL or transport: an illegal value must not fail a
+            // job those starters cannot annotate.
+            FlinkLineageSupport.warnIfEnabledButUnsupported(envOptions);
+        } else {
+            LineageConfig candidateLineageConfig = FlinkLineageSupport.resolveConfig(envOptions);
+            if (candidateLineageConfig.enabled()) {
+                resolvedLineageConfig = candidateLineageConfig;
+                resolvedLineageInputs =
+                        collectLineageDatasets(
+                                config.getConfigList(Constants.SOURCE), Constants.SOURCE);
+                resolvedLineageOutputs =
+                        collectLineageDatasets(
+                                config.getConfigList(Constants.SINK), Constants.SINK);
+            }
         }
         this.lineageConfig = resolvedLineageConfig;
         this.lineageInputs = resolvedLineageInputs;

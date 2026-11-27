@@ -27,7 +27,6 @@ import org.apache.seatunnel.lineage.LineageRuntime;
 import org.apache.seatunnel.lineage.flink.FlinkClusterOptions;
 
 import org.apache.flink.api.common.JobExecutionResult;
-import org.apache.flink.configuration.DeploymentOptions;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 
@@ -108,6 +107,35 @@ public final class FlinkLineageSupport {
     }
 
     /**
+     * Logs that lineage was requested on a starter that cannot report it.
+     *
+     * <p>Only the enabled flag is read. Illegal timeout, retry, URL or transport values are not
+     * resolved, and a failure while reading the flag is logged rather than thrown, so a Flink 1.13
+     * or 1.15 job is not failed by lineage settings that starter will never use. A job-level auth
+     * token is rejected by the caller before this method runs.
+     *
+     * @param jobOptions the job {@code env} block
+     */
+    public static void warnIfEnabledButUnsupported(Map<String, ?> jobOptions) {
+        try {
+            if (isLineageEnabled(jobOptions, FlinkClusterOptions.load(), System.getenv())) {
+                LOGGER.warn(
+                        "Lineage reporting is enabled but this Flink starter does not support it;"
+                                + " the status hook API requires Flink 1.16 or later, so use the"
+                                + " flink-20-starter. No lineage events will be reported for this"
+                                + " job.");
+            }
+        } catch (VirtualMachineError error) {
+            throw error;
+        } catch (Throwable error) {
+            LOGGER.warn(
+                    "Lineage reporting is not supported by this Flink starter, and its enabled"
+                            + " flag could not be read: {}",
+                    error.toString());
+        }
+    }
+
+    /**
      * Registers the 1.20-only status hook and the attached-mode terminal listener.
      *
      * @return the stream graph the caller must submit, or null when lineage was not registered and
@@ -144,9 +172,9 @@ public final class FlinkLineageSupport {
             }
             List<LineageEvent> events = createEvents(config, jobContext, inputs, outputs, jobName);
             try {
-                for (LineageEvent event : events) {
-                    LineageRuntime.emit(config, event);
-                }
+                // One delivery cycle for the whole set. The call stays on the submit thread, and
+                // the wait is bounded by that cycle: a failed send skips the remaining outputs.
+                LineageRuntime.emitEach(config, events, null);
             } catch (Throwable error) {
                 LOGGER.warn("Failed to emit Flink lineage start event", error);
             }
@@ -156,13 +184,8 @@ public final class FlinkLineageSupport {
             // execute(jobName) with an empty topology instead of a job that simply has no lineage.
             StreamGraph streamGraph = environment.getStreamGraph(false);
             streamGraph.setJobName(jobName);
-            boolean clientReportsTerminalEvent = isAttachedSubmission(environment);
             if (!FlinkLineageHooks.register(
-                    streamGraph,
-                    environment,
-                    config.withAuthToken(null),
-                    events,
-                    clientReportsTerminalEvent)) {
+                    streamGraph, environment, config.withAuthToken(null), events)) {
                 return null;
             }
             // Stated before submission because the JobManager-side failure that follows a missing
@@ -176,28 +199,6 @@ public final class FlinkLineageSupport {
         } catch (Throwable error) {
             LOGGER.warn("Failed to register Flink lineage support: {}", error.toString(), error);
             return null;
-        }
-    }
-
-    /**
-     * Returns whether the submission is attached, and therefore whether the client will report the
-     * terminal event itself.
-     *
-     * <p>This reads the same option Flink itself branches on in {@code
-     * StreamExecutionEnvironment.execute(StreamGraph)}, so the answer cannot disagree with which
-     * callback actually fires. It decides ownership of the terminal event: both the JobManager hook
-     * and the client listener observe the same run, so in attached mode the hook stays silent.
-     *
-     * <p>An unreadable configuration answers {@code false}, which keeps the hook reporting: a
-     * duplicated terminal event is recoverable, a missing one is not.
-     */
-    private static boolean isAttachedSubmission(StreamExecutionEnvironment environment) {
-        try {
-            return Boolean.TRUE.equals(
-                    environment.getConfiguration().get(DeploymentOptions.ATTACHED));
-        } catch (Throwable error) {
-            LOGGER.warn("Unable to determine whether the Flink submission is attached", error);
-            return false;
         }
     }
 

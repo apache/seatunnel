@@ -33,6 +33,7 @@ import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -61,18 +62,15 @@ final class FlinkLineageHooks {
      * @param environment the environment the result listener is registered on
      * @param config lineage configuration with the auth token already removed
      * @param events the start events whose runs the hook closes
-     * @param clientReportsTerminalEvent whether the client reports the successful terminal event
      * @return whether the hook was registered
      */
     static boolean register(
             StreamGraph streamGraph,
             StreamExecutionEnvironment environment,
             LineageConfig config,
-            List<LineageEvent> events,
-            boolean clientReportsTerminalEvent) {
+            List<LineageEvent> events) {
         try {
-            streamGraph.registerJobStatusHook(
-                    new LineageJobStatusHook(config, events, clientReportsTerminalEvent));
+            streamGraph.registerJobStatusHook(new LineageJobStatusHook(config, events));
         } catch (Throwable error) {
             // START events are already on the wire (FlinkLineageSupport.register emits them before
             // calling here). Without a correcting terminal event the receiver keeps those runs
@@ -105,9 +103,11 @@ final class FlinkLineageHooks {
                             config.toNonSensitiveMap(),
                             FlinkClusterOptions.load(),
                             System.getenv());
+            List<LineageEvent> aborted = new ArrayList<>(events.size());
             for (LineageEvent event : events) {
-                LineageRuntime.emit(runtimeConfig, event.withEventType(LineageEventType.ABORT));
+                aborted.add(event.withEventType(LineageEventType.ABORT));
             }
+            LineageRuntime.emitEach(runtimeConfig, aborted, null);
         } catch (Throwable error) {
             LOGGER.warn("Failed to abort Flink lineage runs after hook registration failed", error);
         }
@@ -116,7 +116,8 @@ final class FlinkLineageHooks {
     /**
      * Reports the terminal events only the submitting client can report.
      *
-     * <p>The client reports completion for attached jobs, and closes runs if submission fails
+     * <p>The JobManager hook owns {@code COMPLETE}, including for an attached submission whose
+     * client dies before {@code onJobExecuted}. This listener closes runs when submission fails
      * before a hook can run on the JobManager.
      */
     private static final class TerminalEventListener implements JobListener {
@@ -157,18 +158,11 @@ final class FlinkLineageHooks {
 
         @Override
         public void onJobExecuted(JobExecutionResult result, Throwable executionError) {
-            try {
-                if (!FlinkLineageSupport.isAttachedJobExecutionResult(result, executionError)) {
-                    return;
-                }
-                // Job-wide counters cannot be attributed safely to a particular output dataset, so
-                // this attached completion is statistics-free. An attached submission silences the
-                // JobManager hook; skipping here would leave the run with no terminal event.
-                String flinkJobId = result.getJobID() == null ? null : result.getJobID().toString();
-                emit(LineageEventType.COMPLETE, flinkJobId);
-            } catch (Throwable error) {
-                LOGGER.warn("Failed to emit Flink completion", error);
-            }
+            // COMPLETE is sent by LineageJobStatusHook.onFinished. Emitting it here as well would
+            // depend on this client staying connected until the job finishes, which is exactly the
+            // attached-submission failure mode: a killed client or a dropped REST connection would
+            // leave the run with START and no terminal event. The hook event carries no output
+            // statistics, so nothing is lost by not sending a client copy.
         }
 
         /** Sends one terminal event for every run this listener owns. */
@@ -178,13 +172,14 @@ final class FlinkLineageHooks {
                             config.toNonSensitiveMap(),
                             FlinkClusterOptions.load(),
                             System.getenv());
+            List<LineageEvent> prepared = new ArrayList<>(events.size());
             for (LineageEvent event : events) {
-                LineageRuntime.emit(
-                        runtimeConfig,
+                prepared.add(
                         event.withEventType(eventType)
                                 .withRunProperty(
                                         LineageJobStatusHook.FLINK_JOB_ID_PROPERTY, flinkJobId));
             }
+            LineageRuntime.emitEach(runtimeConfig, prepared, null);
         }
     }
 }

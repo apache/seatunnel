@@ -58,15 +58,36 @@ public class OpenLineageBackend implements LineageBackend {
      *
      * <p>Failures other than {@link VirtualMachineError} are logged and ignored. Lineage delivery
      * must not change the outcome of the data-processing job, so this behaviour is not
-     * configurable.
+     * configurable. Callers that need to know whether the send landed use {@link #tryEmit}.
      *
      * @param config immutable lineage configuration
      * @param event event to send
      */
     @Override
     public void emit(LineageConfig config, LineageEvent event) {
+        try {
+            tryEmit(config, event);
+        } catch (VirtualMachineError failure) {
+            throw failure;
+        } catch (Exception failure) {
+            LOGGER.warn("Failed to send OpenLineage event", failure);
+        }
+    }
+
+    /**
+     * Sends one event and reports whether the receiver accepted it.
+     *
+     * <p>A delivery failure is logged and returned as {@code false} instead of being retried by the
+     * caller for every remaining output. {@link VirtualMachineError} is still propagated.
+     *
+     * @param config immutable lineage configuration
+     * @param event event to send
+     * @return {@code false} when the event was not delivered
+     */
+    @Override
+    public boolean tryEmit(LineageConfig config, LineageEvent event) {
         if (!config.enabled()) {
-            return;
+            return true;
         }
         String payload;
         try {
@@ -75,10 +96,11 @@ public class OpenLineageBackend implements LineageBackend {
             throw failure;
         } catch (Throwable failure) {
             LOGGER.warn("Failed to render an OpenLineage event as JSON", failure);
-            return;
+            return false;
         }
         try {
             sendWithRetry(config, payload);
+            return true;
         } catch (IllegalArgumentException configurationError) {
             // Reported apart from a delivery failure because it names the option to correct rather
             // than a receiver to investigate. The failure's own message is deliberately left out:
@@ -89,6 +111,7 @@ public class OpenLineageBackend implements LineageBackend {
                             + " ({})",
                     LineageConfig.URL,
                     endpointSummary(config.url()));
+            return false;
         } catch (VirtualMachineError failure) {
             throw failure;
         } catch (Throwable failure) {
@@ -102,6 +125,7 @@ public class OpenLineageBackend implements LineageBackend {
                     (long) config.retryTimes() + 1L,
                     failure.toString(),
                     failure);
+            return false;
         }
     }
 

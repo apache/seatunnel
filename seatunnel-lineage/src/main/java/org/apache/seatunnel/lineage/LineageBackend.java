@@ -32,6 +32,26 @@ public interface LineageBackend {
      * further delay, so {@code (retryTimes + 1) * timeoutMs} is not a hard total abort bound.
      * Callers on a latency-sensitive thread should isolate delivery and treat these settings as
      * best-effort limits.
+     *
+     * <p>Delivery failures are not required to escape this method. Callers that must skip the rest
+     * of a multi-output event set use {@link #tryEmit(LineageConfig, LineageEvent)}.
      */
     void emit(LineageConfig config, LineageEvent event) throws Exception;
+
+    /**
+     * Emits one event and reports whether it was delivered.
+     *
+     * <p>The default delegates to {@link #emit(LineageConfig, LineageEvent)} and reports success
+     * when that call returns. A backend that swallows a failed send must override this and return
+     * {@code false}, so a multi-output loop can stop after the first exhausted attempt instead of
+     * paying the same retry cycle for every remaining output.
+     *
+     * @param config immutable lineage configuration
+     * @param event event to send
+     * @return {@code false} when the event was not delivered
+     */
+    default boolean tryEmit(LineageConfig config, LineageEvent event) throws Exception {
+        emit(config, event);
+        return true;
+    }
 }

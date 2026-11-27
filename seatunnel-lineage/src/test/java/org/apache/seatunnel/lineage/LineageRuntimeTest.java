@@ -23,6 +23,7 @@ import org.mockito.MockedStatic;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -35,10 +36,16 @@ import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * {@link LineageRuntime#emit} contains ordinary lineage failures at the shared engine seam. These
@@ -97,6 +104,50 @@ class LineageRuntimeTest {
     }
 
     @Test
+    void stopsTheEventSetAfterTheFirstFailedDelivery() throws Exception {
+        LineageConfig config = enabledConfig(50, 0);
+        LineageBackend backend = mock(LineageBackend.class);
+        when(backend.tryEmit(any(), any())).thenReturn(false);
+        try (MockedStatic<LineageBackendLoader> loader = mockStatic(LineageBackendLoader.class)) {
+            loader.when(() -> LineageBackendLoader.load(config)).thenReturn(backend);
+            LineageRuntime.emitEach(config, Arrays.asList(event(), event(), event()), null);
+        }
+        verify(backend, times(1)).tryEmit(any(), any());
+    }
+
+    @Test
+    void skipsOutputsThatWouldStartAfterTheEventSetBudget() throws Exception {
+        LineageConfig config = enabledConfig(50, 0);
+        long budgetMs =
+                java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(
+                        LineageRuntime.eventSetBudgetNanos(config));
+        LineageBackend backend = mock(LineageBackend.class);
+        when(backend.tryEmit(any(), any()))
+                .thenAnswer(
+                        invocation -> {
+                            Thread.sleep(budgetMs + 200L);
+                            return true;
+                        });
+        try (MockedStatic<LineageBackendLoader> loader = mockStatic(LineageBackendLoader.class)) {
+            loader.when(() -> LineageBackendLoader.load(config)).thenReturn(backend);
+            long started = System.nanoTime();
+            LineageRuntime.emitEach(config, Arrays.asList(event(), event(), event()), null);
+            long elapsedMs =
+                    java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
+            assertTrue(elapsedMs < budgetMs + budgetMs, "elapsed " + elapsedMs);
+        }
+        verify(backend, times(1)).tryEmit(any(), any());
+    }
+
+    @Test
+    void reportsThatADisabledEventWasNotDelivered() {
+        LineageConfig config =
+                LineageConfig.resolve(
+                        Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
+        assertFalse(LineageRuntime.emit(config, event()));
+    }
+
+    @Test
     void containsLinkageErrors() {
         LineageConfig config =
                 LineageConfig.resolve(
@@ -108,6 +159,15 @@ class LineageRuntimeTest {
                     .thenThrow(new NoClassDefFoundError("test"));
             assertDoesNotThrow(() -> LineageRuntime.emit(config, event()));
         }
+    }
+
+    private static LineageConfig enabledConfig(int timeoutMs, int retryTimes) {
+        Map<String, Object> job = new HashMap<>();
+        job.put(LineageConfig.ENABLED, true);
+        job.put(LineageConfig.TIMEOUT_MS, timeoutMs);
+        job.put(LineageConfig.RETRY_TIMES, retryTimes);
+        job.put(LineageConfig.URL, "http://127.0.0.1:1");
+        return LineageConfig.resolve(job, Collections.emptyMap(), Collections.emptyMap());
     }
 
     private static LineageEvent event() {

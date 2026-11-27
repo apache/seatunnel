@@ -30,11 +30,16 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Emits the terminal lineage event for a Flink job from the JobManager.
@@ -47,6 +52,11 @@ import java.util.concurrent.TimeUnit;
  * <p>The instance is serialized into the JobGraph, which is written to the BlobServer and to HA
  * storage. It therefore carries no credential: the caller strips the token, and the token is
  * resolved again on the JobManager from its own cluster configuration and process environment.
+ *
+ * <p>Each hook owns one single-thread scheduler. Heartbeats and the terminal event of the same run
+ * stay ordered on that thread, and a slow send for one job cannot hold the terminal event of
+ * another job on the same JobManager. The hook always emits {@code COMPLETE}; the client does not,
+ * so a lost submitting process still leaves a terminal event.
  */
 public final class LineageJobStatusHook implements JobStatusHook {
     private static final long serialVersionUID = 1L;
@@ -58,7 +68,6 @@ public final class LineageJobStatusHook implements JobStatusHook {
 
     private final LineageConfig config;
     private final List<LineageEvent> events;
-    private final boolean clientReportsCompletion;
 
     /**
      * Cancelled by whichever terminal callback fires. Transient because the hook is serialized into
@@ -67,6 +76,13 @@ public final class LineageJobStatusHook implements JobStatusHook {
      * to run on one thread.
      */
     private transient volatile ScheduledFuture<?> heartbeat;
+
+    /**
+     * Sends this job's heartbeats and terminal event, in that order. Transient because the client
+     * that serializes the hook has nothing to schedule; the JobManager creates it on the first
+     * callback. One thread per hook keeps a slow job off every other job's lane.
+     */
+    private transient volatile ScheduledExecutorService scheduler;
 
     /**
      * Set by the terminal callback before its event is submitted, so a heartbeat that is already
@@ -79,14 +95,10 @@ public final class LineageJobStatusHook implements JobStatusHook {
     /**
      * @param config lineage configuration with the auth token already removed
      * @param events the start events whose runs this hook closes
-     * @param clientReportsCompletion whether the submitting client reports the successful terminal
-     *     event itself, in which case this hook must not send a second one
      */
-    public LineageJobStatusHook(
-            LineageConfig config, List<LineageEvent> events, boolean clientReportsCompletion) {
+    public LineageJobStatusHook(LineageConfig config, List<LineageEvent> events) {
         this.config = config;
         this.events = new ArrayList<>(events);
-        this.clientReportsCompletion = clientReportsCompletion;
     }
 
     @Override
@@ -99,10 +111,10 @@ public final class LineageJobStatusHook implements JobStatusHook {
         guarded(
                 () -> {
                     stopHeartbeat();
-                    // The attached client owns completion, so only one side sends the event.
-                    if (!clientReportsCompletion) {
-                        submitTerminal(LineageEventType.COMPLETE, jobId(jobId));
-                    }
+                    // The hook owns completion for attached and detached jobs. The client does not
+                    // send COMPLETE, so a killed client or a dropped REST connection still closes
+                    // the run when the job finishes.
+                    submitTerminal(LineageEventType.COMPLETE, jobId(jobId));
                 });
     }
 
@@ -174,11 +186,12 @@ public final class LineageJobStatusHook implements JobStatusHook {
         }
         try {
             heartbeat =
-                    Heartbeats.SCHEDULER.scheduleWithFixedDelay(
-                            () -> emit(LineageEventType.RUNNING, flinkJobId),
-                            intervalMs,
-                            intervalMs,
-                            TimeUnit.MILLISECONDS);
+                    scheduler()
+                            .scheduleWithFixedDelay(
+                                    () -> emit(LineageEventType.RUNNING, flinkJobId),
+                                    intervalMs,
+                                    intervalMs,
+                                    TimeUnit.MILLISECONDS);
         } catch (Throwable error) {
             // A job must not fail because its lineage heartbeat could not be scheduled.
             LOGGER.warn("Failed to schedule Flink lineage heartbeat", error);
@@ -190,9 +203,9 @@ public final class LineageJobStatusHook implements JobStatusHook {
      *
      * <p>Both steps are non-blocking, which is the point: Flink runs this on the job's own state
      * transition, and waiting here for an in-flight send would hold that thread for a full retry
-     * cycle per output dataset. Cancelling keeps further heartbeats from being scheduled;
-     * publishing the terminal flag makes a heartbeat that is already queued, or already inside its
-     * loop over the runs, give up rather than report RUNNING after the run has closed.
+     * cycle. Cancelling keeps further heartbeats from being scheduled; publishing the terminal flag
+     * makes a heartbeat that is already queued, or already inside its loop over the runs, give up
+     * rather than report RUNNING after the run has closed.
      */
     private void stopHeartbeat() {
         ScheduledFuture<?> scheduled = heartbeat;
@@ -206,100 +219,209 @@ public final class LineageJobStatusHook implements JobStatusHook {
     /**
      * Queues the terminal event instead of sending it on the job's state-transition thread.
      *
-     * <p>A send blocks for the configured timeout on every retry, once per output dataset, so
-     * sending here would hold a JobManager thread for minutes against an unreachable receiver and
-     * make a lineage failure visible as a stalled job. Queueing also keeps the terminal event
-     * behind any heartbeat that is already sending, because the emitting thread runs one task at a
-     * time; see {@link Heartbeats}.
+     * <p>A send blocks for the configured timeout on every retry, so sending here would hold a
+     * JobManager thread against an unreachable receiver and make a lineage failure visible as a
+     * stalled job. Queueing keeps the terminal event behind any heartbeat that is already sending
+     * on this job's thread. Another job has its own thread, so it does not wait behind this one.
      */
     private void submitTerminal(LineageEventType eventType, String flinkJobId) {
         try {
-            Heartbeats.SCHEDULER.execute(() -> emit(eventType, flinkJobId));
+            Future<?> task =
+                    scheduler()
+                            .submit(
+                                    () -> {
+                                        try {
+                                            emit(eventType, flinkJobId);
+                                        } finally {
+                                            ScheduledExecutorService current = scheduler;
+                                            if (current != null) {
+                                                current.shutdown();
+                                                JobSenders.unregister(current);
+                                            }
+                                        }
+                                    });
+            JobSenders.PENDING.add(task);
         } catch (Throwable error) {
             LOGGER.warn("Failed to submit the terminal Flink lineage event", error);
         }
     }
 
     /**
-     * Holds the one scheduler shared by every job on this JobManager.
+     * Returns this job's single-thread scheduler, creating it on the first callback.
      *
-     * <p>Every lineage send of this JobManager runs here, and a single daemon thread is what orders
-     * them: a terminal event queued while a heartbeat is still sending cannot overtake it, so the
-     * receiver never sees RUNNING after a run has closed. One thread rather than one per job also
-     * bounds what a dead receiver can cost the process, and {@code scheduleWithFixedDelay} lets a
-     * slow send push its own next run back instead of piling up. Daemon so a JobManager shutdown is
-     * never held open by it.
+     * <p>The same thread runs this job's heartbeat and its terminal event, so a RUNNING that is
+     * already sending cannot be overtaken. A different job gets a different thread.
      */
-    private static final class Heartbeats {
+    private ScheduledExecutorService scheduler() {
+        ScheduledExecutorService current = scheduler;
+        if (current != null && !current.isShutdown()) {
+            return current;
+        }
+        synchronized (this) {
+            if (scheduler == null || scheduler.isShutdown()) {
+                scheduler = JobSenders.create(this);
+            }
+            return scheduler;
+        }
+    }
+
+    /**
+     * Tracks one scheduler per job and drains them independently on shutdown.
+     *
+     * <p>A single shared thread let one job's timeout and retries stall every other job's heartbeat
+     * and terminal event. Each job now has its own daemon thread. Shutdown gives every job its own
+     * drain budget, so one blocked send cannot use up the time the others have to leave.
+     */
+    private static final class JobSenders {
         /**
-         * How long a shutting-down JobManager waits for queued terminal events.
+         * How long a shutting-down JobManager waits for one job's queued terminal event.
          *
          * <p>Application-mode clusters shut down as soon as the job reaches a terminal state, which
-         * is the same moment the terminal event is queued. Without a wait the run would stay open
-         * on the receiver until its abandoned-run timeout. The wait is short because a reachable
-         * receiver answers in milliseconds and an unreachable one must not delay the shutdown.
+         * is the same moment the terminal event is queued. The wait is per job and runs in parallel
+         * across jobs. A reachable receiver answers in milliseconds; an unreachable one must not
+         * delay shutdown, and must not cause another job's event to miss its own window.
          */
         private static final long DRAIN_TIMEOUT_MS = 5000;
 
-        static final ScheduledExecutorService SCHEDULER =
-                Executors.newSingleThreadScheduledExecutor(
-                        runnable -> {
-                            Thread thread = new Thread(runnable, "seatunnel-lineage-heartbeat");
-                            thread.setDaemon(true);
-                            return thread;
-                        });
+        private static final Set<ScheduledExecutorService> EXECUTORS =
+                ConcurrentHashMap.newKeySet();
+
+        /** Terminal tasks still in flight. Waiting on these publishes the events they recorded. */
+        private static final Set<Future<?>> PENDING = ConcurrentHashMap.newKeySet();
 
         static {
             Runtime.getRuntime()
-                    .addShutdownHook(new Thread(Heartbeats::drain, "seatunnel-lineage-drain"));
+                    .addShutdownHook(new Thread(JobSenders::drain, "seatunnel-lineage-drain"));
+        }
+
+        static ScheduledExecutorService create(Object owner) {
+            ScheduledExecutorService executor =
+                    Executors.newSingleThreadScheduledExecutor(
+                            runnable -> {
+                                Thread thread =
+                                        new Thread(
+                                                runnable,
+                                                "seatunnel-lineage-"
+                                                        + Integer.toHexString(
+                                                                System.identityHashCode(owner)));
+                                thread.setDaemon(true);
+                                return thread;
+                            });
+            EXECUTORS.add(executor);
+            return executor;
+        }
+
+        static void unregister(ScheduledExecutorService executor) {
+            EXECUTORS.remove(executor);
+        }
+
+        static List<ScheduledExecutorService> snapshot() {
+            return new ArrayList<>(EXECUTORS);
         }
 
         /**
          * Gives already queued terminal events a bounded chance to leave before the JVM exits.
          *
-         * <p>{@code shutdown} drops the periodic heartbeats and keeps the queued terminal events,
-         * which is exactly the wanted split.
+         * <p>{@code shutdown} drops periodic heartbeats and keeps queued terminal events. Each
+         * scheduler waits for its own budget, concurrently with the others.
          */
         private static void drain() {
-            SCHEDULER.shutdown();
-            try {
-                if (!SCHEDULER.awaitTermination(DRAIN_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
-                    SCHEDULER.shutdownNow();
+            List<ScheduledExecutorService> executors = snapshot();
+            List<Thread> waiters = new ArrayList<>();
+            for (ScheduledExecutorService executor : executors) {
+                executor.shutdown();
+                Thread waiter =
+                        new Thread(
+                                () -> {
+                                    try {
+                                        if (!executor.awaitTermination(
+                                                DRAIN_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                                            executor.shutdownNow();
+                                        }
+                                    } catch (InterruptedException interrupted) {
+                                        Thread.currentThread().interrupt();
+                                        executor.shutdownNow();
+                                    }
+                                },
+                                "seatunnel-lineage-drain-job");
+                waiter.setDaemon(true);
+                waiter.start();
+                waiters.add(waiter);
+            }
+            for (Thread waiter : waiters) {
+                try {
+                    waiter.join(DRAIN_TIMEOUT_MS + 1000L);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    break;
                 }
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                SCHEDULER.shutdownNow();
             }
         }
 
-        private Heartbeats() {}
+        private JobSenders() {}
     }
 
     /**
-     * Waits until every event queued so far has been sent.
+     * Waits until every event queued so far on every job scheduler has been sent.
      *
-     * <p>A test seam. The emitting thread runs one task at a time, so a task queued after the
-     * events under test completes only once they have.
+     * <p>A test seam. Each job runs one task at a time, so a barrier queued after the events under
+     * test completes only once they have. An executor that already shut down after its terminal
+     * event is waited on with {@code awaitTermination}, which still happens-before the events it
+     * recorded.
      *
-     * @return whether the queue drained within the timeout
+     * @param timeoutMs budget for the whole set of schedulers
+     * @return whether every scheduler drained within the timeout
      */
-    static boolean awaitPendingEmissions(long timeoutMs) throws InterruptedException {
-        try {
-            Future<?> barrier = Heartbeats.SCHEDULER.submit(() -> {});
-            barrier.get(timeoutMs, TimeUnit.MILLISECONDS);
-            return true;
-        } catch (InterruptedException interrupted) {
-            throw interrupted;
-        } catch (Exception error) {
-            return false;
+    public static boolean awaitPendingEmissions(long timeoutMs) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
+        for (Future<?> pending : new ArrayList<>(JobSenders.PENDING)) {
+            long remaining = deadline - System.nanoTime();
+            if (remaining <= 0) {
+                return false;
+            }
+            try {
+                pending.get(remaining, TimeUnit.NANOSECONDS);
+                JobSenders.PENDING.remove(pending);
+            } catch (InterruptedException interrupted) {
+                throw interrupted;
+            } catch (ExecutionException | TimeoutException error) {
+                return false;
+            }
         }
+        for (ScheduledExecutorService executor : JobSenders.snapshot()) {
+            long remaining = deadline - System.nanoTime();
+            if (remaining <= 0) {
+                return false;
+            }
+            try {
+                if (executor.isShutdown()) {
+                    if (!executor.awaitTermination(remaining, TimeUnit.NANOSECONDS)) {
+                        return false;
+                    }
+                    continue;
+                }
+                Future<?> barrier = executor.submit(() -> {});
+                barrier.get(remaining, TimeUnit.NANOSECONDS);
+            } catch (RejectedExecutionException rejected) {
+                remaining = deadline - System.nanoTime();
+                if (remaining <= 0 || !executor.awaitTermination(remaining, TimeUnit.NANOSECONDS)) {
+                    return false;
+                }
+            } catch (InterruptedException interrupted) {
+                throw interrupted;
+            } catch (ExecutionException | TimeoutException error) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
      * Sends one lifecycle event for every run this hook owns.
      *
-     * <p>Runs only on the shared emitting thread, which orders every send of this JobManager
-     * against every other; see {@link Heartbeats}.
+     * <p>Runs only on this job's emitting thread, which orders the heartbeat against the terminal
+     * event. The event-set budget, and a failed delivery, both stop the loop before the remaining
+     * outputs are attempted.
      */
     private void emit(LineageEventType eventType, String flinkJobId) {
         try {
@@ -308,18 +430,16 @@ public final class LineageJobStatusHook implements JobStatusHook {
                             config.toNonSensitiveMap(),
                             FlinkClusterOptions.load(),
                             System.getenv());
+            List<LineageEvent> prepared = new ArrayList<>(events.size());
             for (LineageEvent event : events) {
-                if (eventType == LineageEventType.RUNNING && terminal) {
-                    // The terminal event owns this run from here on. Abandoning the rest of the
-                    // loop is safe: whatever the terminal callback sends covers every run this
-                    // hook owns.
-                    return;
-                }
-                LineageRuntime.emit(
-                        runtimeConfig,
+                prepared.add(
                         event.withEventType(eventType)
                                 .withRunProperty(FLINK_JOB_ID_PROPERTY, flinkJobId));
             }
+            LineageRuntime.emitEach(
+                    runtimeConfig,
+                    prepared,
+                    () -> eventType == LineageEventType.RUNNING && terminal);
         } catch (Throwable error) {
             LOGGER.warn("Failed to emit Flink lineage status event", error);
         }

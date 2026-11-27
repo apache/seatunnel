@@ -20,6 +20,7 @@ package org.apache.seatunnel.core.starter.flink.execution;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.lineage.LineageConfig;
 import org.apache.seatunnel.lineage.LineageDataset;
 import org.apache.seatunnel.lineage.LineageDatasetFactory;
@@ -36,9 +37,11 @@ import org.apache.logging.log4j.core.layout.PatternLayout;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -157,6 +160,57 @@ class FlinkLineageSupportTest {
      * instead of reporting. The 1.20 starter overrides that class and asserts the opposite; the
      * registration path itself is covered there.
      */
+    /**
+     * Flink 1.13 and 1.15 share this constructor. Lineage is unsupported there, so an enabled job
+     * with illegal timeout, retry or URL values must still construct. The warning is the only
+     * effect. A job auth token is still rejected.
+     */
+    @Test
+    void unsupportedStarterDoesNotFailConstructionWhenLineageOptionsAreIllegal() {
+        Assertions.assertFalse(FlinkLineageSupport.isSupported());
+        Config config =
+                ConfigFactory.parseString(
+                        "env { openlineage_enabled=true, openlineage_timeout_ms=\"10s\","
+                                + " openlineage_retry_times=-1, openlineage_url=\"not a url\" }\n"
+                                + "source { FakeSource {} }\n"
+                                + "sink { Console {} }");
+        Assertions.assertDoesNotThrow(() -> construct(config));
+    }
+
+    @Test
+    void unsupportedStarterStillRejectsAJobAuthToken() {
+        Config config =
+                ConfigFactory.parseString(
+                        "env { openlineage_enabled=false, openlineage_auth_token=job-token }\n"
+                                + "source { FakeSource {} }\n"
+                                + "sink { Console {} }");
+        IllegalArgumentException error =
+                Assertions.assertThrows(IllegalArgumentException.class, () -> construct(config));
+        Assertions.assertTrue(error.getMessage().contains(LineageConfig.AUTH_TOKEN));
+    }
+
+    private static void construct(Config config) {
+        FlinkRuntimeEnvironment runtime = Mockito.mock(FlinkRuntimeEnvironment.class);
+        try (MockedStatic<Common> common = Mockito.mockStatic(Common.class);
+                MockedStatic<FlinkRuntimeEnvironment> environments =
+                        Mockito.mockStatic(FlinkRuntimeEnvironment.class);
+                MockedConstruction<SourceExecuteProcessor> ignoredSources =
+                        Mockito.mockConstruction(SourceExecuteProcessor.class);
+                MockedConstruction<TransformExecuteProcessor> ignoredTransforms =
+                        Mockito.mockConstruction(TransformExecuteProcessor.class);
+                MockedConstruction<SinkExecuteProcessor> ignoredSinks =
+                        Mockito.mockConstruction(SinkExecuteProcessor.class)) {
+            common.when(Common::appStarterDir).thenReturn(Paths.get("."));
+            common.when(Common::getPluginsJarDependenciesWithoutConnectorDependency)
+                    .thenReturn(Collections.emptyList());
+            common.when(Common::getLibJars).thenReturn(Collections.emptyList());
+            environments
+                    .when(() -> FlinkRuntimeEnvironment.getInstance(Mockito.any(Config.class)))
+                    .thenReturn(runtime);
+            new FlinkExecution(config);
+        }
+    }
+
     @Test
     void shouldReportTheStatusHookApiAsUnsupportedOnThisStarter() {
         Assertions.assertFalse(

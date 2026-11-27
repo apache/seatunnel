@@ -136,13 +136,30 @@ openlineage.producer: https://seatunnel.apache.org/<version>
 
 ### 在集群上安装血缘产物
 
-Flink 侧只有一个可部署产物，由 `seatunnel-lineage-flink` 模块构建：
+JobManager 从下面这一个可部署产物加载状态 hook。Maven 坐标包含 `shaded` classifier：
 
-```text
-seatunnel-lineage-flink-<version>-shaded.jar
+```xml
+<dependency>
+    <groupId>org.apache.seatunnel</groupId>
+    <artifactId>seatunnel-lineage-flink</artifactId>
+    <version>3.1.0-SNAPSHOT</version>
+    <classifier>shaded</classifier>
+</dependency>
 ```
 
-把它放进 JobManager 的 `$FLINK_HOME/lib` 目录并重启 JobManager —— Flink 的 classpath 在启动时固定。
+把 `3.1.0-SNAPSHOT` 换成实际运行的 SeaTunnel 版本。在 SeaTunnel 源码目录中构建该 classifier：
+
+```shell
+./mvnw -pl seatunnel-lineage-flink -am package -DskipTests
+```
+
+产物路径为：
+
+```text
+seatunnel-lineage-flink/target/seatunnel-lineage-flink-<version>-shaded.jar
+```
+
+把该文件复制到 JobManager 的 `$FLINK_HOME/lib` 目录并重启 JobManager —— Flink 的 classpath 在启动时固定。
 只放一份，升级时先删掉旧版本：`lib/` 里同时存在两个版本会让实际的 classpath 顺序变得不确定。
 
 该产物把 Jackson、OpenLineage 模型、Apache HttpClient 以及 commons-logging 桥接一并 relocate 到
@@ -162,9 +179,15 @@ SeaTunnel starter jar 代替它 —— 后者携带的是未 relocate 的同名�
 SeaTunnel starter 中对应 Flink 1.20 路径，Flink 1.13 和 1.15 starter 不注册该 hook，作业行为
 保持不变。
 
-Flink 作业成功结束时只有一侧上报终态事件，因此同一个 run 不会收到两次 `COMPLETE`。attached
-提交由客户端上报；detached 提交由 JobManager 的 status hook
-上报，不带统计信息。`FAIL` 和 `ABORT` 由 status hook 上报，作业根本没有启动的情况除外：提交
+JobManager 的 status hook 为每个正常结束的作业上报 `COMPLETE`，attached 和 detached 都一样，并且
+不带输出统计。提交作业的客户端不再发送 `COMPLETE`。客户端被杀掉或 REST 连接断开时，hook 仍会在
+作业结束时关闭这次 run，并在终态事件之前停止心跳，因此成功的作业不会在接收端一直保持打开。
+
+客户端用自己的配置目录和环境解析 `START`，以及“作业根本没有启动”时的 `FAIL`。JobManager 再用
+自己的配置目录和环境重新解析 `RUNNING`、`COMPLETE`、`FAIL` 和 `ABORT`。接收端 URL 要在两边都配置。
+接收端要求 token 时，token 也要在两边都配置；它不会写进提交的作业。
+
+`FAIL` 和 `ABORT` 由 status hook 上报，作业根本没有启动的情况除外：提交
 失败时——没有可用 slot、凭据被拒绝，或者 JobManager 无法加载 status hook——由客户端上报
 `FAIL`，因为集群从未创建过这个作业，也就不会有 hook 运行。
 

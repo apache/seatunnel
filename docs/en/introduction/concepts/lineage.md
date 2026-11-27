@@ -149,13 +149,32 @@ openlineage.producer: https://seatunnel.apache.org/<version>
 
 ### Installing the lineage artifact on the cluster
 
-The Flink integration ships one deployable artifact, built by the `seatunnel-lineage-flink` module:
+The JobManager loads the status hook from one deployable artifact. Its Maven coordinates, including
+the `shaded` classifier, are:
 
-```text
-seatunnel-lineage-flink-<version>-shaded.jar
+```xml
+<dependency>
+    <groupId>org.apache.seatunnel</groupId>
+    <artifactId>seatunnel-lineage-flink</artifactId>
+    <version>3.1.0-SNAPSHOT</version>
+    <classifier>shaded</classifier>
+</dependency>
 ```
 
-Install it in the JobManager's `$FLINK_HOME/lib` directory and restart the JobManager, because a
+Replace `3.1.0-SNAPSHOT` with the SeaTunnel version you run. Build that classifier from a SeaTunnel
+checkout:
+
+```shell
+./mvnw -pl seatunnel-lineage-flink -am package -DskipTests
+```
+
+The command writes:
+
+```text
+seatunnel-lineage-flink/target/seatunnel-lineage-flink-<version>-shaded.jar
+```
+
+Copy that file into the JobManager's `$FLINK_HOME/lib` directory and restart the JobManager, because a
 Flink class path is fixed at startup. Deploy exactly one copy, and remove the previous version when
 upgrading: two versions in `lib/` leave the effective class path order undefined.
 
@@ -179,8 +198,17 @@ Flink registers the status hook only when the runtime exposes the required API. 
 support requires Flink 1.16 or later, which in the SeaTunnel starters means the Flink 1.20 path;
 the Flink 1.13 and 1.15 starters do not register this hook and run the job unchanged.
 
-Exactly one side reports a successful Flink job, so a run never receives two `COMPLETE` events. An
-attached submission reports it from the client; a detached submission reports it from the JobManager status hook, without statistics.
+The JobManager status hook reports `COMPLETE` for every finished job, attached or detached, and it
+does so without output statistics. The submitting client does not send `COMPLETE`. If that client
+is killed or loses its REST connection, the hook still closes the run when the job finishes and
+stops heartbeats before the terminal event, so a successful job is not left open on the receiver.
+
+The client resolves `START`, and `FAIL` for a submission that never starts, from its own
+configuration directory and environment. The JobManager resolves `RUNNING`, `COMPLETE`, `FAIL` and
+`ABORT` again from its own configuration directory and environment. Set the receiver URL on both
+processes. When the receiver requires a token, set that token on both as well; it is not written
+into the submitted job.
+
 `FAIL` and `ABORT` come from the status hook, except for a job that never started: a submission
 that fails — no available slots, a rejected credential, or a JobManager that cannot load the status
 hook — is reported as `FAIL` by the client, because no hook runs for a job the cluster never

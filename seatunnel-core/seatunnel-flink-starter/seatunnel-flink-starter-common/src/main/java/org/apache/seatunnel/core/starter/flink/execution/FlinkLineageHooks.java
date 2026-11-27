@@ -31,8 +31,9 @@ import java.util.List;
  * <p>{@code JobStatusHook} is a 1.16+ API, so the hook can only be built and registered by a
  * starter that compiles against a Flink new enough to declare it. This module compiles against 1.15
  * and therefore answers that lineage is unsupported; {@code seatunnel-flink-20-starter} carries a
- * class of the same name that does the real work, and its copy wins in the shaded starter jar. That
- * is the same per-version override the starters already use for {@link SinkExecuteProcessor}.
+ * class of the same name that does the real work. The 1.20 starter shade excludes this copy, so the
+ * packaged jar contains the 1.20 class rather than whichever copy the shade plugin visited last.
+ * That is the same per-version override the starters already use for {@link SinkExecuteProcessor}.
  *
  * <p>Keeping the version-specific step behind this seam is what lets {@link FlinkLineageSupport}
  * and {@link FlinkExecution} stay version-agnostic without reflecting over the hook API.
@@ -53,15 +54,13 @@ final class FlinkLineageHooks {
      * @param environment the environment the result listener is registered on
      * @param config lineage configuration with the auth token already removed
      * @param events the start events whose runs the hook closes
-     * @param clientReportsTerminalEvent whether the client reports the successful terminal event
      * @return whether the hook was registered
      */
     static boolean register(
             StreamGraph streamGraph,
             StreamExecutionEnvironment environment,
             LineageConfig config,
-            List<LineageEvent> events,
-            boolean clientReportsTerminalEvent) {
+            List<LineageEvent> events) {
         return false;
     }
 }

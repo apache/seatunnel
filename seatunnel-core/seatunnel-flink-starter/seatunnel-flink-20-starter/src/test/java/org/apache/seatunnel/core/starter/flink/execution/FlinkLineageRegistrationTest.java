@@ -32,6 +32,7 @@ import org.apache.seatunnel.lineage.flink.LineageJobStatusHook;
 
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.configuration.DeploymentOptions;
 import org.apache.flink.core.execution.DetachedJobExecutionResult;
 import org.apache.flink.core.execution.JobListener;
 import org.apache.flink.core.execution.JobStatusHook;
@@ -46,7 +47,6 @@ import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
-import java.lang.reflect.Field;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -55,6 +55,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -71,7 +72,7 @@ public class FlinkLineageRegistrationTest {
 
     @BeforeEach
     void resetBackend() {
-        RecordingLineageBackend.EVENTS.clear();
+        RecordingLineageBackend.reset();
     }
 
     public static final class ThrowingExtractor implements LineageDatasetExtractor {
@@ -155,20 +156,62 @@ public class FlinkLineageRegistrationTest {
     }
 
     /**
-     * A local environment is an attached submission, so the client reports the successful terminal
-     * event and the hook must not send a duplicate.
+     * A local environment is an attached submission. The hook still owns COMPLETE, so {@code
+     * onFinished} emits it even though the client listener never runs.
      */
     @Test
-    void handsTheTerminalEventToTheClientForAnAttachedSubmission() throws Exception {
-        StreamGraph streamGraph = register(environmentWithOneSink());
+    void attachedSubmissionStillEmitsCompleteFromTheHookWhenTheClientIsGone() throws Exception {
+        StreamExecutionEnvironment environment = environmentWithOneSink();
+        org.apache.flink.configuration.Configuration overrides =
+                new org.apache.flink.configuration.Configuration();
+        overrides.set(DeploymentOptions.ATTACHED, true);
+        environment.configure(overrides);
+        StreamGraph streamGraph = register(environment, RecordingLineageBackend.NAME);
+        Assertions.assertNotNull(streamGraph);
+        Assertions.assertEquals(
+                Collections.singletonList(LineageEventType.START), recordedEventTypes());
 
         JobStatusHook hook = registeredHook(streamGraph);
         Assertions.assertTrue(hook instanceof LineageJobStatusHook);
-        Field field = LineageJobStatusHook.class.getDeclaredField("clientReportsCompletion");
-        field.setAccessible(true);
+        JobID jobId = new JobID();
+        hook.onFinished(jobId);
         Assertions.assertTrue(
-                field.getBoolean(hook),
-                "an attached submission must leave the successful terminal event to the client");
+                LineageJobStatusHook.awaitPendingEmissions(5000),
+                "the hook terminal event must leave without the client listener");
+
+        Assertions.assertEquals(
+                Arrays.asList(LineageEventType.START, LineageEventType.COMPLETE),
+                recordedEventTypes());
+        LineageEvent complete = RecordingLineageBackend.EVENTS.get(1);
+        Assertions.assertEquals(
+                jobId.toString(),
+                complete.runProperties().get(LineageJobStatusHook.FLINK_JOB_ID_PROPERTY));
+        Assertions.assertNull(complete.outputs().get(0).outputStatistics());
+    }
+
+    /**
+     * START is sent on the submitting thread, once per output. An unreachable receiver must not
+     * make registration wait out a full retry cycle for every remaining output.
+     */
+    @Test
+    void startLoopStopsAfterTheFirstUnreachableOutput() {
+        RecordingLineageBackend.failDelivery = true;
+        RecordingLineageBackend.failAfterMs = 400L;
+        List<LineageDataset> outputs =
+                Arrays.asList(
+                        LineageDataset.of("mysql://db", "first"),
+                        LineageDataset.of("mysql://db", "second"),
+                        LineageDataset.of("mysql://db", "third"),
+                        LineageDataset.of("mysql://db", "fourth"));
+        long started = System.nanoTime();
+        register(environmentWithOneSink(), RecordingLineageBackend.NAME, outputs);
+        long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
+
+        Assertions.assertEquals(1, RecordingLineageBackend.ATTEMPTS.get());
+        Assertions.assertTrue(RecordingLineageBackend.EVENTS.isEmpty());
+        Assertions.assertTrue(
+                elapsedMs < 900,
+                "the submit thread must not wait out every output, elapsed " + elapsedMs);
     }
 
     /**
@@ -271,19 +314,27 @@ public class FlinkLineageRegistrationTest {
     }
 
     @Test
-    void doesNotAttributeJobTotalsToOutputDatasets() {
+    void doesNotAttributeJobTotalsToOutputDatasets() throws Exception {
         StreamExecutionEnvironment environment = environmentWithOneSink();
         List<LineageDataset> outputs =
                 Arrays.asList(
                         LineageDataset.of("mysql://db", "first"),
                         LineageDataset.of("mysql://db", "second"));
-        Assertions.assertNotNull(register(environment, RecordingLineageBackend.NAME, outputs));
+        StreamGraph streamGraph = register(environment, RecordingLineageBackend.NAME, outputs);
+        Assertions.assertNotNull(streamGraph);
         Map<String, OptionalFailure<Object>> counters = new HashMap<>();
         counters.put(MetricNames.SINK_WRITE_COUNT, OptionalFailure.of((Object) 20L));
         environment
                 .getJobListeners()
                 .get(0)
                 .onJobExecuted(new JobExecutionResult(new JobID(), 1L, counters), null);
+        Assertions.assertEquals(
+                Arrays.asList(LineageEventType.START, LineageEventType.START),
+                recordedEventTypes(),
+                "the client must not send COMPLETE, so job-wide counters stay off the datasets");
+
+        registeredHook(streamGraph).onFinished(new JobID());
+        Assertions.assertTrue(LineageJobStatusHook.awaitPendingEmissions(5000));
         Assertions.assertEquals(4, RecordingLineageBackend.EVENTS.size());
         for (LineageEvent event : RecordingLineageBackend.EVENTS.subList(2, 4)) {
             Assertions.assertEquals(LineageEventType.COMPLETE, event.eventType());
