@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.common.statestore.checkpoint;
 
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointOverview;
 import org.apache.seatunnel.engine.core.checkpoint.PipelineCheckpointOverview;
 import org.apache.seatunnel.engine.server.common.statestore.StateStore;
@@ -42,6 +43,19 @@ public interface CheckpointOverviewStateStore extends StateStore<Long, Checkpoin
      * @param updater pipeline-level updater
      */
     void updateOverview(long jobId, int pipelineId, Consumer<PipelineCheckpointOverview> updater);
+
+    /**
+     * Returns the overview for the given job without blocking the calling thread.
+     *
+     * <p>The backing store is distributed, so a plain {@link #get(Object)} can wait for a remote
+     * response. Callers that run on a Hazelcast operation thread (for example the client protocol
+     * operations) must use this method instead, because Hazelcast rejects a blocking wait there
+     * with {@code AssertionError: Waiting for response on this thread is illegal}.
+     *
+     * @param jobId job identifier
+     * @return a future completed with the overview, or with {@code null} when the job has none
+     */
+    PassiveCompletableFuture<CheckpointOverview> getAsync(Long jobId);
 
     /**
      * Returns the number of jobs currently tracked by the overview store.

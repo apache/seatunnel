@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.common.statestore.checkpoint.hazelcast;
 
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointOverview;
 import org.apache.seatunnel.engine.core.checkpoint.PipelineCheckpointOverview;
 import org.apache.seatunnel.engine.server.common.statestore.checkpoint.CheckpointOverviewStateStore;
@@ -35,6 +36,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -62,6 +64,22 @@ public class HazelcastCheckpointOverviewStateStore
     @Override
     public CheckpointOverview get(Long jobId) {
         return overviewMap.get(jobId);
+    }
+
+    @Override
+    public PassiveCompletableFuture<CheckpointOverview> getAsync(Long jobId) {
+        CompletableFuture<CheckpointOverview> future = new CompletableFuture<>();
+        overviewMap
+                .getAsync(jobId)
+                .whenComplete(
+                        (overview, error) -> {
+                            if (error != null) {
+                                future.completeExceptionally(error);
+                            } else {
+                                future.complete(overview);
+                            }
+                        });
+        return new PassiveCompletableFuture<>(future);
     }
 
     @Override
