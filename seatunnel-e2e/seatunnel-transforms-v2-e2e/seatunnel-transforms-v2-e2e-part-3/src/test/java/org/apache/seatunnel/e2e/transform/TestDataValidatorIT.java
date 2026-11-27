@@ -30,21 +30,24 @@ public class TestDataValidatorIT extends TestSuiteBase {
     @TestTemplate
     public void testDataValidatorWithValidData(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/data_validator_valid.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/data_validator/data_validator_valid.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
     public void testDataValidatorWithSkipMode(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/data_validator_skip.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/data_validator/data_validator_skip.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
     public void testDataValidatorWithFailMode(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/data_validator_fail.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/data_validator/data_validator_fail.conf");
         // Should fail due to validation errors
         Assertions.assertNotEquals(0, execResult.getExitCode());
 
@@ -66,7 +69,7 @@ public class TestDataValidatorIT extends TestSuiteBase {
     public void testDataValidatorWithRouteToTable(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/data_validator_route_to_table.conf");
+                container.executeJob("/data_validator/data_validator_route_to_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -74,14 +77,16 @@ public class TestDataValidatorIT extends TestSuiteBase {
     public void testDataValidatorWithRouteToTableAndDatabasePrefix(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/data_validator_route_to_table_with_db_prefix.conf");
+                container.executeJob(
+                        "/data_validator/data_validator_route_to_table_with_db_prefix.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
     public void testDataValidatorWithUDF(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/data_validator_email_udf.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/data_validator/data_validator_email_udf.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -89,7 +94,8 @@ public class TestDataValidatorIT extends TestSuiteBase {
     @TestTemplate
     public void testDataValidatorMultiTable(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/data_validator_multi_table.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/data_validator/data_validator_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -98,7 +104,7 @@ public class TestDataValidatorIT extends TestSuiteBase {
     public void testDataValidatorTableTransformOnly(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/data_validator_table_transform_only.conf");
+                container.executeJob("/data_validator/data_validator_table_transform_only.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -110,7 +116,8 @@ public class TestDataValidatorIT extends TestSuiteBase {
     public void testDataValidatorRouteToTableWithTableTransform(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/data_validator_route_to_table_with_table_transform.conf");
+                container.executeJob(
+                        "/data_validator/data_validator_route_to_table_with_table_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
