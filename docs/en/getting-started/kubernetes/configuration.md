@@ -188,6 +188,20 @@ This IMap stores checkpoint overview and history data used by REST APIs and UI o
 Like `engine_runningJobMetrics`, it is excluded from MapStore persistence to avoid MapStore/WAL write amplification. After every member restarts, the checkpoint overview and history start again from the next checkpoint. An existing `engine_checkpoint_monitor` override with `enabled: false` is no longer needed and can be removed.
 :::
 
+### Finished Job Metrics MapStore
+
+:::info Note
+The examples keep `map-store.enabled: true` for `engine*` and explicitly disable persistence for
+`engine_finishedJobMetrics`. This is a choice in these examples, not a change to the product default.
+After a full cluster restart, metrics of jobs that finished before the restart are not retained when
+this override is used. Job recovery does not depend on this map.
+
+To enable MapStore for these metrics, remove the `engine_finishedJobMetrics` entry so that `engine*` applies, or
+copy the complete `engine*` `map-store` block into the exact-name entry with `enabled: true`, including
+`factory-class-name` and the backend `properties`. Exact-name entries do not inherit the wildcard
+configuration; changing only `enabled` does not configure a persistence implementation.
+:::
+
 ### HDFS
 
 ```yaml
@@ -204,6 +218,9 @@ hazelcast:
           clusterName: seatunnel-cluster
           storage.type: hdfs
           fs.defaultFS: hdfs://namenode:8020
+    engine_finishedJobMetrics:
+      map-store:
+        enabled: false
 ```
 
 ### S3 or Compatible Object Storage
@@ -229,6 +246,9 @@ hazelcast:
           fs.s3a.access.key: YOUR_ACCESS_KEY
           fs.s3a.secret.key: YOUR_SECRET_KEY
           fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+    engine_finishedJobMetrics:
+      map-store:
+        enabled: false
 ```
 
 :::caution Warning
@@ -307,6 +327,9 @@ hazelcast:
           fs.oss.endpoint: https://oss-<region>.aliyuncs.com
           fs.oss.accessKeyId: YOUR_ACCESS_KEY_ID
           fs.oss.accessKeySecret: YOUR_ACCESS_KEY_SECRET
+    engine_finishedJobMetrics:
+      map-store:
+        enabled: false
 ```
 
 If you do not want to render OSS credentials into the final ConfigMap, use the environment variable provider shown above, a Hadoop credential provider, or a custom `fs.oss.credentials.provider` implementation. A custom provider must implement the Aliyun OSS SDK `com.aliyun.oss.common.auth.CredentialsProvider` interface and must be available in the SeaTunnel image.

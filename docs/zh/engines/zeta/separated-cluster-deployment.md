@@ -276,6 +276,9 @@ map:
         clusterName: seatunnel-cluster
         storage.type: hdfs
         fs.defaultFS: hdfs://localhost:9000
+  engine_finishedJobMetrics:
+    map-store:
+      enabled: false
 ```
 
 如果没有 HDFS，并且您的集群只有一个节点，您可以像这样配置使用本地文件：
@@ -293,6 +296,9 @@ map:
         clusterName: seatunnel-cluster
         storage.type: hdfs
         fs.defaultFS: file:///
+  engine_finishedJobMetrics:
+    map-store:
+      enabled: false
 ```
 
 说明：`engine_runningJobMetrics` 保存的是高频运行时指标快照，`engine_checkpoint_monitor`
@@ -300,6 +306,15 @@ map:
 `map-store`，它们也会被有意排除在持久化 IMAP 存储之外，以避免仅用于可观测性的状态导致 WAL
 持续膨胀。Engine 重启后，running-job metrics 由后续 report 重新构建，checkpoint
 overview/history 从下一次 checkpoint 开始重新记录，而不会延续重启前的状态。
+
+这些示例保持 `engine*` 的 `map-store.enabled: true`，并通过精确名称配置单独关闭
+`engine_finishedJobMetrics` 的持久化。这是示例中的选择，不会改变产品默认值。使用该覆盖时，
+整个集群重启后不会保留重启前已完成作业的指标。作业恢复不依赖该 IMap。
+
+如需为这些指标启用 MapStore，可以删除 `engine_finishedJobMetrics` 配置项，使其使用 `engine*` 配置；也可以
+将 `engine*` 的完整 `map-store` 配置块复制到精确名称配置项中并设置 `enabled: true`，包括
+`factory-class-name` 和对应存储的 `properties`。精确名称配置项不会继承通配符配置，因此只修改
+`enabled` 不会配置持久化实现。
 
 如果您使用 OSS，可以像这样配置：
 
@@ -320,6 +335,9 @@ map:
         fs.oss.accessKeyId: OSS access key id
         fs.oss.accessKeySecret: OSS access key secret
         fs.oss.endpoint: OSS endpoint
+  engine_finishedJobMetrics:
+    map-store:
+      enabled: false
 ```
 
 如果要通过环境变量提供 OSS 凭据，请删除 `fs.oss.accessKeyId` 和
