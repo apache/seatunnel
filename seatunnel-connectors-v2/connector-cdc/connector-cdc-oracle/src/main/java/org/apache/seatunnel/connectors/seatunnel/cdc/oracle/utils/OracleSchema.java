@@ -66,11 +66,14 @@ public class OracleSchema {
         Tables tables = new Tables();
 
         try {
+            // In a CDB/PDB deployment the schema lives in the PDB; without switching the session
+            // the data dictionary lookup runs against the root container and finds nothing.
+            setSessionToPdbIfNeeded(oracleConnection);
             oracleConnection.readSchema(
                     tables,
                     tableId.catalog(),
                     tableId.schema(),
-                    connectorConfig.getTableFilters().dataCollectionFilter(),
+                    getSchemaReadTableFilter(tableId),
                     null,
                     false);
             for (TableId id : tables.tableIds()) {
@@ -92,16 +95,28 @@ public class OracleSchema {
 
         if (!schemasByTableId.containsKey(tableId)) {
             throw new SeaTunnelException(
-                    String.format("Can't obtain schema for table %s ", tableId));
+                    String.format(
+                            "Can't obtain schema for table %s. Read schema table ids: %s. Configured table ids: %s",
+                            tableId, tables.tableIds(), tableMap.keySet()));
         }
 
         return schemasByTableId.get(tableId);
     }
 
+    /**
+     * Maps a table id read from the Oracle data dictionary back to the configured table id. The
+     * dictionary may report a different catalog (CDB vs PDB name, or none) and a different
+     * identifier case than the user configured, so the lookup tolerates both before giving up.
+     */
     static TableId resolveTableId(
             TableId readTableId, TableId requestedTableId, Map<TableId, ?> tableMap) {
         if (tableMap.containsKey(readTableId)) {
             return readTableId;
+        }
+
+        if (tableMap.containsKey(requestedTableId)
+                && hasSameSchemaAndTable(requestedTableId, readTableId)) {
+            return requestedTableId;
         }
 
         TableId readTableIdWithRequestedCatalog =
@@ -111,5 +126,40 @@ public class OracleSchema {
         }
 
         return readTableId;
+    }
+
+    private void setSessionToPdbIfNeeded(OracleConnection oracleConnection) throws SQLException {
+        String pdbName = connectorConfig.getPdbName();
+        if (pdbName != null) {
+            oracleConnection.setSessionToPdb(pdbName);
+        }
+    }
+
+    /**
+     * Widens the connector's table filter so the requested table is read even when the dictionary
+     * reports it under another catalog or identifier case that the configured filter rejects.
+     */
+    private Tables.TableFilter getSchemaReadTableFilter(TableId requestedTableId) {
+        Tables.TableFilter dataCollectionFilter =
+                connectorConfig.getTableFilters().dataCollectionFilter();
+        if (!tableMap.containsKey(requestedTableId)) {
+            return dataCollectionFilter;
+        }
+
+        return tableId ->
+                dataCollectionFilter.isIncluded(tableId)
+                        || hasSameSchemaAndTable(requestedTableId, tableId);
+    }
+
+    private static boolean hasSameSchemaAndTable(TableId left, TableId right) {
+        return equalsIgnoreCase(left.schema(), right.schema())
+                && equalsIgnoreCase(left.table(), right.table());
+    }
+
+    private static boolean equalsIgnoreCase(String left, String right) {
+        if (left == null || right == null) {
+            return left == right;
+        }
+        return left.equalsIgnoreCase(right);
     }
 }
