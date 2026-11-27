@@ -48,7 +48,8 @@ public class TestLLMIT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() {
         Optional<URL> resource =
-                Optional.ofNullable(TestLLMIT.class.getResource("/mockserver-config.json"));
+                Optional.ofNullable(
+                        TestLLMIT.class.getResource("/llm_transform/mockserver-config.json"));
         this.mockserverContainer =
                 new GenericContainer<>(DockerImageName.parse(IMAGE))
                         .withNetwork(NETWORK)
@@ -63,10 +64,10 @@ public class TestLLMIT extends TestSuiteBase implements TestResource {
                                                                                         "Can not get config file of mockServer"))
                                                                 .getPath())
                                                 .getAbsolutePath()),
-                                TMP_DIR + "/mockserver-config.json")
+                                TMP_DIR + "/llm_transform/mockserver-config.json")
                         .withEnv(
                                 "MOCKSERVER_INITIALIZATION_JSON_PATH",
-                                TMP_DIR + "/mockserver-config.json")
+                                TMP_DIR + "/llm_transform/mockserver-config.json")
                         .withEnv("MOCKSERVER_LOG_LEVEL", "WARN")
                         .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
                         .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));
@@ -84,7 +85,8 @@ public class TestLLMIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testLLMWithOpenAI(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/llm_openai_transform.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/llm_transform/llm_openai_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -92,14 +94,15 @@ public class TestLLMIT extends TestSuiteBase implements TestResource {
     public void testLLMWithOpenAIMultiTable(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/llm_openai_transform_multi_table.conf");
+                container.executeJob("/llm_transform/llm_openai_transform_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
     public void testLLMWithMicrosoft(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/llm_microsoft_transform.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/llm_transform/llm_microsoft_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -107,7 +110,7 @@ public class TestLLMIT extends TestSuiteBase implements TestResource {
     public void testLLMWithOpenAIBoolean(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/llm_openai_transform_boolean.conf");
+                container.executeJob("/llm_transform/llm_openai_transform_boolean.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -115,7 +118,7 @@ public class TestLLMIT extends TestSuiteBase implements TestResource {
     public void testLLMWithOpenAIStrictBoolean(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/llm_openai_transform_boolean_strict.conf");
+                container.executeJob("/llm_transform/llm_openai_transform_boolean_strict.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -123,7 +126,8 @@ public class TestLLMIT extends TestSuiteBase implements TestResource {
     public void testLLMWithOpenAIStrictBooleanRejectsInvalidOutput(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/llm_openai_transform_boolean_strict_invalid.conf");
+                container.executeJob(
+                        "/llm_transform/llm_openai_transform_boolean_strict_invalid.conf");
         Assertions.assertNotEquals(0, execResult.getExitCode());
         String output = execResult.getStdout() + execResult.getStderr();
         Assertions.assertTrue(output.contains("strict_boolean_output"), output);
@@ -134,7 +138,7 @@ public class TestLLMIT extends TestSuiteBase implements TestResource {
     public void testLLMWithOpenAIColumns(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/llm_openai_transform_columns.conf");
+                container.executeJob("/llm_transform/llm_openai_transform_columns.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -142,21 +146,23 @@ public class TestLLMIT extends TestSuiteBase implements TestResource {
     public void testLLMWithOpenAIOutputColumnName(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/llm_openai_transform_custom_output_name.conf");
+                container.executeJob("/llm_transform/llm_openai_transform_custom_output_name.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
     public void testLLMWithCustomModel(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/llm_transform_custom.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/llm_transform/llm_transform_custom.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
     public void testLLMWithKimiAI(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/llm_kimiai_transform.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/llm_transform/llm_kimiai_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

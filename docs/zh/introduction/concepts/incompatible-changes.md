@@ -12,6 +12,14 @@
   - **影响**：当 MySQL 模式的 KingbaseES 与 PostgreSQL 类型映射不一致时，生成的 DDL 类型和行转换会发生变化；upsert 使用 `ON DUPLICATE KEY UPDATE` 而不是 `ON CONFLICT ... DO UPDATE`；基于 catalog 的作业通过 MySQL catalog 读取表元数据，这也会在构造时查询服务端版本。以上任一变化都可能改变作业输出，或在服务端并未真正运行于 MySQL 模式时导致作业失败。
   - **迁移指南**：如果 KingbaseES 确实以 MySQL 兼容模式运行，新行为就是预期行为：升级前请验证受影响的类型、upsert 结果以及由 catalog 生成的 DDL。如需保持此前的原生行为，请从作业中移除 `compatible_mode`；不设置或设置为无法识别的值都会保持原生路径，无需改用其他值。本次没有新增或重命名任何选项。
 
+### HBase sink：DELETE 行删除映射的数据
+
+`DELETE` 行现在会删除本 sink 映射列簇中不晚于该变更时间戳的所有单元格版本。此前这些行会将旧值作为 Put 写入，未映射列簇仍不受影响。仅投影 rowkey 和版本列时，没有映射列簇，sink 会拒绝 DELETE 行。请在投影中包含目标列簇的至少一个数据列。
+需要原先仅追加行为的作业应在 sink 前过滤 DELETE 行。`UPDATE_BEFORE` 行现在会被忽略，不再作为 Put 写入。修改 rowkey 时需要上游显式发送旧键 DELETE 和新键 INSERT。
+使用 `version_column` 提供正确排序的时间戳：相同或更早时间戳的 Put 无法覆盖删除标记。
+关闭 HBase 客户端定时刷新（默认行为）时，checkpoint 刷新会等待 region server 接受数据。依赖 checkpoint 刷新的作业应保持定时刷新关闭。`wal_write = false` 仍不能防止 region server 崩溃导致的数据丢失。
+无需迁移配置或 checkpoint 格式。
+
 ### MongoDB Sink：未配置的缓冲与重试选项使用文档中的默认值
 
 - **行为变更：未设置 `buffer-flush.*` 或 `retry.*` 选项的非事务 MongoDB Sink 会按批写入，并重试失败的写入**
@@ -41,6 +49,13 @@
   - **描述**：`array_mode = true` 时，Http Sink 此前把每行的序列化结果作为字符串加入请求数组，请求体为 `["{\"id\":1}","{\"id\":2}"]`，而不是文档描述的 JSON 数组。现在发送的是 `[{"id":1},{"id":2}]`。自 2.3.11 起的各版本发送的都是字符串数组。`array_mode = false` 不受影响。
   - **影响**：此前因请求体格式报错的接口现在可以正常接收。专门适配旧格式、把每个元素再按 JSON 字符串解码的接收方，现在收到的是对象，需要修改。
   - **迁移指南**：无需修改配置。如果接收方会把数组的每个元素从字符串解码，请改为直接使用该元素。
+
+### Doris Source：`case_sensitive = false` 现在会将单表 `database`/`table` 转为小写
+
+- **行为变更：单表 Doris Source 配置 `case_sensitive = false` 时，`database` 与 `table` 名称按小写解析**
+  - **描述**：`case_sensitive` 选项自 2.3.11 起就已存在于 Doris Source，但小写转换作用在一个随后被丢弃的中间对象上，该选项从未生效，配置中的原始大小写会原样进入 query-plan 请求。现在转换作用于 Source 实际使用的表配置。该选项只影响通过 `database` 和 `table` 配置的单表；`table_list` 条目与默认值（`true`）行为不变。
+  - **影响**：配置 `case_sensitive = false` 且名称含大写的作业，现在会把 `TestDB.TestTable` 解析为 `testdb.testtable`。在名称匹配区分大小写的集群上，这会选中另一个对象，或导致查找失败。早期版本保存的 checkpoint 中也可能持有原始大小写名称的 split：恢复到如今按小写名称索引表的 Source 时，Reader 会报 `the table 'TestDB.TestTable' cannot be found in table_list of job configuration` 而失败，而不是读取该 split。
+  - **迁移指南**：要保持历史拼写，请设置 `case_sensitive = true` 或删除该选项（默认值为 `true`）。要继续使用 `case_sensitive = false`，请在升级后从新的 checkpoint 启动作业，而不要恢复旧的 checkpoint；已保存的 split 不会被改写，因此旧的混大小写 checkpoint 无法服务于标识符已变为小写的作业。
 
 ### Lance Sink：BIGINT 列创建为 int64
 
@@ -175,6 +190,27 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
   - **描述**：使用 `file_format_type = "xml"` 时，此前 DATE、TIME 和 TIMESTAMP 直接用 Java `toString()` 写出，忽略 `date_format`、`datetime_format` 和 `time_format`。时间戳会写成 `2026-01-02T10:13:45.123`，秒为 0 时写成 `2026-01-02T10:13`，同一个文件里可能混有多种格式，无法用同一个 `datetime_format` 读回。现在会按配置的格式输出，与 CSV、Text、Excel 写入器一致。
   - **影响**：使用默认配置时，时间戳写成 `yyyy-MM-dd HH:mm:ss`（`T` 改为空格，丢弃小数秒），时间写成 `HH:mm:ss`。依赖原 ISO 格式的下游需要调整。
   - **迁移指南**：如需保留 ISO 格式，请在 Sink 上配置 `datetime_format`，例如 `YYYY_MM_DD_HH_MM_SS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss`），或使用 `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss.SSS`）保留毫秒，并在读取时为 Source 配置对应的 `datetime_format`。
+
+### 条件选项规则按 AND 优先于 OR 的顺序求值
+
+SeaTunnel 使用 `Condition` 校验条件选项规则，并通过 Zeta REST API 和元数据导出 CLI 描述这些规则。3.1.0 中已废弃的 `Expression` 类及相关公共构造器、工厂方法、getter 和校验方法仍可供已有插件 jar 调用。
+
+升级后，运行时会将旧表达式展开为一条条件链，按 AND 优先于 OR 的顺序求值。这个变化也适用于已编译的插件。例如，3.1.0 将 `A.and(B).or(C)` 求值为 `A && (B || C)`，现在则是 `(A && B) || C`。当 A、B 为假且 C 为真时，现在会触发必填校验。多个旧表达式节点内部的分组边界也会被展开。如果规则依赖原有分组，请明确改写，例如将 `A && (B || C)` 写成 `(A && B) || (A && C)`。
+
+新规则可使用 `conditional(trigger, requiredOptions...)` 添加条件必填项，或使用 `conditionalRule(trigger, nestedRule)` 添加嵌套规则。先声明触发条件引用的选项，再通过 `getCondition()` 读取触发条件。旧的 `getExpression()` 返回独立副本。每个 OR 分支对应一个外层节点，分支内的 AND 条件保存在该节点中。如需修改规则，请使用新的触发条件重新构建。
+
+```java
+Condition<?> trigger = Condition.of(MODE, "snapshot").or(REPLAY, true);
+OptionRule rule = OptionRule.builder()
+        .optional(MODE, REPLAY)
+        .conditional(trigger, START_TIME)
+        .conditionalRule(trigger, OptionRule.builder().bundled(USERNAME, PASSWORD).build())
+        .build();
+```
+
+依赖校验报错或导出元数据的工具，请按 AND 优先于 OR 的规则解读表达式文本。遍历条件规则导出的触发条件树时，请读取表达式节点上的 `operator` 和 `next`。每个节点的 `condition` 描述一个谓词。
+
+`Condition.equals` 和 `hashCode` 会计入每个节点的 `ConditionExtension`。如果工厂要求等价规则比较相等，可以复用扩展实例，或为扩展实现按值比较的 `equals` 和 `hashCode`。
 
 ### 原生 CLI 帮助退出码
 
