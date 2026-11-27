@@ -68,10 +68,10 @@ Debezium DB2，在初始快照完成后会继续读取已提交的 INSERT、UPDA
 |------|------|----------|--------|------|
 | username | String | 是 | - | 连接 DB2 时使用的用户名。 |
 | password | String | 是 | - | 连接 DB2 时使用的密码。 |
-| url | String | 是 | - | DB2 JDBC URL。URL 必须包含数据库名，例如 `jdbc:db2://127.0.0.1:50000/testdb`。 |
+| url | String | 是 | - | DB2 JDBC URL。该值不能为空或仅包含空白字符。URL 必须包含数据库名，例如 `jdbc:db2://127.0.0.1:50000/testdb`。 |
 | database-names | List | 否 | 从 `url` 中解析出的数据库 | 要监控的数据库名。DB2 CDC 一个 source 监控一个数据库。 |
 | table-names | List | 未设置 `table-pattern` 时必填 | - | 要监控的表名，格式为 `databaseName.schemaName.tableName`，例如 `testdb.DB2INST1.CUSTOMERS`。 |
-| table-pattern | String | 未设置 `table-names` 时必填 | - | 用于发现已开启 capture mode 的表的正则表达式。 |
+| table-pattern | String | 未设置 `table-names` 时必填 | - | 用于发现已开启 capture mode 的表的正则表达式。注意：当前只有 `table-names` 会应用到 Debezium 捕获列表；`table-pattern` 仅用于快照阶段的表发现，不会限制捕获范围。 |
 | table-names-config | List | 否 | - | 表配置列表。例如：`[{"table": "testdb.DB2INST1.CUSTOMERS","primaryKeys": ["ID"],"snapshotSplitColumn": "ID"}]`。 |
 | startup.mode | Enum | 否 | INITIAL | DB2 CDC 的可选启动模式，有效值为 `initial`、`earliest` 和 `latest`。 |
 | stop.mode | Enum | 否 | NEVER | DB2 CDC 的可选停止模式，有效值为 `never`。 |
@@ -79,13 +79,14 @@ Debezium DB2，在初始快照完成后会继续读取已提交的 INSERT、UPDA
 | snapshot.split.size | Integer | 否 | 8096 | 表快照的分割大小。 |
 | snapshot.fetch.size | Integer | 否 | 1024 | 读取表快照时每次轮询的最大获取大小。 |
 | enable_concurrent_read | Boolean | 否 | true | 快照阶段是否启用分片并发读取。设置为 false 时，源会以单个分片读取表，不做分片分析，适用于没有索引的表。 |
-| server-time-zone | String | 否 | - | 数据库服务器中的会话时区。 |
+| server-time-zone | String | 否 | JVM 系统时区 | 数据库服务器中的会话时区。 |
 | connect.timeout.ms | Long | 否 | 30000 | 连接器尝试连接到数据库服务器后，在超时之前等待的最长时间。 |
 | connect.max-retries | Integer | 否 | 3 | 连接器重试建立数据库连接的最大次数。 |
 | connection.pool.size | Integer | 否 | 20 | 连接池大小。 |
 | chunk-key.even-distribution.factor.upper-bound | Double | 否 | 100 | 用于判断分块键是否均匀分布的上界。 |
 | chunk-key.even-distribution.factor.lower-bound | Double | 否 | 0.05 | 用于判断分块键是否均匀分布的下界。 |
 | sample-sharding.threshold | int | 否 | 1000 | 分块键分布不均时触发采样分片策略的估计分片数阈值。 |
+| split.allow-sampling | Boolean | 否 | true | 是否启用基于采样的分片策略。设置为 `false` 时将禁用采样分片：分布均匀的分块键仍使用算术分片，分布不均匀的分块键回退到迭代查询方式。 |
 | inverse-sampling.rate | int | 否 | 1000 | 采样分片策略使用的采样率倒数。 |
 | exactly_once | Boolean | 否 | false | 启用初始快照切换增量阶段时的精确一次语义。 |
 | debezium.* | config | 否 | - | 透传给 Debezium DB2 连接器的配置项。 |
@@ -192,6 +193,20 @@ source {
   }
 }
 ```
+
+### Capture 注册与恢复
+
+活动 Capture 注册在 `CD_NEW_SYNCHPOINT` 推进后继续读取增量。
+`CD_OLD_SYNCHPOINT` 表示可读取的起点，不表示停止位点。
+`table-names` 和 `table-names-config.table` 中的 schema 和表名会在 catalog 查询与 Capture 过滤前
+先按 DB2 catalog 解析：若存在与配置拼写完全一致的对象，则使用该拼写，即使同时存在大写同名对象，
+已有任务也会继续选择原来的表；否则将其转为大写，即 DB2 对不带引号标识符的存储拼写。需要选择特定对象时，
+请按 DB2 catalog（`SYSCAT.TABLES`）中存储的拼写填写 schema 和表名。这些配置项不解析双引号：
+包含引号字符的名称会连同引号原样使用，无法匹配对应对象。
+数据库名保留配置中的拼写，`table-pattern` 正则表达式保持原样。
+
+保存点恢复应保留 DB2 两段表标识中的 schema。恢复后的任务可以追平停机期间的变化，
+并发现新配置且已启用 Capture 的表。既有配置项、offset 和 checkpoint 序列化格式保持不变。
 
 ## 变更日志
 

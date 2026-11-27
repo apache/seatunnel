@@ -4,7 +4,7 @@ sidebar_position: 13
 
 # Client Command Line Tool
 
-The SeaTunnel Engine provides a command line tool for managing the jobs of the SeaTunnel Engine. You can use the command line tool to submit, stop, pause, resume, delete jobs, view job status and monitoring metrics, etc.
+The SeaTunnel Engine provides a command line tool for managing the jobs of the SeaTunnel Engine. You can use the command line tool to submit, stop, savepoint, restore jobs, view job status and monitoring metrics, etc. (There is no dedicated command for deleting jobs; finished job records are removed automatically after `history-job-expire-minutes` elapses.)
 
 You can obtain the help information of the command line tool through the following command:
 
@@ -94,6 +94,7 @@ The `--dry-run connect` option runs the static checks first, then uses connector
 | Jdbc      | Yes (connectivity + schema inference) | Yes (connectivity + table existence + field compatibility) |
 | Kafka     | Yes ([topic metadata + runtime output schema](../../connectors/source/Kafka.md#connectivity-dry-run), not consumer/group permissions) | Yes ([metadata + local serializer checks](../../connectors/sink/Kafka.md#connectivity-dry-run); dynamic topics have limited checks, Produce/transaction permissions are not checked) |
 | FakeSource | Yes (schema inference only, no external system) | - |
+| Cassandra | Yes ([prepared SELECT metadata](../../connectors/source/Cassandra.md#connectivity-dry-run); no application-row reads) | No |
 | Clickhouse | No | Yes ([initial-host connectivity + target metadata](../../connectors/sink/Clickhouse.md#connectivity-dry-run); no write permission or field compatibility check) |
 | MongoDB | Yes ([collection visibility + configured schema](../../connectors/source/MongoDB.md#connectivity-dry-run), MongoDB 4.0+, not document-read permissions) | Yes ([connectivity + configured authentication](../../connectors/sink/MongoDB.md#connectivity-dry-run); no collection, schema, write permission or transaction checks) |
 | Neo4j | Yes ([driver connectivity + configured schema; not database/query validation](../../connectors/source/Neo4j.md#connectivity-dry-run)) | No |
@@ -264,9 +265,9 @@ This command will output detailed information about all members in the cluster, 
 **Example output:**
 ```
 Member ID                            Address              Role                 Version
-a1b2c3d4-e5f6-7890-abcd-ef1234567890 192.168.1.100:5801  ACTIVE MASTER        5.3.0
-b2c3d4e5-f6g7-8901-bcde-f23456789012 192.168.1.101:5801  MASTER               5.3.0
-c3d4e5f6-g7h8-9012-cdef-345678901234 192.168.1.102:5801  WORKER               5.3.0
+a1b2c3d4-e5f6-7890-abcd-ef1234567890 192.168.1.100:5801  ACTIVE MASTER        5.1.7
+b2c3d4e5-f6a7-8901-bcde-f23456789012 192.168.1.101:5801  MASTER               5.1.7
+c3d4e5f6-a7b8-9012-cdef-345678901234 192.168.1.102:5801  WORKER               5.1.7
 ```
 
 **Note**: You must specify the cluster name with the `-cn` parameter. The cluster must be running for this command to work.

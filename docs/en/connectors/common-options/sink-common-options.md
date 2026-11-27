@@ -17,14 +17,12 @@ The old configuration name `source_table_name` is deprecated, please migrate to 
 
 | Name          | Type   | Required | Default | Description                                                                                                                                                                                                                                                                                                                                  |
 |---------------|--------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| plugin_input  | String | No       | -       | When `plugin_input` is not specified, the current plug-in processes the data set `dataset` output by the previous plugin in the configuration file <br/> When `plugin_input` is specified, the current plug-in is processing the data set corresponding to this parameter.                                                                   |
+| plugin_input | list | Required for complex Zeta jobs | - | Upstream dataset name or list of names. |
 | metadata_datasource_id | String | No       | -       | The data source ID for retrieving connection configuration from Metadata Center. When specified, the connector will fetch connection details (e.g., URL, username, password) from the external metadata service instead of using direct configuration. See [Metadata SPI](../../introduction/concepts/metadata-spi.md) for more information. |
 
-### plugin_input [string]
+### plugin_input [list]
 
-When `plugin_input` is not specified, the current plug-in processes the data set `dataset` output by the previous plugin in the configuration file.
-
-When `plugin_input` is specified, the current plug-in is processing the data set corresponding to this parameter.
+Set `plugin_input` to a dataset name (a string) or an array of names declared by upstream sources or transforms using `plugin_output`. Zeta unions compatible inputs when several datasets are selected.
 
 ### metadata_datasource_id [string]
 
@@ -32,20 +30,27 @@ The data source ID for retrieving connection configuration from Metadata Center.
 
 # Important note
 
-When the job configuration `plugin_input` you must set the `plugin_output` parameter
+For a simple Zeta job with one source, one sink, and at most one transform, omitted `plugin_output` and `plugin_input` use the default dataset identifier `DEFAULT_ID`. If none of the sink's input names resolve, Zeta falls back to the last dataset produced.
+
+If a Zeta job has multiple sources, transforms, or sinks, each source and transform must declare `plugin_output`, and each transform and sink must declare `plugin_input`. To send the same upstream dataset to multiple sinks, set each sink's `plugin_input` to that dataset's output name.
 
 ## Task Example
 
 ### Simple
 
-> This is the process of passing a data source through two transforms and returning two different pipiles to different sinks
+> This is the process of passing a data source through two transforms and returning two different pipelines to different sinks
 
 ```bash
 source {
-    FakeSourceStream {
+    FakeSource {
       parallelism = 2
       plugin_output = "fake"
-      field_name = "name,age"
+      schema = {
+        fields {
+          name = "string"
+          age = "int"
+        }
+      }
     }
 }
 
@@ -71,6 +76,3 @@ sink {
     }
 }
 ```
-
-> If the job only have one source and one(or zero) transform and one sink, You do not need to specify `plugin_input` and `plugin_output` for connector.
-> If the number of any operator in source, transform and sink is greater than 1, you must specify the `plugin_input` and `plugin_output` for each connector in the job.

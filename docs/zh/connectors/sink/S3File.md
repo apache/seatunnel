@@ -147,6 +147,9 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 | enable_header_write                   | boolean | 否    | false                                                 | 仅当 file_format_type 为 text,csv 时使用。<br/> false: 不写入表头, true: 写入表头。                                                                  |
 | encoding                              | string  | 否    | "UTF-8"                                               | 仅当 file_format_type 为 json,text,csv,xml 时使用。                                                                                        |
 | merge_update_event                    | boolean | 否    | false                                                 | 仅当 file_format_type 为 canal_json、debezium_json、maxwell_json 时使用。<br/> 设置为 true 时，UPDATE_AFTER 和 UPDATE_BEFORE 事件会合并为 UPDATE 事件数据。                                                                                                |
+| date_format                           | string  | 否    | yyyy-MM-dd                                            | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。日期类型格式，用于告知 connector 如何写出 date 值。支持格式（示例）：`yyyy-MM-dd`、`yyyy.MM.dd`、`yyyy/MM/dd`。 |
+| datetime_format                       | string  | 否    | yyyy-MM-dd HH:mm:ss                                   | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间戳类型格式，用于告知 connector 如何写出 datetime 值。支持格式：`yyyy-MM-dd HH:mm:ss`、`yyyy.MM.dd HH:mm:ss`、`yyyy/MM/dd HH:mm:ss`、`yyyyMMddHHmmss`。 |
+| time_format                           | string  | 否    | HH:mm:ss                                              | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间类型格式，用于告知 connector 如何写出 time 值。支持格式（示例）：`HH:mm:ss`、`HH:mm:ss.SSS`。 |
 
 ### path [string]
 
@@ -278,7 +281,7 @@ Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-c
 
 写入工作表的名称
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 当文件格式为 CSV 时，CSV 的字符串引用模式。
 

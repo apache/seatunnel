@@ -295,10 +295,11 @@ map:
         fs.defaultFS: file:///
 ```
 
-说明：`engine_runningJobMetrics` 保存的是高频运行时指标快照。即使通过 `map.engine*`
-配置了 `map-store`，它也会被有意排除在持久化 IMAP 存储之外，以避免仅用于可观测性的状态导致
-WAL 持续膨胀。Engine 重启后，running-job metrics 不会延续重启前的 snapshot，而是由后续
-report 重新构建。
+说明：`engine_runningJobMetrics` 保存的是高频运行时指标快照，`engine_checkpoint_monitor`
+保存的是 REST API 使用的 checkpoint overview/history。即使通过 `map.engine*` 配置了
+`map-store`，它们也会被有意排除在持久化 IMAP 存储之外，以避免仅用于可观测性的状态导致 WAL
+持续膨胀。Engine 重启后，running-job metrics 由后续 report 重新构建，checkpoint
+overview/history 从下一次 checkpoint 开始重新记录，而不会延续重启前的状态。
 
 如果您使用 OSS，可以像这样配置：
 
@@ -333,7 +334,7 @@ map:
 
 注意：使用OSS 时，确保 lib目录下有这几个jar。
 
-其中 `seatunnel-shade-hadoop3-uber` 来自 [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) 项目，它是对 Hadoop 客户端的 shaded（包重定位）版本，所有第三方类被重定位到 `org.apache.seatunnel.shade.*` 下，避免与 SeaTunnel 自身的依赖产生类路径冲突。版本号格式为 `${library.version}-${seatunnel.shade.version}`（例如 `3.1.4-3.0.0`），具体版本请参考 SeaTunnel 发行包中实际包含的 JAR 文件名。
+其中 `seatunnel-shade-hadoop3-uber` 来自 [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) 项目，它是对 Hadoop 客户端的 shaded（包重定位）版本，所有第三方类被重定位到 `org.apache.seatunnel.shade.*` 下，避免与 SeaTunnel 自身的依赖产生类路径冲突。请使用 SeaTunnel 发行包 `lib/` 目录自带的 Hadoop Uber JAR。
 
 ```
 aliyun-sdk-oss-3.4.1.jar
@@ -341,7 +342,47 @@ hadoop-aliyun-3.1.4.jar
 jdom-1.1.jar
 netty-buffer-4.1.89.Final.jar
 netty-common-4.1.89.Final.jar
+seatunnel-shade-hadoop3-uber-*.jar
+```
+
+可以使用 S3 进行 IMap 持久化存储。
+
+S3 的配置属性遵循 Hadoop S3A 文件系统（Native S3）标准。具体来说，我们使用 fs.s3a.access.key 和 fs.s3a.secret.key 属性，以确保与现有基于 Hadoop 的生态系统兼容。
+
+如果您想使用 S3 兼容存储（例如 Minio），可以这样配置：
+
+```yaml
+map:
+   engine*:
+     map-store:
+       enabled: true
+       initial-mode: EAGER
+       factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+       properties:
+         type: hdfs
+         namespace: /seatunnel/engine
+         clusterName: seatunnel
+         storage.type: s3
+         s3.bucket: s3a://your-bucket
+         fs.defaultFS: s3a://your-bucket
+         fs.s3a.endpoint: http://your-minio-endpoint:port
+         fs.s3a.path.style.access: true
+         fs.s3a.access.key: YOUR_ACCESS_KEY
+         fs.s3a.secret.key: YOUR_SECRET_KEY
+         fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+```
+
+注意：使用 S3 时，确保 lib 目录下有以下几个 jar。
+
+以下两个 JAR 均来自 [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) 项目：
+- `seatunnel-shade-hadoop3-uber` — 包重定位后的 shaded Hadoop 客户端
+- `seatunnel-shade-hadoop-aws` — 包重定位后的 shaded Hadoop AWS 连接器
+
+版本号格式为 `${library.version}-${seatunnel.shade.version}`（例如 `3.1.4-3.0.0`），具体版本请参考 SeaTunnel 发行包中实际包含的 JAR 文件名。
+
+```
 seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+seatunnel-shade-hadoop-aws-${seatunnel.shade.hadoop-aws.version}-${seatunnel.shade.version}.jar
 ```
 
 如果您使用 GCS，可以像这样配置：
@@ -369,7 +410,7 @@ map:
 
 ```
 gcs-connector-hadoop3-2.2.33-shaded.jar
-seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+seatunnel-shade-hadoop3-uber-*.jar
 ```
 
 ### 4.7 作业调度策略
@@ -387,7 +428,7 @@ seatunnel:
     job-schedule-strategy: WAIT
 ```
 
-当`dynamic-slot: ture`时，`job-schedule-strategy: WAIT` 配置会失效，将被强制修改为`job-schedule-strategy: REJECT`，因为动态Slot时该参数没有意义，可以直接提交。
+`job-schedule-strategy` 的行为不受 `dynamic-slot` 影响。当资源不足时，`WAIT` 会将作业保持在等待队列中并每隔 3 秒重试调度，`REJECT` 则直接使作业失败。
 
 ### 4.8 Coordinator Service
 
@@ -423,8 +464,8 @@ seatunnel:
 
 ```yaml
 seatunnel:
-engine:
-job-metrics-partition-count: 4
+  engine:
+    job-metrics-partition-count: 4
 ```
 
 上述配置会将指标分布到 4 个分区中，而不是使用单个 key。
@@ -545,6 +586,8 @@ mkdir -p $SEATUNNEL_HOME/logs
 ```
 
 日志将写入 `$SEATUNNEL_HOME/logs/seatunnel-engine-worker.log`
+
+> 如果 Worker 先于任何 Master 启动，它会在 `hazelcast.max.join.seconds`（默认 300 秒）内持续重试配置的 master 地址，并在等待期间输出 `This lite member cannot assume the master role ...` 日志。
 
 ## 8. 安装 SeaTunnel Engine 客户端
 

@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.e2e.connector.databend;
 
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.connectors.seatunnel.databend.util.DatabendTypeConverter;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -26,6 +30,7 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,6 +76,8 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
     private static final String SOURCE_TABLE = "source_table";
     private static final String SINK_TABLE = "sink_table";
     private static final String INSERT_SQL = "insert_sql";
+    private static final String TYPE_MAPPING_TABLE = "type_mapping_table";
+    private static final String TYPE_MAPPING_INSERT_SQL = "type_mapping_insert_sql";
     private static final Config CONFIG = getInitDatabendConfig();
     private DatabendContainer container;
     private GenericContainer<?> minioContainer;
@@ -127,6 +134,20 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
+    /**
+     * Reads a table holding a DECIMAL(10, 2) column with no schema declared in the job, so the
+     * column type comes from DatabendCatalog. Databend reports the type with its precision and
+     * scale attached, which the catalog used to resolve to STRING. The Assert sink checks that the
+     * column is a decimal(10, 2) holding 1234.56.
+     */
+    @TestTemplate
+    public void testDatabendTypeMapping(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/databend/databend_type_mapping.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
     @TestTemplate
     public void testSchemaEvolution(TestContainer container)
             throws IOException, InterruptedException, SQLException {
@@ -149,6 +170,38 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
             Assertions.assertTrue(
                     columnNames.contains("email"),
                     "Table should have 'email' column after schema evolution");
+        }
+    }
+
+    /**
+     * Adds a column with the type DatabendTypeConverter gives a SeaTunnel TIME column, which is the
+     * type the sink puts in the ALTER TABLE ADD COLUMN statement for a schema change event that
+     * adds a TIME column. Databend has no TIME type, so the statement only runs when the converter
+     * maps TIME to a type Databend has.
+     */
+    @Test
+    public void testTimeColumnTypeIsAcceptedByDatabend() throws SQLException {
+        Column timeColumn =
+                PhysicalColumn.builder()
+                        .name("start_time")
+                        .dataType(LocalTimeType.LOCAL_TIME_TYPE)
+                        .nullable(true)
+                        .build();
+        String columnType = DatabendTypeConverter.convertToDatabendType(timeColumn).getColumnType();
+
+        try (Connection connection = getConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS time_column_table");
+            statement.execute("CREATE TABLE time_column_table (id INT)");
+            statement.execute("ALTER TABLE time_column_table ADD COLUMN start_time " + columnType);
+
+            List<String> columnNames = new ArrayList<>();
+            try (ResultSet resultSet = statement.executeQuery("DESC time_column_table")) {
+                while (resultSet.next()) {
+                    columnNames.add(resultSet.getString("field"));
+                }
+            }
+            Assertions.assertEquals(Arrays.asList("id", "start_time"), columnNames);
         }
     }
 
@@ -188,6 +241,90 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode());
         try (Connection conn = getConnection()) {
             clearTableWithConnection(conn, SINK_TABLE);
+        }
+    }
+
+    /**
+     * Writes a TIME column to a table the sink creates through the catalog. Databend has no TIME
+     * type, so the table only exists, and the rows only arrive, when the catalog names a text type
+     * for the column and the writer sends the time of day as text.
+     */
+    @TestTemplate
+    public void testFakeTimeToDatabend(TestContainer container) throws Exception {
+        String table = DATABASE + ".time_sink_table";
+        try (Connection conn = getConnection();
+                Statement statement = conn.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS " + table);
+        }
+
+        Container.ExecResult execResult =
+                container.executeJob("/databend/fake_time_to_databend.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        try (Connection conn = getConnection();
+                Statement statement = conn.createStatement()) {
+            List<String> values = new ArrayList<>();
+            try (ResultSet resultSet =
+                    statement.executeQuery("SELECT start_time FROM " + table + " ORDER BY id")) {
+                while (resultSet.next()) {
+                    values.add(resultSet.getString(1));
+                }
+            }
+            Assertions.assertEquals(Arrays.asList("08:00:00", "10:15:30.123"), values);
+            statement.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    /**
+     * Writes a TIMESTAMP column outside CDC mode. databend-jdbc rejects a LocalDateTime in
+     * setObject, so the rows only arrive when the writer sends the timestamp as text. Each row is
+     * matched against an exact timestamp, so the check does not depend on how Databend prints one.
+     * The second row must also differ from its millisecond value, so a write that drops the
+     * microseconds fails; the third row has nanoseconds, which are written to the microsecond.
+     */
+    @TestTemplate
+    public void testFakeTimestampToDatabend(TestContainer container) throws Exception {
+        String table = DATABASE + ".timestamp_sink_table";
+        try (Connection conn = getConnection();
+                Statement statement = conn.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS " + table);
+        }
+
+        Container.ExecResult execResult =
+                container.executeJob("/databend/fake_timestamp_to_databend.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        try (Connection conn = getConnection();
+                Statement statement = conn.createStatement()) {
+            List<String> stored = new ArrayList<>();
+            try (ResultSet resultSet =
+                    statement.executeQuery(
+                            "SELECT id, CAST(created_at AS STRING) FROM "
+                                    + table
+                                    + " ORDER BY id")) {
+                while (resultSet.next()) {
+                    stored.add(resultSet.getInt(1) + "=" + resultSet.getString(2));
+                }
+            }
+            LOG.info("Stored timestamps: {}", stored);
+            List<Integer> matched = new ArrayList<>();
+            try (ResultSet resultSet =
+                    statement.executeQuery(
+                            "SELECT id FROM "
+                                    + table
+                                    + " WHERE (id = 1 AND created_at = CAST('2024-03-10 10:00:00'"
+                                    + " AS TIMESTAMP))"
+                                    + " OR (id = 2 AND created_at = CAST('2024-03-11"
+                                    + " 10:15:30.123456' AS TIMESTAMP) AND created_at <>"
+                                    + " CAST('2024-03-11 10:15:30.123' AS TIMESTAMP))"
+                                    + " OR (id = 3 AND created_at = CAST('2024-03-12"
+                                    + " 10:15:30.123456' AS TIMESTAMP)) ORDER BY id")) {
+                while (resultSet.next()) {
+                    matched.add(resultSet.getInt(1));
+                }
+            }
+            Assertions.assertEquals(Arrays.asList(1, 2, 3), matched, "stored: " + stored);
+            statement.execute("DROP TABLE IF EXISTS " + table);
         }
     }
 
@@ -346,7 +483,9 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
                     "INSERT INTO source_table (name, age, score) VALUES ('Charlie', 35, 92.5)";
             stmt.execute(sql3);
 
-            LOG.info("Successfully inserted 3 test records");
+            stmt.execute(CONFIG.getString(TYPE_MAPPING_INSERT_SQL));
+
+            LOG.info("Successfully inserted 3 test records and 1 type mapping record");
         } catch (SQLException e) {
             LOG.error("Failed to insert test data", e);
             throw new RuntimeException("Failed to insert test data", e);
@@ -371,6 +510,7 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
                 Statement statement = connection.createStatement(); ) {
             statement.execute(CONFIG.getString(SOURCE_TABLE));
             statement.execute(CONFIG.getString(SINK_TABLE));
+            statement.execute(CONFIG.getString(TYPE_MAPPING_TABLE));
         } catch (SQLException e) {
             throw new RuntimeException("Initializing Databend tables failed!", e);
         }
@@ -398,7 +538,9 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
         Config config = ConfigFactory.parseFile(file);
         assert config.hasPath(SOURCE_TABLE)
                 && config.hasPath(SINK_TABLE)
-                && config.hasPath(INSERT_SQL);
+                && config.hasPath(INSERT_SQL)
+                && config.hasPath(TYPE_MAPPING_TABLE)
+                && config.hasPath(TYPE_MAPPING_INSERT_SQL);
         return config;
     }
 

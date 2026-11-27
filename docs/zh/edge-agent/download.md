@@ -9,7 +9,7 @@ title: 下载
 
 在边缘主机上准备：
 
-* Java：安装 [Java](https://www.java.com/zh-CN/download/) 8 或 11（更高版本 LTS 一般可用），并设置 JAVA_HOME。
+* Java：安装 [Java](https://www.java.com/zh-CN/download/) 11 或 17（更高版本 LTS 一般可用），并设置 JAVA_HOME。
 * 磁盘：queue.sqlite-path（WAL 与位点）及日志目录可写。
 * 网络：边缘主机可访问 output.endpoint 配置的 EdgeSocket 地址。
 
@@ -40,11 +40,16 @@ cd "apache-seatunnel-edge-agent-${version}"
 
 ## 步骤 3：源码构建
 
+安装 JDK，从 [SeaTunnel 下载页](https://seatunnel.apache.org/download) 下载 `apache-seatunnel-<version>-src.tar.gz`，然后解压并构建：
+
 ```shell
-git clone https://github.com/apache/seatunnel.git
-cd seatunnel
+export version="<seatunnel-version>"
+tar -xzf "apache-seatunnel-${version}-src.tar.gz"
+cd "apache-seatunnel-${version}-src"
 ./mvnw clean package -pl seatunnel-dist -am -DskipTests -Dskip.spotless=true
 ```
+
+如果使用 Git 仓库，在仓库根目录执行上面的 Maven 命令。
 
 构建产物：
 

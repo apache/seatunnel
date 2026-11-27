@@ -151,7 +151,7 @@ Cursor reset strategy for Pulsar consumer valid values are `'EARLIEST'`, `'LATES
 **Note, This option only works if the "cursor.startup.mode" option used `'SUBSCRIPTION'`.**
 It has no default value and must be configured in that mode.
 
-### cursor.stop.mode [String]
+### cursor.stop.mode [Enum]
 
 Stop mode for Pulsar consumer, valid values are `'NEVER'`, `'LATEST'`and `'TIMESTAMP'`.
 
@@ -170,7 +170,7 @@ reference to [Schema-Feature](../../introduction/concepts/schema-feature.md)
 
 ### format [String]
 
-Data format. The default format is json. Supported formats are json, canal_json, avro and text. The `schema` option is required when using avro format. Text format is supported only in single-table mode. See [formats](../formats) for more details. When the producer writes ROW fields as nullable Avro unions, set `avro_row_nullable = true` so a `null` ROW value can be decoded; see [Avro format](../formats/avro.md#avro_row_nullable).
+Data format. The default format is json. Supported formats are json, canal_json, avro and text. The `schema` option is required when using avro format. Text format is supported only in single-table mode. See [formats](../formats/overview.md) for more details. When the producer writes ROW fields as nullable Avro unions, set `avro_row_nullable = true` so a `null` ROW value can be decoded; see [Avro format](../formats/avro.md#avro_row_nullable).
 
 ### field_delimiter [String]
 
@@ -370,9 +370,13 @@ source {
 
 ### Read From a Topic Pattern With Discovery
 
-When the topic list grows over time, combine `topic-pattern` with `topic-discovery.interval` to pick up newly created topics automatically.
+When the topic list grows over time, combine `topic-pattern` with `topic-discovery.interval` to pick up newly created topics automatically. Dynamic discovery only works for unbounded reads: run the job in `STREAMING` mode with `cursor.stop.mode = "NEVER"`, otherwise the source fails with `Bounded streams do not support dynamic partition discovery.`
 
 ```hocon
+env {
+  job.mode = "STREAMING"
+}
+
 source {
   Pulsar {
     topic-pattern = "persistent://public/default/orders-.*"
@@ -381,7 +385,7 @@ source {
     admin.service-url = "http://localhost:8080"
     topic-discovery.interval = 30000
     cursor.startup.mode = "EARLIEST"
-    cursor.stop.mode = "LATEST"
+    cursor.stop.mode = "NEVER"
     format = json
     schema = {
       fields {
@@ -399,9 +403,9 @@ source {
 
 When subscribing to partitioned topics or topic patterns (`topic-pattern`), SeaTunnel automatically discovers partitions and dynamically assigns topic splits across reader subtasks. You can tune `topic-discovery.interval` to control how frequently new partitions are detected.
 
-### Which cursor reset strategies and subscription modes are supported?
+### Which cursor startup modes and reset strategies are supported?
 
-The source supports `EARLIEST` and `LATEST` startup modes through `cursor.startup.mode`. Consumers join the subscription with configurable subscription types (e.g. `Failover` or `Exclusive`), and SeaTunnel checkpoints message IDs to ensure reliable playback on failure.
+The source supports `EARLIEST`, `LATEST`, `SUBSCRIPTION` and `TIMESTAMP` startup modes through `cursor.startup.mode`. `TIMESTAMP` requires `cursor.startup.timestamp`, and `SUBSCRIPTION` requires `cursor.reset.mode` (`EARLIEST` or `LATEST`): if the subscription already exists the consumer resumes from its committed position, otherwise the subscription is created at the earliest or latest message according to `cursor.reset.mode`. The subscription type is not configurable; the connector only sets the subscription name and uses the Pulsar client default. SeaTunnel checkpoints message IDs to ensure reliable playback on failure.
 
 ### How do I configure authentication for secure Pulsar clusters?
 

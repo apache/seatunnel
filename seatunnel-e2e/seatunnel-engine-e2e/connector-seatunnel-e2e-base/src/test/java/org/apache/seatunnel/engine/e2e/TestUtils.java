@@ -25,11 +25,55 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Slf4j
 public class TestUtils {
+    private static final int MIN_TEST_PORT = 10000;
+    private static final int MAX_TEST_PORT = 30000;
+    private static final int MAX_PORT_ALLOCATION_ATTEMPTS = 1000;
+    private static final List<int[]> ALLOCATED_PORT_RANGES = new ArrayList<>();
+
+    public static synchronized int getAvailablePort(int portCount) {
+        if (portCount <= 0 || portCount > MAX_TEST_PORT - MIN_TEST_PORT + 1) {
+            throw new IllegalArgumentException("Invalid port count: " + portCount);
+        }
+        for (int i = 0; i < MAX_PORT_ALLOCATION_ATTEMPTS; i++) {
+            int port =
+                    ThreadLocalRandom.current()
+                            .nextInt(MIN_TEST_PORT, MAX_TEST_PORT - portCount + 2);
+            if (isAvailablePortRange(port, portCount)) {
+                ALLOCATED_PORT_RANGES.add(new int[] {port, port + portCount - 1});
+                return port;
+            }
+        }
+        throw new IllegalStateException("Failed to allocate an available port range");
+    }
+
+    private static boolean isAvailablePortRange(int port, int portCount) {
+        int rangeEnd = port + portCount - 1;
+        for (int[] allocatedPortRange : ALLOCATED_PORT_RANGES) {
+            if (port <= allocatedPortRange[1] && rangeEnd >= allocatedPortRange[0]) {
+                return false;
+            }
+        }
+        for (int currentPort = port; currentPort <= rangeEnd; currentPort++) {
+            try (ServerSocket socket = new ServerSocket()) {
+                socket.setReuseAddress(false);
+                socket.bind(new InetSocketAddress(currentPort));
+            } catch (IOException e) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public static String getResource(String confFile) {
         return System.getProperty("user.dir")
                 + File.separator

@@ -1,4 +1,4 @@
-import ChangeLog from '../changelog/connector-iotdb.md';
+import ChangeLog from '../changelog/connector-iotdb-v2.md';
 
 # IoTDBv2
 

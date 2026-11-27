@@ -24,16 +24,17 @@ Docker 单节点、多节点集群、Kubernetes（通过 `kubectl port-forward` 
 
 ### 2.1 `--master` 参数（Zeta）
 
-所有 SeaTunnel Zeta 客户端命令均支持 `--master` 参数，用于指定集群连接地址：
+所有 SeaTunnel Zeta 客户端命令均支持 `--master`（或 `-m`）参数，用于指定作业在本地运行还是提交到集群。
+该参数只接受 `local` 或 `cluster`，不接受集群地址：
 
 ```bash
 bin/seatunnel.sh \
   --config job.conf \
-  --master seatunnel://192.168.1.100:5801
+  -m cluster
 ```
 
-Zeta 集群内部默认端口为 **5801**，与 REST API 端口（8080）不同。`--master` 参数用于
-通过 Hazelcast 成员协议直接连接集群。
+客户端从 `config/hazelcast-client.yaml`（`cluster-name` 与 `cluster-members`）获取目标集群地址。
+Zeta 集群内部默认端口为 **5801**，与 REST API 端口（8080）不同。客户端通过 Hazelcast 协议与集群通信。
 
 ### 2.2 使用 REST API（推荐用于自动化场景）
 
@@ -295,7 +296,7 @@ helm pull oci://registry-1.docker.io/apache/seatunnel-helm --version ${VERSION}
 tar -xvf seatunnel-helm-${VERSION}.tgz
 cd seatunnel-helm
 
-helm install seatunnel . \
+helm install seatunnel . --set-string image.tag="${VERSION}" \
   --namespace seatunnel \
   --create-namespace
 ```
@@ -303,7 +304,7 @@ helm install seatunnel . \
 使用 `master.replicas` 和 `worker.replicas` 调整 master / worker 副本数：
 
 ```bash
-helm upgrade seatunnel . --namespace seatunnel \
+helm upgrade seatunnel . --reuse-values --namespace seatunnel \
   --set master.replicas=2 \
   --set worker.replicas=4
 ```
@@ -359,7 +360,7 @@ chart 不存在 `seatunnel.config` 这个 values 配置树。若要自定义 `se
 应用配置：
 
 ```bash
-helm upgrade seatunnel . \
+helm upgrade seatunnel . --reuse-values \
   --namespace seatunnel \
   -f values-prod.yaml
 ```
@@ -372,7 +373,6 @@ helm upgrade seatunnel . \
 |---|---|---|---|
 | **5801** | TCP | Hazelcast 集群 | 成员间通信；生产环境不要对外暴露 |
 | **8080** | TCP | REST API | 生产环境建议通过认证网关暴露 |
-| **8090** | TCP | Web UI | 可选，仅用于管理看板 |
 
 在 Kubernetes 中，建议设置 NetworkPolicy 将 5801 端口限制在 SeaTunnel 命名空间内：
 

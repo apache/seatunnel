@@ -26,6 +26,8 @@ import ChangeLog from '../changelog/connector-cdc-sqlserver.md';
 
 Sql Server CDC 连接器允许从 SqlServer 数据库读取快照数据和增量数据。本文档描述了如何设置 Sql Server CDC 连接器来对 SqlServer 数据库运行 SQL 查询。
 
+当 `startup.mode = initial` 时，连接器会先按并行 split 读取每个被监控表的快照，然后从快照结束时记录的 LSN 切换到增量流式读取。下游应当把快照阶段视为一次性的引导数据，不要依赖它做稳态读取。
+
 :::tip
 
 在通过 JDBC 元数据发现表列信息时，SeaTunnel 会按精确的 schema/table 标识符对返回结果做二次过滤，以避免混入其他表的列（部分驱动会将
@@ -76,8 +78,8 @@ Sql Server CDC 连接器允许从 SqlServer 数据库读取快照数据和增量
 | username                                       | String   | 是       | -       | 连接 SQL Server 实例时使用的用户名。                                                                                                                                                                                                                                                                                |
 | password                                       | String   | 是       | -       | 连接数据库服务器时使用的密码。                                                                                                                                                                                                                                                                                      |
 | database-names                                 | List     | 是       | -       | 要监控的数据库名称。                                                                                                                                                                                                                                                                                                |
-| table-names                                    | List     | 是       | -       | 要监控的表，使用完整表标识：`databaseName.schemaName.tableName`。该参数与 `table-pattern` 互斥。                                                                                                                                                                                                                                                      |
-| table-pattern                                  | String   | 是       | -       | 要监控的表名正则表达式，需要匹配完整表标识，例如 `column_type_test\\.dbo\\..*`。该参数与 `table-names` 互斥。                                                                                                                                                                                                                                                      |
+| table-names                                    | List     | 未配置 `table-pattern` 时必填 | - | 要监控的表，使用完整表标识：`databaseName.schemaName.tableName`。该参数与 `table-pattern` 互斥，二者只能配置一个。                                                                                                                                                                                                                                          |
+| table-pattern                                  | String   | 未配置 `table-names` 时必填 | - | 要监控的表名正则表达式，需要匹配完整表标识，例如 `column_type_test\\.dbo\\..*`。该参数与 `table-names` 互斥，二者只能配置一个。                                                                                                                                                                                                                                          |
 | table-names-config                             | List     | 否       | -       | 表配置列表。例如：[{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]。 snapshotSplitColumn 选项必须配置为唯一键(主键或唯一索引)。 如果指定了非唯一列，该配置将被忽略，SeaTunnel 会在内部自动选择合适的拆分列。                                                                                                                                                                                                           |
 | url                                            | String   | 是       | -       | 配置校验会拒绝空字符串或仅包含空白字符的值，不会去除非空白值两端的空白字符。URL 必须包含数据库，如 "jdbc:sqlserver://localhost:1433;databaseName=test"。URL 中的 SQL Server JDBC 连接属性（如 `encrypt`、`trustServerCertificate`）会传递给 CDC 连接；`debezium` 中显式配置的属性（如 `database.trustServerCertificate`）优先。 |
 | startup.mode                                   | Enum     | 否       | INITIAL | SqlServer CDC 消费者的可选启动模式，有效值为 `initial`、`earliest`、`latest` 和 `timestamp`。<br/>`initial`：先读取表快照，再继续读取增量变更。<br/>`earliest`：从最早可用的 CDC LSN 开始读取。<br/>`latest`：只读取作业启动后的变更。<br/>`timestamp`：从 `startup.timestamp` 解析出的 LSN 开始读取。                                                                                                                                                                             |
@@ -97,9 +99,10 @@ Sql Server CDC 连接器允许从 SqlServer 数据库读取快照数据和增量
 | split.allow-sampling                         | Boolean  | 否       | true    | 是否启用基于采样的分片策略。当设置为 false 时，无论预估分片数是否超过阈值，系统都将回退到非均匀分片方式（迭代查询方式）。默认值为 true。 |
 | enable_concurrent_read                       | Boolean  | 否       | true    | 是否在快照阶段启用基于分片的并发读取。当设置为 false 时，source 会跳过分片分析，并以单个 split 读取整张表，适合没有索引的表。默认值为 true。 |
 | exactly_once                                   | Boolean  | 否       | false   | 启用精确一次语义。                                                                                                                                                                                                                                                                                                  |
-| debezium.*                                     | config   | 否       | -       | 将 Debezium 的属性传递给 Debezium Embedded Engine，用于捕获来自 SqlServer 服务器的数据变更。<br/>了解更多关于<br/>[Debezium 的 SqlServer 连接器属性](https://github.com/debezium/debezium/blob/1.6/documentation/modules/ROOT/pages/connectors/sqlserver.adoc#connector-properties)                                 |
+| debezium.*                                     | config   | 否       | -       | 将 Debezium 的属性传递给 Debezium Embedded Engine，用于捕获来自 SqlServer 服务器的数据变更。<br/>了解更多关于<br/>[Debezium 的 SqlServer 连接器属性](https://debezium.io/documentation/reference/1.9/connectors/sqlserver.html)                                 |
 | format                                         | Enum     | 否       | DEFAULT | SqlServer CDC 的可选输出格式，有效枚举为 "DEFAULT"、"COMPATIBLE_DEBEZIUM_JSON"。                                                                                                                                                                                                                                    |
 | schema-changes.enabled                         | Boolean  | 否       | false   | 模式演进默认是禁用的。当前我们只支持 `add column`、`drop column`、`rename column` 和 `modify column`。                                                                                                                                                                                                                |
+| schema-changes.behavior                        | Enum     | 否       | evolve  | `schema-changes.enabled = true` 时，处理经过 `schema-changes.include` / `schema-changes.exclude` 过滤后保留的事件。值不区分大小写：`strict`、`evolve`、`ignore`。`ignore` 只丢弃纯注释事件，行结构变更会失败。目前仅在 Flink 上生效，Zeta 和 Spark 不支持。详见 [Schema 变更行为策略](../../introduction/configuration/schema-evolution.md#schema-变更行为策略)。 |
 | schema-changes.include                          | List     | 否       | -       | 仅向下游发送列出的 schema change 事件类型（需 `schema-changes.enabled = true`）。为空表示全部允许。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                                                                          |
 | schema-changes.exclude                          | List     | 否       | -       | 此处列出的 schema change 事件类型不会发送到下游。在 `schema-changes.include` 之后应用；冲突时 exclude 优先。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                                                                   |
 | common-options                                 |          | 否       | -       | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 获取详细信息。                                                                                                                                                                                                                                     |
@@ -314,6 +317,34 @@ source {
 }
 ```
 
+### 心跳动作（Heartbeat action）
+
+可以使用 `debezium.heartbeat.action.query` 选项在连接器发出心跳事件时执行一个动作。注意：SQL Server 的轮询循环
+不会自行派发空闲心跳，因此该动作仅在连接器实际发出心跳时执行。该动作通过源数据库连接执行并刷新
+SQL Server CDC 的 LSN 追踪；它不会固定任何消费者的保留窗口，也不能替代正确配置的 CDC 保留期与故障/延迟监控
+（参见 [Microsoft CDC 清理文档](https://learn.microsoft.com/en-us/sql/relational-databases/track-changes/administer-and-monitor-change-data-capture-sql-server#cleanup-job)）。
+
+```hocon
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["column_type_test"]
+    table-names = ["column_type_test.dbo.full_types"]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test"
+    debezium {
+      heartbeat.interval.ms = 100
+      heartbeat.action.query = "INSERT INTO column_type_test.dbo.heartbeat (ts) VALUES (GETDATE())"
+    }
+  }
+}
+```
+
+心跳查询在源数据库连接上执行，因此心跳表及相应的 INSERT 权限必须存在于源数据库中。心跳写入不会延缓基于
+保留策略的 change table 清理；若作业落后超过保留期限，其所需的 LSN 区间可能已被清理，
+导致可恢复的流式作业中断。
+
 ### Schema change 事件过滤
 
 当 `schema-changes.enabled = true` 时，可通过 `schema-changes.include` / `schema-changes.exclude` 进一步
@@ -348,6 +379,47 @@ source {
 
 **排除 `drop.column` 时的数据处理方式。** 对于被保留的 **NOT NULL** 列，写入 `NULL` 会被 sink 拒绝，因此对一个源端已不再供数的
 NOT NULL 列排除 `drop.column` 会在 sink 端失败。
+
+### 名称中包含特殊字符的数据库
+
+`database-names` 列表以及 JDBC URL 中的 `databaseName` 参数必须使用与服务器上存储完全一致的标识符。当数据库名称
+包含 `-` 或 `.` 等字符时，在 SQL 中需要为数据库名称加上引号，而 URL 参数则按字面值书写。连接器不会自动对数据库名称
+进行 URL 编码。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["test-db-name"]
+    table-names = ["test-db-name.dbo.simple_table"]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=test-db-name"
+    exactly_once = false
+  }
+}
+
+sink {
+  Jdbc {
+    plugin_input = "customers"
+    driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=test-db-name;encrypt=false"
+    user = "sa"
+    password = "Password!"
+    generate_sink_sql = true
+    database = "test-db-name"
+    table = "dbo.simple_table_sink"
+    batch_size = 1
+    primary_keys = ["id"]
+  }
+}
+```
 
 ## 变更日志
 
