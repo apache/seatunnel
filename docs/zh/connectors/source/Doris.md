@@ -83,6 +83,7 @@ import ChangeLog from '../changelog/connector-doris.md';
 | database                         | string | yes      | -          | Doris 数据库名。未配置 `table_list` 时必须在 source 外层配置。                                     |
 | table                            | string | yes      | -          | Doris 表名。未配置 `table_list` 时必须在 source 外层配置。                                         |
 | table_list                       | Array  | no       | -           | 要读取的 Doris 表清单。                                                                                |
+| case_sensitive                   | boolean | no      | true        | 是否保留数据库名和表名的原始大小写。设置为 false 时，数据库名和表名将被转换为小写。仅在通过 `database` 和 `table` 配置单表时生效。 |
 
 表清单配置:
 

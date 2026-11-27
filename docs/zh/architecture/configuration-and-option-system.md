@@ -403,6 +403,8 @@ AND 优先级高于 OR，因此 `A.or(B.and(C))` 等价于 `A || (B && C)`。适
 
 实现 `ConditionExtension<T>` 接口，通过 `Conditions.extension(option, ext)` 接入。扩展算子复用与内置算子完全相同的 `valueConstraints` 管线，支持 `.and()` / `.or()` 链式组合，适用于 `required`、`optional`、`conditional` 等所有规则类型。
 
+条件的相等性和哈希计算包含扩展校验器的 `equals` 和 `hashCode`，链中的扩展条件也遵循这一规则。构建等价规则时可复用同一个扩展实例；不同实例默认视为不同，除非扩展实现自行定义了基于值的相等性。
+
 匿名内部类写法：
 
 ```java
@@ -473,6 +475,16 @@ static class TableConfigsValidator
 - 当前服务端实际安装 Connector 的默认值和规则
 
 因此，配置与 Option 系统不仅是开发者能力，也是运维能力的一部分。
+
+### 导出连接器元数据
+
+在已安装 FakeSource 连接器的 SeaTunnel 发行包目录下，可运行以下命令打印该连接器的选项规则。
+
+```shell
+bin/seatunnel-metadata-export.sh -pt source -p FakeSource --stdout
+```
+
+`connectors[]` 中每一项对应一个插件。条件必填项的触发条件位于 `required[].conditionTree`，嵌套规则的触发条件位于 `conditionRules[].expressionTree`。这两类树都通过表达式节点上的 `operator` 和 `next` 遍历。对于 `valueConstraints[].conditionTree`，则沿条件节点本身的同名字段遍历。
 
 ## 推荐继续阅读
 
