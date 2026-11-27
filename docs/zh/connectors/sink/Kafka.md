@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
-> 默认情况下，`semantics` 为 `NON`：消息直接发送，不使用事务，不保证不丢不重（失败时消息可能丢失或重复）。将 `semantics` 设置为 `EXACTLY_ONCE` 后才会使用 2pc（Kafka 事务）实现精确一次语义。
+> 默认的 `semantics = NON` 直接发送记录，不使用 Kafka 事务。故障时可能丢失或重复发送记录。设置 `semantics = EXACTLY_ONCE` 并启用 checkpoint 后，Sink 会随 checkpoint 提交 Kafka 事务。参见[语义](#语义)。
 
 ## 描述
 
@@ -48,6 +48,8 @@ Dry-run 诊断指出无效选项（包括 `topic` 中引用缺失字段的 `${fi
 | Kafka | 通用   | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-kafka) |
 
 ## 接收器选项
+
+> 注意：`partition` 和 `partition_key_fields` 互斥，同时配置会校验失败，只能配置其中一个。
 
 |          名称          |   类型   | 是否需要 | 默认值  | 描述                                                                                                                                                                                                                                                                 |
 |----------------------|--------|------|------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|

@@ -57,13 +57,13 @@ downloaded from Maven Central.
 | host               | string  | Yes when `mode = SINGLE`    | -       | Redis host for single-node mode. |
 | port               | int     | No                          | 6379    | Redis port for single-node mode. |
 | nodes              | list    | Yes when `mode = CLUSTER`   | -       | Redis Cluster nodes, for example `["redis-0:6379", "redis-1:6379"]`. |
-| mode               | string  | No                          | SINGLE  | Redis deployment mode. Supported values are `SINGLE` and `CLUSTER`. |
+| mode               | enum    | No                          | SINGLE  | Redis deployment mode. Supported values are `SINGLE` and `CLUSTER`. |
 | user               | string  | No                          | -       | Redis ACL username. |
 | auth               | string  | No                          | -       | Redis authentication password. |
 | db_num             | int     | No                          | 0       | Redis database index. This option is used in single-node mode. |
 | key                | string  | Yes                         | -       | Redis key, upstream field name, or key template when `support_custom_key = true`. |
-| data_type          | string  | Yes                         | -       | Redis data type. Supported values are `KEY`, `STRING`, `HASH`, `LIST`, `SET`, and `ZSET`. |
-| format             | string  | No                          | JSON    | Serialization format used when no value field is configured. Supported values are `JSON` and `TEXT`. |
+| data_type          | enum    | Yes                         | -       | Redis data type. Supported values are `KEY`, `STRING`, `HASH`, `LIST`, `SET`, and `ZSET`. |
+| format             | enum    | No                          | JSON    | Serialization format used when no value field is configured. Supported values are `JSON` and `TEXT`. |
 | field_delimiter    | string  | No                          | `,`     | Field delimiter used when `format = TEXT`. |
 | batch_size         | int     | No                          | 10      | Maximum number of rows buffered before one batch write. |
 | expire             | long    | No                          | -1      | Key expiration time in seconds. Values less than or equal to 0 mean no expiration is set. |

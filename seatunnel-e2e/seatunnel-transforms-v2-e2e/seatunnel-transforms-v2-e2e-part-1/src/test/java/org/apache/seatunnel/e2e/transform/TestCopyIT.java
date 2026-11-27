@@ -31,7 +31,8 @@ public class TestCopyIT extends TestSuiteBase {
 
     @TestTemplate
     public void testCopy(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/copy_transform.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/copy_transform/copy_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -45,14 +46,16 @@ public class TestCopyIT extends TestSuiteBase {
             type = {EngineType.SPARK},
             disabledReason = "Spark translation does not support vector types")
     public void testCopyVectors(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/copy_transform_vector.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/copy_transform/copy_transform_vector.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
     public void testCopyMultiTable(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/copy_transform_multi_table.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/copy_transform/copy_transform_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -61,7 +64,7 @@ public class TestCopyIT extends TestSuiteBase {
     public void testCopyTableTransformOnly(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/copy_transform_table_transform_only.conf");
+                container.executeJob("/copy_transform/copy_transform_table_transform_only.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
