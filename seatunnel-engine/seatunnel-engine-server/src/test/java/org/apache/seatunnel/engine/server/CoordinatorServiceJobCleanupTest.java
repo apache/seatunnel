@@ -55,7 +55,6 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -749,26 +748,52 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                         stateKeys(jobId),
                         System.currentTimeMillis()));
 
-        // A late checkpoint callback holds the job state lock, so the cleanup before the restore
-        // cannot remove the terminal job key. The submission must wait instead of dropping the
-        // running job info and building a JobMaster on top of that stale key.
+        // Force the bounded lock wait to expire deterministically instead of holding the lock for
+        // the whole production timeout, so the skipped-cleanup outcome is actually exercised.
+        long defaultLockTimeout = coordinatorService.jobStateLockTimeoutSeconds;
+        coordinatorService.jobStateLockTimeoutSeconds = 1;
         runningJobStateIMap.lock(jobId);
         try {
-            CompletableFuture<Void> submission =
-                    coordinatorService.submitJob(
-                            jobId, createJobData(jobId, true, "stream_fake_to_console.conf"), true);
-            Thread.sleep(1000);
+            CompletionException exception =
+                    Assertions.assertThrows(
+                            CompletionException.class,
+                            () ->
+                                    coordinatorService
+                                            .submitJob(
+                                                    jobId,
+                                                    createJobData(
+                                                            jobId,
+                                                            true,
+                                                            "stream_fake_to_console.conf"),
+                                                    true)
+                                            .join());
+            Assertions.assertInstanceOf(JobException.class, exception.getCause());
             Assertions.assertTrue(
-                    runningJobInfoIMap.containsKey(jobId),
-                    "restore must not drop the running job info while the state cleanup is skipped");
+                    exception
+                            .getCause()
+                            .getMessage()
+                            .contains("waiting for terminal state cleanup"),
+                    "the restore must be rejected when the state cleanup is skipped");
+            Assertions.assertEquals(
+                    initializationTimestamp,
+                    runningJobInfoIMap.get(jobId).getInitializationTimestamp(),
+                    "the rejected restore must not drop the running job info of the old instance");
+            Assertions.assertEquals(
+                    JobStatus.FINISHED,
+                    runningJobStateIMap.get(jobId),
+                    "the rejected restore must leave the stale terminal job key for the retry");
             Assertions.assertTrue(
                     pendingJobCleanupIMap.containsKey(jobId),
                     "the pending cleanup record is the retry trigger and must survive a skip");
-            Assertions.assertEquals(JobStatus.FINISHED, runningJobStateIMap.get(jobId));
-            Assertions.assertFalse(submission.isDone());
+            Assertions.assertNull(
+                    coordinatorService.getJobMaster(jobId),
+                    "the rejected restore must not build a JobMaster on the stale terminal key");
         } finally {
             runningJobStateIMap.unlock(jobId);
+            coordinatorService.jobStateLockTimeoutSeconds = defaultLockTimeout;
         }
+        // Once the lock is available again the retried restore cleans the state and consumes the
+        // record.
         coordinatorService
                 .submitJob(jobId, createJobData(jobId, true, "stream_fake_to_console.conf"), true)
                 .join();

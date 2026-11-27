@@ -141,6 +141,14 @@ public class CoordinatorService {
      */
     private static final long JOB_STATE_LOCK_TIMEOUT_SECONDS = 30;
 
+    /**
+     * Bounded wait actually used by {@link #cleanupPendingJobStateMaps} before it reports the job
+     * state lock as unavailable. It defaults to {@link #JOB_STATE_LOCK_TIMEOUT_SECONDS} and is
+     * overridable so tests can drive the skipped cleanup outcome without holding the lock for the
+     * whole production wait.
+     */
+    long jobStateLockTimeoutSeconds = JOB_STATE_LOCK_TIMEOUT_SECONDS;
+
     private final NodeEngineImpl nodeEngine;
     private final SeaTunnelEngineContext engineContext;
     private final ILogger logger;
@@ -1020,7 +1028,7 @@ public class CoordinatorService {
         try {
             locked =
                     runningJobStateIMap.tryLock(
-                            jobId, JOB_STATE_LOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                            jobId, jobStateLockTimeoutSeconds, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             logger.warning(
