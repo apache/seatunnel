@@ -155,9 +155,10 @@ public class JdbcOutputFormatBuilderTest {
         Assertions.assertEquals(
                 CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, exception.getSeaTunnelErrorCode());
         Assertions.assertSame(batchFailure, exception.getCause());
-        Assertions.assertTrue(
-                exception.getMessage().contains("for table sales.orders"),
-                "message should identify the target table: " + exception.getMessage());
+        Assertions.assertEquals(
+                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED.getErrorMessage()
+                        + " - JDBC batch flush failed for table sales.orders.",
+                exception.getMessage());
     }
 
     @Test
@@ -176,13 +177,9 @@ public class JdbcOutputFormatBuilderTest {
         Assertions.assertEquals(
                 CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, exception.getSeaTunnelErrorCode());
         Assertions.assertSame(batchFailure, exception.getCause());
-        Assertions.assertTrue(
-                exception.getMessage().contains("JDBC batch flush failed."),
-                "message should keep the legacy text: " + exception.getMessage());
-        Assertions.assertFalse(
-                exception.getMessage().contains(" for table "),
-                "message must not invent a table when none is configured: "
-                        + exception.getMessage());
+        Assertions.assertEquals(
+                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED.getErrorMessage(),
+                exception.getMessage());
     }
 
     @Test

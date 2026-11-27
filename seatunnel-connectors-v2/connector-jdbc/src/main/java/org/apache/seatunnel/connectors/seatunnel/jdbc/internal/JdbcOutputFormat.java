@@ -127,6 +127,20 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         return tableIdentifier == null ? "" : " for table " + tableIdentifier;
     }
 
+    /**
+     * Builds the exception for a batch failure. With a known target the message names the table;
+     * without one, the cause-only constructor preserves the legacy message exactly.
+     */
+    private JdbcConnectorException batchFlushFailed(SQLException cause) {
+        if (tableIdentifier == null) {
+            return new JdbcConnectorException(CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, cause);
+        }
+        return new JdbcConnectorException(
+                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                "JDBC batch flush failed" + tableSuffix() + ".",
+                cause);
+    }
+
     /** Opens the connection and initializes statements and the transaction state. */
     public void open() throws IOException {
         try {
@@ -284,10 +298,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 }
                 // Row-error mode delegates failed data batches to the writer for rollback.
                 if (failFastOnRowLevelSqlState && isRowLevelSqlState(e)) {
-                    throw new JdbcConnectorException(
-                            CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                            "JDBC batch flush failed" + tableSuffix() + ".",
-                            e);
+                    throw batchFlushFailed(e);
                 }
 
                 boolean retryableTransactionConflict =
@@ -348,18 +359,12 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                                 nonRetryableDataException.getSQLState(),
                                 nonRetryableDataException.getErrorCode(),
                                 e);
-                        throw new JdbcConnectorException(
-                                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                                "JDBC batch flush failed" + tableSuffix() + ".",
-                                e);
+                        throw batchFlushFailed(e);
                     }
                 }
 
                 if (i >= jdbcConnectionConfig.getMaxRetries()) {
-                    throw new JdbcConnectorException(
-                            CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                            "JDBC batch flush failed" + tableSuffix() + ".",
-                            e);
+                    throw batchFlushFailed(e);
                 }
                 if (transactionStateManager.hasPendingOrLostWork()) {
                     // A retry would re-send only the current batch. Earlier batches live only in
