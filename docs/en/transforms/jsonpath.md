@@ -53,6 +53,7 @@ Support SeatunnelDateType
 
 * STRING
 * BYTES
+* VARBINARY (alias of BYTES)
 * ARRAY
 * MAP
 * ROW
