@@ -126,6 +126,16 @@ import static org.apache.seatunnel.common.constants.JobMode.BATCH;
 public class JobMaster {
     private static final ILogger LOGGER = Logger.getLogger(JobMaster.class);
 
+    /**
+     * Bounded number of read-backs used to confirm a written slot ownership record. The write is
+     * synchronous on the IMap owner, so a mismatch normally appears in the first read; the small
+     * bound only covers a transient read from another member without blocking job admission for
+     * long.
+     */
+    private static final int OWNED_SLOT_PROFILES_CONFIRM_RETRY_TIME = 3;
+
+    private static final long OWNED_SLOT_PROFILES_CONFIRM_RETRY_SLEEP_MS = 100L;
+
     private final Object metricsLock = new Object();
 
     private PhysicalPlan physicalPlan;
@@ -606,13 +616,15 @@ public class JobMaster {
         // master cannot reuse or release, because it never recorded them.
         Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> preAppliedSlotProfiles =
                 collectPreAppliedSlotProfiles(preApplyResourceFutures);
-        if (!persistPreAppliedSlotProfiles(preAppliedSlotProfiles)) {
+        Set<PipelineLocation> confirmedPipelines =
+                persistPreAppliedSlotProfiles(preAppliedSlotProfiles);
+        if (confirmedPipelines.size() != preAppliedSlotProfiles.size()) {
             // A pre-applied slot is only reusable or releasable after a master failure when its
-            // ownership is visible in the IMap, so a write that cannot be confirmed must not admit
-            // the job: the slots would stay allocated while the successor master has no profile
-            // for them.
+            // ownership is visibly persisted, so an unconfirmed write must not admit the job: the
+            // slots would stay allocated while the successor master has no profile for them.
             Set<PipelineLocation> unreconciledPipelines =
-                    reconcilePreAppliedSlotProfiles(preAppliedSlotProfiles);
+                    reconcilePreAppliedSlotProfiles(
+                            preAppliedSlotProfiles, confirmedPipelines, reusedSlotProfiles);
             releaseUnusedPreAppliedResources(
                     preApplyResourceFutures, reusedSlotProfiles, unreconciledPipelines);
             return false;
@@ -672,24 +684,31 @@ public class JobMaster {
      * profiles here closes that window; the profiles keep their allocation sequence, so releasing
      * them later cannot affect a slot reassigned to another attempt.
      *
-     * <p>{@link #setOwnedSlotProfiles} only returns once the written value is readable back, so a
-     * failure here means the ownership is unknown rather than delayed. The caller must not admit
-     * the job in that case: the slots are already allocated on the workers, and a successor master
-     * could neither reuse nor release them after an active-master switch.
+     * <p>A write that returns is not enough: {@link #setOwnedSlotProfiles} also reports whether the
+     * written value could be read back unchanged. Both a thrown write and an unconfirmed read-back
+     * mean the ownership is unknown rather than delayed, and the caller must not admit the job in
+     * that case: the slots are already allocated on the workers, and a successor master could
+     * neither reuse nor release them after an active-master switch.
      *
      * @param profilesByPipeline successfully allocated profiles of this pre-apply round, keyed by
      *     pipeline
-     * @return true when every pipeline's ownership was written and confirmed
+     * @return the pipelines whose ownership was written and confirmed by a read-back
      */
-    private boolean persistPreAppliedSlotProfiles(
+    private Set<PipelineLocation> persistPreAppliedSlotProfiles(
             Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> profilesByPipeline) {
-        boolean persisted = true;
+        Set<PipelineLocation> confirmedPipelines = new HashSet<>();
         for (Map.Entry<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> entry :
                 profilesByPipeline.entrySet()) {
             try {
-                setOwnedSlotProfiles(entry.getKey(), entry.getValue());
+                if (setOwnedSlotProfiles(entry.getKey(), entry.getValue())) {
+                    confirmedPipelines.add(entry.getKey());
+                } else {
+                    LOGGER.warning(
+                            String.format(
+                                    "Could not confirm pre-applied slot ownership for pipeline %s of job %d: the written mapping did not read back unchanged",
+                                    entry.getKey(), jobImmutableInformation.getJobId()));
+                }
             } catch (Exception e) {
-                persisted = false;
                 LOGGER.warning(
                         String.format(
                                 "Could not persist pre-applied slot ownership for pipeline %s of job %d: %s",
@@ -698,28 +717,81 @@ public class JobMaster {
                                 ExceptionUtils.getMessage(e)));
             }
         }
-        return persisted;
+        return confirmedPipelines;
     }
 
     /**
-     * Removes the ownership records a failed pre-apply may have written, before its slots are
-     * released.
+     * Reverts the ownership records a failed pre-apply round may have written, before its slots are
+     * released, without ever touching ownership this round did not create.
      *
-     * <p>An IMap write can commit while its acknowledgement is lost, so the record is removed
-     * explicitly instead of assuming a failed write left nothing behind. A pipeline whose record
-     * cannot be removed is returned to the caller, which must keep its slots allocated: a successor
-     * master may already have adopted them from that record, and releasing them would free slots
-     * that are in use.
+     * <p>Three cases are distinguished per pipeline:
+     *
+     * <ul>
+     *   <li>The record was written and confirmed. It is valid ownership that a successor master may
+     *       already have adopted, and removing it would not revoke that adoption. The record and
+     *       its slots are kept, so the pipeline is returned to the caller.
+     *   <li>Only retained slots of a previous master are involved (no slot of this round). The
+     *       record is the one the slots were reused from, so it must stay untouched.
+     *   <li>Slots of this round are involved. The record is removed, or restored to the retained
+     *       slots only when the round overwrote a retained mapping. The revert is then read back;
+     *       when it cannot be confirmed, a successor master may still see this round's slots, so
+     *       the pipeline is returned to the caller and its slots stay allocated instead of being
+     *       released twice.
+     * </ul>
      *
      * @param profilesByPipeline profiles of the pre-apply round that failed to persist
-     * @return pipelines whose ownership record could not be removed
+     * @param confirmedPipelines pipelines whose ownership write was confirmed
+     * @param retainedSlotProfiles slots retained from the previous master
+     * @return pipelines whose ownership could not be reverted, whose slots must stay allocated
      */
     private Set<PipelineLocation> reconcilePreAppliedSlotProfiles(
-            Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> profilesByPipeline) {
+            Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> profilesByPipeline,
+            Set<PipelineLocation> confirmedPipelines,
+            Set<SlotProfile> retainedSlotProfiles) {
         Set<PipelineLocation> unreconciledPipelines = new HashSet<>();
-        for (PipelineLocation pipelineLocation : profilesByPipeline.keySet()) {
+        for (Map.Entry<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> entry :
+                profilesByPipeline.entrySet()) {
+            PipelineLocation pipelineLocation = entry.getKey();
+            if (confirmedPipelines.contains(pipelineLocation)) {
+                // The write was confirmed, so the record is real ownership that a successor master
+                // may already have adopted. Removing it would not revoke that adoption, and
+                // releasing the slots could free a slot that is in use. Keep both.
+                unreconciledPipelines.add(pipelineLocation);
+                continue;
+            }
+
+            Map<TaskGroupLocation, SlotProfile> retainedProfiles = new HashMap<>();
+            Map<TaskGroupLocation, SlotProfile> acquiredProfiles = new HashMap<>();
+            entry.getValue()
+                    .forEach(
+                            (taskGroupLocation, slotProfile) -> {
+                                if (retainedSlotProfiles.contains(slotProfile)) {
+                                    retainedProfiles.put(taskGroupLocation, slotProfile);
+                                } else {
+                                    acquiredProfiles.put(taskGroupLocation, slotProfile);
+                                }
+                            });
+            if (acquiredProfiles.isEmpty()) {
+                // This round created nothing new for the pipeline: its ownership record was read
+                // from the IMap and must be left untouched so the retained slots stay recoverable.
+                continue;
+            }
+
             try {
-                ownedSlotProfilesIMap.remove(pipelineLocation);
+                if (retainedProfiles.isEmpty()) {
+                    ownedSlotProfilesIMap.remove(pipelineLocation);
+                } else {
+                    // Do not erase ownership that already existed before this round: put the
+                    // retained mapping back instead of removing the whole pipeline record.
+                    ownedSlotProfilesIMap.put(pipelineLocation, retainedProfiles);
+                }
+                if (isOwnershipStillRecorded(pipelineLocation, acquiredProfiles)) {
+                    unreconciledPipelines.add(pipelineLocation);
+                    LOGGER.warning(
+                            String.format(
+                                    "Could not confirm the revert of pre-applied slot ownership for pipeline %s of job %d, keeping its slots allocated",
+                                    pipelineLocation, jobImmutableInformation.getJobId()));
+                }
             } catch (Exception e) {
                 unreconciledPipelines.add(pipelineLocation);
                 LOGGER.warning(
@@ -731,6 +803,38 @@ public class JobMaster {
             }
         }
         return unreconciledPipelines;
+    }
+
+    /**
+     * Checks whether the given profiles can still be read from the ownership record, which means a
+     * successor master could still adopt and use those slots.
+     *
+     * <p>An unreadable record is treated as still recorded: releasing the slots is the unsafe
+     * choice when the state is unknown.
+     *
+     * @param pipelineLocation pipeline whose record is checked
+     * @param profiles profiles of the failed round that must no longer be visible
+     * @return true when any of the profiles is still part of the pipeline's record
+     */
+    private boolean isOwnershipStillRecorded(
+            PipelineLocation pipelineLocation, Map<TaskGroupLocation, SlotProfile> profiles) {
+        try {
+            Map<TaskGroupLocation, SlotProfile> current =
+                    ownedSlotProfilesIMap.get(pipelineLocation);
+            if (current == null) {
+                return false;
+            }
+            return profiles.entrySet().stream()
+                    .anyMatch(entry -> entry.getValue().equals(current.get(entry.getKey())));
+        } catch (Exception e) {
+            LOGGER.warning(
+                    String.format(
+                            "Could not verify pre-applied slot ownership of pipeline %s for job %d: %s",
+                            pipelineLocation,
+                            jobImmutableInformation.getJobId(),
+                            ExceptionUtils.getMessage(e)));
+            return true;
+        }
     }
 
     /**
@@ -1716,24 +1820,57 @@ public class JobMaster {
         }
     }
 
-    public void setOwnedSlotProfiles(
+    /**
+     * Writes the task-group to slot mapping of a pipeline and confirms it by reading it back.
+     *
+     * <p>A returned {@code put} only means the write was acknowledged, not that the mapping is now
+     * stored: the value still has to read back unchanged. The read-back is retried a bounded number
+     * of times, and this method reports whether one of those reads confirmed the written value.
+     * Callers that decide whether a job may be admitted must inspect the return value, because an
+     * unconfirmed write is not ownership they can rely on after a master failover.
+     *
+     * <p>Callers that only record the mapping for the later scheduling path may ignore the result;
+     * the write and the confirmation attempt are still performed in that case.
+     *
+     * @param pipelineLocation pipeline whose ownership is written
+     * @param pipelineOwnedSlotProfiles complete task-group to slot mapping of the pipeline
+     * @return true only when the written mapping was read back unchanged
+     */
+    public boolean setOwnedSlotProfiles(
             @NonNull PipelineLocation pipelineLocation,
             @NonNull Map<TaskGroupLocation, SlotProfile> pipelineOwnedSlotProfiles) {
         ownedSlotProfilesIMap.put(pipelineLocation, pipelineOwnedSlotProfiles);
         try {
-            RetryUtils.retryWithException(
-                    () ->
-                            pipelineOwnedSlotProfiles.equals(
-                                    ownedSlotProfilesIMap.get(pipelineLocation)),
-                    new RetryUtils.RetryMaterial(
-                            Constant.OPERATION_RETRY_TIME,
-                            true,
-                            exception -> exception instanceof NullPointerException && isRunning,
-                            Constant.OPERATION_RETRY_SLEEP));
+            Boolean confirmed =
+                    RetryUtils.retryWithException(
+                            () -> {
+                                if (!pipelineOwnedSlotProfiles.equals(
+                                        ownedSlotProfilesIMap.get(pipelineLocation))) {
+                                    throw new UnconfirmedOwnedSlotProfilesException();
+                                }
+                                return Boolean.TRUE;
+                            },
+                            new RetryUtils.RetryMaterial(
+                                    OWNED_SLOT_PROFILES_CONFIRM_RETRY_TIME,
+                                    false,
+                                    exception -> isRetriableOwnershipFailure(exception),
+                                    OWNED_SLOT_PROFILES_CONFIRM_RETRY_SLEEP_MS));
+            return Boolean.TRUE.equals(confirmed);
         } catch (Exception e) {
             throw new SeaTunnelEngineException(
                     "Can not sync pipeline owned slot profiles with IMap", e);
         }
+    }
+
+    private boolean isRetriableOwnershipFailure(Exception exception) {
+        return (exception instanceof UnconfirmedOwnedSlotProfilesException
+                        || exception instanceof NullPointerException)
+                && isRunning;
+    }
+
+    /** Signals that a written ownership record did not read back as the written value. */
+    private static final class UnconfirmedOwnedSlotProfilesException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
     }
 
     public SlotProfile getOwnedSlotProfiles(@NonNull TaskGroupLocation taskGroupLocation) {
