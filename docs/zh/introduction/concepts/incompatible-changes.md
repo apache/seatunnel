@@ -4,6 +4,14 @@
 
 ## dev
 
+### Paimon source：稳定的分片标识
+
+Paimon source 改用已有生成 ID，而非底层 Paimon split 的字符串表示来分配 reader。
+这修复了 Spark reader 在不同 JVM 中独立枚举同一固定快照时的分片漏分配和重复分配。
+配置项和序列化分片字段不变，但 split ID 与哈希计算出的 reader 归属会改变。
+同一作业内不要混用新旧 connector。升级前先完成有界作业；有状态作业应单独验证
+checkpoint/savepoint 恢复及扩缩容，再执行升级。此修改仍要求独立枚举的分片计划顺序一致。
+
 ### HBase sink：DELETE 行删除映射的数据
 
 `DELETE` 行现在会删除本 sink 映射列簇中不晚于该变更时间戳的所有单元格版本。此前这些行会将旧值作为 Put 写入，未映射列簇仍不受影响。仅投影 rowkey 和版本列时，没有映射列簇，sink 会拒绝 DELETE 行。请在投影中包含目标列簇的至少一个数据列。

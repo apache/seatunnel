@@ -19,6 +19,8 @@ package org.apache.seatunnel.e2e.connector.paimon;
 
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceSplit;
+import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceSplitGenerator;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -107,6 +109,17 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
         Container.ExecResult textWriteResult = container.executeJob("/fake_to_paimon.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
+        TableScan.Plan plan =
+                ((FileStoreTable) getTable(DATABASE_NAME, "st_test"))
+                        .newReadBuilder()
+                        .newScan()
+                        .plan();
+        List<PaimonSourceSplit> splits =
+                new PaimonSourceSplitGenerator().createSplits("default.st_test", plan);
+        Assertions.assertFalse(splits.isEmpty());
+        for (PaimonSourceSplit split : splits) {
+            Assertions.assertEquals(split.getId(), split.splitId());
+        }
         Container.ExecResult readResult = container.executeJob("/paimon_to_assert.conf");
         Assertions.assertEquals(0, readResult.getExitCode());
         Container.ExecResult readProjectionResult =
