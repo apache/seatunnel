@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -29,23 +30,40 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSourceState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.ObjectUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Proxy;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class DynamicChunkSplitterTest {
 
@@ -345,6 +363,215 @@ public class DynamicChunkSplitterTest {
                         .explicitReaderParallelism(parallelism)
                         .hashShardParallelismCap(cap)
                         .build());
+    }
+
+    /**
+     * The default-on cap must bound a real hash chunk plan at the {@code parallelism} written in
+     * the source configuration: 950 rows with {@code split.size = 10} would plan 96 hash chunks,
+     * and the four generated predicates must use the capped count in the modulus, with the residues
+     * 0..3 bound once each, so the same rows stay covered by fewer whole-table scans.
+     */
+    @Test
+    public void testHashShardCapFromPluginParallelismCapsGeneratedPredicates() throws Exception {
+        Map<String, Object> options = hashSplitOptions();
+        options.put("parallelism", 4);
+        JdbcSourceConfig config = JdbcSourceConfig.of(ReadonlyConfig.fromMap(options));
+
+        // The upgrade contract: a source that only sets parallelism is capped by default.
+        assertTrue(config.isHashShardParallelismCap(), "the hash shard cap must be on by default");
+        assertEquals(Integer.valueOf(4), config.getExplicitReaderParallelism());
+
+        DynamicChunkSplitter splitter = new EstimatedRowCountSplitter(config, 950L);
+        Collection<JdbcSourceSplit> splits = splitter.generateSplits(hashSplitTable());
+
+        assertCappedHashSplits(splits, 4);
+    }
+
+    /**
+     * When the source plugin does not set {@code parallelism}, the effective reader count may come
+     * from the env block, which the connector cannot observe, so the planned chunk count must not
+     * change: 96 hash chunks are kept even though the cap is on by default.
+     */
+    @Test
+    public void testHashShardCapSkippedWhenPluginDoesNotSetParallelism() throws Exception {
+        JdbcSourceConfig config = JdbcSourceConfig.of(ReadonlyConfig.fromMap(hashSplitOptions()));
+
+        assertTrue(config.isHashShardParallelismCap(), "the hash shard cap must be on by default");
+        assertNull(
+                config.getExplicitReaderParallelism(),
+                "an absent plugin parallelism must stay unset instead of guessing the reader count");
+
+        DynamicChunkSplitter splitter = new EstimatedRowCountSplitter(config, 950L);
+        Collection<JdbcSourceSplit> splits = splitter.generateSplits(hashSplitTable());
+
+        assertCappedHashSplits(splits, 96);
+    }
+
+    /**
+     * Setting {@code split.hash-shard-parallelism-cap = false} must restore the previous planning:
+     * the explicit parallelism is still visible in the config, but it no longer bounds the chunk
+     * count.
+     */
+    @Test
+    public void testHashShardCapOptOutKeepsPriorChunkCount() throws Exception {
+        Map<String, Object> options = hashSplitOptions();
+        options.put("parallelism", 4);
+        options.put("split.hash-shard-parallelism-cap", false);
+        JdbcSourceConfig config = JdbcSourceConfig.of(ReadonlyConfig.fromMap(options));
+
+        assertFalse(config.isHashShardParallelismCap());
+        assertEquals(Integer.valueOf(4), config.getExplicitReaderParallelism());
+
+        DynamicChunkSplitter splitter = new EstimatedRowCountSplitter(config, 950L);
+        Collection<JdbcSourceSplit> splits = splitter.generateSplits(hashSplitTable());
+
+        assertCappedHashSplits(splits, 96);
+    }
+
+    /**
+     * A restore must read the saved hash chunk predicates instead of replanning them: the
+     * checkpointed splits survive state serialization with their capped modulus and residue, and
+     * the reader binds the saved residue into the saved query. Replanning on restore would either
+     * change the chunk count under the same saved split ids or depend on live statistics.
+     */
+    @Test
+    public void testHashShardCapGeneratedSplitsSurviveCheckpointRestore() throws Exception {
+        Map<String, Object> options = hashSplitOptions();
+        options.put("parallelism", 4);
+        JdbcSourceConfig config = JdbcSourceConfig.of(ReadonlyConfig.fromMap(options));
+        EstimatedRowCountSplitter splitter = new EstimatedRowCountSplitter(config, 950L);
+
+        List<JdbcSourceSplit> planned = new ArrayList<>(splitter.generateSplits(hashSplitTable()));
+        assertCappedHashSplits(planned, 4);
+
+        Map<Integer, List<JdbcSourceSplit>> pendingSplits = new HashMap<>();
+        pendingSplits.put(0, planned);
+        JdbcSourceState state = new JdbcSourceState(new ArrayList<TablePath>(), pendingSplits);
+        DefaultSerializer<JdbcSourceState> serializer = new DefaultSerializer<>();
+        JdbcSourceState restoredState = serializer.deserialize(serializer.serialize(state));
+
+        List<JdbcSourceSplit> restored = restoredState.getPendingSplits().get(0);
+        assertEquals(planned, restored, "the restored hash chunks must equal the planned ones");
+        assertCappedHashSplits(restored, 4);
+
+        // The reader path binds the restored residue into the restored predicate.
+        assertNotNull(splitter.generateSplitStatement(restored.get(2), hashSplitSchema()));
+        assertEquals(hashSplitSql(4), splitter.preparedSql);
+        assertEquals(
+                Integer.valueOf(2),
+                splitter.intParameters.get(1),
+                "the third restored chunk must read residue 2 of the saved capped modulus");
+    }
+
+    private static Map<String, Object> hashSplitOptions() {
+        Map<String, Object> options = new HashMap<>();
+        options.put("url", "jdbc:mysql://localhost:3306/testdb");
+        options.put("driver", "com.mysql.cj.jdbc.Driver");
+        options.put("table_path", "testdb.test_table");
+        options.put("split.string-strategy", "hash");
+        options.put("split.size", "10");
+        return options;
+    }
+
+    private static TableSchema hashSplitSchema() {
+        return TableSchema.builder()
+                .column(PhysicalColumn.of("id", BasicType.INT_TYPE, 0L, false, null, null))
+                .column(PhysicalColumn.of("code", BasicType.STRING_TYPE, 0L, false, null, null))
+                .build();
+    }
+
+    private static JdbcSourceTable hashSplitTable() {
+        TablePath tablePath = TablePath.of("testdb", "test_table");
+        return JdbcSourceTable.builder()
+                .tablePath(tablePath)
+                .partitionColumn("code")
+                .catalogTable(
+                        CatalogTable.of(
+                                TableIdentifier.of("catalog", tablePath),
+                                hashSplitSchema(),
+                                Collections.emptyMap(),
+                                Collections.emptyList(),
+                                ""))
+                .build();
+    }
+
+    private static String hashSplitSql(int shardCount) {
+        return String.format(
+                "SELECT * FROM `testdb`.`test_table` WHERE ABS(CRC32(`code`) %% %d) = ?",
+                shardCount);
+    }
+
+    /**
+     * Asserts the generated hash chunks use one modulus for every predicate and cover the residues
+     * {@code 0..shardCount-1} exactly once, so a capped plan is a partition of the same rows as the
+     * uncapped one and no row is read twice or skipped.
+     */
+    private static void assertCappedHashSplits(Collection<JdbcSourceSplit> splits, int shardCount) {
+        assertEquals(shardCount, splits.size());
+        Set<Integer> residues = new HashSet<>();
+        for (JdbcSourceSplit split : splits) {
+            assertEquals("code", split.getSplitKeyName());
+            assertEquals(hashSplitSql(shardCount), split.getSplitQuery());
+            assertEquals("testdb.test_table-" + residues.size(), split.getSplitId());
+            Integer residue = (Integer) split.getSplitStart();
+            assertEquals(residues.size(), residue.intValue());
+            assertNull(split.getSplitEnd());
+            assertTrue(residues.add(residue), "residue " + residue + " is generated twice");
+        }
+        assertEquals(shardCount, residues.size());
+        for (int residue = 0; residue < shardCount; residue++) {
+            assertTrue(residues.contains(residue), "residue " + residue + " is not covered");
+        }
+    }
+
+    /**
+     * A splitter whose approximate row count is fixed, so the hash chunk count is deterministic
+     * without a database, and whose split statements capture the generated SQL and bound
+     * parameters.
+     */
+    private static final class EstimatedRowCountSplitter extends DynamicChunkSplitter {
+
+        private final Connection connection;
+        private String preparedSql;
+        private final Map<Integer, Integer> intParameters = new HashMap<>();
+
+        private EstimatedRowCountSplitter(JdbcSourceConfig config, long approximateRowCount)
+                throws SQLException {
+            super(config);
+            connection = mock(Connection.class);
+            Statement statement = mock(Statement.class);
+            ResultSet resultSet = mock(ResultSet.class);
+            ResultSetMetaData metaData = mock(ResultSetMetaData.class);
+            when(connection.createStatement()).thenReturn(statement);
+            when(statement.execute(anyString())).thenReturn(true);
+            when(statement.executeQuery(contains("SHOW TABLE STATUS"))).thenReturn(resultSet);
+            when(resultSet.next()).thenReturn(true);
+            when(resultSet.getMetaData()).thenReturn(metaData);
+            when(metaData.getColumnCount()).thenReturn(18);
+            when(resultSet.getLong(5)).thenReturn(approximateRowCount);
+        }
+
+        @Override
+        protected Connection getOrEstablishConnection() {
+            return connection;
+        }
+
+        @Override
+        protected PreparedStatement createPreparedStatement(String sql) {
+            this.preparedSql = sql;
+            InvocationHandler handler =
+                    (proxy, method, args) -> {
+                        if ("setInt".equals(method.getName())) {
+                            intParameters.put((Integer) args[0], (Integer) args[1]);
+                        }
+                        return null;
+                    };
+            return (PreparedStatement)
+                    Proxy.newProxyInstance(
+                            PreparedStatement.class.getClassLoader(),
+                            new Class<?>[] {PreparedStatement.class},
+                            handler);
+        }
     }
 
     /**
