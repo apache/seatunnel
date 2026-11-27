@@ -52,6 +52,7 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.cluster.Address;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.map.IMap;
 import lombok.extern.slf4j.Slf4j;
@@ -59,15 +60,18 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 
 /**
  * Multi-node failover coverage for the lifecycle of jobs that cannot be dispatched immediately.
@@ -109,14 +113,15 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             "stream_fakesource_to_console_minimal.conf";
 
     /**
-     * Bounded batch job with {@code job.retry.times = 0} and a paced fake source. Shared with
-     * {@code ClusterFailureNoRestoreIT}, which documents this shape as the "no checkpoint, no
-     * retry" fixture: a member loss is terminal for it instead of triggering a restore. Used by
-     * {@link #testHolderFailureOnWorkerLossReleasesFixedSlotsSoQueuedJobRuns()} as the holder that
-     * owns every fixed slot and then loses one member.
+     * STREAMING holder with {@code job.retry.times = 0} and an unbounded fake source. {@code
+     * FakeSource} is unbounded in STREAMING mode, so it reads its splits once and then idles
+     * forever: the holder can never reach FINISHED on its own and the member loss is always
+     * injected while the job is still RUNNING and still owns its fixed slots. {@code
+     * job.retry.times = 0} makes the member loss terminal instead of triggering a restore, which is
+     * the path that has to hand back the slots the holder still owns on the surviving worker.
      */
-    private static final String NO_RETRY_HOLDER_JOB_CONFIG_FILE =
-            "cluster_batch_fake_to_localfile_no_restore_template.conf";
+    private static final String STREAMING_NO_RETRY_HOLDER_JOB_CONFIG_FILE =
+            "cluster_streaming_fake_to_localfile_no_retry_holder_template.conf";
 
     /**
      * Short bounded batch job used by {@link
@@ -128,17 +133,17 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             "cluster_batch_fake_to_localfile_queued_after_failed_holder_template.conf";
 
     /**
-     * Together with the holder template's ten splits and three-second read interval, large enough
-     * that the holder cannot drain its input before the member loss is injected, so its terminal
-     * state is caused by the shutdown and not by finishing normally.
+     * Tiny holder input. The holder is held open by its streaming source's unboundedness, not by
+     * input volume or read pacing, so the fixture stays cheap and the failure-injection point does
+     * not depend on how fast the runner is.
      */
-    private static final long NO_RETRY_HOLDER_ROW_NUM_PER_PARALLELISM = 200_000L;
+    private static final long STREAMING_NO_RETRY_HOLDER_ROW_NUM_PER_PARALLELISM = 10L;
 
     /** Two reader/writer task groups, on top of the enumerator and committer groups. */
-    private static final int NO_RETRY_HOLDER_PARALLELISM = 2;
+    private static final int STREAMING_NO_RETRY_HOLDER_PARALLELISM = 2;
 
     /**
-     * Fixed slots per worker. A batch job owns one slot per task group, and both fixtures are a
+     * Fixed slots per worker. Every job owns one slot per task group, and both fixtures are a
      * FakeSource-&gt;LocalFile pipeline: a split-enumerator group, one reader/writer group per
      * parallelism, and one aggregated-committer group for the transactional file sink. With three
      * slots per worker and two workers (six slots), the parallelism-2 holder takes four slots and
@@ -373,13 +378,16 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
      * <p>Contract under test:
      *
      * <ol>
-     *   <li>The parallelism-2 holder takes four of the six fixed slots (one per task group), which
-     *       leaves fewer free slots than the three the second batch job needs, so that job is
+     *   <li>The holder is a STREAMING no-retry FakeSource job whose source stays open forever, so
+     *       it cannot finish on its own and is guaranteed to be RUNNING when the worker is killed.
+     *       It takes four of the six fixed slots (one per task group, spread over both workers),
+     *       which leaves fewer free slots than the three the second batch job needs, so that job is
      *       queued as {@code PENDING} in the master's pending queue and owns no slot.
-     *   <li>One worker is shut down. Only the holder's task group on that worker fails on the spot;
-     *       the task group on the surviving worker is still deployed and still owns its slot. With
-     *       {@code job.retry.times = 0} the holder must reach {@code FAILED}, which requires the
-     *       master to stop that surviving task group and release its slot.
+     *   <li>One worker is shut down while the holder is still RUNNING and still owns slots on both
+     *       workers. Only the holder's task group on that worker fails on the spot; the task groups
+     *       on the surviving worker are still deployed and still own their slots. With {@code
+     *       job.retry.times = 0} the holder must reach {@code FAILED}, which requires the master to
+     *       stop those surviving task groups and release their slots.
      *   <li>The queued job must be scheduled afterwards without any further trigger and finish with
      *       exactly its configured row count, and the failed holder must not come back.
      * </ol>
@@ -429,11 +437,12 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
         }
 
         ImmutablePair<String, String> holderResources =
-                createTemplatedBatchTestResources(
-                        NO_RETRY_HOLDER_JOB_CONFIG_FILE,
+                createTemplatedTestResources(
+                        STREAMING_NO_RETRY_HOLDER_JOB_CONFIG_FILE,
                         "holder_failure_slot_holder",
-                        NO_RETRY_HOLDER_ROW_NUM_PER_PARALLELISM,
-                        NO_RETRY_HOLDER_PARALLELISM);
+                        JobMode.STREAMING,
+                        STREAMING_NO_RETRY_HOLDER_ROW_NUM_PER_PARALLELISM,
+                        STREAMING_NO_RETRY_HOLDER_PARALLELISM);
         ImmutablePair<String, String> queuedResources =
                 createTemplatedBatchTestResources(
                         QUEUED_AFTER_FAILED_HOLDER_JOB_CONFIG_FILE,
@@ -473,7 +482,8 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             assertJobStatusWithTimeout(holderJob, JobStatus.RUNNING, 120);
             assertFixedSlotOwnership(activeMaster, holderJobId, true);
 
-            // The queued job needs one slot but both are owned by the holder: it must be parked in
+            // The queued job needs three slots on a single worker, but the holder owns four of the
+            // six fixed slots, so neither worker has three free: the queued job must be parked in
             // the pending queue and must not hold a slot while it waits.
             queuedJob =
                     submitJob(
@@ -485,6 +495,14 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             assertJobStatusWithTimeout(queuedJob, JobStatus.PENDING, 120);
             assertPendingQueueContainsJob(activeMaster, queuedJobId, 1);
             assertFixedSlotOwnership(activeMaster, queuedJobId, false);
+
+            // Inject the member loss only while the holder is demonstrably still live and still
+            // owns slots on both workers. The holder's source is unbounded (STREAMING), so it can
+            // never finish by itself here; these bounded checks make the precondition explicit
+            // instead of relying on row volume or read pacing.
+            assertJobStatusWithTimeout(holderJob, JobStatus.RUNNING, 30);
+            assertFixedSlotOwnershipOnEveryWorker(
+                    activeMaster, holderJobId, survivingWorker, doomedWorker);
 
             // Kill one worker. The holder's task groups there fail immediately, but the task groups
             // on the surviving worker keep running and keep their slots until the master fails and
@@ -1598,9 +1616,26 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
     private static ImmutablePair<String, String> createTemplatedBatchTestResources(
             String template, String testCaseName, long rowNumber, int parallelism)
             throws IOException {
+        return createTemplatedTestResources(
+                template, testCaseName, JobMode.BATCH, rowNumber, parallelism);
+    }
+
+    /**
+     * Renders a job in the requested {@link JobMode} from an arbitrary template that exposes the
+     * dynamic test parameters ({@code dynamic_test_case_name}, {@code dynamic_job_mode}, {@code
+     * dynamic_test_row_num_per_parallelism}, {@code dynamic_test_parallelism}) and returns the pair
+     * of (sink output directory, generated job config file path).
+     *
+     * <p>Unlike {@link #createTemplatedBatchTestResources(String, String, long, int)} this lets the
+     * caller choose the job mode, which the streaming holder of {@link
+     * #testHolderFailureOnWorkerLossReleasesFixedSlotsSoQueuedJobRuns()} needs.
+     */
+    private static ImmutablePair<String, String> createTemplatedTestResources(
+            String template, String testCaseName, JobMode jobMode, long rowNumber, int parallelism)
+            throws IOException {
         Map<String, String> valueMap = new HashMap<>();
         valueMap.put("dynamic_test_case_name", testCaseName);
-        valueMap.put("dynamic_job_mode", JobMode.BATCH.toString());
+        valueMap.put("dynamic_job_mode", jobMode.toString());
         valueMap.put("dynamic_test_row_num_per_parallelism", String.valueOf(rowNumber));
         valueMap.put("dynamic_test_parallelism", String.valueOf(parallelism));
 
@@ -1779,5 +1814,55 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
                                         ownedSlotProfilesIMap.keySet().stream()
                                                 .anyMatch(location -> location.getJobId() == jobId),
                                         "Job " + jobId + " slot ownership should be " + expected));
+    }
+
+    /**
+     * Asserts that the master's fixed-slot ownership map records owned slots for the given job on
+     * every one of the given workers.
+     *
+     * <p>This is the liveness precondition of the member-loss regression: the holder must really
+     * span the member that is about to be shut down <i>and</i> the member that survives, otherwise
+     * the failure would not leave a slot to release on a live worker and the test would pass
+     * without exercising the path under test. Asserted with {@link Awaitility} because deployment
+     * of the last task groups and the ownership map write are not atomic with the job turning
+     * {@code RUNNING}.
+     */
+    private static void assertFixedSlotOwnershipOnEveryWorker(
+            HazelcastInstanceImpl masterNode, long jobId, HazelcastInstanceImpl... workers) {
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
+                masterNode
+                        .node
+                        .getNodeEngine()
+                        .getHazelcastInstance()
+                        .getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+        Set<Address> expectedWorkers =
+                Arrays.stream(workers)
+                        .map(worker -> worker.getCluster().getLocalMember().getAddress())
+                        .collect(Collectors.toSet());
+        Assertions.assertEquals(
+                workers.length,
+                expectedWorkers.size(),
+                "The expected workers must be distinct cluster members");
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Set<Address> owningWorkers =
+                                    ownedSlotProfilesIMap.entrySet().stream()
+                                            .filter(entry -> entry.getKey().getJobId() == jobId)
+                                            .flatMap(
+                                                    entry ->
+                                                            entry.getValue().values().stream()
+                                                                    .map(SlotProfile::getWorker))
+                                            .collect(Collectors.toSet());
+                            Assertions.assertTrue(
+                                    owningWorkers.containsAll(expectedWorkers),
+                                    "Job "
+                                            + jobId
+                                            + " must own fixed slots on workers "
+                                            + expectedWorkers
+                                            + " before a failure is injected, but owns slots on "
+                                            + owningWorkers);
+                        });
     }
 }
