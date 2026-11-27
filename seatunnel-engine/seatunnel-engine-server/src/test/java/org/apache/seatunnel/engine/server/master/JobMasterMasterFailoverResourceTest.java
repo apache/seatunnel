@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Verifies that a restored master keeps using active fixed slots owned by its job. */
 public class JobMasterMasterFailoverResourceTest
@@ -322,6 +323,155 @@ public class JobMasterMasterFailoverResourceTest
     }
 
     /**
+     * A failed round that keeps a confirmed pipeline's slots must let the next admission attempt of
+     * the same master reuse them.
+     *
+     * <p>When one pipeline's ownership is persisted and another one's write fails, the confirmed
+     * pipeline keeps its ownership and its slots because a successor master may already have
+     * adopted them. Those slots stay allocated to the job, so under a fixed capacity the retry of a
+     * fresh master, for example the {@code WAIT} strategy retrying this very {@link JobMaster},
+     * cannot obtain them again from the resource manager. Here the fixed capacity cannot hold a
+     * second copy of the retained slots, so without a retry ledger that reuses them the job stays
+     * pending after the IMap recovered; with spare capacity a new allocation would instead
+     * overwrite the retained ownership while the old allocations stay untracked.
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void testRetryReusesConfirmedSlotsAfterPartialPersistenceFailure() throws Exception {
+        long jobId = instance.getFlakeIdGenerator("master-failover-retry-retained-slots").newId();
+        ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
+        Data jobImmutableInformationData =
+                createJobImmutableInformationData(
+                        jobId, "stream_two_pipelines_savepoint_partial_failure.conf");
+        JobMaster planningJobMaster = newJobMaster(jobId, jobImmutableInformationData);
+        planningJobMaster.init(System.currentTimeMillis(), false);
+        List<SubPlan> pipelines = planningJobMaster.getPhysicalPlan().getPipelineList();
+        Assertions.assertEquals(2, pipelines.size());
+        PipelineLocation confirmedPipeline = pipelines.get(0).getPipelineLocation();
+        PipelineLocation failedPipeline = pipelines.get(1).getPipelineLocation();
+        int jobSlotCount =
+                pipelines.stream()
+                        .mapToInt(
+                                subPlan ->
+                                        subPlan.getCoordinatorVertexList().size()
+                                                + subPlan.getPhysicalVertexList().size())
+                        .sum();
+        Assertions.assertTrue(
+                jobSlotCount <= SLOT_NUM,
+                "the fixed capacity must fit the whole job, otherwise the first round cannot allocate it");
+
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> realOwnershipMap =
+                nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
+        // The ownership IMap is faulty during the first round and restored before the retry, which
+        // is how the coordinator sees a transient metadata failure.
+        AtomicBoolean ownershipMapAvailable = new AtomicBoolean(false);
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> faultInjectableOwnershipMap =
+                Mockito.mock(IMap.class);
+        Mockito.when(faultInjectableOwnershipMap.get(Mockito.any()))
+                .thenAnswer(
+                        invocation ->
+                                realOwnershipMap.get((PipelineLocation) invocation.getArgument(0)));
+        Mockito.when(faultInjectableOwnershipMap.remove(Mockito.any()))
+                .thenAnswer(
+                        invocation ->
+                                realOwnershipMap.remove(
+                                        (PipelineLocation) invocation.getArgument(0)));
+        Mockito.doAnswer(
+                        invocation -> {
+                            PipelineLocation pipelineLocation = invocation.getArgument(0);
+                            if (confirmedPipeline.equals(pipelineLocation)
+                                    || ownershipMapAvailable.get()) {
+                                return realOwnershipMap.put(
+                                        pipelineLocation, invocation.getArgument(1));
+                            }
+                            throw new HazelcastException("owned slot profiles IMap is unavailable");
+                        })
+                .when(faultInjectableOwnershipMap)
+                .put(Mockito.any(), Mockito.any());
+
+        JobMaster jobMaster =
+                newJobMaster(jobId, jobImmutableInformationData, faultInjectableOwnershipMap);
+        jobMaster.init(System.currentTimeMillis(), false);
+        try {
+            Assertions.assertFalse(
+                    jobMaster.preApplyResources(),
+                    "a round that cannot persist every pipeline must not admit the job");
+
+            Map<TaskGroupLocation, SlotProfile> retainedOwnership =
+                    realOwnershipMap.get(confirmedPipeline);
+            Assertions.assertNotNull(
+                    retainedOwnership, "the confirmed pipeline must keep its ownership record");
+            Assertions.assertFalse(retainedOwnership.isEmpty());
+            retainedOwnership
+                    .values()
+                    .forEach(
+                            slotProfile ->
+                                    Assertions.assertTrue(
+                                            resourceManager.slotActiveCheck(slotProfile),
+                                            "a retained slot must stay allocated to the job"));
+            Assertions.assertNull(
+                    realOwnershipMap.get(failedPipeline),
+                    "the unpersisted pipeline ownership must be reverted");
+            Assertions.assertTrue(
+                    retainedOwnership.size() + jobSlotCount > SLOT_NUM,
+                    "the test needs a fixed capacity that cannot hold a second copy of the retained slots");
+
+            // The IMap recovers and the coordinator retries the admission with the same master.
+            ownershipMapAvailable.set(true);
+            Assertions.assertTrue(
+                    jobMaster.preApplyResources(),
+                    "the retry must reuse the retained slots and admit the job");
+
+            Assertions.assertEquals(
+                    retainedOwnership,
+                    realOwnershipMap.get(confirmedPipeline),
+                    "the retry must not replace the retained ownership with newly acquired profiles");
+            retainedOwnership.forEach(
+                    (taskGroupLocation, slotProfile) ->
+                            Assertions.assertEquals(
+                                    slotProfile,
+                                    jobMaster
+                                            .getPhysicalPlan()
+                                            .getPreApplyResourceFutures()
+                                            .get(taskGroupLocation)
+                                            .join(),
+                                    "the retry must reuse the retained slot instead of applying for a new one"));
+            Map<TaskGroupLocation, SlotProfile> failedOwnership =
+                    realOwnershipMap.get(failedPipeline);
+            Assertions.assertNotNull(
+                    failedOwnership, "the retried pipeline must persist its own slot ownership");
+            Assertions.assertEquals(
+                    jobSlotCount - retainedOwnership.size(),
+                    failedOwnership.size(),
+                    "the retried pipeline must hold one slot per task group");
+
+            // Exactly the capacity of the whole job is allocated now: the retained slots were
+            // reused, not duplicated.
+            List<SlotProfile> probeSlots = new ArrayList<>();
+            try {
+                for (int index = 0; index < SLOT_NUM - jobSlotCount; index++) {
+                    try {
+                        probeSlots.add(
+                                resourceManager
+                                        .applyResource(jobId + 1, new ResourceProfile(), null)
+                                        .get());
+                    } catch (ExecutionException exception) {
+                        throw new AssertionError(
+                                "the retry must not hold more slots than the job requires",
+                                exception);
+                    }
+                }
+                assertNoFreeFixedSlot(resourceManager, jobId + 1);
+            } finally {
+                resourceManager.releaseResources(jobId + 1, probeSlots).join();
+            }
+        } finally {
+            ownershipMapAvailable.set(true);
+            releasePersistedSlots(resourceManager, jobMaster, jobId);
+        }
+    }
+
+    /**
      * A pre-apply whose slot ownership cannot be persisted must not admit the job. The slots are
      * already allocated on the workers, so admitting it without the ownership record would leave a
      * successor master unable to reuse or release them after an active-master switch.
@@ -561,6 +711,25 @@ public class JobMasterMasterFailoverResourceTest
     private void releasePersistedSlots(
             ResourceManager resourceManager, JobMaster jobMaster, long jobId) {
         releasePersistedSlotsExcept(resourceManager, jobMaster, jobId, null);
+    }
+
+    /**
+     * Asserts that no fixed slot is left for an unrelated job, which is how the test observes that
+     * an admitted job holds exactly the capacity it requires and nothing was acquired twice.
+     */
+    private void assertNoFreeFixedSlot(ResourceManager resourceManager, long jobId)
+            throws Exception {
+        List<SlotProfile> probeSlots = new ArrayList<>();
+        try {
+            probeSlots.add(resourceManager.applyResource(jobId, new ResourceProfile(), null).get());
+            throw new AssertionError("Expected the fixed slots of the workers to be exhausted");
+        } catch (ExecutionException exception) {
+            if (!(exception.getCause() instanceof NoEnoughResourceException)) {
+                throw exception;
+            }
+        } finally {
+            resourceManager.releaseResources(jobId, probeSlots).join();
+        }
     }
 
     /** Releases persisted test slots except a profile whose stale release must remain rejected. */

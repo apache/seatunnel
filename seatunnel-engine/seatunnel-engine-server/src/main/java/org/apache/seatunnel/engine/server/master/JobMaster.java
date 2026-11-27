@@ -197,6 +197,37 @@ public class JobMaster {
     /** Whether this JobMaster was recreated after an active-master switch. */
     private volatile boolean masterFailoverRestore;
 
+    /**
+     * Slot profiles retained by a failed admission attempt of this master, keyed by the task group
+     * they were allocated for.
+     *
+     * <p>A pre-apply round keeps the ownership record and the slots of every pipeline whose
+     * ownership write was confirmed when another pipeline of the same round fails, because a
+     * successor master may already have adopted them (see {@link
+     * #reconcilePreAppliedSlotProfiles}). Those slots stay allocated to this job, so the next
+     * admission attempt of the same master, for example the {@code WAIT} strategy retrying this
+     * {@link JobMaster}, has to reuse them instead of requesting new ones. Otherwise the retry asks
+     * the workers for capacity the job already holds: with a fixed capacity equal to the job
+     * requirement no free slot is left and the job stays pending after the fault recovered, and
+     * with spare capacity the new allocation overwrites the retained ownership while the old
+     * allocations stay untracked. A successor master does not need this ledger: it adopts the same
+     * slots through the persisted ownership records.
+     */
+    private final Map<TaskGroupLocation, AttemptOwnedSlotProfile> attemptOwnedSlotProfiles =
+            new ConcurrentHashMap<>();
+
+    /**
+     * Monotonic sequence of the admission attempts of this master.
+     *
+     * <p>Every pre-apply round takes a new sequence, and a retained profile is reusable only by a
+     * later attempt than the one that retained it. This fences the ledger against an entry recorded
+     * by a concurrent or re-entrant round of the same master.
+     */
+    private final AtomicLong preApplyAttemptSequence = new AtomicLong();
+
+    /** Sequence of the admission attempt currently being evaluated. */
+    private volatile long currentPreApplyAttemptSequence;
+
     private CheckpointConfig jobCheckpointConfig;
 
     @Getter private Long jobId;
@@ -527,6 +558,9 @@ public class JobMaster {
      */
     public boolean preApplyResources(SubPlan subPlan) {
 
+        long attemptSequence = preApplyAttemptSequence.incrementAndGet();
+        currentPreApplyAttemptSequence = attemptSequence;
+
         // When starting to apply for task resources, reset the worker's slot allocation information
         // Mainly used in two scenarios:
         // 1. When based on the SYSTEM_LOAD strategy, the system load cannot change dynamically, and
@@ -625,6 +659,13 @@ public class JobMaster {
             Set<PipelineLocation> unreconciledPipelines =
                     reconcilePreAppliedSlotProfiles(
                             preAppliedSlotProfiles, confirmedPipelines, reusedSlotProfiles);
+            // The retained slots stay allocated to this job, so the next attempt of this master has
+            // to reuse them instead of requesting capacity it already holds.
+            retainAttemptOwnedSlotProfiles(
+                    preAppliedSlotProfiles,
+                    unreconciledPipelines,
+                    reusedSlotProfiles,
+                    attemptSequence);
             releaseUnusedPreAppliedResources(
                     preApplyResourceFutures, reusedSlotProfiles, unreconciledPipelines);
             return false;
@@ -638,6 +679,9 @@ public class JobMaster {
             // Adequate resources, pass on resources to the plan
             physicalPlan.setPreApplyResourceFutures(preApplyResourceFutures);
         }
+        // The admitted slots are now owned by the plan, so they must not be handed out again as
+        // retained slots of this master.
+        clearAdmittedAttemptOwnedSlotProfiles(preApplyResourceFutures);
         // Retained slots are valid only for the first successful allocation after failover.
         // A later pipeline retry must obtain a fresh allocation instead of reusing them.
         masterFailoverRestore = false;
@@ -838,6 +882,114 @@ public class JobMaster {
     }
 
     /**
+     * Records the slots a failed pre-apply round kept allocated to this job, so a later attempt of
+     * the same master can reuse them instead of requesting new capacity.
+     *
+     * <p>Only the pipelines whose ownership this round could not revert are recorded; their slots
+     * are exactly the ones {@link #releaseUnusedPreAppliedResources} does not release. Slots that
+     * were already retained from the previous master are skipped, because the failover path keeps
+     * resolving those through the persisted ownership record.
+     *
+     * @param profilesByPipeline profiles of the pre-apply round that failed to persist
+     * @param unreconciledPipelines pipelines whose slots stay allocated
+     * @param retainedSlotProfiles slots retained from the previous master
+     * @param attemptSequence sequence of the attempt that kept the slots
+     */
+    private void retainAttemptOwnedSlotProfiles(
+            Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> profilesByPipeline,
+            Set<PipelineLocation> unreconciledPipelines,
+            Set<SlotProfile> retainedSlotProfiles,
+            long attemptSequence) {
+        for (Map.Entry<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> entry :
+                profilesByPipeline.entrySet()) {
+            if (!unreconciledPipelines.contains(entry.getKey())) {
+                continue;
+            }
+            entry.getValue()
+                    .forEach(
+                            (taskGroupLocation, slotProfile) -> {
+                                if (retainedSlotProfiles.contains(slotProfile)) {
+                                    // Already reusable through the failover path: keep the record
+                                    // of the previous master as the single source of truth.
+                                    return;
+                                }
+                                attemptOwnedSlotProfiles.put(
+                                        taskGroupLocation,
+                                        new AttemptOwnedSlotProfile(attemptSequence, slotProfile));
+                            });
+        }
+    }
+
+    /**
+     * Drops the retained slots this round admitted into the plan, which must not be handed out to a
+     * later round.
+     *
+     * @param preApplyResourceFutures allocation futures of the successful pre-apply round
+     */
+    private void clearAdmittedAttemptOwnedSlotProfiles(
+            Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures) {
+        preApplyResourceFutures.forEach(
+                (taskGroupLocation, future) -> {
+                    AttemptOwnedSlotProfile retained =
+                            attemptOwnedSlotProfiles.get(taskGroupLocation);
+                    if (retained == null || future == null) {
+                        return;
+                    }
+                    SlotProfile admittedSlot = future.getNow(null);
+                    if (retained.getSlotProfile().equals(admittedSlot)) {
+                        attemptOwnedSlotProfiles.remove(taskGroupLocation, retained);
+                    }
+                });
+    }
+
+    /**
+     * Drops the retained slots of a pipeline whose slots are being released, so a later round
+     * cannot reuse a slot that no longer belongs to this job.
+     *
+     * @param pipelineLocation pipeline whose slots are released
+     */
+    private void discardAttemptOwnedSlotProfiles(PipelineLocation pipelineLocation) {
+        attemptOwnedSlotProfiles
+                .keySet()
+                .removeIf(
+                        taskGroupLocation ->
+                                taskGroupLocation.getJobId() == pipelineLocation.getJobId()
+                                        && taskGroupLocation.getPipelineId()
+                                                == pipelineLocation.getPipelineId());
+    }
+
+    /**
+     * Returns the slot this master retained for the task group after an earlier failed admission
+     * attempt, when that slot can still be reused.
+     *
+     * <p>The record is bound to the attempt that kept it: it is reusable only by a later attempt of
+     * the same master, which owns the ledger, and only while the worker still reports the same
+     * allocation sequence and owner job. A slot whose allocation sequence was reassigned, which
+     * also covers a reassignment to another task group of the same job, is not reused, and its
+     * record is dropped so it cannot be handed out again.
+     *
+     * @param taskGroupLocation task group whose retained slot is checked
+     * @return the retained {@link SlotProfile} when it is still active for this job, otherwise
+     *     {@code null}
+     */
+    private SlotProfile getAttemptOwnedSlotProfile(TaskGroupLocation taskGroupLocation) {
+        AttemptOwnedSlotProfile retained = attemptOwnedSlotProfiles.get(taskGroupLocation);
+        if (retained == null || retained.getAttemptSequence() >= currentPreApplyAttemptSequence) {
+            return null;
+        }
+        SlotProfile slotProfile = retained.getSlotProfile();
+        if (!resourceManager.slotActiveCheck(slotProfile)) {
+            attemptOwnedSlotProfiles.remove(taskGroupLocation, retained);
+            LOGGER.warning(
+                    String.format(
+                            "Retained slot %s of task group %s for job %d is no longer active, dropping it",
+                            slotProfile, taskGroupLocation, jobImmutableInformation.getJobId()));
+            return null;
+        }
+        return slotProfile;
+    }
+
+    /**
      * Releases the slots a pre-apply acquired but will not use.
      *
      * <p>Slots retained from the previous master are skipped: they are already accounted for by the
@@ -977,19 +1129,30 @@ public class JobMaster {
     }
 
     /**
-     * Reuses an active slot retained by a Worker while the active master was unavailable.
+     * Reuses an active slot this job already holds, so a resource application does not ask the
+     * workers for capacity the job cannot obtain.
      *
-     * <p>The slot-to-task mapping is stored in Hazelcast before task deployment. After a master
-     * failover, requesting those slots again cannot succeed with fixed slots because Workers still
-     * own them for this job. A slot is reused only after the current ResourceManager confirms that
-     * the Worker still has the matching allocation sequence and that the slot's owner job ID still
-     * matches this job (see {@link ResourceManager#slotActiveCheck}).
+     * <p>A slot retained by a failed admission attempt of this master is checked first: the
+     * ownership record and the allocation survived the failed round, so the retry of the same
+     * master must keep using them. This is not a cross-master or cross-job reuse: the ledger lives
+     * in one {@link JobMaster}, is keyed by the task group, and the slot is only handed out after
+     * {@link ResourceManager#slotActiveCheck(SlotProfile)} confirms the same worker allocation
+     * sequence and owner job.
      *
-     * @param taskGroupLocation task group whose previously persisted slot assignment is checked
-     * @return the persisted {@link SlotProfile} if the Worker still actively holds it for this job,
-     *     or {@code null} if this is not a post-failover restore or the slot is no longer valid
+     * <p>Otherwise the slot-to-task mapping stored in Hazelcast before task deployment is used, but
+     * only after a master failover. Requesting those slots again cannot succeed with fixed slots
+     * because Workers still own them for this job.
+     *
+     * @param taskGroupLocation task group whose previously retained or persisted slot assignment is
+     *     checked
+     * @return the retained or persisted {@link SlotProfile} if the Worker still actively holds it
+     *     for this job, or {@code null} if no such slot can be reused
      */
     private SlotProfile getReusableSlot(TaskGroupLocation taskGroupLocation) {
+        SlotProfile attemptOwnedSlot = getAttemptOwnedSlotProfile(taskGroupLocation);
+        if (attemptOwnedSlot != null) {
+            return attemptOwnedSlot;
+        }
         if (!masterFailoverRestore) {
             return null;
         }
@@ -1208,6 +1371,8 @@ public class JobMaster {
         if (taskGroupSlotProfile == null) {
             return;
         }
+        // The slot is being handed back, so the retry ledger must not offer it again.
+        attemptOwnedSlotProfiles.remove(taskGroupLocation);
 
         try {
             RetryUtils.retryWithException(
@@ -1248,6 +1413,9 @@ public class JobMaster {
             if (taskGroupLocationSlotProfileMap == null) {
                 return;
             }
+            // The slots of this pipeline are about to be released, so no later round may reuse
+            // them as retained slots of this master.
+            discardAttemptOwnedSlotProfiles(subPlan.getPipelineLocation());
             List<SlotProfile> alreadyReleased = new ArrayList<>();
             if (releasedSlotWhenTaskGroupFinished.containsKey(subPlan.getPipelineId())) {
                 alreadyReleased.addAll(
@@ -1285,6 +1453,7 @@ public class JobMaster {
     }
 
     public void cleanJob() {
+        attemptOwnedSlotProfiles.clear();
         checkpointManager.clearCheckpointIfNeed(physicalPlan.getJobStatus());
         jobHistoryService.storeJobInfo(jobImmutableInformation.getJobId(), getJobDAGInfo());
         jobHistoryService.storeFinishedJobState(this);
@@ -1871,6 +2040,30 @@ public class JobMaster {
     /** Signals that a written ownership record did not read back as the written value. */
     private static final class UnconfirmedOwnedSlotProfilesException extends RuntimeException {
         private static final long serialVersionUID = 1L;
+    }
+
+    /**
+     * A slot kept allocated to this job by a failed admission attempt of this master.
+     *
+     * <p>The attempt sequence identifies the round that kept the slot, so only a later attempt of
+     * the same master can reuse it. The owning master is the instance holding the ledger.
+     */
+    private static final class AttemptOwnedSlotProfile {
+        private final long attemptSequence;
+        private final SlotProfile slotProfile;
+
+        private AttemptOwnedSlotProfile(long attemptSequence, SlotProfile slotProfile) {
+            this.attemptSequence = attemptSequence;
+            this.slotProfile = slotProfile;
+        }
+
+        private long getAttemptSequence() {
+            return attemptSequence;
+        }
+
+        private SlotProfile getSlotProfile() {
+            return slotProfile;
+        }
     }
 
     public SlotProfile getOwnedSlotProfiles(@NonNull TaskGroupLocation taskGroupLocation) {
