@@ -1439,19 +1439,55 @@ public class MySqlStreamingChangeEventSource
             // need to be made to the
             // recorded offset in the checkpoint, and the available GTID for other MySQL instances
             // should be completed.
-            mergedGtidSet =
-                    GtidUtils.fixRestoredGtidSet(
+            GtidSet trackedServerGtidSet =
+                    relevantAvailableServerGtidSet.retainAll(
+                            uuid -> knownGtidSet.forServerWithId(uuid) != null);
+            // Previous_gtids has to be merged before the purged set: mergeGtidSetInto keeps the
+            // entry already held for a UUID, and the purged set only reaches the purge point.
+            GtidSet completedServerGtidSet =
+                    GtidUtils.mergeGtidSetInto(
                             GtidUtils.mergeGtidSetInto(
-                                    relevantAvailableServerGtidSet.retainAll(
-                                            uuid -> knownGtidSet.forServerWithId(uuid) != null),
-                                    purgedServerGtid),
-                            filteredGtidSet);
+                                    trackedServerGtidSet,
+                                    GtidUtils.untrackedGtids(
+                                            previousGtidSet(
+                                                    offsetContext.getSource().binlogFilename()),
+                                            knownGtidSet)),
+                            purgedServerGtid);
+            mergedGtidSet = GtidUtils.fixRestoredGtidSet(completedServerGtidSet, filteredGtidSet);
         } else {
             mergedGtidSet = availableServerGtidSet.with(filteredGtidSet);
         }
 
         LOGGER.info("Final merged GTID set to use when connecting to MySQL: {}", mergedGtidSet);
         return mergedGtidSet;
+    }
+
+    /** Returns the GTID set executed before {@code binlogFilename}, or an empty string. */
+    private String previousGtidSet(String binlogFilename) {
+        if (binlogFilename == null || binlogFilename.isEmpty()) {
+            return "";
+        }
+        try {
+            return connection.queryAndMap(
+                    String.format("SHOW BINLOG EVENTS IN '%s' LIMIT 3", binlogFilename),
+                    rs -> {
+                        while (rs.next()) {
+                            if ("Previous_gtids".equalsIgnoreCase(rs.getString("Event_type"))) {
+                                String info = rs.getString("Info");
+                                // More than one lineage is separated by a comma and a newline.
+                                return info == null ? "" : info.replace("\n", "").trim();
+                            }
+                        }
+                        return "";
+                    });
+        } catch (SQLException | RuntimeException e) {
+            LOGGER.warn(
+                    "Could not read the Previous_gtids event of {}, a lineage missing from the "
+                            + "restored GTID set may be re-delivered",
+                    binlogFilename,
+                    e);
+            return "";
+        }
     }
 
     MySqlStreamingChangeEventSourceMetrics getMetrics() {
