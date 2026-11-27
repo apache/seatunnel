@@ -61,7 +61,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | max_thrift_frame_size       | Integer | 否    | -                              | IoTDB 客户端的最大 Thrift 帧大小                                                       |
 | zone_id                     | string  | 否    | -                              | IoTDB 客户端使用的 `java.time.ZoneId`                                                |
 | enable_rpc_compression      | Boolean | 否    | -                              | 在 IoTDB 客户端中启用rpc压缩                                                          |
-| connection_timeout_in_ms    | Integer | 否    | -                              | 连接到 IoTDB 时等待的最长时间（毫秒）                                                       |
+| connection_timeout_in_ms    | Integer | 否    | -                              | 连接到 IoTDB 时等待的最长时间（毫秒）。注意：该选项必须与 `enable_rpc_compression` 一起配置，仅配置它而不配置 `enable_rpc_compression` 会导致配置加载失败。 |
 | common-options              |         | 否    | -                              | Sink 插件通用参数，详见 [Sink 通用选项](../common-options/sink-common-options.md)              |
 
 ## 写入规则
@@ -231,7 +231,7 @@ sink {
 }
 ```
 
-`node_urls` 支持传入多个 IoTDB 节点。Sink 会为每个任务选择一个活跃写入节点，并在活跃节点失败时切换到其它节点。
+`node_urls` 支持传入多个 IoTDB 节点，这些节点会作为候选主机传给 IoTDB session 客户端。Sink 会为每个任务创建单个 session；写入失败时会在同一 session 上重试，候选主机之间的端点重连由 IoTDB 客户端自身处理。服务端或语句错误并非在所有失败场景下都能恢复成功。
 
 ## 变更日志
 

@@ -29,6 +29,7 @@ CREATE USER 'st_user_source' IDENTIFIED BY 'mysqlpw';
 GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT, DROP, LOCK TABLES  ON *.* TO 'st_user_source'@'%';
 CREATE USER 'st_user_sink' IDENTIFIED BY 'mysqlpw';
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, INDEX, ALTER ON *.* TO 'st_user_sink'@'%';
+GRANT XA_RECOVER_ADMIN ON *.* TO 'st_user_sink'@'%';
 -- ----------------------------------------------------------------------------------------------------------------
 -- DATABASE:  emptydb
 -- ----------------------------------------------------------------------------------------------------------------

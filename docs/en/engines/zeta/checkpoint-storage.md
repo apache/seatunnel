@@ -318,6 +318,7 @@ seatunnel:
           fs.s3a.access.key: xxxxxxxxx # Access Key  of MinIO
           fs.s3a.secret.key: xxxxxxxxxxxxxxxxxxxxx # Secret Key of MinIO
           fs.s3a.endpoint: http://127.0.0.1:9000 # Minio HTTP service access address
+          fs.s3a.path.style.access: true
           s3.bucket: s3a://test # test is the bucket name which  storage the checkpoint file
           fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
        # important: The user of this key needs to have write permission for the bucket, otherwise an exception of 403 will be returned
