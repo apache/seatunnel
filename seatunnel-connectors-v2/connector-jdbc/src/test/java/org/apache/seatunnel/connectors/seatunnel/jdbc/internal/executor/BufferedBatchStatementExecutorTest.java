@@ -18,6 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import org.junit.jupiter.api.Test;
 
@@ -103,5 +105,38 @@ public class BufferedBatchStatementExecutorTest extends BufferExecutorTest {
 
         assertEquals(1, executedBatches.size());
         assertEquals(Collections.singletonList(validRow), executedBatches.get(0));
+    }
+
+    @Test
+    void closeAfterClosedStatementBindDoesNotBindTheBufferAgain() throws SQLException {
+        List<SeaTunnelRow> boundRows = new ArrayList<>();
+        JdbcBatchStatementExecutor<SeaTunnelRow> delegate =
+                new JdbcBatchStatementExecutor<SeaTunnelRow>() {
+                    @Override
+                    public void prepareStatements(Connection connection) {}
+
+                    @Override
+                    public void addToBatch(SeaTunnelRow record) {
+                        boundRows.add(record);
+                        throw new JdbcConnectorException(
+                                JdbcConnectorErrorCode.DATA_TYPE_CAST_FAILED,
+                                "error field:id",
+                                new SQLException("This statement has been closed."));
+                    }
+
+                    @Override
+                    public void executeBatch() {}
+
+                    @Override
+                    public void closeStatements() {}
+                };
+        BufferedBatchStatementExecutor executor =
+                new BufferedBatchStatementExecutor(delegate, Function.identity());
+        executor.addToBatch(new SeaTunnelRow(new Object[] {1}));
+
+        assertThrows(JdbcConnectorException.class, executor::executeBatch);
+        executor.closeStatements();
+
+        assertEquals(1, boundRows.size());
     }
 }
