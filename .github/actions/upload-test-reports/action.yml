@@ -32,12 +32,12 @@ inputs:
 runs:
   using: composite
   steps:
-    # The caller runs this action with `if: failure()`, so the steps below always run once it is invoked.
     - name: List failed tests in the job summary
       if: always()
       shell: python
       env:
         REPORT_ARTIFACT: test-reports-${{ github.job }}-${{ inputs.id }}-attempt-${{ github.run_attempt }}
+        JOB_STATUS: ${{ job.status }}
       run: |
         import glob, html, os
         import xml.etree.ElementTree as ET
@@ -74,9 +74,9 @@ runs:
                 lines.append("")
                 lines.append("%d more not shown." % (len(failed) - max_rows))
         else:
-            lines.append(
-                "No failed test cases found in %d Surefire/Failsafe XML reports. "
-                "The failure happened outside a test, or before its report was written." % report_files)
+            lines.append("No failed test cases found in %d Surefire/Failsafe XML reports." % report_files)
+            if os.environ["JOB_STATUS"] == "failure":
+                lines.append("The failure happened outside a test, or before its report was written.")
         if report_files:
             lines += ["", "Reports are uploaded as the `%s` artifact." % os.environ["REPORT_ARTIFACT"]]
         lines.append("")
