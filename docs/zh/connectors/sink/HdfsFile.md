@@ -266,7 +266,7 @@ HdfsFile {
 
 仅在 file_format_type 为 text,csv 时使用。false:不写入表头,true:写入表头。
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 当文件格式为 CSV 时，CSV 的字符串引号模式。
 

@@ -16,6 +16,7 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.opengauss;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
@@ -46,5 +47,20 @@ public class OpenGaussDialectFactory extends PostgresDialectFactory {
     @Override
     public JdbcDialect create(@Nonnull String compatibleMode, String fieldIde) {
         return new OpenGaussDialect();
+    }
+
+    /**
+     * {@code JdbcDialectLoader#load} creates dialects through this variant, which {@link
+     * PostgresDialectFactory} overrides to return Postgres dialects. Without this override
+     * openGauss would get the Postgres upsert, which it does not support.
+     */
+    @Override
+    public JdbcDialect create(
+            @Nonnull String compatibleMode,
+            String fieldIde,
+            JdbcConnectionConfig jdbcConnectionConfig) {
+        boolean numericSpecialValueAsNull =
+                jdbcConnectionConfig != null && jdbcConnectionConfig.isNumericSpecialValueAsNull();
+        return new OpenGaussDialect(fieldIde, numericSpecialValueAsNull);
     }
 }

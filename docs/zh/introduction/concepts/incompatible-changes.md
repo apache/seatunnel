@@ -4,12 +4,50 @@
 
 ## dev
 
+### HBase sink：DELETE 行删除映射的数据
+
+`DELETE` 行现在会删除本 sink 映射列簇中不晚于该变更时间戳的所有单元格版本。此前这些行会将旧值作为 Put 写入，未映射列簇仍不受影响。仅投影 rowkey 和版本列时，没有映射列簇，sink 会拒绝 DELETE 行。请在投影中包含目标列簇的至少一个数据列。
+需要原先仅追加行为的作业应在 sink 前过滤 DELETE 行。`UPDATE_BEFORE` 行现在会被忽略，不再作为 Put 写入。修改 rowkey 时需要上游显式发送旧键 DELETE 和新键 INSERT。
+使用 `version_column` 提供正确排序的时间戳：相同或更早时间戳的 Put 无法覆盖删除标记。
+关闭 HBase 客户端定时刷新（默认行为）时，checkpoint 刷新会等待 region server 接受数据。依赖 checkpoint 刷新的作业应保持定时刷新关闭。`wal_write = false` 仍不能防止 region server 崩溃导致的数据丢失。
+无需迁移配置或 checkpoint 格式。
+
+### MongoDB Sink：未配置的缓冲与重试选项使用文档中的默认值
+
+- **行为变更：未设置 `buffer-flush.*` 或 `retry.*` 选项的非事务 MongoDB Sink 会按批写入，并重试失败的写入**
+  - **影响范围**：`transaction = false`（默认值）且未设置 `buffer-flush.max-rows`、`buffer-flush.interval`、`retry.max`、`retry.interval` 中任意一个或多个选项的 MongoDB Sink。`transaction = true` 的 Sink 不受影响：它们会把数据保留到下一次 checkpoint，再由 committer 在一个事务中写入，既不使用缓冲选项，也不使用 `retry.*`。
+  - **描述**：`MongodbSinkFactory` 此前只在显式设置时才把这些选项传给 writer，未设置的选项实际为 `0` 而不是声明的默认值，因此每一行都单独执行一次 `bulkWrite`，失败的批量写入也不会重试。现在会使用声明并写入文档的默认值：`buffer-flush.max-rows = 1000`、`buffer-flush.interval = 30000` 毫秒、`retry.max = 3`、`retry.interval = 1000` 毫秒。
+  - **影响**：数据按批写入目标端，每批最多 1000 行，而不再逐行写入，写入远端服务器的吞吐量会大幅提升。每个 writer 的第一行仍会立即写入。30 秒间隔只在有新数据到达时检查，因此在没有后续数据时，它不能限制未写满的批次等待多久。未写满的批次会在下一次 checkpoint、writer 关闭时写入；如果在 `env` 中设置了 `sink.flush.interval`，引擎的定时 flush 也会写入（仅 Zeta 支持，默认关闭）。失败的批量写入会在作业失败前最多重试 3 次，依次等待 1、2、3 秒。重试会重新发送整个有序批次，因此在 `upsert-enable = false` 时，如果批次已部分写入，重试可能因主键重复而失败；这与此前显式设置 `retry.max` 时的行为相同。显式设置了这些选项的作业不受影响。
+  - **迁移指南**：如需文档中描述的行为，无需修改配置。如需保持此前的行为，请显式设置 `buffer-flush.max-rows = 1` 和 `retry.max = 0`。把 `buffer-flush.max-rows` 调小到大于 1 的值只能减少缓冲的行数，在没有后续数据时，不能限制未写满的批次等待多久。如果流式作业需要缓冲的数据在一定时间内可见，请依赖 checkpoint，或在 `env` 中设置 `sink.flush.interval`（Zeta）。如需每一行立即写入，请设置 `buffer-flush.max-rows = 1`。(#13198)
+
+### Flink schema evolution：checkpoint 协议与按表路由
+
+启用 schema evolution 的 Flink CDC 任务改为使用按表 keyed state 保存 Sink schema 进度和等待行。
+源端协议和算子拓扑也不同于此前的本地协调器实现及 broadcast/union state 实现。
+这些旧实现生成的 checkpoint 和 savepoint 不支持直接用于升级恢复，当前没有状态迁移适配器。
+`--allowNonRestoredState` 不是安全迁移方案：保留源端位点但丢弃 schema 进度或等待行，
+可能导致数据丢失或使用错误表结构解释数据。
+
+请保留旧任务构件和可恢复的 savepoint 用于回滚。建议规划受控切换：向独立目标执行新的全量快照，
+校验表结构和数据后再切换消费者。复用已有目标时必须显式对账并协调目标结构；
+不要简单丢弃状态后从最新源端位点继续。
+
+增量读取并行度必须为一。Sink 仍支持表间并行，但每张源表只分配给一个 Flink Sink 子任务。
+连接器要求及共享物理目标表的限制见 [Flink 路由与故障恢复](../configuration/schema-evolution.md#flink-路由与故障恢复)。
+
 ### Http Sink：`array_mode = true` 时每行作为 JSON 对象发送
 
 - **行为变更：请求体数组的元素是 JSON 对象，而不再是字符串**
   - **描述**：`array_mode = true` 时，Http Sink 此前把每行的序列化结果作为字符串加入请求数组，请求体为 `["{\"id\":1}","{\"id\":2}"]`，而不是文档描述的 JSON 数组。现在发送的是 `[{"id":1},{"id":2}]`。自 2.3.11 起的各版本发送的都是字符串数组。`array_mode = false` 不受影响。
   - **影响**：此前因请求体格式报错的接口现在可以正常接收。专门适配旧格式、把每个元素再按 JSON 字符串解码的接收方，现在收到的是对象，需要修改。
   - **迁移指南**：无需修改配置。如果接收方会把数组的每个元素从字符串解码，请改为直接使用该元素。
+
+### Doris Source：`case_sensitive = false` 现在会将单表 `database`/`table` 转为小写
+
+- **行为变更：单表 Doris Source 配置 `case_sensitive = false` 时，`database` 与 `table` 名称按小写解析**
+  - **描述**：`case_sensitive` 选项自 2.3.11 起就已存在于 Doris Source，但小写转换作用在一个随后被丢弃的中间对象上，该选项从未生效，配置中的原始大小写会原样进入 query-plan 请求。现在转换作用于 Source 实际使用的表配置。该选项只影响通过 `database` 和 `table` 配置的单表；`table_list` 条目与默认值（`true`）行为不变。
+  - **影响**：配置 `case_sensitive = false` 且名称含大写的作业，现在会把 `TestDB.TestTable` 解析为 `testdb.testtable`。在名称匹配区分大小写的集群上，这会选中另一个对象，或导致查找失败。早期版本保存的 checkpoint 中也可能持有原始大小写名称的 split：恢复到如今按小写名称索引表的 Source 时，Reader 会报 `the table 'TestDB.TestTable' cannot be found in table_list of job configuration` 而失败，而不是读取该 split。
+  - **迁移指南**：要保持历史拼写，请设置 `case_sensitive = true` 或删除该选项（默认值为 `true`）。要继续使用 `case_sensitive = false`，请在升级后从新的 checkpoint 启动作业，而不要恢复旧的 checkpoint；已保存的 split 不会被改写，因此旧的混大小写 checkpoint 无法服务于标识符已变为小写的作业。
 
 ### Lance Sink：BIGINT 列创建为 int64
 
@@ -144,6 +182,27 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
   - **描述**：使用 `file_format_type = "xml"` 时，此前 DATE、TIME 和 TIMESTAMP 直接用 Java `toString()` 写出，忽略 `date_format`、`datetime_format` 和 `time_format`。时间戳会写成 `2026-01-02T10:13:45.123`，秒为 0 时写成 `2026-01-02T10:13`，同一个文件里可能混有多种格式，无法用同一个 `datetime_format` 读回。现在会按配置的格式输出，与 CSV、Text、Excel 写入器一致。
   - **影响**：使用默认配置时，时间戳写成 `yyyy-MM-dd HH:mm:ss`（`T` 改为空格，丢弃小数秒），时间写成 `HH:mm:ss`。依赖原 ISO 格式的下游需要调整。
   - **迁移指南**：如需保留 ISO 格式，请在 Sink 上配置 `datetime_format`，例如 `YYYY_MM_DD_HH_MM_SS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss`），或使用 `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss.SSS`）保留毫秒，并在读取时为 Source 配置对应的 `datetime_format`。
+
+### 条件选项规则按 AND 优先于 OR 的顺序求值
+
+SeaTunnel 使用 `Condition` 校验条件选项规则，并通过 Zeta REST API 和元数据导出 CLI 描述这些规则。3.1.0 中已废弃的 `Expression` 类及相关公共构造器、工厂方法、getter 和校验方法仍可供已有插件 jar 调用。
+
+升级后，运行时会将旧表达式展开为一条条件链，按 AND 优先于 OR 的顺序求值。这个变化也适用于已编译的插件。例如，3.1.0 将 `A.and(B).or(C)` 求值为 `A && (B || C)`，现在则是 `(A && B) || C`。当 A、B 为假且 C 为真时，现在会触发必填校验。多个旧表达式节点内部的分组边界也会被展开。如果规则依赖原有分组，请明确改写，例如将 `A && (B || C)` 写成 `(A && B) || (A && C)`。
+
+新规则可使用 `conditional(trigger, requiredOptions...)` 添加条件必填项，或使用 `conditionalRule(trigger, nestedRule)` 添加嵌套规则。先声明触发条件引用的选项，再通过 `getCondition()` 读取触发条件。旧的 `getExpression()` 返回独立副本。每个 OR 分支对应一个外层节点，分支内的 AND 条件保存在该节点中。如需修改规则，请使用新的触发条件重新构建。
+
+```java
+Condition<?> trigger = Condition.of(MODE, "snapshot").or(REPLAY, true);
+OptionRule rule = OptionRule.builder()
+        .optional(MODE, REPLAY)
+        .conditional(trigger, START_TIME)
+        .conditionalRule(trigger, OptionRule.builder().bundled(USERNAME, PASSWORD).build())
+        .build();
+```
+
+依赖校验报错或导出元数据的工具，请按 AND 优先于 OR 的规则解读表达式文本。遍历条件规则导出的触发条件树时，请读取表达式节点上的 `operator` 和 `next`。每个节点的 `condition` 描述一个谓词。
+
+`Condition.equals` 和 `hashCode` 会计入每个节点的 `ConditionExtension`。如果工厂要求等价规则比较相等，可以复用扩展实例，或为扩展实现按值比较的 `equals` 和 `hashCode`。
 
 ### 原生 CLI 帮助退出码
 
@@ -683,6 +742,14 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **变更说明**：此前 XML 读取器使用默认的 dom4j `SAXReader` 解析用户提供的文件，DTD 处理和外部实体解析均保持 JAXP 默认行为。精心构造的 `DOCTYPE`/外部实体载荷可能导致 worker 节点本地文件泄露、SSRF 式请求，或通过实体展开（"billion laughs"）耗尽内存。现在 `XmlReadStrategy` 的所有解析都会经过加固后的 reader：启用 JAXP 安全处理特性、彻底拒绝任何 `<!DOCTYPE ...>` 声明、禁用外部通用/参数实体及外部 DTD 加载，并额外安装一个拒绝一切解析请求的 `EntityResolver` 作为与具体解析器实现无关的兜底防护。
   - **影响**：此前仅因携带 `<!DOCTYPE ...>` 声明才能被解析的 XML 文件——即使该声明是不引用任何外部 `SYSTEM`/`PUBLIC` 资源的良性声明——现在会以 `FileConnectorException(FILE_READ_FAILED)` 失败。该行为没有配置项可以恢复为旧版本的处理方式。
   - **迁移指南**：在使用 SeaTunnel 读取前，移除 XML 文件中的 `DOCTYPE` 声明，或对文件做预处理/重新导出。不带 `DOCTYPE` 声明的合法 XML 文件不受影响。(#11250)
+
+### CDC 连接器变更
+
+- **弃用说明：兼容窗口结束后将拒绝继承的 CDC Sink schema change no-op**
+  - **影响范围**：`schema-changes.enabled = true` 且 Sink writer 未实现 `SupportSchemaEvolutionSinkWriter` 的 CDC 作业
+  - **变更说明**：在 `evolve` 模式下，两个受支持的 Flink sink 路径优先使用 `SupportSchemaEvolutionSinkWriter`，并在调用显式覆写的 deprecated `SinkWriter.applySchemaChange` 时记录告警。在一个版本的兼容窗口内，继承默认 no-op 的 writer 也会记录告警并丢弃事件；该兜底将在下一个版本移除。(#11162)
+  - **影响**：仅继承 deprecated no-op 的现有 CDC 作业在兼容窗口内仍能运行，但 Sink schema 不会演进；兼容兜底移除后此类作业会失败。
+  - **迁移指南**：实现幂等的 `SupportSchemaEvolutionSinkWriter` 以完成端到端 schema evolution。也可以关闭 `schema-changes.enabled`，或排除 Sink 不应接收的事件类型。`schema-changes.behavior = ignore` 只适用于纯注释变更，不能屏蔽行结构变更。
 
 ### 转换变更
 

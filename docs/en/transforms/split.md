@@ -28,7 +28,7 @@ The Split transform splits one input field into several output fields. The input
 | split_field       | String             | yes      | -             | Input field to split. It must exist in the input table.                                              |
 | output_fields     | Array&lt;String&gt; | yes      | -             | Names of the output fields, in order. The list must not be empty.                                    |
 | table_match_regex | String             | no       | `.*`          | Regex of the table paths that the transform level rule applies to.                                   |
-| table_transform   | Array&lt;Map&gt;    | no       | -             | Per-table rules, see [Multi-Table Transform](transform-multi-table.md).                              |
+| table_transform   | Array&lt;Map&gt;    | no       | `[]`          | Per-table rules, see [Multi-Table Transform](transform-multi-table.md).                              |
 | rule_match_mode   | String             | no       | `FIRST_MATCH` (duplicate `table_path` entries are rejected unless set explicitly) | How multiple `table_transform` entries with the same `table_path` are evaluated.                     |
 | common options    | -                  | no       | -             | Transform plugin common parameters, see [Transform Plugin](common-options/common-options.md).       |
 

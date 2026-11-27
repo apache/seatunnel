@@ -83,24 +83,36 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         manager.write(record);
     }
 
+    /**
+     * Rows buffered so far were serialized with the current schema and must reach StarRocks before
+     * the table changes, so the current manager is flushed first; the sink does not rely on the
+     * engine having flushed it. If that load fails the error is raised and nothing else changes.
+     * The new schema is validated before the DDL and adopted only after it, so a failure on either
+     * side leaves the writer and the table in step.
+     */
     @Override
     public void applySchemaChange(SchemaChangeEvent event) {
-        this.tableSchema = tableSchemaChangeEventDispatcher.reset(tableSchema).apply(event);
-        SeaTunnelRowType seaTunnelRowType = tableSchema.toPhysicalRowDataType();
-        this.serializer = createSerializer(sinkConfig, seaTunnelRowType);
-
-        if (event instanceof RestoreTableSchemaEvent) {
-            try {
-                this.manager.close();
-            } catch (IOException e) {
-                throw CommonError.closeFailed(StarRocksBaseOptions.CONNECTOR_IDENTITY, e);
-            }
-            this.manager = new StarRocksSinkManager(sinkConfig, tableSchema);
-            return;
+        try {
+            this.manager.close();
+        } catch (IOException e) {
+            throw CommonError.closeFailed(StarRocksBaseOptions.CONNECTOR_IDENTITY, e);
         }
 
-        this.manager = new StarRocksSinkManager(sinkConfig, tableSchema);
+        TableSchema newSchema = tableSchemaChangeEventDispatcher.reset(tableSchema).apply(event);
+        StarRocksISerializer newSerializer =
+                createSerializer(sinkConfig, newSchema.toPhysicalRowDataType());
 
+        if (!(event instanceof RestoreTableSchemaEvent)) {
+            applySchemaChangeToStarRocks(event);
+        }
+
+        this.tableSchema = newSchema;
+        this.serializer = newSerializer;
+        this.manager = new StarRocksSinkManager(sinkConfig, newSchema);
+    }
+
+    /** Runs the DDL on the StarRocks table over JDBC. */
+    protected void applySchemaChangeToStarRocks(SchemaChangeEvent event) {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
         } catch (ClassNotFoundException e) {
