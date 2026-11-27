@@ -20,6 +20,8 @@ package org.apache.seatunnel.engine.server.master;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
+import org.apache.seatunnel.engine.common.job.JobResult;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
@@ -122,43 +124,82 @@ public class JobMasterMasterFailoverResourceTest
      * A write that returns without an exception is not enough: when the written ownership does not
      * read back unchanged, the pre-apply must reject the job instead of admitting it with
      * unconfirmed ownership.
+     *
+     * <p>The write may have committed even though its confirmation was lost, and a successor master
+     * may already have adopted that exact allocation. Removing the record and releasing the slots
+     * would then hand a slot in use to another job, so the failed round has to keep both until the
+     * job ends without retrying.
      */
     @Test
     @SuppressWarnings("unchecked")
-    void testPreApplyStopsAdmissionWhenSlotOwnershipReadBackIsUnconfirmed() throws Exception {
+    void testUnconfirmedOwnershipKeepsPossiblyAdoptedAllocation() throws Exception {
         long jobId = instance.getFlakeIdGenerator("master-failover-ownership-read-back").newId();
         ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
         Data jobImmutableInformationData = createJobImmutableInformationData(jobId);
-        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> unconfirmedOwnershipMap =
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> realOwnershipMap =
+                nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
+        // The write commits to the real map, but the acknowledgement and the confirmation reads are
+        // lost until the flag flips, which is how a lost acknowledgement looks to the old master.
+        AtomicBoolean confirmationVisible = new AtomicBoolean(false);
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> lostAckOwnershipMap =
                 Mockito.mock(IMap.class);
-        // The put returns normally, but the value never reads back, for example because another
-        // member served the read before the write became visible there.
-        Mockito.when(unconfirmedOwnershipMap.get(Mockito.any())).thenReturn(null);
+        Mockito.when(lostAckOwnershipMap.get(Mockito.any()))
+                .thenAnswer(
+                        invocation ->
+                                confirmationVisible.get()
+                                        ? realOwnershipMap.get(
+                                                (PipelineLocation) invocation.getArgument(0))
+                                        : null);
+        Mockito.when(lostAckOwnershipMap.put(Mockito.any(), Mockito.any()))
+                .thenAnswer(
+                        invocation ->
+                                realOwnershipMap.put(
+                                        invocation.getArgument(0), invocation.getArgument(1)));
+        Mockito.when(lostAckOwnershipMap.remove(Mockito.any()))
+                .thenAnswer(
+                        invocation ->
+                                realOwnershipMap.remove(
+                                        (PipelineLocation) invocation.getArgument(0)));
 
-        JobMaster jobMaster =
-                newJobMaster(jobId, jobImmutableInformationData, unconfirmedOwnershipMap);
+        JobMaster jobMaster = newJobMaster(jobId, jobImmutableInformationData, lostAckOwnershipMap);
         jobMaster.init(System.currentTimeMillis(), false);
-
-        Assertions.assertFalse(
-                jobMaster.preApplyResources(),
-                "a pre-apply whose written ownership does not read back must not admit the job");
-        Mockito.verify(unconfirmedOwnershipMap, Mockito.atLeastOnce())
-                .put(Mockito.any(), Mockito.any());
-        // The confirmation must retry the read-back before the ownership is treated as unknown.
-        Mockito.verify(unconfirmedOwnershipMap, Mockito.atLeast(2)).get(Mockito.any());
-        // The possibly committed record is cleared before the slots are released.
-        Mockito.verify(unconfirmedOwnershipMap, Mockito.atLeastOnce()).remove(Mockito.any());
-
-        List<SlotProfile> probeSlots = new ArrayList<>();
         try {
-            for (int index = 0; index < SLOT_NUM; index++) {
-                probeSlots.add(
-                        resourceManager
-                                .applyResource(jobId + 1, new ResourceProfile(), null)
-                                .get());
-            }
+            Assertions.assertFalse(
+                    jobMaster.preApplyResources(),
+                    "a pre-apply whose written ownership does not read back must not admit the job");
+            Mockito.verify(lostAckOwnershipMap, Mockito.atLeastOnce())
+                    .put(Mockito.any(), Mockito.any());
+            // The confirmation must retry the read-back before the ownership is treated as unknown.
+            Mockito.verify(lostAckOwnershipMap, Mockito.atLeast(2)).get(Mockito.any());
+
+            Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> committedOwnership =
+                    readPersistedSlots(realOwnershipMap, jobMaster);
+            Assertions.assertFalse(
+                    committedOwnership.isEmpty(),
+                    "a committed ownership record must not be removed by the failed round");
+            committedOwnership
+                    .values()
+                    .forEach(
+                            slotProfiles ->
+                                    slotProfiles
+                                            .values()
+                                            .forEach(
+                                                    slotProfile ->
+                                                            Assertions.assertTrue(
+                                                                    resourceManager.slotActiveCheck(
+                                                                            slotProfile),
+                                                                    "a possibly adopted slot must stay allocated out of the failed round")));
+            Mockito.verify(lostAckOwnershipMap, Mockito.never()).remove(Mockito.any());
+
+            // The job is cancelled before any retry, so the terminal cleanup owns the release.
+            confirmationVisible.set(true);
+            jobMaster.cancelJob();
+            assertNoOwnershipRecord(realOwnershipMap, jobMaster);
+            occupyAllFixedSlots(resourceManager, jobId + 1);
         } finally {
-            resourceManager.releaseResources(jobId + 1, probeSlots).join();
+            confirmationVisible.set(true);
+            jobMaster.cancelJob();
+            releasePersistedSlots(resourceManager, jobMaster, jobId);
         }
     }
 
@@ -232,9 +273,9 @@ public class JobMasterMasterFailoverResourceTest
 
     /**
      * When one pipeline of a round is persisted and another one fails, the confirmed record belongs
-     * to ownership that a successor master may already have adopted. The failed round must keep
-     * that record and its slots instead of removing and releasing them, while the pipeline without
-     * any persisted ownership still gets its slots back.
+     * to ownership that a successor master may already have adopted, and the failed write may have
+     * committed as well. The failed round therefore keeps every slot it allocated instead of
+     * removing records and releasing capacity that may already be in use.
      */
     @Test
     @SuppressWarnings("unchecked")
@@ -297,29 +338,123 @@ public class JobMasterMasterFailoverResourceTest
                                             "a slot whose ownership was confirmed may already be adopted and must not be released"));
             Assertions.assertNull(
                     realOwnershipMap.get(failedPipeline),
-                    "the unpersisted pipeline ownership must be reverted");
+                    "a pipeline whose write threw has no ownership record");
 
+            // Every slot of the round is still allocated to the job, including the pipeline without
+            // a record: only its remaining capacity is available to another job.
+            int jobSlotCount = jobSlotCount(jobMaster);
             List<SlotProfile> probeSlots = new ArrayList<>();
             try {
-                for (int index = 0; index < SLOT_NUM - confirmedOwnership.size(); index++) {
+                for (int index = 0; index < SLOT_NUM - jobSlotCount; index++) {
                     probeSlots.add(
                             resourceManager
                                     .applyResource(jobId + 1, new ResourceProfile(), null)
                                     .get());
                 }
+                assertNoFreeFixedSlot(resourceManager, jobId + 1);
             } finally {
                 resourceManager.releaseResources(jobId + 1, probeSlots).join();
             }
+
+            // Cancelling the pending job returns everything the failed round still holds.
+            jobMaster.cancelJob();
+            assertNoOwnershipRecord(realOwnershipMap, jobMaster);
+            occupyAllFixedSlots(resourceManager, jobId + 1);
         } finally {
-            Map<TaskGroupLocation, SlotProfile> confirmedOwnership =
-                    realOwnershipMap.remove(confirmedPipeline);
-            if (confirmedOwnership != null) {
-                resourceManager
-                        .releaseResources(jobId, new ArrayList<>(confirmedOwnership.values()))
-                        .join();
-            }
-            realOwnershipMap.remove(failedPipeline);
+            jobMaster.cancelJob();
+            releasePersistedSlots(resourceManager, jobMaster, jobId);
         }
+    }
+
+    /**
+     * A pending job cancelled after a failed admission must release the slots that admission
+     * retained.
+     *
+     * <p>No pipeline of the job ever starts, so the pipeline teardown that normally returns slots
+     * never runs. Clearing the attempt ledger would leave a job that will never run holding fixed
+     * capacity and, after a few failed admissions, the cluster could not schedule anything else.
+     */
+    @Test
+    void testPendingCancellationReleasesRetainedAdmissionSlots() throws Exception {
+        long jobId = instance.getFlakeIdGenerator("master-failover-pending-cancel").newId();
+        ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
+        JobMaster jobMaster = preparePendingJobWithRetainedAdmissionSlots(jobId);
+        try {
+            occupyFreeFixedSlots(resourceManager, jobId + 1, jobSlotCount(jobMaster));
+
+            jobMaster.cancelJob();
+
+            Assertions.assertEquals(JobStatus.CANCELED, jobMaster.getPhysicalPlan().getJobStatus());
+            assertNoOwnershipRecord(
+                    nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap"), jobMaster);
+            occupyAllFixedSlots(resourceManager, jobId + 1);
+        } finally {
+            jobMaster.cancelJob();
+            releasePersistedSlots(resourceManager, jobMaster, jobId);
+        }
+    }
+
+    /**
+     * A pending job rejected for insufficient resources must release the slots that the failed
+     * admission retained, even though it fails instead of being cancelled.
+     */
+    @Test
+    void testRejectedAdmissionReleasesRetainedAdmissionSlots() throws Exception {
+        long jobId = instance.getFlakeIdGenerator("master-failover-pending-reject").newId();
+        ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
+        JobMaster jobMaster = preparePendingJobWithRetainedAdmissionSlots(jobId);
+        try {
+            occupyFreeFixedSlots(resourceManager, jobId + 1, jobSlotCount(jobMaster));
+
+            // Same terminal sequence as CoordinatorService.completeFailJob for a non-waiting
+            // strategy: complete the pending plan as failed without deploying any pipeline.
+            jobMaster.getPhysicalPlan().updateJobState(JobStatus.FAILED);
+            jobMaster.getPhysicalPlan().completeJobEndFuture(new JobResult(JobStatus.FAILED, null));
+
+            Assertions.assertEquals(JobStatus.FAILED, jobMaster.getPhysicalPlan().getJobStatus());
+            assertNoOwnershipRecord(
+                    nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap"), jobMaster);
+            occupyAllFixedSlots(resourceManager, jobId + 1);
+        } finally {
+            jobMaster.cancelJob();
+            releasePersistedSlots(resourceManager, jobMaster, jobId);
+        }
+    }
+
+    /**
+     * Builds a pending job whose ownership writes all fail, so every slot it pre-applied is only
+     * tracked by the attempt ledger of this master.
+     */
+    @SuppressWarnings("unchecked")
+    private JobMaster preparePendingJobWithRetainedAdmissionSlots(long jobId) throws Exception {
+        Data jobImmutableInformationData =
+                createJobImmutableInformationData(
+                        jobId, "stream_two_pipelines_savepoint_partial_failure.conf");
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> realOwnershipMap =
+                nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> unavailableOwnershipMap =
+                Mockito.mock(IMap.class);
+        Mockito.when(unavailableOwnershipMap.get(Mockito.any()))
+                .thenAnswer(
+                        invocation ->
+                                realOwnershipMap.get((PipelineLocation) invocation.getArgument(0)));
+        Mockito.when(unavailableOwnershipMap.remove(Mockito.any()))
+                .thenAnswer(
+                        invocation ->
+                                realOwnershipMap.remove(
+                                        (PipelineLocation) invocation.getArgument(0)));
+        Mockito.doThrow(new HazelcastException("owned slot profiles IMap is unavailable"))
+                .when(unavailableOwnershipMap)
+                .put(Mockito.any(), Mockito.any());
+        JobMaster jobMaster =
+                newJobMaster(jobId, jobImmutableInformationData, unavailableOwnershipMap);
+        jobMaster.init(System.currentTimeMillis(), false);
+        Assertions.assertFalse(
+                jobMaster.preApplyResources(),
+                "a round that cannot persist its ownership must not admit the job");
+        Assertions.assertTrue(
+                jobSlotCount(jobMaster) > 0, "the failing round must have allocated some slots");
+        return jobMaster;
     }
 
     /**
@@ -472,9 +607,11 @@ public class JobMasterMasterFailoverResourceTest
     }
 
     /**
-     * A pre-apply whose slot ownership cannot be persisted must not admit the job. The slots are
-     * already allocated on the workers, so admitting it without the ownership record would leave a
-     * successor master unable to reuse or release them after an active-master switch.
+     * A pre-apply whose slot ownership cannot be persisted must not admit the job.
+     *
+     * <p>A thrown write does not prove that nothing committed: the exception can also mean the
+     * acknowledgement was lost after the put landed. The round therefore keeps every allocation it
+     * acquired, and the terminal cleanup of the job releases it when no retry happens.
      */
     @Test
     @SuppressWarnings("unchecked")
@@ -491,27 +628,34 @@ public class JobMasterMasterFailoverResourceTest
         JobMaster jobMaster =
                 newJobMaster(jobId, jobImmutableInformationData, unavailableOwnershipMap);
         jobMaster.init(System.currentTimeMillis(), false);
-
-        Assertions.assertFalse(
-                jobMaster.preApplyResources(),
-                "a pre-apply that cannot persist its slot ownership must not admit the job");
-        Mockito.verify(unavailableOwnershipMap, Mockito.atLeastOnce())
-                .put(Mockito.any(), Mockito.any());
-        // The possibly committed record is cleared before the slots are released.
-        Mockito.verify(unavailableOwnershipMap, Mockito.atLeastOnce()).remove(Mockito.any());
-
-        // Every pre-applied fixed slot must be free again, otherwise the rejected admission leaked
-        // capacity that this master can no longer see.
-        List<SlotProfile> probeSlots = new ArrayList<>();
         try {
-            for (int index = 0; index < SLOT_NUM; index++) {
-                probeSlots.add(
-                        resourceManager
-                                .applyResource(jobId + 1, new ResourceProfile(), null)
-                                .get());
+            Assertions.assertFalse(
+                    jobMaster.preApplyResources(),
+                    "a pre-apply that cannot persist its slot ownership must not admit the job");
+            Mockito.verify(unavailableOwnershipMap, Mockito.atLeastOnce())
+                    .put(Mockito.any(), Mockito.any());
+            // The slots of the failed round stay allocated to the job, because a thrown write does
+            // not prove that the allocation has no adopter, and a later attempt reuses them.
+            int jobSlotCount = jobSlotCount(jobMaster);
+            List<SlotProfile> probeSlots = new ArrayList<>();
+            try {
+                for (int index = 0; index < SLOT_NUM - jobSlotCount; index++) {
+                    probeSlots.add(
+                            resourceManager
+                                    .applyResource(jobId + 1, new ResourceProfile(), null)
+                                    .get());
+                }
+            } finally {
+                resourceManager.releaseResources(jobId + 1, probeSlots).join();
             }
+
+            // Cancelling the pending job releases exactly those retained allocations.
+            jobMaster.cancelJob();
+            assertNoOwnershipRecord(unavailableOwnershipMap, jobMaster);
+            occupyAllFixedSlots(resourceManager, jobId + 1);
         } finally {
-            resourceManager.releaseResources(jobId + 1, probeSlots).join();
+            jobMaster.cancelJob();
+            releasePersistedSlots(resourceManager, jobMaster, jobId);
         }
     }
 
@@ -684,6 +828,65 @@ public class JobMasterMasterFailoverResourceTest
             }
         }
         throw new IllegalStateException("No pre-applied slot was persisted for the test job");
+    }
+
+    /** Number of task groups of the job, which is the number of fixed slots it needs. */
+    private int jobSlotCount(JobMaster jobMaster) {
+        return jobMaster.getPhysicalPlan().getPipelineList().stream()
+                .mapToInt(
+                        subPlan ->
+                                subPlan.getCoordinatorVertexList().size()
+                                        + subPlan.getPhysicalVertexList().size())
+                .sum();
+    }
+
+    /** Asserts that the job left no ownership record behind for any of its pipelines. */
+    private void assertNoOwnershipRecord(
+            IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap,
+            JobMaster jobMaster) {
+        for (SubPlan subPlan : jobMaster.getPhysicalPlan().getPipelineList()) {
+            Assertions.assertNull(
+                    ownedSlotProfilesIMap.get(subPlan.getPipelineLocation()),
+                    "a job that ended without deploying a pipeline must not keep an ownership record");
+        }
+    }
+
+    /**
+     * Allocates the fixed slots the job does not hold to an unrelated job, which proves that the
+     * job still owns exactly its own slot count and nothing else.
+     */
+    private void occupyFreeFixedSlots(ResourceManager resourceManager, long jobId, int jobSlotCount)
+            throws Exception {
+        List<SlotProfile> probeSlots = new ArrayList<>();
+        try {
+            for (int index = 0; index < SLOT_NUM - jobSlotCount; index++) {
+                probeSlots.add(
+                        resourceManager.applyResource(jobId, new ResourceProfile(), null).get());
+            }
+            assertNoFreeFixedSlot(resourceManager, jobId);
+        } finally {
+            resourceManager.releaseResources(jobId, probeSlots).join();
+        }
+    }
+
+    /**
+     * Allocates every fixed slot for an unrelated job, which proves that a terminal job returned
+     * all the capacity its failed admission rounds had retained.
+     */
+    private void occupyAllFixedSlots(ResourceManager resourceManager, long jobId) throws Exception {
+        List<SlotProfile> probeSlots = new ArrayList<>();
+        try {
+            for (int index = 0; index < SLOT_NUM; index++) {
+                probeSlots.add(
+                        resourceManager.applyResource(jobId, new ResourceProfile(), null).get());
+            }
+        } catch (ExecutionException exception) {
+            throw new AssertionError(
+                    "the terminal cleanup must return every fixed slot the job retained",
+                    exception);
+        } finally {
+            resourceManager.releaseResources(jobId, probeSlots).join();
+        }
     }
 
     /**
