@@ -104,7 +104,7 @@ Supported mapping keys:
 
 Unsupported mapping keys are rejected.
 
-When an optional mapping (`subject`, `id`, `headers`) points to a field that does not exist in the input schema, the connector silently skips that mapping. For example, with the default mapping `{id:id, subject:subject, headers:headers, data:data}`, a schema that only contains a `data` field will still be accepted; `id`, `subject`, and `headers` are simply not set on the published message.
+When an optional mapping (`id`, `headers`) points to a field that does not exist in the input schema, the connector silently skips that mapping. A `subject` mapping pointing to a nonexistent field is only skipped when the sink-level `subject` fallback is configured; otherwise validation fails. For example, with the default mapping `{id:id, subject:subject, headers:headers, data:data}`, a schema that only contains a `data` field is accepted only if `subject` is also configured; without it, the job fails with a schema validation error.
 
 ### include_row_kind_header [boolean]
 

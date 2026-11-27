@@ -403,6 +403,8 @@ When built-in operators are not expressive enough — for example, validating th
 
 Implement `ConditionExtension<T>` and wire it via `Conditions.extension(option, ext)`. The extension plugs into the same `valueConstraints` pipeline as all built-in operators, so it works with `.and()` / `.or()`, `required`, `optional`, and `conditional` rules.
 
+Condition equality and hashing include the extension's `equals` and `hashCode`, including extensions inside a chain. Reuse the same extension instance when constructing equivalent rules; separate instances are distinct unless the extension implementation defines value-based equality.
+
 Inline anonymous class:
 
 ```java
@@ -473,6 +475,16 @@ This architecture is also what makes the `option-rules` REST endpoint useful. To
 - which defaults are active on the running server
 
 That is why the option system sits at the boundary of both developer experience and operations.
+
+### Export connector metadata
+
+To print the option rules from an installed distribution, run this command in the SeaTunnel installation directory with the FakeSource connector installed.
+
+```shell
+bin/seatunnel-metadata-export.sh -pt source -p FakeSource --stdout
+```
+
+Each entry in `connectors[]` contains the plugin's rules. Look up conditional triggers in `required[].conditionTree` and nested triggers in `conditionRules[].expressionTree`. Follow `operator` and `next` on those expression nodes. For `valueConstraints[].conditionTree`, follow the links directly on the condition nodes.
 
 ## Recommended Reading
 

@@ -29,7 +29,7 @@ The RegexExtract transform uses a Java regular expression to extract data from o
 | output_fields     | Array&lt;String&gt; | yes      | -             | Names of the output fields, in capture group order. The list must not be empty.                      |
 | default_values    | Array&lt;String&gt; | no       | -             | Default value per output field, used when the pattern does not match or the source value is null. When set, its length must equal the length of `output_fields`. |
 | table_match_regex | String             | no       | `.*`          | Regex of the table paths that the transform level rule applies to.                                   |
-| table_transform   | Array&lt;Map&gt;    | no       | -             | Per-table rules, see [Multi-Table Transform](transform-multi-table.md).                              |
+| table_transform   | Array&lt;Map&gt;    | no       | `[]`          | Per-table rules, see [Multi-Table Transform](transform-multi-table.md).                              |
 | rule_match_mode   | String             | no       | `FIRST_MATCH` (duplicate `table_path` entries are rejected unless set explicitly) | How multiple `table_transform` entries with the same `table_path` are evaluated.                     |
 | common options    | -                  | no       | -             | Transform plugin common parameters, see [Transform Plugin](common-options/common-options.md).       |
 
@@ -96,7 +96,7 @@ When the upstream source outputs several tables (for example JDBC or MySQL-CDC),
 
 - Entries in `table_transform` take precedence over the transform level rule. A table that has an entry is never touched by the transform level rule.
 - Every entry must be a complete single-table rule (`table_path` plus `source_field`, `regex_pattern` and `output_fields`).
-- The transform level rule applies only to tables matching `table_match_regex`.
+- The transform level rule applies only to tables matching `table_match_regex`; with the default `.*` it applies to every table that does not have a `table_transform` entry.
 - When only `table_transform` is configured, the tables without an entry stay unchanged.
 
 The configuration below uses a transform level rule for `test.a.*` tables, a per-table rule for `test.xyz`, and leaves `test.www` unchanged:

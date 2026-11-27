@@ -85,6 +85,10 @@ By default, we use 2PC commit to ensure `exactly-once`
 | schema_save_mode                      | string  | no       | CREATE_SCHEMA_WHEN_NOT_EXIST               | Existing dir processing method                                                                                                                                         |
 | data_save_mode                        | string  | no       | APPEND_DATA                                | Existing data processing method                                                                                                                                        |
 | multi_table_sink_replica              | int     | no       | 1                                          | The replica number of sink writers used for each table in a multi-table sink job.                                                                                      |
+| date_format                           | string  | no       | yyyy-MM-dd                                 | Only used when file_format_type is `text`, `csv`, `excel` or `xml`. Date type format, used to tell connector how to write date values. Supported formats (examples): `yyyy-MM-dd`, `yyyy.MM.dd`, `yyyy/MM/dd`. |
+| datetime_format                       | string  | no       | yyyy-MM-dd HH:mm:ss                        | Only used when file_format_type is `text`, `csv`, `excel` or `xml`. Datetime type format, used to tell connector how to write datetime values. Supported formats (examples): `yyyy-MM-dd HH:mm:ss`, `yyyy.MM.dd HH:mm:ss`, `yyyy/MM/dd HH:mm:ss`, `yyyyMMddHHmmss`. |
+| time_format                           | string  | no       | HH:mm:ss                                   | Only used when file_format_type is `text`, `csv`, `excel` or `xml`. Time type format, used to tell connector how to write time values. Supported formats (examples): `HH:mm:ss`, `HH:mm:ss.SSS`. |
+| merge_update_event                    | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data |
 
 ### host [string]
 
@@ -238,7 +242,7 @@ When file format is Excel, the maximum number of rows per sheet.
 
 Writer the sheet of the workbook
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 When File Format is CSV,The string quote mode of CSV.
 

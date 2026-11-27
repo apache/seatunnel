@@ -117,20 +117,20 @@ public interface RequiredOption {
     }
 
     class ConditionalRequiredOptions implements RequiredOption {
-        private final Expression expression;
+        private final Condition<?> condition;
         private final List<Option<?>> requiredOption;
 
-        ConditionalRequiredOptions(Expression expression, List<Option<?>> requiredOption) {
-            this.expression = expression;
+        ConditionalRequiredOptions(Condition<?> condition, List<Option<?>> requiredOption) {
+            this.condition = Objects.requireNonNull(condition, "condition");
             this.requiredOption = requiredOption;
         }
 
-        /**
-         * Creates conditional required options from the legacy expression wrapper.
-         *
-         * @deprecated Use {@link #of(Condition, List)} for new code. This overload is retained
-         *     temporarily for source compatibility with downstream extensions.
-         */
+        @Deprecated
+        ConditionalRequiredOptions(Expression expression, List<Option<?>> requiredOption) {
+            this(Objects.requireNonNull(expression, "expression").toCondition(), requiredOption);
+        }
+
+        /** @deprecated Use {@link #of(Condition, List)}. */
         @Deprecated
         public static ConditionalRequiredOptions of(
                 Expression expression, List<Option<?>> requiredOption) {
@@ -139,11 +139,17 @@ public interface RequiredOption {
 
         public static ConditionalRequiredOptions of(
                 Condition<?> condition, List<Option<?>> requiredOption) {
-            return new ConditionalRequiredOptions(Expression.of(condition), requiredOption);
+            return new ConditionalRequiredOptions(condition, requiredOption);
         }
 
+        /** @deprecated Use {@link #getCondition()}. Returns a detached compatibility view. */
+        @Deprecated
         public Expression getExpression() {
-            return expression;
+            return Expression.fromCondition(condition);
+        }
+
+        public Condition<?> getCondition() {
+            return condition;
         }
 
         public List<Option<?>> getRequiredOption() {
@@ -159,7 +165,7 @@ public interface RequiredOption {
                 return false;
             }
             ConditionalRequiredOptions that = (ConditionalRequiredOptions) obj;
-            return Objects.equals(this.expression, that.expression)
+            return Objects.equals(this.condition, that.condition)
                     && Objects.equals(this.requiredOption, that.requiredOption);
         }
 
@@ -172,7 +178,7 @@ public interface RequiredOption {
         public String toString() {
             return String.format(
                     "Condition expression: %s, Required options: %s",
-                    expression, getOptionKeys(requiredOption));
+                    condition, getOptionKeys(requiredOption));
         }
 
         @Override

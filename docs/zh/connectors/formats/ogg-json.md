@@ -23,6 +23,13 @@ SeaTunnel 还支持将 SeaTunnel 中的 INSERT/UPDATE/DELETE 消息转化为 Ogg
 
 > **注意：** 带前缀的 `ogg_json.ignore-parse-errors`、`ogg_json.database.include` 和 `ogg_json.table.include` 不是有效的配置项，配置后不会生效。是否跳过无法解析的记录由各连接器自行决定（例如 Kafka 读取 Ogg JSON 时始终跳过），format 模块的 `database.include`/`table.include` 过滤器目前也未接入任何连接器。
 
+:::warning
+
+在当前的 SeaTunnel 实现中，除 `format` 外的上述选项都不会从作业配置中读取。目前只有 Kafka source 支持 `ogg_json` 格式，且它会始终跳过解析错误的行。
+`ogg_json.database.include` / `ogg_json.table.include` 的过滤功能不会被应用。
+
+:::
+
 # 如何使用 Ogg 格式
 
 ## Kafka 使用示例
