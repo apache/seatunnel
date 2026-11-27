@@ -678,13 +678,13 @@ WHERE (EXCLUDED."update_time" > target."update_time")
 - 支持比较运算 `=`、`<>`、`<`、`<=`、`>`、`>=`，运算符 `AND`、`OR`、`NOT`、`IS NULL`、`IS NOT NULL` 以及括号。
 - 函数、类型转换、字面量以及其他列引用方式会在任务启动时被拒绝。SeaTunnel 会解析条件并据此生成 SQL，不会把原始文本直接传给数据库。
 
-批次：不设置该选项时，Sink 在一个批次内只保留每个主键的最后一次变更。设置后，每条变更都按到达顺序执行，因此无论输入顺序如何，最新版本都会生效。当同一个主键在同一批次中再次出现时，Sink 会先执行已缓存的语句，保证一条语句不会两次修改同一行。该行为在 `reWriteBatchedInserts=true` 时同样适用。因此，包含重复主键的批次需要更多次与数据库的往返。
+批次：不设置该选项时，Sink 在一个批次内只保留每个主键的最后一次变更。设置后，每条变更都按到达顺序执行，因此无论输入顺序如何，最新版本都会生效。当同一个主键在同一批次中再次出现时，Sink 会先执行已缓存的语句，保证一条语句不会两次修改同一行。因此，包含重复主键的批次需要更多次与数据库的往返。当 url 或 `properties` 中设置了 `reWriteBatchedInserts=true` 时，每一行都作为单独的语句发送，因为数据库可能认为两个在 Sink 看来不同的主键是相等的（例如 `numeric` 值 `1.0` 和 `1.00`）。因此使用该选项时，`reWriteBatchedInserts` 不会带来批量写入的提速。
 
 要求（不满足时任务会在启动时失败）：
 
 - 使用 `jdbc:postgresql:` 开头的 url 和 PostgreSQL 方言。不支持 `compatible_mode = "postgresLow"`、基于 PostgreSQL 方言的其他方言（例如 OpenGauss 或 CockroachDB）以及其他 url（例如 `jdbc:pivotal:greenplum:` 或 `jdbc:highgo:`）
 - `generate_sink_sql = true`，且不配置 `query`
-- 存在主键：来自 `primary_keys`，或来自表的主键或唯一键
+- 在 Sink 选项中设置了 `primary_keys`。不会改用表的主键或唯一键
 - `enable_upsert = true`、`use_copy_statement = false` 且 `support_upsert_by_insert_only = false`
 
 当一次刷新失败并重试时，整个批次会按相同顺序重新执行。对于 `:update_time > target.update_time` 这样的条件，已经执行过的变更会被跳过。

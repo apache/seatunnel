@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
@@ -120,6 +121,13 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
         }
         map.put(JdbcSinkOptions.DATABASE.key(), catalogTable.getTableId().getDatabaseName());
         PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
+        // update_condition_sql needs primary_keys set by the user, so check before inferring them.
+        if (config.getOptional(JdbcSinkOptions.UPDATE_CONDITION_SQL).isPresent()
+                && CollectionUtils.isEmpty(config.get(JdbcSinkOptions.PRIMARY_KEYS))) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "Invalid update_condition_sql: it requires primary_keys to be set");
+        }
         if (CollectionUtils.isEmpty(config.get(JdbcSinkOptions.PRIMARY_KEYS))) {
             if (primaryKey != null && !CollectionUtils.isEmpty(primaryKey.getColumnNames())) {
                 map.put(

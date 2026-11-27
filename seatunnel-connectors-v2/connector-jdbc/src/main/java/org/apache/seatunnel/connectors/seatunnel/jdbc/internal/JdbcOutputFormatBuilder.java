@@ -97,6 +97,13 @@ public class JdbcOutputFormatBuilder {
                                     pkNames,
                                     updateCondition.get());
             log.info("update_condition_sql is enabled, generated upsert SQL: {}", upsertSQL);
+            boolean oneRowPerStatement =
+                    isRewriteBatchedInsertsEnabled(jdbcSinkConfig.getJdbcConnectionConfig());
+            if (oneRowPerStatement) {
+                log.info(
+                        "reWriteBatchedInserts is enabled, update_condition_sql sends one row per"
+                                + " statement");
+            }
             statementExecutorFactory =
                     () ->
                             createConditionalUpsertBufferedExecutor(
@@ -106,7 +113,8 @@ public class JdbcOutputFormatBuilder {
                                     tableSchema,
                                     databaseTableSchema,
                                     pkNames,
-                                    upsertSQL);
+                                    upsertSQL,
+                                    oneRowPerStatement);
         } else if (jdbcSinkConfig.isUseCopyStatement()) {
             statementExecutorFactory =
                     () ->
@@ -229,7 +237,8 @@ public class JdbcOutputFormatBuilder {
             TableSchema tableSchema,
             TableSchema databaseTableSchema,
             String[] pkNames,
-            String upsertSQL) {
+            String upsertSQL,
+            boolean oneRowPerStatement) {
         int[] pkFields =
                 Arrays.stream(pkNames)
                         .mapToInt(tableSchema.toPhysicalRowDataType()::indexOf)
@@ -248,7 +257,31 @@ public class JdbcOutputFormatBuilder {
                 createDeleteExecutor(
                         dialect, database, table, pkNames, pkSchema, databaseTableSchema),
                 createKeyExtractor(pkFields),
-                Function.identity());
+                Function.identity(),
+                oneRowPerStatement);
+    }
+
+    /**
+     * Whether the url or the connection properties ask the PostgreSQL driver to merge the rows of a
+     * batch into one statement.
+     */
+    static boolean isRewriteBatchedInsertsEnabled(JdbcConnectionConfig connectionConfig) {
+        String url = connectionConfig.getUrl();
+        int queryStart = url.indexOf('?');
+        if (queryStart >= 0) {
+            for (String parameter : url.substring(queryStart + 1).split("&")) {
+                String[] pair = parameter.split("=", 2);
+                if (pair.length == 2 && isRewriteBatchedInserts(pair[0], pair[1])) {
+                    return true;
+                }
+            }
+        }
+        return connectionConfig.getProperties().entrySet().stream()
+                .anyMatch(entry -> isRewriteBatchedInserts(entry.getKey(), entry.getValue()));
+    }
+
+    private static boolean isRewriteBatchedInserts(String name, String value) {
+        return "reWriteBatchedInserts".equalsIgnoreCase(name) && "true".equalsIgnoreCase(value);
     }
 
     /**
@@ -288,9 +321,7 @@ public class JdbcOutputFormatBuilder {
         }
         List<String> primaryKeys = jdbcSinkConfig.getPrimaryKeys();
         if (primaryKeys == null || primaryKeys.isEmpty()) {
-            throw invalidUpdateCondition(
-                    "it requires primary keys, set primary_keys or write to a table with a"
-                            + " primary key");
+            throw invalidUpdateCondition("it requires primary_keys to be set");
         }
         if (!jdbcSinkConfig.isEnableUpsert()) {
             throw invalidUpdateCondition("it requires enable_upsert = true");

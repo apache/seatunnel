@@ -32,6 +32,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
@@ -66,6 +67,7 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -825,6 +827,64 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
             second.close();
             firstConnection.closeConnection();
             secondConnection.closeConnection();
+        }
+    }
+
+    /**
+     * Verifies {@code update_condition_sql} with {@code reWriteBatchedInserts=true} for two keys
+     * that PostgreSQL treats as equal while Java does not, so they must not share a statement.
+     */
+    @Test
+    public void testUpdateConditionSqlWithRewriteForKeysOnlyTheDatabaseFindsEqual()
+            throws Exception {
+        executeSQL("DROP TABLE IF EXISTS " + UPDATE_CONDITION_CONCURRENT_TABLE);
+        executeSQL(
+                "CREATE TABLE "
+                        + UPDATE_CONDITION_CONCURRENT_TABLE
+                        + " (id NUMERIC(10, 2) PRIMARY KEY, update_time BIGINT)");
+        Map<String, Object> config = new HashMap<>();
+        config.put("url", POSTGRESQL_CONTAINER.getJdbcUrl());
+        config.put("driver", POSTGRESQL_CONTAINER.getDriverClassName());
+        config.put("username", POSTGRESQL_CONTAINER.getUsername());
+        config.put("password", POSTGRESQL_CONTAINER.getPassword());
+        config.put("properties", Collections.singletonMap("reWriteBatchedInserts", "true"));
+        config.put("database", POSTGRESQL_CONTAINER.getDatabaseName());
+        config.put("table", "public." + UPDATE_CONDITION_CONCURRENT_TABLE);
+        config.put("primary_keys", Collections.singletonList("id"));
+        config.put("update_condition_sql", ":update_time > target.update_time");
+        JdbcSinkConfig sinkConfig = JdbcSinkConfig.of(ReadonlyConfig.fromMap(config));
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "id", new DecimalType(10, 2), 10L, false, null, ""))
+                        .column(
+                                PhysicalColumn.of(
+                                        "update_time", BasicType.LONG_TYPE, 22L, true, null, ""))
+                        .build();
+        SimpleJdbcConnectionProvider connectionProvider =
+                new SimpleJdbcConnectionProvider(sinkConfig.getJdbcConnectionConfig());
+        JdbcOutputFormat<SeaTunnelRow, ?> writer =
+                new JdbcOutputFormatBuilder(
+                                new PostgresDialect(),
+                                connectionProvider,
+                                sinkConfig,
+                                schema,
+                                schema)
+                        .build();
+        try {
+            writer.open();
+            writer.writeRecord(new SeaTunnelRow(new Object[] {new BigDecimal("1.0"), 300L}));
+            writer.writeRecord(new SeaTunnelRow(new Object[] {new BigDecimal("1.00"), 200L}));
+            writer.flush();
+
+            Assertions.assertEquals(
+                    Collections.singletonList(Arrays.asList(new BigDecimal("1.00"), 300L)),
+                    querySql("SELECT id, update_time FROM " + UPDATE_CONDITION_CONCURRENT_TABLE));
+        } finally {
+            writer.close();
+            connectionProvider.closeConnection();
+            executeSQL("DROP TABLE IF EXISTS " + UPDATE_CONDITION_CONCURRENT_TABLE);
         }
     }
 

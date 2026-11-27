@@ -40,7 +40,8 @@ public class OrderedBufferedBatchStatementExecutorTest extends BufferExecutorTes
                 new FailingExecutor(recorder),
                 new FailingExecutor(recorder),
                 Function.identity(),
-                Function.identity());
+                Function.identity(),
+                false);
     }
 
     @Test
@@ -93,9 +94,44 @@ public class OrderedBufferedBatchStatementExecutorTest extends BufferExecutorTes
         executor.addToBatch(row(RowKind.INSERT, null, "b", 1));
         executor.executeBatch();
 
-        // NULL never equals NULL in SQL, so these rows can not change the same stored row.
+        // NULL keys are not tracked; without rewriting each row is its own statement anyway.
         Assertions.assertEquals(
                 Arrays.asList("upsert[null, a, 1]", "upsert[null, b, 1]", "execute upsert"), log);
+    }
+
+    @Test
+    void testOneRowPerStatementExecutesEveryUpsertOnItsOwn() throws SQLException {
+        List<String> log = new ArrayList<>();
+        JdbcBatchStatementExecutor<SeaTunnelRow> executor =
+                new OrderedBufferedBatchStatementExecutor(
+                        new LoggingExecutor("upsert", log),
+                        new LoggingExecutor("delete", log),
+                        keyById(),
+                        Function.identity(),
+                        true);
+
+        // Different or NULL keys for Java can still be one row for the database.
+        executor.addToBatch(row(RowKind.INSERT, 1, "a", 1));
+        executor.addToBatch(row(RowKind.INSERT, 2, "b", 1));
+        executor.addToBatch(row(RowKind.INSERT, null, "c", 1));
+        executor.addToBatch(row(RowKind.DELETE, 1, "a", 1));
+        executor.addToBatch(row(RowKind.DELETE, 2, "b", 1));
+        executor.executeBatch();
+
+        // The empty execute before the deletes is the switch from upserts to deletes.
+        Assertions.assertEquals(
+                Arrays.asList(
+                        "upsert[1, a, 1]",
+                        "execute upsert",
+                        "upsert[2, b, 1]",
+                        "execute upsert",
+                        "upsert[null, c, 1]",
+                        "execute upsert",
+                        "execute upsert",
+                        "delete[1]",
+                        "delete[2]",
+                        "execute delete"),
+                log);
     }
 
     @Test
@@ -106,7 +142,8 @@ public class OrderedBufferedBatchStatementExecutorTest extends BufferExecutorTes
                         new LoggingExecutor("upsert", log),
                         new LoggingExecutor("delete", log),
                         row -> new SeaTunnelRow(new Object[] {row.getField(0), row.getField(1)}),
-                        Function.identity());
+                        Function.identity(),
+                        false);
 
         executor.addToBatch(row(RowKind.INSERT, 1, "a", 1));
         executor.addToBatch(row(RowKind.INSERT, 1, "b", 1));
@@ -176,7 +213,8 @@ public class OrderedBufferedBatchStatementExecutorTest extends BufferExecutorTes
                         upserts,
                         new LoggingExecutor("delete", log),
                         keyById(),
-                        Function.identity());
+                        Function.identity(),
+                        false);
 
         executor.addToBatch(row(RowKind.INSERT, 1, "v300", 300));
         executor.addToBatch(row(RowKind.INSERT, 1, "v200", 200));
@@ -229,7 +267,8 @@ public class OrderedBufferedBatchStatementExecutorTest extends BufferExecutorTes
                 new LoggingExecutor("upsert", log),
                 new LoggingExecutor("delete", log),
                 keyById(),
-                Function.identity());
+                Function.identity(),
+                false);
     }
 
     private static Function<SeaTunnelRow, SeaTunnelRow> keyById() {

@@ -269,11 +269,11 @@ public class JdbcOutputFormatBuilderTest {
         assertUpdateConditionRejected(
                 new PostgresDialect(),
                 updateConditionConfig().primaryKeys(Collections.emptyList()).build(),
-                "it requires primary keys");
+                "it requires primary_keys to be set");
         assertUpdateConditionRejected(
                 new PostgresDialect(),
                 updateConditionConfig().primaryKeys(null).build(),
-                "it requires primary keys");
+                "it requires primary_keys to be set");
         assertUpdateConditionRejected(
                 new PostgresDialect(),
                 updateConditionConfig().enableUpsert(false).build(),
@@ -286,6 +286,28 @@ public class JdbcOutputFormatBuilderTest {
                 new PostgresDialect(),
                 updateConditionConfig().updateConditionSql(":missing > target.update_time").build(),
                 "unknown column 'missing'");
+    }
+
+    @Test
+    public void testRewriteBatchedInsertsIsDetectedInUrlAndProperties() {
+        String url = "jdbc:postgresql://localhost:5432/test";
+        Assertions.assertFalse(isRewriteEnabled(url, null));
+        Assertions.assertFalse(isRewriteEnabled(url + "?reWriteBatchedInserts=false", null));
+        Assertions.assertFalse(isRewriteEnabled(url + "?reWriteBatchedInserts", null));
+        Assertions.assertFalse(isRewriteEnabled(url + "?loggerLevel=OFF", "false"));
+        Assertions.assertTrue(isRewriteEnabled(url + "?reWriteBatchedInserts=true", null));
+        Assertions.assertTrue(
+                isRewriteEnabled(url + "?loggerLevel=OFF&reWriteBatchedInserts=TRUE", null));
+        Assertions.assertTrue(isRewriteEnabled(url, "true"));
+    }
+
+    private static boolean isRewriteEnabled(String url, String property) {
+        Map<String, String> properties = new HashMap<>();
+        if (property != null) {
+            properties.put("reWriteBatchedInserts", property);
+        }
+        return JdbcOutputFormatBuilder.isRewriteBatchedInsertsEnabled(
+                JdbcConnectionConfig.builder().url(url).properties(properties).build());
     }
 
     @Test

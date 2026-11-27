@@ -682,13 +682,13 @@ Syntax:
 - Supported are the comparisons `=`, `<>`, `<`, `<=`, `>`, `>=`, the operators `AND`, `OR`, `NOT`, `IS NULL`, `IS NOT NULL` and parentheses.
 - Functions, casts, literals and any other column reference are rejected when the job starts. The condition is parsed and SeaTunnel builds the SQL from it, the text is never passed to the database as it is.
 
-Batches: without this option the sink keeps only the last change of a key within a batch. With it, every change is applied in the order it arrives, so the newest version wins whatever the input order is. When a key appears again in the same batch, the sink first executes the pending statements, so that one statement never changes the same row twice. This also applies with `reWriteBatchedInserts=true`. A batch with repeated keys therefore needs more round trips to the database.
+Batches: without this option the sink keeps only the last change of a key within a batch. With it, every change is applied in the order it arrives, so the newest version wins whatever the input order is. When a key appears again in the same batch, the sink first executes the pending statements, so that one statement never changes the same row twice. A batch with repeated keys therefore needs more round trips to the database. When `reWriteBatchedInserts=true` is set in the url or in `properties`, each row is sent as its own statement, because the database can treat two keys as equal that look different to the sink (for example `numeric` values `1.0` and `1.00`). The option therefore gives no batching speed-up from `reWriteBatchedInserts`.
 
 Requirements, otherwise the job fails when it starts:
 
 - a `jdbc:postgresql:` url with the PostgreSQL dialect. `compatible_mode = "postgresLow"`, the dialects based on the PostgreSQL dialect (such as OpenGauss or CockroachDB) and other urls (such as `jdbc:pivotal:greenplum:` or `jdbc:highgo:`) are not supported
 - `generate_sink_sql = true`, without `query`
-- primary keys, from `primary_keys` or from the primary key or unique key of the table
+- `primary_keys` set in the sink options. The primary key or unique key of the table is not used instead
 - `enable_upsert = true`, `use_copy_statement = false` and `support_upsert_by_insert_only = false`
 
 When a flush fails and is retried, the whole batch is applied again in the same order. With a condition such as `:update_time > target.update_time`, changes that were already applied are skipped.

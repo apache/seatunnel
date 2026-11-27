@@ -418,6 +418,7 @@ class JdbcSinkFactoryTest {
         cfg.put("driver", "org.postgresql.Driver");
         cfg.put("database", "test");
         cfg.put("table", "public.t");
+        cfg.put("primary_keys", Arrays.asList("id"));
         cfg.put("update_condition_sql", ":name > target.name");
         return cfg;
     }
@@ -436,9 +437,8 @@ class JdbcSinkFactoryTest {
     void testUpdateConditionSqlIsAcceptedWhenTheSinkIsCreated() {
         Assertions.assertDoesNotThrow(
                 () -> createJdbcSink(postgresUpdateConditionConfig(), createCatalogTable(true)));
-        Map<String, Object> cfg = postgresUpdateConditionConfig();
-        cfg.put("primary_keys", Arrays.asList("id"));
-        Assertions.assertDoesNotThrow(() -> createJdbcSink(cfg, createCatalogTable(false)));
+        Assertions.assertDoesNotThrow(
+                () -> createJdbcSink(postgresUpdateConditionConfig(), createCatalogTable(false)));
     }
 
     @Test
@@ -448,10 +448,11 @@ class JdbcSinkFactoryTest {
         assertUpdateConditionRejected(
                 unknownColumn, createCatalogTable(true), "unknown column 'update_time'");
 
+        // The key of the table is not used instead of primary_keys.
+        Map<String, Object> noPrimaryKeys = postgresUpdateConditionConfig();
+        noPrimaryKeys.remove("primary_keys");
         assertUpdateConditionRejected(
-                postgresUpdateConditionConfig(),
-                createCatalogTable(false),
-                "it requires primary keys");
+                noPrimaryKeys, createCatalogTable(true), "it requires primary_keys to be set");
 
         Map<String, Object> mysql = postgresUpdateConditionConfig();
         mysql.put("url", "jdbc:mysql://localhost:3306/test");

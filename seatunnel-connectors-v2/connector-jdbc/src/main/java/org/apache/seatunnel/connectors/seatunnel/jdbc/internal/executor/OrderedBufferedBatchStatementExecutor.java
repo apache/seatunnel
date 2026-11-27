@@ -37,8 +37,9 @@ import java.util.function.Function;
  * Applies every change of a batch in arrival order, used by {@code update_condition_sql}. Unlike
  * {@link BufferReducedBatchStatementExecutor}, a key is not reduced to its last change.
  *
- * <p>The pending upsert batch is executed before a key repeats, because PostgreSQL fails a
- * statement that changes the same row twice, such as a batch rewritten by the driver.
+ * <p>The pending upsert batch is executed before a key repeats. PostgreSQL fails a statement that
+ * changes the same row twice, and a driver that rewrites a batch into one statement can meet keys
+ * that are equal for the database but not here, so then each row is executed on its own.
  */
 @RequiredArgsConstructor
 public class OrderedBufferedBatchStatementExecutor
@@ -47,6 +48,7 @@ public class OrderedBufferedBatchStatementExecutor
     @NonNull private final JdbcBatchStatementExecutor<SeaTunnelRow> deleteExecutor;
     @NonNull private final Function<SeaTunnelRow, SeaTunnelRow> keyExtractor;
     @NonNull private final Function<SeaTunnelRow, SeaTunnelRow> valueTransform;
+    private final boolean oneRowPerStatement;
 
     /** Kept until a flush succeeds, so a retry replays every change. */
     @NonNull private final List<SeaTunnelRow> buffer = new ArrayList<>();
@@ -86,13 +88,17 @@ public class OrderedBufferedBatchStatementExecutor
                 }
                 SeaTunnelRow key = keyExtractor.apply(record);
                 if (upsert) {
-                    // A key with a NULL field never conflicts, so it cannot repeat a row.
+                    // NULL usually never equals NULL in SQL, so such a key is not tracked.
                     if (!hasNullField(key) && !keysInUpsertBatch.add(key)) {
                         upsertExecutor.executeBatch();
                         keysInUpsertBatch.clear();
                         keysInUpsertBatch.add(key);
                     }
                     upsertExecutor.addToBatch(valueTransform.apply(record));
+                    if (oneRowPerStatement) {
+                        upsertExecutor.executeBatch();
+                        keysInUpsertBatch.clear();
+                    }
                 } else {
                     deleteExecutor.addToBatch(key);
                 }

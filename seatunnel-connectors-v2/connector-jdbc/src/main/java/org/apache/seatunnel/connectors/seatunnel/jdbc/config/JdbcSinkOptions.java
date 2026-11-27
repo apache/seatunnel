@@ -126,7 +126,7 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
                                     + " incoming value and 'target.column' the stored value. A row"
                                     + " with a new key is always inserted. When the condition is"
                                     + " false or NULL the stored row is kept. DELETE rows are not"
-                                    + " affected. Requires generate_sink_sql = true, primary keys"
+                                    + " affected. Requires generate_sink_sql = true, primary_keys"
                                     + " and enable_upsert = true.");
 
     public static final Option<Boolean> SUPPORT_UPSERT_BY_INSERT_ONLY =
