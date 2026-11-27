@@ -27,7 +27,11 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 public abstract class AbstractFileCheckPointTest {
 
@@ -57,6 +61,18 @@ public abstract class AbstractFileCheckPointTest {
     public void testGetCheckpointsByJobIdAndPipelineId() throws CheckpointStorageException {
         List<PipelineState> state = STORAGE.getCheckpointsByJobIdAndPipelineId(JOB_ID, "1");
         Assertions.assertEquals(2, state.size());
+    }
+
+    @Test
+    public void testForEachCheckpointVisitsAllEntries() throws CheckpointStorageException {
+        List<PipelineState> visited = new ArrayList<>();
+        STORAGE.forEachCheckpoint(JOB_ID, visited::add);
+        Assertions.assertEquals(
+                new TreeSet<>(Arrays.asList("1:1", "1:2", "2:3")),
+                visited.stream()
+                        .map(state -> state.getPipelineId() + ":" + state.getCheckpointId())
+                        .collect(Collectors.toCollection(TreeSet::new)),
+                "the bounded visitor must report every stored checkpoint");
     }
 
     @AfterAll

@@ -53,6 +53,37 @@ public interface CheckpointStorage {
     List<PipelineState> getAllCheckpoints(String jobId) throws CheckpointStorageException;
 
     /**
+     * Visit all the stored checkpoints of a job one entry at a time instead of returning the whole
+     * history, so that a caller can inspect a long saved history with bounded memory.
+     *
+     * <p>Storage plugins that can list and read their entries incrementally must override this
+     * method; the default implementation only exists so that storage plugins written before it was
+     * added keep working. The default implementation delegates to {@link
+     * #getAllCheckpoints(String)} and therefore holds the whole history in memory while visiting
+     * it.
+     *
+     * <p>The visit is best effort and is not an inventory of the job: an entry that cannot be read
+     * or decoded is logged and skipped (or aborts the visit), so an entry that is not visited may
+     * still exist in the storage. A caller must never conclude from this method that the visited
+     * entries are all the stored entries of the job, and never delete the job's data as a whole
+     * based on it.
+     *
+     * <p>A {@link PipelineState} handed to the consumer is only guaranteed to be valid for the
+     * duration of the call; the implementation is expected to keep at most one state payload in
+     * memory while the visit runs.
+     *
+     * @param jobId job id
+     * @param consumer consumer invoked once per readable entry
+     * @throws CheckpointStorageException if the entries cannot be listed or the consumer fails
+     */
+    default void forEachCheckpoint(String jobId, CheckpointEntryConsumer consumer)
+            throws CheckpointStorageException {
+        for (PipelineState pipelineState : getAllCheckpoints(jobId)) {
+            consumer.accept(pipelineState);
+        }
+    }
+
+    /**
      * get latest checkpoint of all pipelines If an exception occurs on an individual pipeline, it
      * will be ignored. If all pipeline checkpoint data fails, an exception is throw
      *
