@@ -87,6 +87,14 @@ public class IoTDBSinkClient {
      */
     private final Set<String> probingDevices = new HashSet<>();
 
+    /**
+     * Index of the first node that accepted a session in {@link #tryInit()}. Devices whose leader
+     * is not known yet are written there first instead of blindly to node 0, which may be the node
+     * that was just found unreachable; otherwise a sink with retries disabled would fail its first
+     * flush even though a reachable node is already connected.
+     */
+    private volatile int defaultNodeIndex;
+
     private volatile boolean initialize;
     private volatile Exception flushException;
 
@@ -107,6 +115,7 @@ public class IoTDBSinkClient {
         for (int index = 0; index < sessions.length; index++) {
             try {
                 sessionFor(index);
+                defaultNodeIndex = index;
                 initialize = true;
                 return;
             } catch (IoTDBConnectionException e) {
@@ -438,7 +447,10 @@ public class IoTDBSinkClient {
 
     private int leaderIndexOf(String device) {
         Integer index = deviceLeaderIndex.get(device);
-        int preferred = index == null ? 0 : index;
+        // Devices without a cached leader start at the first node that was reachable at startup,
+        // not at index 0: with retries disabled, probing a node we already know is down would fail
+        // the very first flush of an otherwise healthy sink.
+        int preferred = index == null ? defaultNodeIndex : index;
         // A cached leader that just failed at the network level must not swallow the retry
         // budget again this round; route around it instead.
         if (unreachableNodes.contains(preferred)) {

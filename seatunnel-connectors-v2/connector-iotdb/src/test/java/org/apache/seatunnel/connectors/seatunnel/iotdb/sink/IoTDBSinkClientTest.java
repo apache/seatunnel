@@ -117,7 +117,12 @@ public class IoTDBSinkClientTest {
 
     private static IoTDBSinkClient clientRoutingToWithDownNodes(
             final List<StubNode> nodes, final Set<Integer> downNodes) {
-        return new IoTDBSinkClient(config()) {
+        return clientRoutingToWithDownNodes(nodes, downNodes, config());
+    }
+
+    private static IoTDBSinkClient clientRoutingToWithDownNodes(
+            final List<StubNode> nodes, final Set<Integer> downNodes, SinkConfig config) {
+        return new IoTDBSinkClient(config) {
             @Override
             protected Session buildSession(String host, int port) throws IoTDBConnectionException {
                 if (downNodes.contains(Integer.parseInt(host.substring(1)))) {
@@ -189,6 +194,26 @@ public class IoTDBSinkClientTest {
         client.close();
 
         Assertions.assertEquals(10, count(n1.acceptedDevices, "sg.d_a"));
+    }
+
+    @Test
+    public void shouldStartWhenTheFirstNodeIsDownAndRetriesAreDisabled() throws Exception {
+        // node0 (the first configured node) is down at startup and max_retries is unset, so the
+        // network budget is zero: the first flush must still use the node learned in tryInit()
+        // instead of probing node0 again and failing a sink that is actually connected.
+        StubNode n1 = new StubNode(new HashSet<>(Arrays.asList("sg.d_a")));
+        StubNode n2 = new StubNode(new HashSet<>());
+        IoTDBSinkClient client =
+                clientRoutingToWithDownNodes(
+                        Arrays.asList(null, n1, n2), new HashSet<>(Arrays.asList(0)), config(0));
+
+        for (int i = 0; i < 10; i++) {
+            client.write(record("sg.d_a", i));
+        }
+        client.close();
+
+        Assertions.assertEquals(10, count(n1.acceptedDevices, "sg.d_a"));
+        Assertions.assertEquals(0, n2.attempts);
     }
 
     @Test
