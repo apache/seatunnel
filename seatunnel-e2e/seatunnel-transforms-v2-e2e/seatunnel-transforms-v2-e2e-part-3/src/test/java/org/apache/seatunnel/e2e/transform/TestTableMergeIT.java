@@ -25,20 +25,30 @@ import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
-public class TestRenameIT extends TestSuiteBase {
+public class TestTableMergeIT extends TestSuiteBase {
 
     @TestTemplate
-    public void testRenameMultiTable(TestContainer container)
+    public void testMergeMultiTable(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/table_field_rename_multi_table.conf");
+                container.executeJob("/table_merge/table_merge_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
-    public void testFieldRenameRegexDefault(TestContainer container)
+    public void testMergeSingleTable(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/field_rename_regex_default.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/table_merge/table_merge_single_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    @TestTemplate
+    public void testMergeTableTransformOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/table_merge/table_merge_table_transform_only.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

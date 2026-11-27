@@ -31,7 +31,8 @@ public class TestSQLIT extends TestSuiteBase {
 
     @TestTemplate
     public void testSQLTransform(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult sqlTransform = container.executeJob("/sql_transform.conf");
+        Container.ExecResult sqlTransform =
+                container.executeJob("/sql_transform/sql_transform.conf");
         Assertions.assertEquals(0, sqlTransform.getExitCode());
         Container.ExecResult sqlBinaryExpression =
                 container.executeJob("/sql_transform/binary_expression.conf");
@@ -111,7 +112,8 @@ public class TestSQLIT extends TestSuiteBase {
     @TestTemplate
     public void testSQLTransformMultiTable(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult sqlTransform = container.executeJob("/sql_transform_multi_table.conf");
+        Container.ExecResult sqlTransform =
+                container.executeJob("/sql_transform/sql_transform_multi_table.conf");
         Assertions.assertEquals(0, sqlTransform.getExitCode());
     }
 
@@ -142,7 +144,7 @@ public class TestSQLIT extends TestSuiteBase {
     public void testTableTransformOnly(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/sql_transform_table_transform_only.conf");
+                container.executeJob("/sql_transform/sql_transform_table_transform_only.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
