@@ -46,7 +46,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -83,11 +85,14 @@ import java.util.stream.Stream;
  *
  * <p><b>What this test proves.</b> It runs a two-subtask pipeline in which the checkpointable
  * sequence source hands exactly one split to every reader, so both subtasks checkpoint a non-empty
- * state of their own. It stops the job with a real savepoint, restores it once, and then requires
- * the union of the offsets committed before and after the restore to be exactly {@code [0, 4000)}
- * with no duplicate. A state-remap regression duplicates the readers' saved offsets, which makes
- * one subtask re-emit and re-commit a range that is already in the sink output, so the duplicate
- * check fails instead of the job silently losing exactly-once semantics.
+ * state of their own. The fixture parks every reader at a deterministic, non-terminal offset of its
+ * own split, so the savepoint is taken while the input is provably only half processed instead of
+ * racing the readers to the end of their finite range. After the restore the test requires the
+ * union of the offsets committed before and after the restore to be exactly {@code [0, 4000)} with
+ * no duplicate, both while the restored job is draining and again on the terminal snapshot taken
+ * after it reached {@code FINISHED}. A state-remap regression duplicates the readers' saved
+ * offsets, which makes one subtask re-emit and re-commit a range that is already in the sink
+ * output, so the duplicate check fails instead of the job silently losing exactly-once semantics.
  */
 @Slf4j
 public class ParallelSubtaskSavepointRestoreIT {
@@ -102,8 +107,19 @@ public class ParallelSubtaskSavepointRestoreIT {
     /** Offsets produced by each of the two splits; the fixture splits the range in half. */
     private static final long OFFSETS_PER_SPLIT = TOTAL_OFFSETS / 2;
 
-    /** How many committed offsets to wait for before taking the savepoint. */
-    private static final int WARM_UP_COMMITTED_OFFSETS = 200;
+    /**
+     * Offsets every reader emits before the fixture gate parks it. The value matches {@code
+     * pause_after_offsets_per_split} in the template, so the committed snapshot taken at the
+     * savepoint is a deterministic prefix of both splits instead of a wall-clock guess about how
+     * far the readers got.
+     */
+    private static final long PAUSE_OFFSETS_PER_SPLIT = 1000L;
+
+    /** Name fragment of the source action whose per-subtask state the savepoint must contain. */
+    private static final String SOURCE_ACTION_NAME_FRAGMENT = "CheckpointableSequenceSource";
+
+    /** Number of parallel source subtasks that must each own one saved state. */
+    private static final int EXPECTED_SOURCE_SUBTASKS = 2;
 
     private static final long CLUSTER_FORMATION_TIMEOUT_SECONDS = 60L;
     private static final long JOB_STATUS_TIMEOUT_SECONDS = 120L;
@@ -119,9 +135,18 @@ public class ParallelSubtaskSavepointRestoreIT {
                         System.getProperty("user.dir"),
                         "target",
                         "parallel-subtask-restore-" + System.currentTimeMillis());
+        Path gateDir =
+                Paths.get(
+                        System.getProperty("user.dir"),
+                        "target",
+                        "parallel-subtask-restore-gate-" + System.currentTimeMillis());
+        Path resumeFile = gateDir.resolve("resume");
         Path confFile =
                 Paths.get("/tmp/test_conf", testCaseName + "-" + System.nanoTime() + ".conf");
+        Set<Long> parkedOffsets = expectedOffsets(PAUSE_OFFSETS_PER_SPLIT);
+        Set<Long> allOffsets = expectedOffsets(OFFSETS_PER_SPLIT);
         Files.createDirectories(sinkDir);
+        Files.createDirectories(gateDir);
         Files.createDirectories(confFile.getParent());
 
         HazelcastInstanceImpl masterNode = null;
@@ -132,7 +157,13 @@ public class ParallelSubtaskSavepointRestoreIT {
         try {
             Map<String, String> values = new HashMap<>();
             values.put("dynamic_sink_path", sinkDir.toString());
+            values.put("resume_file", resumeFile.toString());
             TestUtils.createTestConfigFileFromTemplate(TEMPLATE_CONF, values, confFile.toString());
+            Assertions.assertFalse(
+                    Files.exists(resumeFile),
+                    "The fixture gate must be closed before the savepoint, but "
+                            + resumeFile
+                            + " already exists");
 
             masterNode =
                     SeaTunnelServerStarter.createMasterHazelcastInstance(
@@ -161,34 +192,42 @@ public class ParallelSubtaskSavepointRestoreIT {
             long jobId = sourceProxy.getJobId();
             awaitJobStatus(sourceProxy, JobStatus.RUNNING);
 
-            // Wait until both subtasks have committed offsets. Each reader owns exactly one split,
-            // so a range from both halves proves that both parallel subtasks produced checkpoint
-            // state before the savepoint. Without that precondition the restore would have nothing
-            // to remap and the test would silently degrade into the single-subtask case.
-            awaitCommittedOffsetsFromBothSplits(sinkDir);
+            // Controlled partial-progress precondition. The fixture parks both readers after
+            // PAUSE_OFFSETS_PER_SPLIT offsets of their own split and cannot advance past that point
+            // until the resume file exists, so this observation is not a race against the remaining
+            // emission window: the committed snapshot stays exactly this prefix until the test
+            // releases the gate further down. Equality proves that both parallel readers emitted
+            // their own half; that both subtasks checkpointed their own state is asserted on the
+            // savepoint below.
+            awaitCommittedOffsets(sinkDir, parkedOffsets, "while the readers are parked");
 
             jobClient.savePointJob(jobId);
             awaitJobStatus(sourceProxy, JobStatus.SAVEPOINT_DONE);
-            long savepointId = awaitLatestSavepointId(jobClient, jobId);
+            JobPipelineCheckpointData savepoint = awaitLatestSavepoint(jobClient, jobId);
+            assertPerSubtaskStateSaved(savepoint);
             awaitJobMasterRemoved(masterNode, jobId);
 
             List<Long> committedBeforeRestore = readCommittedOffsets(sinkDir);
-            Assertions.assertFalse(
-                    committedBeforeRestore.isEmpty(),
-                    "The savepoint must not happen before the sink committed any offset");
             Assertions.assertTrue(
                     committedBeforeRestore.size() < TOTAL_OFFSETS,
-                    "The savepoint must interrupt the job mid-stream, but the sink already committed "
+                    "The savepoint must interrupt the job before it drains the whole input, but the"
+                            + " sink already committed "
                             + committedBeforeRestore.size()
                             + " of "
                             + TOTAL_OFFSETS
                             + " offsets");
-            assertBothSplitsRepresented(committedBeforeRestore, "before the restore");
+            assertCommittedOffsets(committedBeforeRestore, parkedOffsets, "before the restore");
             log.warn(
-                    "Source job {} saved at checkpoint {} after committing {} offsets",
+                    "Source job {} saved at checkpoint {} with {} committed offsets, both readers"
+                            + " parked mid-split",
                     jobId,
-                    savepointId,
+                    savepoint.getCheckpointId(),
                     committedBeforeRestore.size());
+
+            // The original job is gone and its readers are parked, so releasing the gate cannot
+            // change the committed snapshot asserted above. The restored readers resume from their
+            // own saved offsets and must never park again, because the gate is open from now on.
+            Files.write(resumeFile, "resume".getBytes(StandardCharsets.UTF_8));
 
             restoredProxy =
                     engineClient
@@ -204,38 +243,10 @@ public class ParallelSubtaskSavepointRestoreIT {
 
             // Exactly-once across the restore boundary: every offset in [0, TOTAL_OFFSETS) must be
             // committed exactly once. A duplicated subtask state makes the restored reader replay
-            // an already committed range, which shows up as an extra committed offset here.
-            Awaitility.await()
-                    .atMost(OFFSET_PROGRESS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                    .pollInterval(500, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () -> {
-                                List<Long> committed = readCommittedOffsets(sinkDir);
-                                Set<Long> distinct = new HashSet<>(committed);
-                                Assertions.assertEquals(
-                                        committed.size(),
-                                        distinct.size(),
-                                        "The restored job committed offsets more than once, so a"
-                                                + " subtask restored the state of another subtask: "
-                                                + duplicates(committed));
-                                Assertions.assertEquals(
-                                        TOTAL_OFFSETS,
-                                        distinct.size(),
-                                        "Waiting for the restored job to commit every offset of"
-                                                + " both splits, committed "
-                                                + distinct.size()
-                                                + " of "
-                                                + TOTAL_OFFSETS);
-                                Assertions.assertEquals(
-                                        0L,
-                                        Collections.min(distinct),
-                                        "The lowest committed offset must be 0");
-                                Assertions.assertEquals(
-                                        TOTAL_OFFSETS - 1,
-                                        Collections.max(distinct),
-                                        "The highest committed offset must be "
-                                                + (TOTAL_OFFSETS - 1));
-                            });
+            // an already committed range, which shows up as an extra committed offset here. The
+            // retry is a watchdog for the sink to publish committed transactions, not a race with
+            // the fixture: the restored readers resume from a fixed saved offset.
+            awaitCommittedOffsets(sinkDir, allOffsets, "before the restored job reaches FINISHED");
 
             // The fixture splits cover the whole configured range, so once the restored job has
             // drained them its unbounded source reports no more elements and the job must end
@@ -244,8 +255,13 @@ public class ParallelSubtaskSavepointRestoreIT {
             // drove the pipeline to a clean end instead of leaving a reader parked forever.
             awaitJobStatus(restoredProxy, JobStatus.FINISHED);
 
-            List<Long> committedAfterRestore = readCommittedOffsets(sinkDir);
-            assertBothSplitsRepresented(committedAfterRestore, "after the restore");
+            // The restored job can still commit replayed rows in a checkpoint that follows the
+            // moment the polling above saw the complete range, so the complete exactly-once oracle
+            // is asserted again on the terminal snapshot, this time without any retry.
+            assertCommittedOffsets(
+                    readCommittedOffsets(sinkDir),
+                    allOffsets,
+                    "after the restored job reached FINISHED");
         } finally {
             if (restoredProxy != null) {
                 cancelQuietly(restoredProxy);
@@ -264,6 +280,7 @@ public class ParallelSubtaskSavepointRestoreIT {
             }
             deleteQuietly(confFile);
             deleteQuietly(sinkDir);
+            deleteQuietly(gateDir);
         }
     }
 
@@ -278,37 +295,79 @@ public class ParallelSubtaskSavepointRestoreIT {
     }
 
     /**
-     * Waits until the sink committed offsets from both halves of the sequence range. The sequence
-     * fixture gives every reader at most one split, so a committed offset below and above {@link
-     * #OFFSETS_PER_SPLIT} can only be produced by two different subtasks. This is what makes the
-     * following savepoint carry two distinct per-subtask states.
+     * Builds the offsets the sink must hold, given how many offsets each of the two splits
+     * processed. Both splits start at a multiple of {@link #OFFSETS_PER_SPLIT}, so the expected
+     * output of a paused run is a prefix of every split rather than an arbitrary subset.
      */
-    private static void awaitCommittedOffsetsFromBothSplits(Path sinkDir) {
+    private static Set<Long> expectedOffsets(long offsetsPerSplit) {
+        Set<Long> expected = new HashSet<>();
+        for (long splitStart = 0; splitStart < TOTAL_OFFSETS; splitStart += OFFSETS_PER_SPLIT) {
+            for (long offset = 0; offset < Math.min(offsetsPerSplit, OFFSETS_PER_SPLIT); offset++) {
+                expected.add(splitStart + offset);
+            }
+        }
+        return expected;
+    }
+
+    /**
+     * Waits until the sink holds exactly {@code expected} committed offsets.
+     *
+     * <p>Only the sink and the checkpoint coordinator are timed here: when the fixture gate is
+     * closed the expected snapshot is already reached and stays stable, so a timeout means the
+     * precondition could not be established (missing commits, replayed rows), never that the test
+     * was too slow to interrupt a still running job.
+     */
+    private static void awaitCommittedOffsets(Path sinkDir, Set<Long> expected, String phase) {
         Awaitility.await()
                 .atMost(OFFSET_PROGRESS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .pollInterval(200, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () -> {
-                            List<Long> committed = readCommittedOffsets(sinkDir);
-                            Assertions.assertTrue(
-                                    committed.size() >= WARM_UP_COMMITTED_OFFSETS,
-                                    "Waiting for the parallel readers to commit at least "
-                                            + WARM_UP_COMMITTED_OFFSETS
-                                            + " offsets, committed "
-                                            + committed.size());
-                            assertBothSplitsRepresented(committed, "before the savepoint");
-                        });
+                        () ->
+                                assertCommittedOffsets(
+                                        readCommittedOffsets(sinkDir), expected, phase));
     }
 
-    private static void assertBothSplitsRepresented(List<Long> offsets, String phase) {
-        boolean firstSplit = offsets.stream().anyMatch(offset -> offset < OFFSETS_PER_SPLIT);
-        boolean secondSplit = offsets.stream().anyMatch(offset -> offset >= OFFSETS_PER_SPLIT);
-        Assertions.assertTrue(
-                firstSplit && secondSplit,
-                "Expected committed offsets from both splits "
+    /**
+     * Complete exactly-once oracle for one snapshot of the sink output: the committed lines must be
+     * exactly {@code expected}, with no duplicate and no gap.
+     *
+     * <p>It is shared by the deterministic partial snapshot taken while the readers are parked, the
+     * snapshot taken before the restore, and the terminal snapshot taken after the restored job
+     * reached {@code FINISHED}, so a late replay in the final checkpoints cannot escape it.
+     */
+    private static void assertCommittedOffsets(
+            List<Long> committed, Set<Long> expected, String phase) {
+        Set<Long> distinct = new HashSet<>(committed);
+        Assertions.assertEquals(
+                expected.size(),
+                committed.size(),
+                "The sink must hold exactly "
+                        + expected.size()
+                        + " committed offsets "
                         + phase
-                        + ", got "
-                        + summarize(offsets));
+                        + ", but it committed "
+                        + committed.size()
+                        + " lines: "
+                        + summarize(committed));
+        Assertions.assertEquals(
+                committed.size(),
+                distinct.size(),
+                "The restored job committed offsets more than once "
+                        + phase
+                        + ", so a subtask restored the state of another subtask: "
+                        + duplicates(committed));
+        Set<Long> missing = new HashSet<>(expected);
+        missing.removeAll(distinct);
+        Set<Long> unexpected = new HashSet<>(distinct);
+        unexpected.removeAll(expected);
+        Assertions.assertTrue(
+                missing.isEmpty() && unexpected.isEmpty(),
+                "The committed offsets "
+                        + phase
+                        + " are not the expected set: missing "
+                        + summarize(missing)
+                        + ", unexpected "
+                        + summarize(unexpected));
     }
 
     private static List<Long> duplicates(List<Long> offsets) {
@@ -322,16 +381,19 @@ public class ParallelSubtaskSavepointRestoreIT {
                 .collect(Collectors.toList());
     }
 
-    private static String summarize(List<Long> offsets) {
-        if (offsets.isEmpty()) {
-            return "no committed offsets";
+    private static String summarize(Iterable<Long> offsets) {
+        List<Long> sorted = new ArrayList<>();
+        offsets.forEach(sorted::add);
+        if (sorted.isEmpty()) {
+            return "no offsets";
         }
+        Collections.sort(sorted);
         return "min="
-                + Collections.min(offsets)
+                + sorted.get(0)
                 + ", max="
-                + Collections.max(offsets)
+                + sorted.get(sorted.size() - 1)
                 + ", count="
-                + offsets.size();
+                + sorted.size();
     }
 
     /**
@@ -392,7 +454,7 @@ public class ParallelSubtaskSavepointRestoreIT {
                                         "Waiting for job status " + expected));
     }
 
-    private static long awaitLatestSavepointId(JobClient jobClient, long jobId) {
+    private static JobPipelineCheckpointData awaitLatestSavepoint(JobClient jobClient, long jobId) {
         Awaitility.await()
                 .atMost(JOB_STATUS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .pollInterval(200, TimeUnit.MILLISECONDS)
@@ -404,9 +466,94 @@ public class ParallelSubtaskSavepointRestoreIT {
                                                 .isEmpty(),
                                         "No savepoint data was stored for job " + jobId));
         return jobClient.getCheckpointData(jobId, RestoreMode.SAVEPOINT).stream()
-                .mapToLong(JobPipelineCheckpointData::getCheckpointId)
-                .max()
-                .orElseThrow(() -> new AssertionError("No savepoint data was stored"));
+                .max(Comparator.comparingLong(JobPipelineCheckpointData::getCheckpointId))
+                .orElseThrow(
+                        () -> new AssertionError("No savepoint data was stored for job " + jobId));
+    }
+
+    /**
+     * Asserts that the savepoint serialized one distinct, non-empty source reader state per
+     * parallel subtask.
+     *
+     * <p>This is the other half of the partial-progress precondition: the committed offsets prove
+     * how far the readers got, this proves the savepoint really carries two per-subtask states
+     * instead of one state shared by both subtasks. Without it a fixture that handed the same split
+     * to both readers would still look like a valid parallel restore.
+     */
+    private static void assertPerSubtaskStateSaved(JobPipelineCheckpointData savepoint) {
+        Map<String, JobPipelineCheckpointData.ActionState> taskStates = savepoint.getTaskStates();
+        Assertions.assertNotNull(
+                taskStates,
+                "The savepoint checkpoint "
+                        + savepoint.getCheckpointId()
+                        + " must carry the per-action task states");
+        List<JobPipelineCheckpointData.ActionSubtaskState> sourceStates = new ArrayList<>();
+        for (Map.Entry<String, JobPipelineCheckpointData.ActionState> entry :
+                taskStates.entrySet()) {
+            if (!entry.getKey().contains(SOURCE_ACTION_NAME_FRAGMENT)) {
+                continue;
+            }
+            for (JobPipelineCheckpointData.ActionSubtaskState subtaskState :
+                    entry.getValue().getSubtaskState()) {
+                if (subtaskState != null) {
+                    sourceStates.add(subtaskState);
+                }
+            }
+        }
+        Assertions.assertEquals(
+                EXPECTED_SOURCE_SUBTASKS,
+                sourceStates.size(),
+                "The savepoint must hold one "
+                        + SOURCE_ACTION_NAME_FRAGMENT
+                        + " state per parallel subtask, got "
+                        + sourceStates.size()
+                        + " of "
+                        + EXPECTED_SOURCE_SUBTASKS
+                        + "; action states: "
+                        + taskStates.keySet());
+        Set<Integer> savedIndexes =
+                sourceStates.stream()
+                        .map(JobPipelineCheckpointData.ActionSubtaskState::getIndex)
+                        .collect(Collectors.toSet());
+        Set<Integer> expectedIndexes = new HashSet<>();
+        for (int index = 0; index < EXPECTED_SOURCE_SUBTASKS; index++) {
+            expectedIndexes.add(index);
+        }
+        Assertions.assertEquals(
+                expectedIndexes,
+                savedIndexes,
+                "Every source subtask must save its own state, saved subtask indexes: "
+                        + savedIndexes);
+        for (JobPipelineCheckpointData.ActionSubtaskState sourceState : sourceStates) {
+            Assertions.assertNotNull(
+                    sourceState.getState(),
+                    "Source subtask " + sourceState.getIndex() + " saved no state at all");
+            Assertions.assertFalse(
+                    sourceState.getState().isEmpty(),
+                    "Source subtask " + sourceState.getIndex() + " saved an empty state list");
+            Assertions.assertTrue(
+                    sourceState.getState().stream()
+                            .allMatch(state -> state != null && state.length > 0),
+                    "Source subtask "
+                            + sourceState.getIndex()
+                            + " saved an empty serialized reader state");
+        }
+        Set<String> fingerprints =
+                sourceStates.stream()
+                        .map(ParallelSubtaskSavepointRestoreIT::fingerprint)
+                        .collect(Collectors.toSet());
+        Assertions.assertEquals(
+                sourceStates.size(),
+                fingerprints.size(),
+                "Every subtask must checkpoint its own split state, but the serialized states are"
+                        + " not distinct: "
+                        + fingerprints);
+    }
+
+    private static String fingerprint(JobPipelineCheckpointData.ActionSubtaskState state) {
+        return state.getState().stream()
+                .map(Base64.getEncoder()::encodeToString)
+                .collect(Collectors.joining("|"));
     }
 
     private static void awaitJobMasterRemoved(HazelcastInstanceImpl masterNode, long jobId) {
