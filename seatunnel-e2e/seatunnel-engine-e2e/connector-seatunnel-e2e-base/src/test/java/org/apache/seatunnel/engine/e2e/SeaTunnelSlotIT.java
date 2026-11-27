@@ -37,9 +37,23 @@ import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class SeaTunnelSlotIT {
+
+    /**
+     * Upper bound for one job cancellation request. {@link ClientJobProxy#cancelJob()} joins the
+     * client response future without any timeout, so the test has to own that wait: a stalled
+     * cancellation must fail the assertion with a clear message instead of hanging the suite and
+     * skipping the client/node shutdown.
+     */
+    private static final long CANCEL_REQUEST_TIMEOUT_SECONDS = 60;
+
     @Test
     public void testSlotNotEnough() throws Exception {
         HazelcastInstanceImpl node1 = null;
@@ -287,6 +301,16 @@ public class SeaTunnelSlotIT {
         ClientJobProxy holder = null;
         ClientJobProxy canceledQueuedJob = null;
         ClientJobProxy follower = null;
+        // Owns every cancellation request so that a blocked cancel can be abandoned on timeout
+        // instead of wedging the test thread; the threads are daemons so a cancel that ignores
+        // interruption can never keep the JVM alive.
+        ExecutorService cancelExecutor =
+                Executors.newCachedThreadPool(
+                        runnable -> {
+                            Thread thread = new Thread(runnable, "seatunnel-slot-cancel");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
 
         try {
             String testClusterName =
@@ -316,7 +340,7 @@ public class SeaTunnelSlotIT {
             final ClientJobProxy victim = canceledQueuedJob;
             awaitJobStatus(victim, JobStatus.PENDING);
 
-            victim.cancelJob();
+            cancelJobOrFail(cancelExecutor, victim);
             awaitJobStatus(victim, JobStatus.CANCELED);
             Awaitility.await()
                     .atMost(30, TimeUnit.SECONDS)
@@ -329,7 +353,7 @@ public class SeaTunnelSlotIT {
                                             "A cancelled queued job must not be resurrected while"
                                                     + " the cluster is still full"));
 
-            holder.cancelJob();
+            cancelJobOrFail(cancelExecutor, holder);
             awaitJobStatus(holder, JobStatus.CANCELED);
 
             // Wait longer than one full 3s scheduler retry cycle with free capacity available: the
@@ -355,19 +379,29 @@ public class SeaTunnelSlotIT {
             follower = submitStreamingJob(engineClient, seaTunnelConfig, "cancel-queued-follower");
             awaitJobStatus(follower, JobStatus.RUNNING);
             awaitSourceRowsRead(engineClient, follower.getJobId());
-            follower.cancelJob();
+            cancelJobOrFail(cancelExecutor, follower);
             awaitJobStatus(follower, JobStatus.CANCELED);
         } finally {
-            cancelQuietly(holder);
-            cancelQuietly(canceledQueuedJob);
-            cancelQuietly(follower);
-
-            if (engineClient != null) {
-                engineClient.close();
-            }
-
-            if (node1 != null) {
-                node1.shutdown();
+            // Teardown must always reach client/node shutdown, even when a cancellation request or
+            // a previous close fails: hence one best-effort block per step, nested finally blocks.
+            try {
+                cancelQuietly(cancelExecutor, holder);
+                cancelQuietly(cancelExecutor, canceledQueuedJob);
+                cancelQuietly(cancelExecutor, follower);
+            } finally {
+                try {
+                    if (engineClient != null) {
+                        engineClient.close();
+                    }
+                } finally {
+                    try {
+                        if (node1 != null) {
+                            node1.shutdown();
+                        }
+                    } finally {
+                        cancelExecutor.shutdownNow();
+                    }
+                }
             }
         }
     }
@@ -415,14 +449,57 @@ public class SeaTunnelSlotIT {
                                                 + " rows"));
     }
 
-    private void cancelQuietly(ClientJobProxy jobProxy) {
+    /**
+     * Cancels a job and requires the request itself to be served within {@link
+     * #CANCEL_REQUEST_TIMEOUT_SECONDS}. {@link ClientJobProxy#cancelJob()} blocks on the client
+     * response future with no timeout of its own, so waiting on it directly would skip every status
+     * assertion and the client/node shutdown; bounding it turns a stalled cancellation into a clear
+     * test failure, and the abandoned thread is interrupted so it cannot leak.
+     */
+    private void cancelJobOrFail(ExecutorService cancelExecutor, ClientJobProxy jobProxy)
+            throws InterruptedException {
+        Assertions.assertNotNull(jobProxy, "The job to cancel must be submitted first");
+        Future<?> cancelRequest = cancelExecutor.submit(jobProxy::cancelJob);
+        try {
+            cancelRequest.get(CANCEL_REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            cancelRequest.cancel(true);
+            Assertions.fail(
+                    "Cancelling job "
+                            + jobProxy.getJobId()
+                            + " did not complete within "
+                            + CANCEL_REQUEST_TIMEOUT_SECONDS
+                            + " seconds, so the regression cannot be observed: a stalled"
+                            + " cancellation must fail the test instead of hanging the suite");
+        } catch (ExecutionException e) {
+            cancelRequest.cancel(true);
+            Assertions.fail("Cancelling job " + jobProxy.getJobId() + " failed", e.getCause());
+        }
+    }
+
+    /**
+     * Best-effort cancellation used by teardown: bounded like {@link
+     * #cancelJobOrFail(ExecutorService, ClientJobProxy)}, but it never throws so it cannot mask the
+     * failure that brought the test down, and the pending request is always released.
+     */
+    private void cancelQuietly(ExecutorService cancelExecutor, ClientJobProxy jobProxy) {
         if (jobProxy == null) {
             return;
         }
+        Future<?> cancelRequest = null;
         try {
-            jobProxy.cancelJob();
+            cancelRequest = cancelExecutor.submit(jobProxy::cancelJob);
+            cancelRequest.get(CANCEL_REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            // The interrupt status is deliberately not restored: teardown still has to close the
+            // client and stop the node, and this request is being abandoned anyway.
         } catch (Exception ignored) {
-            // The job may already be cancelled, or the cluster may already be shut down.
+            // The job may already be cancelled, the cluster may already be shut down, or the
+            // bounded request timed out; cleanup must not replace the original failure.
+        } finally {
+            if (cancelRequest != null && !cancelRequest.isDone()) {
+                cancelRequest.cancel(true);
+            }
         }
     }
 }
