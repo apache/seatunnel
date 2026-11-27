@@ -25,6 +25,21 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 
 import com.google.auto.service.AutoService;
 
+/**
+ * Test-only factory whose single responsibility is to publish the always-failing fixture sink to
+ * the engine's sink SPI.
+ *
+ * <p>{@link RetryBackoffFailingSink} is not a connector, so there is nothing to validate or evolve
+ * here: no options are declared ({@link #optionRule()} is empty on purpose), no catalog or table
+ * metadata is read, and every statement the retry-backoff test makes is recorded by {@link
+ * RetryBackoffFailingSinkWriter}, never by this factory. The factory exists only so the engine can
+ * discover the sink through {@code TableSinkFactory} and {@code @AutoService}, exactly like a
+ * production sink.
+ *
+ * <p>Keep it that way: adding connector behavior (buffering, options, retry handling) would make
+ * the fixture fail less plainly and would let the test pass or fail for reasons unrelated to the
+ * engine retry backoff.
+ */
 @AutoService(Factory.class)
 public class RetryBackoffFailingSinkFactory implements TableSinkFactory {
 
