@@ -17,26 +17,31 @@
 
 package org.apache.seatunnel.engine.server.operation;
 
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointOverview;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.serializable.ClientToServerOperationDataSerializerHook;
 
-import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
-import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.AllowedDuringPassiveState;
-import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
-import java.util.Optional;
 
-public class GetCheckpointOverviewOperation extends Operation
-        implements IdentifiedDataSerializable, AllowedDuringPassiveState {
+/**
+ * Client protocol operation that returns the checkpoint monitor overview of a job.
+ *
+ * <p>The checkpoint monitor state is distributed, and a blocking read of it is illegal on a
+ * Hazelcast operation thread (Hazelcast fails with {@code AssertionError: Waiting for response on
+ * this thread is illegal}). This operation therefore reads the state asynchronously and completes
+ * its response from the resulting future instead of blocking in {@link #run()}.
+ */
+public class GetCheckpointOverviewOperation extends AsyncOperation
+        implements AllowedDuringPassiveState {
 
     private long jobId;
-    private Data response;
 
     public GetCheckpointOverviewOperation() {}
 
@@ -45,17 +50,27 @@ public class GetCheckpointOverviewOperation extends Operation
     }
 
     @Override
-    public void run() throws Exception {
+    protected PassiveCompletableFuture<?> doRun() {
         SeaTunnelServer service = getService();
         CheckpointMonitorService monitorService = service.getCheckpointMonitorService();
-        Optional<CheckpointOverview> overview =
-                monitorService == null ? Optional.empty() : monitorService.getOverview(jobId);
-        response = getNodeEngine().toData(overview.orElse(null));
-    }
-
-    @Override
-    public int getFactoryId() {
-        return ClientToServerOperationDataSerializerHook.FACTORY_ID;
+        if (monitorService == null) {
+            return new PassiveCompletableFuture<>(
+                    CompletableFuture.completedFuture(
+                            getNodeEngine().toData(new CheckpointOverview(jobId))));
+        }
+        // The protocol response is a non-nullable Data field, so "no overview" cannot be encoded as
+        // a null payload (the response encoder would fail with an NPE). Mirror the REST endpoint,
+        // which answers a job without monitor state with an overview that has no pipelines.
+        return new PassiveCompletableFuture<>(
+                monitorService
+                        .getOverviewAsync(jobId)
+                        .thenApply(
+                                overview ->
+                                        getNodeEngine()
+                                                .toData(
+                                                        overview == null
+                                                                ? new CheckpointOverview(jobId)
+                                                                : overview)));
     }
 
     @Override
@@ -73,10 +88,5 @@ public class GetCheckpointOverviewOperation extends Operation
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
         jobId = in.readLong();
-    }
-
-    @Override
-    public Object getResponse() {
-        return response;
     }
 }

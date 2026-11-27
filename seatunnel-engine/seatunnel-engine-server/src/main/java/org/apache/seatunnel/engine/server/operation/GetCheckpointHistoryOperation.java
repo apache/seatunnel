@@ -17,32 +17,36 @@
 
 package org.apache.seatunnel.engine.server.operation;
 
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointHistoryEntry;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.serializable.ClientToServerOperationDataSerializerHook;
 
-import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
-import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.AllowedDuringPassiveState;
-import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.util.List;
 
-public class GetCheckpointHistoryOperation extends Operation
-        implements IdentifiedDataSerializable, AllowedDuringPassiveState {
+/**
+ * Client protocol operation that returns the retained checkpoint history of a job.
+ *
+ * <p>The checkpoint monitor state is distributed, and a blocking read of it is illegal on a
+ * Hazelcast operation thread (Hazelcast fails with {@code AssertionError: Waiting for response on
+ * this thread is illegal}). This operation therefore reads the state asynchronously and completes
+ * its response from the resulting future instead of blocking in {@link #run()}.
+ */
+public class GetCheckpointHistoryOperation extends AsyncOperation
+        implements AllowedDuringPassiveState {
 
     private long jobId;
     private Integer pipelineId;
     private int limit;
     private int statusOrdinal;
-
-    private Data response;
 
     public GetCheckpointHistoryOperation() {}
 
@@ -55,25 +59,21 @@ public class GetCheckpointHistoryOperation extends Operation
     }
 
     @Override
-    public void run() throws Exception {
+    protected PassiveCompletableFuture<?> doRun() {
         SeaTunnelServer service = getService();
         CheckpointMonitorService monitorService = service.getCheckpointMonitorService();
-        List<CheckpointHistoryEntry> entries =
-                monitorService == null
-                        ? Collections.emptyList()
-                        : monitorService.getHistory(
-                                jobId,
-                                pipelineId,
-                                limit,
-                                statusOrdinal < 0
-                                        ? null
-                                        : CheckpointStatus.values()[statusOrdinal]);
-        response = getNodeEngine().toData(entries);
-    }
-
-    @Override
-    public int getFactoryId() {
-        return ClientToServerOperationDataSerializerHook.FACTORY_ID;
+        if (monitorService == null) {
+            return new PassiveCompletableFuture<>(
+                    CompletableFuture.completedFuture(
+                            getNodeEngine()
+                                    .toData(Collections.<CheckpointHistoryEntry>emptyList())));
+        }
+        CheckpointStatus status =
+                statusOrdinal < 0 ? null : CheckpointStatus.values()[statusOrdinal];
+        return new PassiveCompletableFuture<>(
+                monitorService
+                        .getHistoryAsync(jobId, pipelineId, limit, status)
+                        .thenApply(entries -> getNodeEngine().toData(entries)));
     }
 
     @Override
@@ -102,10 +102,5 @@ public class GetCheckpointHistoryOperation extends Operation
         }
         limit = in.readInt();
         statusOrdinal = in.readInt();
-    }
-
-    @Override
-    public Object getResponse() {
-        return response;
     }
 }

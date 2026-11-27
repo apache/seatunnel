@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.checkpoint.monitor;
 
 import org.apache.seatunnel.shade.com.google.common.base.Strings;
 
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointHistoryEntry;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointInfo;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointOverview;
@@ -200,9 +201,37 @@ public class CheckpointMonitorService {
         return Optional.ofNullable(overview);
     }
 
+    /**
+     * Returns the overview without blocking the calling thread.
+     *
+     * <p>Use this variant from Hazelcast operation threads; see {@link
+     * CheckpointOverviewStateStore#getAsync(Long)} for why a blocking read is not allowed there.
+     */
+    public PassiveCompletableFuture<CheckpointOverview> getOverviewAsync(long jobId) {
+        return getOverviewMap().getAsync(jobId);
+    }
+
     public List<CheckpointHistoryEntry> getHistory(
             long jobId, Integer pipelineId, int limit, CheckpointStatus status) {
-        CheckpointOverview overview = getOverviewMap().get(jobId);
+        return buildHistory(getOverviewMap().get(jobId), pipelineId, limit, status);
+    }
+
+    /**
+     * Returns the checkpoint history without blocking the calling thread.
+     *
+     * <p>Use this variant from Hazelcast operation threads; see {@link
+     * CheckpointOverviewStateStore#getAsync(Long)} for why a blocking read is not allowed there.
+     */
+    public PassiveCompletableFuture<List<CheckpointHistoryEntry>> getHistoryAsync(
+            long jobId, Integer pipelineId, int limit, CheckpointStatus status) {
+        return new PassiveCompletableFuture<>(
+                getOverviewMap()
+                        .getAsync(jobId)
+                        .thenApply(overview -> buildHistory(overview, pipelineId, limit, status)));
+    }
+
+    private static List<CheckpointHistoryEntry> buildHistory(
+            CheckpointOverview overview, Integer pipelineId, int limit, CheckpointStatus status) {
         if (overview == null) {
             return Collections.emptyList();
         }
