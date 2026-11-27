@@ -32,6 +32,7 @@ import com.hazelcast.cluster.Address;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,6 +42,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -136,15 +138,30 @@ class SlotAllocationStrategyTest {
     @SuppressWarnings("deprecation")
     void slotRatioKeepsTheLegacyUnscopedAccessorsWorking() {
         SlotRatioStrategy strategy = new SlotRatioStrategy();
+        // The former Lombok field started as null, so the getter keeps reporting null until a map
+        // is installed.
+        assertNull(strategy.getWorkerAssignedSlots());
+
         SlotAssignedProfile legacyProfile = new SlotAssignedProfile(0.0, 2, SLOTS_PER_WORKER);
-        Map<Address, SlotAssignedProfile> legacy = new ConcurrentHashMap<>();
+        // A plain map is installed deliberately: the legacy setter must keep the caller's
+        // reference instead of copying it into a strategy-owned concurrent map.
+        Map<Address, SlotAssignedProfile> legacy = new HashMap<>();
         legacy.put(workerOneAddress, legacyProfile);
         strategy.setWorkerAssignedSlots(legacy);
 
+        // Identity and aliasing of the installed map are preserved.
+        assertSame(legacy, strategy.getWorkerAssignedSlots());
         assertSame(legacyProfile, strategy.getWorkerAssignedSlots().get(workerOneAddress));
 
-        // The compatibility accessors address the unscoped entry only; a real job keeps its own
-        // counters and cannot observe the legacy two slots.
+        // The unscoped selection path still updates the installed map, exactly as before.
+        assertSame(workerTwo, strategy.selectWorker(workers).orElseThrow());
+        assertEquals(
+                1,
+                strategy.getWorkerAssignedSlots()
+                        .get(workerTwoAddress)
+                        .getCurrentTaskAssignedSlotsNum());
+
+        // A real job keeps its own counters; it neither reads nor mutates the legacy map.
         assertSame(workerOne, strategy.selectWorker(workers, JOB_ONE).orElseThrow());
         assertEquals(
                 2,
@@ -153,24 +170,55 @@ class SlotAllocationStrategyTest {
                         .getCurrentTaskAssignedSlotsNum());
         assertEquals(1, strategy.recordedAssignedSlots(JOB_ONE, workerOneAddress));
         assertEquals(0, strategy.recordedAssignedSlots(JOB_ONE, workerTwoAddress));
+
+        // Resetting the job leaves the legacy map untouched as well.
+        strategy.resetJobState(JOB_ONE);
+        assertSame(legacy, strategy.getWorkerAssignedSlots());
+        assertEquals(
+                2,
+                strategy.getWorkerAssignedSlots()
+                        .get(workerOneAddress)
+                        .getCurrentTaskAssignedSlotsNum());
+
+        // Clearing mirrors the former null initial state.
+        strategy.setWorkerAssignedSlots(null);
+        assertNull(strategy.getWorkerAssignedSlots());
     }
 
     @Test
     @SuppressWarnings("deprecation")
     void systemLoadKeepsTheLegacyUnscopedAccessorsWorking() {
         SystemLoadStrategy strategy = new SystemLoadStrategy(loadMap(0.2, 0.45));
+        assertNull(strategy.getWorkerAssignedSlots());
+
         SlotAssignedProfile legacyProfile = new SlotAssignedProfile(0.0, 3, SLOTS_PER_WORKER);
-        Map<Address, SlotAssignedProfile> legacy = new ConcurrentHashMap<>();
+        Map<Address, SlotAssignedProfile> legacy = new HashMap<>();
         legacy.put(workerOneAddress, legacyProfile);
         strategy.setWorkerAssignedSlots(legacy);
 
+        assertSame(legacy, strategy.getWorkerAssignedSlots());
         assertSame(legacyProfile, strategy.getWorkerAssignedSlots().get(workerOneAddress));
+
+        // The unscoped selection path still updates the installed map, exactly as before.
+        strategy.selectWorker(workers).orElseThrow();
+        assertEquals(4, legacyAssignedSlots(strategy));
+
+        // A real job keeps its own counters; it neither reads nor mutates the legacy map.
         assertSame(workerOne, strategy.selectWorker(workers, JOB_ONE).orElseThrow());
+        assertSame(legacy, strategy.getWorkerAssignedSlots());
+        assertEquals(4, legacyAssignedSlots(strategy));
         assertEquals(
                 3,
                 strategy.getWorkerAssignedSlots()
                         .get(workerOneAddress)
                         .getCurrentTaskAssignedSlotsNum());
+
+        strategy.resetJobState(JOB_ONE);
+        assertSame(legacy, strategy.getWorkerAssignedSlots());
+        assertEquals(4, legacyAssignedSlots(strategy));
+
+        strategy.setWorkerAssignedSlots(null);
+        assertNull(strategy.getWorkerAssignedSlots());
     }
 
     @Test
@@ -196,6 +244,13 @@ class SlotAllocationStrategyTest {
 
         // A wiped job-two counter would make worker one the preferred worker again.
         assertSame(workerTwo, strategy.selectWorker(workers, JOB_TWO).orElseThrow());
+    }
+
+    @SuppressWarnings("deprecation")
+    private int legacyAssignedSlots(SystemLoadStrategy strategy) {
+        return strategy.getWorkerAssignedSlots().values().stream()
+                .mapToInt(SlotAssignedProfile::getCurrentTaskAssignedSlotsNum)
+                .sum();
     }
 
     private WorkerProfile worker(Address address) {

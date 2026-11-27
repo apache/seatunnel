@@ -37,8 +37,8 @@ import java.util.concurrent.ConcurrentMap;
 public class SystemLoadStrategy implements SlotAllocationStrategy {
 
     /**
-     * Slot bookkeeping used when calling {@link #selectWorker(List)} directly, without a job
-     * context.
+     * Key of the legacy, unscoped bookkeeping used by {@link #selectWorker(List)} and the
+     * deprecated accessors. No engine job uses this key: real jobs are keyed by their job ID.
      */
     private static final long UNSCOPED_JOB_ID = -1L;
 
@@ -50,9 +50,15 @@ public class SystemLoadStrategy implements SlotAllocationStrategy {
      * <p>The strategy instance is shared by every job on the master. Keeping the bookkeeping per
      * job means one job's allocation round can no longer wipe the in-flight counters of the other
      * jobs (which used to distort placement for concurrent jobs and pipeline restores).
+     *
+     * <p>The {@link #UNSCOPED_JOB_ID} entry holds the map installed through the deprecated {@link
+     * #setWorkerAssignedSlots(Map)} accessor. That map is stored as the caller's reference, exactly
+     * like the former Lombok field, so identity, aliasing and external mutation keep working for
+     * callers of the legacy accessors. The engine itself never reads or writes that entry: it
+     * always selects and resets by real job ID.
      */
-    private final ConcurrentMap<Long, ConcurrentMap<Address, SlotAssignedProfile>>
-            workerAssignedSlotsByJob = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, Map<Address, SlotAssignedProfile>> workerAssignedSlotsByJob =
+            new ConcurrentHashMap<>();
 
     public SystemLoadStrategy(Map<Address, EvictingQueue<SystemLoadInfo>> workerLoadMap) {
         this.workerLoadMap = workerLoadMap;
@@ -110,41 +116,56 @@ public class SystemLoadStrategy implements SlotAllocationStrategy {
     }
 
     /**
-     * Returns the strategy's legacy, job-agnostic slot bookkeeping.
+     * Returns the map installed through the legacy {@link #setWorkerAssignedSlots(Map)} accessor.
      *
-     * <p>Kept so existing compiled extensions and direct callers do not lose the accessor that the
-     * former {@code @Getter} field generated. The engine itself records placement counters per job
-     * through {@link #selectWorker(List, long)} and {@link #resetJobState(long)}; this view only
-     * exposes the unscoped entry used by {@link #selectWorker(List)}.
+     * <p>Kept so existing compiled callers do not lose the accessor that the former {@code @Getter}
+     * field generated. The returned value is the exact installed map instance, so mutating it
+     * affects {@link #selectWorker(List)} exactly as before, and {@code null} is returned while no
+     * map has been installed (the former field's initial value).
      *
-     * @return mutable map of the unscoped {@code -1} job entry
-     * @deprecated use the job-aware {@code selectWorker(List, long)} and {@code
-     *     resetJobState(long)}
+     * <p>The engine does <em>not</em> record its own allocations here: it keeps placement counters
+     * per job through {@link #selectWorker(List, long)} and drops them through {@link
+     * #resetJobState(long)}. The legacy accessors therefore describe the unscoped, caller-owned
+     * bookkeeping only, not the placement state of running jobs. No per-job inspection API is
+     * supplied; selection and reset are the supported replacements.
+     *
+     * @return the installed mutable map, or {@code null} if none was installed
+     * @deprecated use the job-aware {@link #selectWorker(List, long)} and {@link
+     *     #resetJobState(long)}
      */
     @Deprecated
     public Map<Address, SlotAssignedProfile> getWorkerAssignedSlots() {
-        return assignedSlotsForJob(UNSCOPED_JOB_ID);
+        return workerAssignedSlotsByJob.get(UNSCOPED_JOB_ID);
     }
 
     /**
-     * Replaces the strategy's legacy, job-agnostic slot bookkeeping.
+     * Installs the legacy, job-agnostic slot bookkeeping.
      *
-     * <p>Kept for compatibility with the former {@code @Setter} field. The supplied map is copied
-     * into the unscoped entry, so a caller cannot swap the per-job bookkeeping of another job.
+     * <p>Compatible with the former {@code @Setter} field: the supplied map reference is installed
+     * as-is instead of being copied, so a caller that keeps updating its own map keeps observing
+     * and driving the unscoped selection path. Passing {@code null} clears the installed map. The
+     * installed map can never replace a running job's bookkeeping, which is keyed by job ID.
      *
-     * @param workerAssignedSlots slot counters to install for the unscoped job entry
-     * @deprecated use the job-aware {@code selectWorker(List, long)} and {@code
-     *     resetJobState(long)}
+     * @param workerAssignedSlots map to install for the unscoped selection path, or {@code null}
+     * @deprecated use the job-aware {@link #selectWorker(List, long)} and {@link
+     *     #resetJobState(long)}
      */
     @Deprecated
     public void setWorkerAssignedSlots(Map<Address, SlotAssignedProfile> workerAssignedSlots) {
-        ConcurrentMap<Address, SlotAssignedProfile> replacement = new ConcurrentHashMap<>();
-        if (workerAssignedSlots != null) {
-            replacement.putAll(workerAssignedSlots);
+        if (workerAssignedSlots == null) {
+            workerAssignedSlotsByJob.remove(UNSCOPED_JOB_ID);
+        } else {
+            workerAssignedSlotsByJob.put(UNSCOPED_JOB_ID, workerAssignedSlots);
         }
-        workerAssignedSlotsByJob.put(UNSCOPED_JOB_ID, replacement);
     }
 
+    /**
+     * Returns the bookkeeping of one job, creating it lazily.
+     *
+     * <p>For the unscoped key this also preserves a usable legacy path: a direct caller that never
+     * installed a map through {@link #setWorkerAssignedSlots(Map)} gets an empty concurrent map
+     * instead of the former {@code NullPointerException}.
+     */
     private Map<Address, SlotAssignedProfile> assignedSlotsForJob(long jobId) {
         return workerAssignedSlotsByJob.computeIfAbsent(jobId, key -> new ConcurrentHashMap<>());
     }
