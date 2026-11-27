@@ -36,8 +36,10 @@ import java.util.Map;
  * <p>The catalog implementations themselves are replaced by recording stubs, so this test never
  * opens a connection. That is intentional: a real {@code MySqlCatalog} resolves the server version
  * in its constructor, so an unroutable URL would still trigger a network attempt and could stall
- * the suite. Asserting on the recorded selection instead keeps the test deterministic and lets it
- * fail if a compatibility probe is ever reintroduced.
+ * the suite. Asserting on the recorded selection keeps the test deterministic. It pins which
+ * catalog the factory selects from configuration; it does not by itself prove that no other code
+ * path opens a connection. That boundary is covered by source inspection and by the licensed
+ * Kingbase end-to-end test, not by this unit test.
  */
 public class KingbaseCatalogFactoryTest {
 
@@ -140,9 +142,11 @@ public class KingbaseCatalogFactoryTest {
 
     /**
      * Deliberately uses an unroutable address: because the stubs above never construct a real
-     * catalog, nothing resolves the URL, so the suite stays fast. If mode selection ever regressed
-     * to a live probe, this test would still pass, but {@link #testSelectionHelperIsPure()} pins
-     * the decision to configuration alone.
+     * catalog, nothing resolves the URL, so the suite stays fast. A live probe reintroduced inside
+     * {@link KingbaseCatalogFactory#resolvesToMySqlCatalog(String)} would still make this test
+     * pass; that helper is covered by {@link #testSelectionHelperIsPure()}, while the absence of
+     * any other connection during selection is established by source inspection and the licensed
+     * end-to-end test.
      */
     private static ReadonlyConfig config(String compatibleMode) {
         Map<String, Object> options = new HashMap<>();

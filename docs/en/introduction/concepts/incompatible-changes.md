@@ -5,6 +5,14 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### JDBC Kingbase: an explicit `compatible_mode = "mysql"` now selects MySQL behavior
+
+- **Behavior change: a Kingbase job that already sets `compatible_mode = "mysql"` now uses MySQL-style type mapping, row conversion, upsert SQL and catalog metadata instead of the native Kingbase/PostgreSQL ones**
+  - **Affected jobs**: JDBC source and sink jobs for KingbaseES that set `compatible_mode = "mysql"` (or `compatibleMode = "mysql"`, case-insensitively). Jobs that leave it unset, or set `pg`, `oracle` or any other value, are not affected.
+  - **Description**: The Kingbase connector previously accepted the `compatible_mode` option but always used the native Kingbase/PostgreSQL behavior. It now honors the explicit `mysql` value for the JDBC source, sink and catalog: type mapping and row conversion come from the MySQL implementation, an upsert is generated as `ON DUPLICATE KEY UPDATE`, and table discovery uses `MySqlCatalog` instead of `KingbaseCatalog`. The mode is read from configuration only and is never auto-detected, so a job that does not set it cannot switch silently.
+  - **Impact**: Generated DDL types and row conversions change where a MySQL-mode KingbaseES maps types differently from the PostgreSQL ones; an upsert uses `ON DUPLICATE KEY UPDATE` instead of `ON CONFLICT ... DO UPDATE`; and catalog-based jobs read table metadata through the MySQL catalog, which also queries the server version on construction. Any of these can change a job's output, or fail against a server that is not actually running in MySQL mode.
+  - **Migration Guide**: If KingbaseES really runs in MySQL compatibility mode, the new behavior is the intended one: validate the affected types, upsert results and any catalog-driven DDL before upgrading. To keep the previous native behavior, remove `compatible_mode` from the job; an absent or unrecognized value keeps the native path, so no replacement value is required. No option is added or renamed.
+
 ### MongoDB sink: omitted buffer and retry options now use their documented defaults
 
 - **Behavior change: a non-transactional MongoDB sink without `buffer-flush.*` or `retry.*` options writes in batches and retries failed writes**

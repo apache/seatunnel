@@ -4,6 +4,14 @@
 
 ## dev
 
+### JDBC Kingbase：显式设置 `compatible_mode = "mysql"` 现在会选择 MySQL 行为
+
+- **行为变更：已经设置 `compatible_mode = "mysql"` 的 Kingbase 作业现在使用 MySQL 风格的类型映射、行转换、upsert 语句和 catalog 元数据，而不再是原生 Kingbase/PostgreSQL 实现**
+  - **影响范围**：设置了 `compatible_mode = "mysql"`（或 `compatibleMode = "mysql"`，不区分大小写）的 KingbaseES JDBC 源和 Sink 作业。未设置该选项，或设置为 `pg`、`oracle` 及其他值的作业不受影响。
+  - **描述**：Kingbase 连接器此前虽然接受 `compatible_mode` 选项，但始终使用原生 Kingbase/PostgreSQL 行为。现在它会按显式的 `mysql` 值处理 JDBC 源、Sink 和 catalog：类型映射与行转换使用 MySQL 实现，upsert 生成 `ON DUPLICATE KEY UPDATE`，表结构发现使用 `MySqlCatalog` 而不是 `KingbaseCatalog`。兼容模式只从配置读取，从不自动探测，因此未设置该选项的作业不会被静默切换。
+  - **影响**：当 MySQL 模式的 KingbaseES 与 PostgreSQL 类型映射不一致时，生成的 DDL 类型和行转换会发生变化；upsert 使用 `ON DUPLICATE KEY UPDATE` 而不是 `ON CONFLICT ... DO UPDATE`；基于 catalog 的作业通过 MySQL catalog 读取表元数据，这也会在构造时查询服务端版本。以上任一变化都可能改变作业输出，或在服务端并未真正运行于 MySQL 模式时导致作业失败。
+  - **迁移指南**：如果 KingbaseES 确实以 MySQL 兼容模式运行，新行为就是预期行为：升级前请验证受影响的类型、upsert 结果以及由 catalog 生成的 DDL。如需保持此前的原生行为，请从作业中移除 `compatible_mode`；不设置或设置为无法识别的值都会保持原生路径，无需改用其他值。本次没有新增或重命名任何选项。
+
 ### MongoDB Sink：未配置的缓冲与重试选项使用文档中的默认值
 
 - **行为变更：未设置 `buffer-flush.*` 或 `retry.*` 选项的非事务 MongoDB Sink 会按批写入，并重试失败的写入**

@@ -33,8 +33,11 @@ import com.google.auto.service.AutoService;
  * Catalog factory for KingbaseES.
  *
  * <p>The compatibility mode is taken exclusively from the explicit {@code compatible_mode} option;
- * no connection is opened while resolving it. An absent mode keeps the native Kingbase catalog,
- * which is the pre-existing behavior.
+ * resolving it opens no connection and never probes the server. An absent mode keeps the native
+ * Kingbase catalog, which is the pre-existing behavior. Selecting {@code mysql} does not make the
+ * catalog connection-free: it builds a regular {@link MySqlCatalog}, whose constructor opens its
+ * usual metadata connection and reads the server version. Only mode selection is probe-free, not
+ * the catalog's normal startup work.
  */
 @AutoService(Factory.class)
 public class KingbaseCatalogFactory implements CatalogFactory {
