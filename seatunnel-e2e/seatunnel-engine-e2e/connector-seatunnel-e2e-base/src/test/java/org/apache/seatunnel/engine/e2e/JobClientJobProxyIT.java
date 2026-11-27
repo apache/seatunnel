@@ -246,8 +246,14 @@ public class JobClientJobProxyIT extends SeaTunnelEngineContainer {
             primaryFailure = failure;
             throw failure;
         } finally {
-            Exception cleanupFailure = stopJobAndSettleCommands(commandExecutor, jobId, commands);
-            commandExecutor.shutdownNow();
+            Exception cleanupFailure = null;
+            try {
+                cleanupFailure = stopJobAndSettleCommands(commandExecutor, jobId, commands);
+            } finally {
+                // Shut the executor down on its own, so a cleanup that throws or hangs on a
+                // bounded await can never keep the command threads (and the JVM) alive.
+                commandExecutor.shutdownNow();
+            }
             if (cleanupFailure != null) {
                 if (primaryFailure != null) {
                     // Preserve the primary failure; report the cleanup problem beside it.
@@ -362,16 +368,30 @@ public class JobClientJobProxyIT extends SeaTunnelEngineContainer {
     /**
      * Cleanup for the asynchronous savepoint/restore lifecycle of the save-mode test.
      *
-     * <p>Stops the job when the test left it running (the source job before its savepoint, or the
-     * restored job before its cancel), settles every submitted command task, and returns the
-     * cleanup failure instead of throwing it so the caller can attach it to the primary failure as
-     * a suppressed exception.
+     * <p>Reads the job status and, when the test left the job running (the source job before its
+     * savepoint, or the restored job before its cancel), stops it, then settles every submitted
+     * command task. Every step is bounded: the status read is submitted to the same command
+     * executor and awaited with {@link #SAVE_MODE_CLEANUP_TIMEOUT} left, so a stalled REST response
+     * fails this cleanup instead of blocking the caller's finally block. Returns the cleanup
+     * failure instead of throwing it so the caller can attach it to the primary failure as a
+     * suppressed exception.
      */
     private Exception stopJobAndSettleCommands(
             ExecutorService commandExecutor, String jobId, Map<Future<?>, String> commands) {
         Exception failure = null;
         try {
-            String status = getJobStatus(jobId);
+            String statusDescription = "cleanup status of job " + jobId;
+            Future<String> statusCommand =
+                    submitCommand(
+                            commandExecutor,
+                            commands,
+                            statusDescription,
+                            () -> getJobStatus(jobId));
+            String status =
+                    awaitCommand(
+                            statusCommand,
+                            Instant.now().plus(SAVE_MODE_CLEANUP_TIMEOUT),
+                            statusDescription);
             if (status != null && !JobStatus.fromString(status).isEndState()) {
                 Future<?> stopCommand =
                         submitCommand(
