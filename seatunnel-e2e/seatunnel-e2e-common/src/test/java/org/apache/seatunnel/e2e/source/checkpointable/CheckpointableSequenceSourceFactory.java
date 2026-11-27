@@ -49,6 +49,22 @@ public class CheckpointableSequenceSourceFactory implements TableSourceFactory {
     public static final Option<Long> EMIT_INTERVAL_MS =
             Options.key("emit_interval_ms").longType().defaultValue(50L);
 
+    /**
+     * When enabled, the enumerator hands at most one split to each reader instead of draining the
+     * whole pending queue into the first reader that registers.
+     *
+     * <p>The default keeps the historical behaviour so existing fixtures and tests are unaffected.
+     * The per-reader mode exists so tests can give every parallel reader its own checkpoint state:
+     * with the default mode a single reader owns all splits and the other subtasks checkpoint an
+     * empty state, which cannot exercise per-subtask state restoration.
+     */
+    public static final Option<Boolean> ONE_SPLIT_PER_READER =
+            Options.key("one_split_per_reader")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Assign at most one split to every source reader instead of assigning all pending splits to the first registered reader");
+
     @Override
     public String factoryIdentifier() {
         return "CheckpointableSequenceSource";
@@ -57,7 +73,13 @@ public class CheckpointableSequenceSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(START_OFFSET, END_OFFSET, SPLIT_NUM, RECORDS_PER_POLL, EMIT_INTERVAL_MS)
+                .optional(
+                        START_OFFSET,
+                        END_OFFSET,
+                        SPLIT_NUM,
+                        RECORDS_PER_POLL,
+                        EMIT_INTERVAL_MS,
+                        ONE_SPLIT_PER_READER)
                 .build();
     }
 

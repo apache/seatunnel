@@ -98,7 +98,10 @@ public class CheckpointableSequenceSource
             createEnumerator(
                     SourceSplitEnumerator.Context<CheckpointableSequenceSplit> enumeratorContext) {
         return new CheckpointableSequenceSplitEnumerator(
-                enumeratorContext, createInitialSplits(), false);
+                enumeratorContext,
+                createInitialSplits(),
+                false,
+                config.get(CheckpointableSequenceSourceFactory.ONE_SPLIT_PER_READER));
     }
 
     @Override
@@ -109,7 +112,8 @@ public class CheckpointableSequenceSource
         return new CheckpointableSequenceSplitEnumerator(
                 enumeratorContext,
                 checkpointState.getPendingSplits(),
-                checkpointState.getPendingSplits().isEmpty());
+                checkpointState.getPendingSplits().isEmpty(),
+                config.get(CheckpointableSequenceSourceFactory.ONE_SPLIT_PER_READER));
     }
 
     @Override
