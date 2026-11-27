@@ -152,6 +152,8 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
 基于选定字段进行数据分区。
 
+分区字段的值为 `NULL` 时，会以字面量 `null` 写入分区目录（例如 `c_null=null`），而不是作为缺失值处理。
+
 ### partition_dir_expression [string]
 
 仅在 `have_partition` 为 `true` 时使用。
@@ -212,7 +214,7 @@ Sink 插件的常见参数，请参阅 [Sink 常见选项](../common-options/sin
 
 工作簿的表名。
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 当文件格式为 CSV 时，CSV 的字符串引号模式。
 

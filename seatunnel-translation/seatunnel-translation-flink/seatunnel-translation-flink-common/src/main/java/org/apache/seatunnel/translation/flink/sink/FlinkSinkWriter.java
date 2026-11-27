@@ -25,14 +25,17 @@ import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
+import org.apache.seatunnel.api.table.schema.SchemaChangePolicy;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.exception.SchemaChangePolicyException;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
 import org.apache.seatunnel.api.table.schema.exception.SinkWriterSchemaException;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.flink.schema.coordinator.LocalSchemaCoordinator;
 
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.SinkWriter;
+import org.apache.flink.runtime.execution.SuppressRestartsException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -69,6 +72,7 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
     private long checkpointId;
 
     private MultiTableResourceManager resourceManager;
+    private final List<SchemaChangeType> supportedSchemaChangeTypes;
 
     /**
      * Cached writer states produced together with {@link #prepareCommit(boolean)}.
@@ -87,9 +91,18 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
             org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter,
             long checkpointId,
             org.apache.seatunnel.api.sink.SinkWriter.Context context) {
+        this(sinkWriter, checkpointId, context, null);
+    }
+
+    FlinkSinkWriter(
+            org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter,
+            long checkpointId,
+            org.apache.seatunnel.api.sink.SinkWriter.Context context,
+            List<SchemaChangeType> supportedSchemaChangeTypes) {
         this.context = context;
         this.sinkWriter = sinkWriter;
         this.checkpointId = checkpointId;
+        this.supportedSchemaChangeTypes = supportedSchemaChangeTypes;
         MetricsContext metricsContext = context.getMetricsContext();
         this.sinkWriteCount = metricsContext.counter(MetricNames.SINK_WRITE_COUNT);
         this.sinkWriteBytes = metricsContext.counter(MetricNames.SINK_WRITE_BYTES);
@@ -127,87 +140,68 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
         }
 
         if (options.containsKey("schema_change_event")) {
-            handleSchemaChangeEvent(
-                    (SchemaChangeEvent) options.get("schema_change_event"), options);
+            handleSchemaChangeEvent((SchemaChangeEvent) options.get("schema_change_event"));
             return true;
         }
 
         return false;
     }
 
-    private void handleSchemaChangeEvent(
-            SchemaChangeEvent schemaChangeEvent, Map<String, Object> options) throws IOException {
+    private void handleSchemaChangeEvent(SchemaChangeEvent schemaChangeEvent) throws IOException {
         log.info(
                 "FlinkSinkWriter applying SchemaChangeEvent for table: {}",
                 schemaChangeEvent.tableIdentifier());
 
-        if (!(sinkWriter instanceof SupportSchemaEvolutionSinkWriter)) {
-            log.warn(
-                    "Sink writer {} does not support schema evolution, ignoring SchemaChangeEvent for table: {}",
-                    sinkWriter.getClass().getSimpleName(),
-                    schemaChangeEvent.tableIdentifier());
-            return;
-        }
-
-        Long subtaskIdObj = (Long) options.get("schema_subtask_id");
-        int subtaskId = subtaskIdObj != null ? subtaskIdObj.intValue() : -1;
-        long epoch = schemaChangeEvent.getCreatedTime();
-        boolean success = false;
-
         try {
-            ((SupportSchemaEvolutionSinkWriter) sinkWriter).applySchemaChange(schemaChangeEvent);
+            if (supportedSchemaChangeTypes != null
+                    && !SchemaChangePolicy.isSupported(
+                            schemaChangeEvent, supportedSchemaChangeTypes)
+                    && SchemaChangePolicy.isSafeToIgnore(schemaChangeEvent)) {
+                log.warn(
+                        "Drop unsupported comment-only schema change event {} for table {}.",
+                        schemaChangeEvent.getEventType(),
+                        schemaChangeEvent.tableIdentifier());
+                return;
+            }
+            if (supportedSchemaChangeTypes != null) {
+                SchemaChangePolicy.validateSupported(
+                        schemaChangeEvent,
+                        supportedSchemaChangeTypes,
+                        schemaChangeEvent.getJobId());
+            }
+            if (sinkWriter instanceof SupportSchemaEvolutionSinkWriter) {
+                ((SupportSchemaEvolutionSinkWriter) sinkWriter)
+                        .applySchemaChange(schemaChangeEvent);
+            } else if (SchemaChangePolicy.overridesDeprecatedSchemaChangeMethod(sinkWriter)) {
+                log.warn(
+                        "Sink writer {} still uses the deprecated SinkWriter.applySchemaChange "
+                                + "method. Migrate it to SupportSchemaEvolutionSinkWriter.",
+                        sinkWriter.getClass().getName());
+                sinkWriter.applySchemaChange(schemaChangeEvent);
+            } else {
+                log.warn(
+                        "Drop schema change event {} for table {} because sink writer {} inherits "
+                                + "the deprecated no-op applySchemaChange method. This compatibility "
+                                + "fallback will be removed in the next release; implement "
+                                + "SupportSchemaEvolutionSinkWriter, disable schema-changes.enabled, "
+                                + "or exclude this event type.",
+                        schemaChangeEvent.getEventType(),
+                        schemaChangeEvent.tableIdentifier(),
+                        sinkWriter.getClass().getName());
+                return;
+            }
             log.info(
-                    "FlinkSinkWriter successfully applied SchemaChangeEvent for table: {}",
+                    "FlinkSinkWriter successfully handled SchemaChangeEvent for table: {}",
                     schemaChangeEvent.tableIdentifier());
-            success = true;
+        } catch (SchemaChangePolicyException e) {
+            // A deterministic capability rejection must not restart and replay the same DDL.
+            throw new SuppressRestartsException(e);
         } catch (Exception e) {
-            log.error(
-                    "Failed to apply schema change for table: {}",
-                    schemaChangeEvent.tableIdentifier(),
-                    e);
-        } finally {
-            sendSchemaChangeAck(schemaChangeEvent, epoch, subtaskId, success);
-        }
-
-        if (!success) {
             throw new SinkWriterSchemaException(
                     SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
                     "Failed to apply schema change in Flink sink writer",
                     schemaChangeEvent.tableIdentifier(),
                     schemaChangeEvent.getJobId(),
-                    null);
-        }
-    }
-
-    private void sendSchemaChangeAck(
-            SchemaChangeEvent schemaChangeEvent, long epoch, int subtaskId, boolean success) {
-        if (subtaskId < 0) {
-            log.warn(
-                    "FlinkSinkWriter cannot send ack: subtask ID not found in schema change event options");
-            return;
-        }
-
-        try {
-            String jobId = schemaChangeEvent.getJobId();
-            if (jobId == null || jobId.trim().isEmpty()) {
-                jobId = "unknown-job";
-                log.warn("SchemaChangeEvent has no jobId, using default: {}", jobId);
-            }
-
-            LocalSchemaCoordinator coordinator = LocalSchemaCoordinator.getInstance(jobId);
-            coordinator.notifySchemaChangeApplied(
-                    schemaChangeEvent.tableIdentifier(), epoch, subtaskId, success);
-            log.info(
-                    "FlinkSinkWriter sent schema change ack to coordinator for table {} (epoch {}), subtask {}, success: {}",
-                    schemaChangeEvent.tableIdentifier(),
-                    epoch,
-                    subtaskId,
-                    success);
-        } catch (Exception e) {
-            log.error(
-                    "Failed to send schema change ack to coordinator for table {} (epoch {})",
-                    schemaChangeEvent.tableIdentifier(),
-                    epoch,
                     e);
         }
     }

@@ -74,6 +74,10 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     private static final String SOURCE_TABLE = "E2E_TABLE_SOURCE";
     private static final String SINK_TABLE = "E2E_TABLE_SINK";
     private static final String CATALOG_TABLE = "E2E_TABLE_CATALOG";
+    private static final String VIEW_SOURCE = "E2E_VIEW_SOURCE";
+    private static final String VIEW_SINK = "E2E_VIEW_SINK";
+    private static final List<String> VIEW_COLUMNS =
+            Arrays.asList("VARCHAR_10_COL", "INTEGER_COL", "DATE_COL");
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList(
                     "/jdbc_oracle_source_to_sink.conf",
@@ -222,6 +226,43 @@ public class JdbcOracleIT extends AbstractJdbcIT {
         } finally {
             clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
         }
+    }
+
+    /** A source {@code table_path} may name a view, not only a table. */
+    @TestTemplate
+    public void testViewAsSourceTablePath(TestContainer container) throws Exception {
+        assertViewReadThroughTablePath(
+                container,
+                "/jdbc_oracle_view_source_to_sink.conf",
+                createViewSql(),
+                buildTableInfoWithSchema(SCHEMA, VIEW_SOURCE),
+                buildTableInfoWithSchema(SCHEMA, VIEW_SINK));
+    }
+
+    @Test
+    public void testCatalogResolvesView() throws Exception {
+        String jdbcUrl = jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
+        assertCatalogResolvesView(
+                new OracleCatalog(
+                        "oracle",
+                        jdbcCase.getUserName(),
+                        jdbcCase.getPassword(),
+                        OracleURLParser.parse(jdbcUrl),
+                        SCHEMA,
+                        null),
+                createViewSql(),
+                buildTableInfoWithSchema(SCHEMA, VIEW_SOURCE),
+                TablePath.of(DATABASE, SCHEMA, VIEW_SOURCE),
+                VIEW_COLUMNS);
+    }
+
+    private String createViewSql() {
+        return "CREATE OR REPLACE VIEW "
+                + buildTableInfoWithSchema(SCHEMA, VIEW_SOURCE)
+                + " AS SELECT "
+                + String.join(", ", VIEW_COLUMNS)
+                + " FROM "
+                + buildTableInfoWithSchema(SCHEMA, SOURCE_TABLE);
     }
 
     @Override

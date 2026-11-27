@@ -152,6 +152,8 @@ Only used when `have_partition` is `true`.
 
 Partition data based on selected fields.
 
+A `NULL` value in a partition field is written as the literal text `null` in the partition directory (for example `c_null=null`), not as a missing value.
+
 ### partition_dir_expression [string]
 
 Only used when `have_partition` is `true`.
@@ -213,7 +215,7 @@ When file format is Excel, the maximum number of rows per sheet.
 
 Writer the sheet of the workbook
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 When File Format is CSV,The string quote mode of CSV.
 

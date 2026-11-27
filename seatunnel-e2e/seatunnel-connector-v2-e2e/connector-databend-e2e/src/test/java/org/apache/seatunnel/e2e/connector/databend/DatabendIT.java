@@ -244,6 +244,90 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    /**
+     * Writes a TIME column to a table the sink creates through the catalog. Databend has no TIME
+     * type, so the table only exists, and the rows only arrive, when the catalog names a text type
+     * for the column and the writer sends the time of day as text.
+     */
+    @TestTemplate
+    public void testFakeTimeToDatabend(TestContainer container) throws Exception {
+        String table = DATABASE + ".time_sink_table";
+        try (Connection conn = getConnection();
+                Statement statement = conn.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS " + table);
+        }
+
+        Container.ExecResult execResult =
+                container.executeJob("/databend/fake_time_to_databend.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        try (Connection conn = getConnection();
+                Statement statement = conn.createStatement()) {
+            List<String> values = new ArrayList<>();
+            try (ResultSet resultSet =
+                    statement.executeQuery("SELECT start_time FROM " + table + " ORDER BY id")) {
+                while (resultSet.next()) {
+                    values.add(resultSet.getString(1));
+                }
+            }
+            Assertions.assertEquals(Arrays.asList("08:00:00", "10:15:30.123"), values);
+            statement.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    /**
+     * Writes a TIMESTAMP column outside CDC mode. databend-jdbc rejects a LocalDateTime in
+     * setObject, so the rows only arrive when the writer sends the timestamp as text. Each row is
+     * matched against an exact timestamp, so the check does not depend on how Databend prints one.
+     * The second row must also differ from its millisecond value, so a write that drops the
+     * microseconds fails; the third row has nanoseconds, which are written to the microsecond.
+     */
+    @TestTemplate
+    public void testFakeTimestampToDatabend(TestContainer container) throws Exception {
+        String table = DATABASE + ".timestamp_sink_table";
+        try (Connection conn = getConnection();
+                Statement statement = conn.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS " + table);
+        }
+
+        Container.ExecResult execResult =
+                container.executeJob("/databend/fake_timestamp_to_databend.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        try (Connection conn = getConnection();
+                Statement statement = conn.createStatement()) {
+            List<String> stored = new ArrayList<>();
+            try (ResultSet resultSet =
+                    statement.executeQuery(
+                            "SELECT id, CAST(created_at AS STRING) FROM "
+                                    + table
+                                    + " ORDER BY id")) {
+                while (resultSet.next()) {
+                    stored.add(resultSet.getInt(1) + "=" + resultSet.getString(2));
+                }
+            }
+            LOG.info("Stored timestamps: {}", stored);
+            List<Integer> matched = new ArrayList<>();
+            try (ResultSet resultSet =
+                    statement.executeQuery(
+                            "SELECT id FROM "
+                                    + table
+                                    + " WHERE (id = 1 AND created_at = CAST('2024-03-10 10:00:00'"
+                                    + " AS TIMESTAMP))"
+                                    + " OR (id = 2 AND created_at = CAST('2024-03-11"
+                                    + " 10:15:30.123456' AS TIMESTAMP) AND created_at <>"
+                                    + " CAST('2024-03-11 10:15:30.123' AS TIMESTAMP))"
+                                    + " OR (id = 3 AND created_at = CAST('2024-03-12"
+                                    + " 10:15:30.123456' AS TIMESTAMP)) ORDER BY id")) {
+                while (resultSet.next()) {
+                    matched.add(resultSet.getInt(1));
+                }
+            }
+            Assertions.assertEquals(Arrays.asList(1, 2, 3), matched, "stored: " + stored);
+            statement.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
     private synchronized Connection getConnection() throws SQLException {
         if (this.connection == null || this.connection.isClosed()) {
             LOG.info("Creating new database connection");
