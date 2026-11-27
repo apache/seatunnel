@@ -76,10 +76,22 @@ import java.util.concurrent.atomic.AtomicReference;
  * afterwards; the pipeline ends {@code CANCELED} too; and the engine never created a second sink
  * writer, i.e. no further attempt was deployed for the cancelled job.
  *
+ * <p>Both latencies are measured from the fixture's first failed write ({@link
+ * RetryBackoffFailingSinkWriter#firstFailedWriteNanos()}), which the engine necessarily reaches
+ * before it can start backing off, never after. That anchor matters: the backoff window is detected
+ * by polling, so a timer started when the poll happens to see {@code CREATED} can be started late
+ * into the interval. Measured that way the test could observe only a fraction of the remaining
+ * backoff and still pass against an engine that blocks the cancel for the whole interval. Anchored
+ * to the failure, the assertion is independent of the observing poll: a monitor-held sleep cannot
+ * produce the terminal state before the 60s interval expires, while a cancellation that interrupts
+ * the wait does so within a few seconds.
+ *
  * <p>As a control, the same failing pipeline is then submitted with a short retry interval and a
  * single retry and is *not* cancelled: it must still wait for its interval before deploying the
- * next attempt and must still consume its retry budget. Both halves are needed: waking a backoff
- * must not silently turn every retry into an immediate redeploy.
+ * next attempt and must still consume its retry budget. The retry delay is again measured from the
+ * control job's own first failed write, not from a later poll, so the control cannot fail a correct
+ * engine just because the observation happened late in the interval. Both halves are needed: waking
+ * a backoff must not silently turn every retry into an immediate redeploy.
  *
  * <p>Kept as its own class rather than folded into an existing IT because the assertion needs a
  * dedicated fixture with an unusual (one minute) retry interval and a deterministic always-failing
@@ -99,10 +111,20 @@ public class CancelDuringPipelineRetryBackoffIT {
     private static final long RETRY_INTERVAL_SECONDS = 60L;
 
     /**
-     * How long the cancellation may take. Half the retry interval: a correct cancellation is a
-     * couple of seconds, while the unfixed engine cannot finish before the whole interval expires.
+     * How long after the attempt-1 write failure the job may still take to reach {@code CANCELED}.
+     * The failure is the earliest instant at which the retry backoff can start, so the deadline
+     * does not depend on when the status poll saw the {@code CREATED} window. Half the retry
+     * interval leaves a correct cancellation several seconds of head room while the monitor-held
+     * sleep cannot finish before the whole 60s interval has expired.
      */
     private static final long CANCEL_DEADLINE_SECONDS = RETRY_INTERVAL_SECONDS / 2;
+
+    /**
+     * Upper bound for the control retry, measured from its own first failed write: failure
+     * detection plus the 3s backoff plus redeploy must fit inside it. Generous on purpose, its job
+     * is to fail the assertion rather than the awaitility timeout when the retry never comes.
+     */
+    private static final long CONTROL_RETRY_DEADLINE_SECONDS = 60L;
 
     private static final long CLUSTER_TIMEOUT_SECONDS = 60L;
     private static final long BACKOFF_TIMEOUT_SECONDS = 180L;
@@ -141,6 +163,7 @@ public class CancelDuringPipelineRetryBackoffIT {
 
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName("cancel-during-restore-backoff");
+            long jobSubmittedNanos = System.nanoTime();
             ClientJobProxy jobProxy =
                     engineClient
                             .createExecutionContext(
@@ -163,21 +186,58 @@ public class CancelDuringPipelineRetryBackoffIT {
                     pipeline.getCurrPipelineStatus(),
                     "The pipeline must be reset to CREATED while it waits for its restore");
 
+            // Anchor every latency below to the fixture's first failed write instead of to this
+            // observation point: the poll above may see the CREATED window at any moment inside the
+            // backoff, while the engine cannot start backing off before the write has failed.
+            long firstFailureNanos = RetryBackoffFailingSinkWriter.firstFailedWriteNanos();
+            Assertions.assertTrue(
+                    firstFailureNanos > jobSubmittedNanos,
+                    "The retry backoff must be anchored to this job's own write failure, but the"
+                            + " recorded failure ("
+                            + firstFailureNanos
+                            + ") does not postdate the job submission ("
+                            + jobSubmittedNanos
+                            + ")");
+
             long cancelStartedNanos = System.nanoTime();
+            long cancelDelayFromFailureMillis =
+                    TimeUnit.NANOSECONDS.toMillis(cancelStartedNanos - firstFailureNanos);
+            Assertions.assertTrue(
+                    cancelDelayFromFailureMillis
+                            < TimeUnit.SECONDS.toMillis(RETRY_INTERVAL_SECONDS),
+                    "The cancel request must be issued while the "
+                            + RETRY_INTERVAL_SECONDS
+                            + "s retry backoff is still running, otherwise the test proves"
+                            + " nothing; it was issued "
+                            + cancelDelayFromFailureMillis
+                            + " ms after the write failure that started the backoff");
+
             jobProxy.cancelJob();
             awaitJobStatus(jobProxy, JobStatus.CANCELED);
-            long cancelMillis =
-                    TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - cancelStartedNanos);
-            log.warn("Job {} reached CANCELED {} ms after the cancel request", jobId, cancelMillis);
+            long terminalNanos = System.nanoTime();
+            long cancelMillis = TimeUnit.NANOSECONDS.toMillis(terminalNanos - cancelStartedNanos);
+            long terminalMillisFromFailure =
+                    TimeUnit.NANOSECONDS.toMillis(terminalNanos - firstFailureNanos);
+            log.warn(
+                    "Job {} reached CANCELED {} ms after the cancel request and {} ms after the"
+                            + " write failure that started the {}s retry backoff",
+                    jobId,
+                    cancelMillis,
+                    terminalMillisFromFailure,
+                    RETRY_INTERVAL_SECONDS);
 
+            // The bounded deadline is measured from the backoff start anchor, so a late status poll
+            // cannot shrink it and let a blocking engine pass.
             Assertions.assertTrue(
-                    cancelMillis < TimeUnit.SECONDS.toMillis(CANCEL_DEADLINE_SECONDS),
+                    terminalMillisFromFailure < TimeUnit.SECONDS.toMillis(CANCEL_DEADLINE_SECONDS),
                     "Cancelling a job during its "
                             + RETRY_INTERVAL_SECONDS
-                            + "s restore backoff must not wait for the backoff to expire, but it"
-                            + " took "
+                            + "s restore backoff must interrupt the wait instead of waiting for the"
+                            + " backoff to expire, but the job reached CANCELED "
+                            + terminalMillisFromFailure
+                            + " ms after the write failure that started the backoff and "
                             + cancelMillis
-                            + " ms");
+                            + " ms after the cancel request");
 
             // No zombie attempt may be deployed for a job that is already being cancelled. Watch
             // for a short while so a late deployment cannot slip in after the terminal state.
@@ -204,9 +264,13 @@ public class CancelDuringPipelineRetryBackoffIT {
 
             // Control: a retry that is not cancelled must still wait for the configured interval
             // and use up the configured retry budget. This pins that the wake-up above did not
-            // turn the backoff into a no-op for everyone else.
+            // turn the backoff into a no-op for everyone else. The fixture's failure clock is
+            // restarted so the delay below is anchored to this job's attempt 1, not the cancelled
+            // job's.
+            RetryBackoffFailingSinkWriter.resetFailureSignal();
             JobConfig controlJobConfig = new JobConfig();
             controlJobConfig.setName("retry-backoff-control");
+            long controlSubmittedNanos = System.nanoTime();
             ClientJobProxy controlJob =
                     engineClient
                             .createExecutionContext(
@@ -217,7 +281,15 @@ public class CancelDuringPipelineRetryBackoffIT {
             long controlJobId = controlJob.getJobId();
             SubPlan controlPipeline = awaitPipelineInRetryBackoff(nodes, controlJobId);
             int writersBeforeRetry = RetryBackoffFailingSinkWriter.OPENED.get();
-            long backoffObservedNanos = System.nanoTime();
+            long controlFailureNanos = RetryBackoffFailingSinkWriter.firstFailedWriteNanos();
+            Assertions.assertTrue(
+                    controlFailureNanos > controlSubmittedNanos,
+                    "The control retry must be anchored to the control job's own write failure,"
+                            + " but the recorded failure ("
+                            + controlFailureNanos
+                            + ") does not postdate its submission ("
+                            + controlSubmittedNanos
+                            + ")");
             Awaitility.await()
                     .atMost(BACKOFF_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .pollInterval(100, TimeUnit.MILLISECONDS)
@@ -228,12 +300,28 @@ public class CancelDuringPipelineRetryBackoffIT {
                                                     > writersBeforeRetry,
                                             "The uncancelled job must deploy its second attempt"));
             long retryDelayMillis =
-                    TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - backoffObservedNanos);
+                    TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - controlFailureNanos);
+            log.warn(
+                    "Control job {} deployed its second attempt {} ms after its attempt-1 write"
+                            + " failure with a {}s retry interval",
+                    controlJobId,
+                    retryDelayMillis,
+                    SHORT_RETRY_INTERVAL_SECONDS);
+            // Lower bound: the second attempt cannot start before the configured interval has
+            // elapsed since the failure that authorized the retry. Unlike a timer started at the
+            // CREATED observation, this cannot shrink when the poll is late.
             Assertions.assertTrue(
-                    retryDelayMillis >= TimeUnit.SECONDS.toMillis(2),
+                    retryDelayMillis >= TimeUnit.SECONDS.toMillis(SHORT_RETRY_INTERVAL_SECONDS),
                     "An uncancelled retry must still wait for its "
                             + SHORT_RETRY_INTERVAL_SECONDS
-                            + "s backoff, but the next attempt started after "
+                            + "s backoff, but the next attempt started "
+                            + retryDelayMillis
+                            + " ms after the attempt-1 write failure");
+            Assertions.assertTrue(
+                    retryDelayMillis < TimeUnit.SECONDS.toMillis(CONTROL_RETRY_DEADLINE_SECONDS),
+                    "The uncancelled retry must deploy its second attempt within "
+                            + CONTROL_RETRY_DEADLINE_SECONDS
+                            + "s of the attempt-1 write failure, but it took "
                             + retryDelayMillis
                             + " ms");
             awaitJobStatus(controlJob, JobStatus.FAILED);
