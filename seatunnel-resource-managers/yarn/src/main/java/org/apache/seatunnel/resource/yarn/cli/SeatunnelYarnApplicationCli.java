@@ -61,6 +61,14 @@ public final class SeatunnelYarnApplicationCli {
         System.exit(runApplication());
     }
 
+    /**
+     * Loads the localized configuration, starts the master, and runs the application job. It
+     * registers a shutdown hook for staging cleanup and attempts the same cleanup on exit, even if
+     * startup or job execution fails. Any escaping {@link Throwable} is caught so {@code main} can
+     * report fatal errors to YARN through the process exit code.
+     *
+     * @return 0 on normal completion or 1 for an unhandled exception or error
+     */
     static int runApplication() {
         try {
             Configuration configuration =
