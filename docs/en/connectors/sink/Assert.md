@@ -154,7 +154,7 @@ The Assert sink is a terminal sink — it has no external system to write to. Us
 
 ## Streaming Validation
 
-Assert works in both `BATCH` and `STREAMING` job modes. Field rules (`NOT_NULL`, `MIN_LENGTH`, `MAX_LENGTH`, etc.) are checked on every row as it arrives at the sink writer. Row count rules (`MIN_ROW` / `MAX_ROW`) are evaluated **exactly once** when the sink writer closes (at job shutdown, savepoint, or failure), against the cumulative row count observed by that writer instance since it was created — not per checkpoint window, and not reset between checkpoints. If you need per-checkpoint-window row-count validation, that requires a source code change (out of scope for a docs update).
+Assert works in both `BATCH` and `STREAMING` job modes. Field rules (`NOT_NULL`, `MIN_LENGTH`, `MAX_LENGTH`, etc.) are checked on every row as it arrives at the sink writer. Row count rules (`MIN_ROW` / `MAX_ROW`) are evaluated **exactly once** when the sink writer closes (at job shutdown, savepoint, or failure). The counter is shared by every parallel writer of the same table inside one process (Flink subtasks, Zeta parallel tasks on one node), so the rules are checked against the whole-table total accumulated across all those writers, and the last writer of the table to close performs the check — not per checkpoint window, and not reset between checkpoints. If you need per-checkpoint-window row-count validation, that requires a source code change (out of scope for a docs update).
 
 ## Example
 

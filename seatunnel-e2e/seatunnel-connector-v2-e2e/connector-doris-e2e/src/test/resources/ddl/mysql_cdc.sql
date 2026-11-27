@@ -36,3 +36,56 @@ truncate table `mysql_cdc`.`mysql_cdc_e2e_source_table`;
 INSERT INTO `mysql_cdc`.`mysql_cdc_e2e_source_table` (uuid, name, score) VALUES
 (1, 'Alice', 95),
 (2, 'Bob', 88);
+
+-- Source tables used by the multi-table CDC sink test. They are intentionally separate from
+-- mysql_cdc_e2e_source_table so the single-table test cannot observe rows inserted here.
+CREATE TABLE IF NOT EXISTS `mysql_cdc`.`mysql_cdc_e2e_source_table_multi_1` (
+  `uuid` BIGINT,
+  `name` VARCHAR(128),
+  `score` INT,
+  PRIMARY KEY (`uuid`)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS `mysql_cdc`.`mysql_cdc_e2e_source_table_multi_2` (
+  `uuid` BIGINT,
+  `name` VARCHAR(128),
+  `score` INT,
+  PRIMARY KEY (`uuid`)
+) ENGINE=InnoDB;
+
+truncate table `mysql_cdc`.`mysql_cdc_e2e_source_table_multi_1`;
+truncate table `mysql_cdc`.`mysql_cdc_e2e_source_table_multi_2`;
+
+INSERT INTO `mysql_cdc`.`mysql_cdc_e2e_source_table_multi_1` (uuid, name, score) VALUES
+(3, 'Carol', 90),
+(4, 'Dave', 85);
+
+INSERT INTO `mysql_cdc`.`mysql_cdc_e2e_source_table_multi_2` (uuid, name, score) VALUES
+(5, 'Eve', 80),
+(6, 'Frank', 75);
+
+-- Source tables used by the 2PC multi-table CDC sink test.
+CREATE TABLE IF NOT EXISTS `mysql_cdc`.`mysql_cdc_e2e_source_table_multi2pc_1` (
+  `uuid` BIGINT,
+  `name` VARCHAR(128),
+  `score` INT,
+  PRIMARY KEY (`uuid`)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS `mysql_cdc`.`mysql_cdc_e2e_source_table_multi2pc_2` (
+  `uuid` BIGINT,
+  `name` VARCHAR(128),
+  `score` INT,
+  PRIMARY KEY (`uuid`)
+) ENGINE=InnoDB;
+
+truncate table `mysql_cdc`.`mysql_cdc_e2e_source_table_multi2pc_1`;
+truncate table `mysql_cdc`.`mysql_cdc_e2e_source_table_multi2pc_2`;
+
+INSERT INTO `mysql_cdc`.`mysql_cdc_e2e_source_table_multi2pc_1` (uuid, name, score) VALUES
+(7, 'Grace', 95),
+(8, 'Heidi', 90);
+
+INSERT INTO `mysql_cdc`.`mysql_cdc_e2e_source_table_multi2pc_2` (uuid, name, score) VALUES
+(9, 'Ivan', 85),
+(10, 'Judy', 80);

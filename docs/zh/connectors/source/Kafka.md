@@ -633,6 +633,7 @@ source {
     "header2": "header2"
   },
   "key": "dGVzdF9ieXRlc19kYXRh",
+  "offset": 42,
   "partition": 3,
   "timestamp": 1672531200000,
   "timestampType": "CREATE_TIME",

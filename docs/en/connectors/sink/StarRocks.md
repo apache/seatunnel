@@ -286,6 +286,7 @@ source {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
     username = "root"
     password = "secret"
     database = "test"
@@ -305,12 +306,11 @@ sink {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
     username = "root"
     password = "secret"
     database = "test"
     table = "e2e_table_sink"
-    ...
-    
     // Support upsert/delete event synchronization (enable_upsert_delete=true), only supports PrimaryKey model.
     enable_upsert_delete = true
   }
@@ -613,7 +613,7 @@ StarRocks column names are case-insensitive by default. Verify that upstream fie
 - `nodeUrls`: HTTP addresses of the StarRocks FE nodes, used for Stream Load data ingestion.
 - `base-url`: JDBC URL pointing to a StarRocks FE node, used for DDL operations such as table creation and schema inspection.
 
-Both parameters are required when automatic table creation is enabled.
+Both parameters are always required.
 
 ## Changelog
 

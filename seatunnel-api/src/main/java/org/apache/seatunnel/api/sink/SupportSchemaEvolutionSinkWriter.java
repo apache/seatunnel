@@ -25,10 +25,13 @@ import java.util.Optional;
 public interface SupportSchemaEvolutionSinkWriter {
 
     /**
-     * apply schema change to third party data receiver.
+     * Applies a schema change to a third-party data receiver.
      *
-     * @param event
-     * @throws IOException
+     * <p>Implementations must be idempotent. A completed external schema mutation can be delivered
+     * again when a task fails before the checkpoint that follows the mutation is completed.
+     *
+     * @param event schema change to apply
+     * @throws IOException when the schema change cannot be applied
      */
     void applySchemaChange(SchemaChangeEvent event) throws IOException;
 

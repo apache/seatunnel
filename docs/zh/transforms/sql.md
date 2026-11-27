@@ -12,7 +12,7 @@ SQL 转换使用内存中的 SQL 引擎，我们可以通过 SQL 函数和 SQL �
 
 |        名称         |   类型   | 是否必须 | 默认值 |
 |-------------------|--------|------|-----|
-| plugin_input | string | no   | -   |
+| plugin_input | `list<string>` | no   | -   |
 | plugin_output | string | no   | -   |
 | query             | string | yes  | -   |
 | engine            | string | no   | ZETA |
@@ -32,9 +32,9 @@ SQL 转换使用内存中的 SQL 引擎，我们可以通过 SQL 函数和 SQL �
 
 当多个 `table_transform` 条目的 `table_path` 相同时，决定它们的匹配方式。
 
-### plugin_input [string]
+### plugin_input [`list<string>`]
 
-源表名称，查询 SQL 表名称必须与此字段匹配。如果不配置，将使用输入目录表的表名。
+上游插件标识符列表。查询 SQL 必须以列表中的第一个标识符引用输入表，该标识符会被用作 SQL 中的关系名（别名）。如果不配置，将使用输入目录表的表名。在多表场景下该选项接受一组上游标识符，但只有第一项会被使用，作为上述关系名。SQL 转换按输入目录表（CatalogTable）逐表应用——每个连接的输入表都会被处理，其行按 table ID 路由——因此该列表不是把转换限定到第一张表的过滤器。
 
 ### query [string]
 

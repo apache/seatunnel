@@ -102,6 +102,7 @@ Sql Server CDC 连接器允许从 SqlServer 数据库读取快照数据和增量
 | debezium.*                                     | config   | 否       | -       | 将 Debezium 的属性传递给 Debezium Embedded Engine，用于捕获来自 SqlServer 服务器的数据变更。<br/>了解更多关于<br/>[Debezium 的 SqlServer 连接器属性](https://debezium.io/documentation/reference/1.9/connectors/sqlserver.html)                                 |
 | format                                         | Enum     | 否       | DEFAULT | SqlServer CDC 的可选输出格式，有效枚举为 "DEFAULT"、"COMPATIBLE_DEBEZIUM_JSON"。                                                                                                                                                                                                                                    |
 | schema-changes.enabled                         | Boolean  | 否       | false   | 模式演进默认是禁用的。当前我们只支持 `add column`、`drop column`、`rename column` 和 `modify column`。                                                                                                                                                                                                                |
+| schema-changes.behavior                        | Enum     | 否       | evolve  | `schema-changes.enabled = true` 时，处理经过 `schema-changes.include` / `schema-changes.exclude` 过滤后保留的事件。值不区分大小写：`strict`、`evolve`、`ignore`。`ignore` 只丢弃纯注释事件，行结构变更会失败。目前仅在 Flink 上生效，Zeta 和 Spark 不支持。详见 [Schema 变更行为策略](../../introduction/configuration/schema-evolution.md#schema-变更行为策略)。 |
 | schema-changes.include                          | List     | 否       | -       | 仅向下游发送列出的 schema change 事件类型（需 `schema-changes.enabled = true`）。为空表示全部允许。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                                                                          |
 | schema-changes.exclude                          | List     | 否       | -       | 此处列出的 schema change 事件类型不会发送到下游。在 `schema-changes.include` 之后应用；冲突时 exclude 优先。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                                                                   |
 | common-options                                 |          | 否       | -       | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 获取详细信息。                                                                                                                                                                                                                                     |
@@ -316,11 +317,12 @@ source {
 }
 ```
 
-### 心跳（Heartbeat action）
+### 心跳动作（Heartbeat action）
 
-当上游长时间没有变更时，可以使用 `debezium.heartbeat.action.query` 参数在空闲期间保持 offset 与变更事件继续流动。
-配合 `debezium.heartbeat.interval.ms` 使用，让该动作按固定频率执行。SQL Server CDC 没有 replication slot
-可供心跳保活，心跳写入也不会固定消费所需的 LSN 区间，因此心跳不能替代合适的 change table 保留策略与延迟监控。
+可以使用 `debezium.heartbeat.action.query` 选项在连接器发出心跳事件时执行一个动作。注意：SQL Server 的轮询循环
+不会自行派发空闲心跳，因此该动作仅在连接器实际发出心跳时执行。该动作通过源数据库连接执行并刷新
+SQL Server CDC 的 LSN 追踪；它不会固定任何消费者的保留窗口，也不能替代正确配置的 CDC 保留期与故障/延迟监控
+（参见 [Microsoft CDC 清理文档](https://learn.microsoft.com/en-us/sql/relational-databases/track-changes/administer-and-monitor-change-data-capture-sql-server#cleanup-job)）。
 
 ```hocon
 source {
