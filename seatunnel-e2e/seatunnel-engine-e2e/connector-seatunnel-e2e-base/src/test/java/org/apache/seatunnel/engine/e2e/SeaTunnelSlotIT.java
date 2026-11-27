@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
@@ -239,6 +240,189 @@ public class SeaTunnelSlotIT {
             if (node1 != null) {
                 node1.shutdown();
             }
+        }
+    }
+
+    /**
+     * Guards the finality of cancelling a job that is only queued, not running: under {@link
+     * ScheduleStrategy#WAIT} a job that does not fit into the slot pool stays in the master's
+     * pending queue, and cancelling it must remove it from that queue for good. In particular the
+     * scheduler must never dispatch it later, after the capacity it was waiting for is released.
+     *
+     * <p><b>Why this is a boundary with real regression risk.</b> The pending scheduler is a
+     * long-lived thread that peeks the queue head, evaluates the job's slots through {@code
+     * JobMaster#preApplyResources} and only then dispatches it (see {@code
+     * CoordinatorService#pendingJobSchedule}). Cancelling a queued job happens on a different
+     * thread and only removes the entry from {@code pendingJobQueue} before flipping the {@code
+     * JobMaster} to {@code CANCELED}. If the scheduler already holds a reserved reference to that
+     * entry, or if a later iteration re-reads stale queue state, the cancelled job can be
+     * dispatched anyway once capacity appears: Zeta then reports a job the user cancelled as {@code
+     * FAILED} (leaving terminal state is rejected) or, worse, deploys its tasks. The window is
+     * invisible to a client that saw {@code CANCELED}, and it only closes once the cluster has free
+     * capacity — which in a full fixed-slot cluster can be much later.
+     *
+     * <p><b>Why the existing coverage does not reach it.</b> {@code
+     * CoordinatorServiceWithCancelPendingJobTest#testCancelPendingJob} cancels a hand-injected
+     * pending {@code JobMaster} and asserts the queue entry and IMaps are gone at that moment, but
+     * no scheduler runs against real resources in that test, so nothing can be dispatched after the
+     * cancel and the release-then-dispatch path is never exercised. The pending-job failover E2E (
+     * {@code SplitClusterPendingJobLifecycleFailoverIT}) only cancels jobs that are already
+     * running, and its queue tests keep their queued job alive. {@link #testSlotNotEnough()} and
+     * {@link #testSlotReleasedAfterNotEnoughResourceFailure()} use the {@code FAIL} strategy, where
+     * an oversize request never enters the queue.
+     *
+     * <p><b>How the contract is pinned.</b> The fixture pipeline needs three slots (one split
+     * enumerator plus one chain task group per parallelism index), so a fixed three-slot pool lets
+     * exactly one such job run. The holder fills the pool, the victim is queued and cancelled while
+     * {@code PENDING}. The test then releases the holder and keeps observing the victim for longer
+     * than a full scheduler retry cycle: it must stay {@code CANCELED} and must never read a single
+     * row, which is only true if the scheduler dropped it instead of dispatching it with the freed
+     * slots. A fresh job submitted afterwards must still start and read rows, which proves the
+     * cancellation did not break the queue or leak a slot.
+     */
+    @Test
+    public void testCanceledQueuedJobIsNeverDispatchedAfterCapacityIsReleased() throws Exception {
+        HazelcastInstanceImpl node1 = null;
+        SeaTunnelClient engineClient = null;
+        ClientJobProxy holder = null;
+        ClientJobProxy canceledQueuedJob = null;
+        ClientJobProxy follower = null;
+
+        try {
+            String testClusterName =
+                    "testCanceledQueuedJobIsNeverDispatchedAfterCapacityIsReleased";
+            SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+            seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
+            seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
+            seaTunnelConfig.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
+            seaTunnelConfig.getEngineConfig().getSlotServiceConfig().setSlotNum(3);
+            seaTunnelConfig.getEngineConfig().setScheduleStrategy(ScheduleStrategy.WAIT);
+
+            node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+
+            Common.setDeployMode(DeployMode.CLIENT);
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(testClusterName);
+            engineClient = new SeaTunnelClient(clientConfig);
+
+            holder = submitStreamingJob(engineClient, seaTunnelConfig, "cancel-queued-holder");
+            awaitJobStatus(holder, JobStatus.RUNNING);
+            awaitSourceRowsRead(engineClient, holder.getJobId());
+
+            canceledQueuedJob =
+                    submitStreamingJob(engineClient, seaTunnelConfig, "cancel-queued-victim");
+            final long victimJobId = canceledQueuedJob.getJobId();
+            final SeaTunnelClient metricsClient = engineClient;
+            final ClientJobProxy victim = canceledQueuedJob;
+            awaitJobStatus(victim, JobStatus.PENDING);
+
+            victim.cancelJob();
+            awaitJobStatus(victim, JobStatus.CANCELED);
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .during(5, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.CANCELED,
+                                            victim.getJobStatus(),
+                                            "A cancelled queued job must not be resurrected while"
+                                                    + " the cluster is still full"));
+
+            holder.cancelJob();
+            awaitJobStatus(holder, JobStatus.CANCELED);
+
+            // Wait longer than one full 3s scheduler retry cycle with free capacity available: the
+            // scheduler must never turn the cancelled queue entry into a dispatched job.
+            Awaitility.await()
+                    .atMost(40, TimeUnit.SECONDS)
+                    .during(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED,
+                                        victim.getJobStatus(),
+                                        "A cancelled queued job must stay CANCELED after the"
+                                                + " capacity it waited for was released");
+                                Assertions.assertEquals(
+                                        0,
+                                        metricsClient
+                                                .getJobMetricsSummary(victimJobId)
+                                                .getSourceReadCount(),
+                                        "A cancelled queued job must never deploy its source");
+                            });
+
+            follower = submitStreamingJob(engineClient, seaTunnelConfig, "cancel-queued-follower");
+            awaitJobStatus(follower, JobStatus.RUNNING);
+            awaitSourceRowsRead(engineClient, follower.getJobId());
+            follower.cancelJob();
+            awaitJobStatus(follower, JobStatus.CANCELED);
+        } finally {
+            cancelQuietly(holder);
+            cancelQuietly(canceledQueuedJob);
+            cancelQuietly(follower);
+
+            if (engineClient != null) {
+                engineClient.close();
+            }
+
+            if (node1 != null) {
+                node1.shutdown();
+            }
+        }
+    }
+
+    private ClientJobProxy submitStreamingJob(
+            SeaTunnelClient engineClient, SeaTunnelConfig seaTunnelConfig, String jobName)
+            throws Exception {
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName(jobName);
+        ClientJobExecutionEnvironment jobExecutionEnv =
+                engineClient.createExecutionContext(
+                        TestUtils.getResource("cancel_queued_job_stream.conf"),
+                        jobConfig,
+                        seaTunnelConfig);
+        return jobExecutionEnv.execute();
+    }
+
+    private void awaitJobStatus(ClientJobProxy jobProxy, JobStatus expectedStatus) {
+        Awaitility.await()
+                .atMost(180, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        expectedStatus,
+                                        jobProxy.getJobStatus(),
+                                        "Job "
+                                                + jobProxy.getJobId()
+                                                + " did not reach "
+                                                + expectedStatus));
+    }
+
+    private void awaitSourceRowsRead(SeaTunnelClient engineClient, long jobId) {
+        Awaitility.await()
+                .atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        engineClient
+                                                        .getJobMetricsSummary(jobId)
+                                                        .getSourceReadCount()
+                                                > 0,
+                                        "Job "
+                                                + jobId
+                                                + " is deployed but its source read no"
+                                                + " rows"));
+    }
+
+    private void cancelQuietly(ClientJobProxy jobProxy) {
+        if (jobProxy == null) {
+            return;
+        }
+        try {
+            jobProxy.cancelJob();
+        } catch (Exception ignored) {
+            // The job may already be cancelled, or the cluster may already be shut down.
         }
     }
 }
