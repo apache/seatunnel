@@ -57,9 +57,12 @@ import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -82,6 +85,16 @@ public class CheckpointManager {
      * value: the checkpoint coordinator of the pipeline;
      */
     private final Map<Integer, CheckpointCoordinator> coordinatorMap;
+
+    /**
+     * Pipelines that had already completed cleanly when the current savepoint was triggered.
+     *
+     * <p>A completed coordinator rejects {@code startSavepoint()} by contract, so the savepoint
+     * fan-out skips it. The job-level savepoint-end check still has to count that pipeline as
+     * satisfied, otherwise a terminal cleanup would treat the savepoint as incomplete and delete
+     * the data written by the pipelines that did take one.
+     */
+    private volatile Set<Integer> completedPipelineIdsBeforeSavepoint = Collections.emptySet();
 
     private final CheckpointStorage checkpointStorage;
 
@@ -249,7 +262,10 @@ public class CheckpointManager {
      */
     @SuppressWarnings("unchecked")
     public PassiveCompletableFuture<CompletedCheckpoint>[] triggerSavePoints() {
-        return MDCTracer.tracing(coordinatorMap.values().parallelStream())
+        return MDCTracer.tracing(
+                        coordinatorMap.values().stream()
+                                .filter(coordinator -> !coordinator.isCompleted())
+                                .parallel())
                 .map(CheckpointCoordinator::startSavepoint)
                 .toArray(PassiveCompletableFuture[]::new);
     }
@@ -261,7 +277,19 @@ public class CheckpointManager {
     @SuppressWarnings("unchecked")
     public PassiveCompletableFuture<CheckpointCoordinatorState>[]
             triggerSavePointsAndWaitComplete() {
-        return MDCTracer.tracing(coordinatorMap.values().parallelStream())
+        // A pipeline can finish while its siblings are still running, which keeps the job
+        // RUNNING. Its coordinator is completed and rejects startSavepoint() with
+        // CHECKPOINT_COORDINATOR_SHUTDOWN by contract, so it must not take part in the fan-out:
+        // otherwise one cleanly finished pipeline turns a legitimate savepoint of the remaining
+        // pipelines into a job-level failure that force-stops them.
+        Map<Integer, CheckpointCoordinator> activeCoordinators =
+                coordinatorMap.entrySet().stream()
+                        .filter(entry -> !entry.getValue().isCompleted())
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        Set<Integer> completedPipelineIds = new HashSet<>(coordinatorMap.keySet());
+        completedPipelineIds.removeAll(activeCoordinators.keySet());
+        completedPipelineIdsBeforeSavepoint = completedPipelineIds;
+        return MDCTracer.tracing(activeCoordinators.values().stream().parallel())
                 .map(CheckpointCoordinator::startSavepointAndWaitComplete)
                 .toArray(PassiveCompletableFuture[]::new);
     }
@@ -422,10 +450,18 @@ public class CheckpointManager {
     }
 
     public boolean isSavePointEnd() {
-        return coordinatorMap.values().stream()
-                .map(CheckpointCoordinator::isEndOfSavePoint)
-                .reduce((v1, v2) -> v1 && v2)
-                .orElse(false);
+        if (coordinatorMap.isEmpty()) {
+            return false;
+        }
+        // A pipeline that finished before the savepoint was triggered has no savepoint of its
+        // own and never will; it counts as satisfied because it was already complete when the
+        // savepoint started. Pipelines that took part still have to end with a savepoint.
+        return coordinatorMap.entrySet().stream()
+                .allMatch(
+                        entry ->
+                                entry.getValue().isEndOfSavePoint()
+                                        || completedPipelineIdsBeforeSavepoint.contains(
+                                                entry.getKey()));
     }
 
     public boolean isPipelineSavePointEnd(PipelineLocation pipelineLocation) {
