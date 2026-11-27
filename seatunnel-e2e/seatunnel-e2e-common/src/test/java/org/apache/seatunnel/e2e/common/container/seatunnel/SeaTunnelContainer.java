@@ -867,6 +867,15 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
         if (isGcsOpenCensusThreadExempt(threadName)) {
             return true;
         }
+        // The in-repo InMemory sink fixture intentionally keeps a daemon thread alive to pin the
+        // job classloader it was loaded from (see InMemorySinkWriter's static block): that thread
+        // is a classloader-leak probe, not a connector leak, and it outlives every job that used
+        // the sink by design. Without this exemption each CLI-driven job using the sink waits for
+        // it here and exits non-zero after the 120s retry window, which would make any test that
+        // takes a savepoint of such a job fail on the CLI exit code alone.
+        if (threadName.startsWith("InMemorySinkWriter-daemon-thread")) {
+            return true;
+        }
         // ClickHouse com.clickhouse.client.ClickHouseClientBuilder
         return threadName.startsWith("ClickHouseClientWorker")
                 // InfluxDB okio.AsyncTimeout$Watchdog
