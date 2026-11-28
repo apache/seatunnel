@@ -27,7 +27,9 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 
 import io.debezium.relational.ddl.DdlParser;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class MySqlSchemaChangeResolver extends AbstractSchemaChangeResolver {
 
@@ -43,6 +45,23 @@ public class MySqlSchemaChangeResolver extends AbstractSchemaChangeResolver {
     @Override
     protected List<AlterTableEvent> getAndClearAlterTableEvents() {
         return ((CustomMySqlAntlrDdlParser) ddlParser).getAndClearParsedEvents();
+    }
+
+    /**
+     * MySQL column names are case-insensitive, so a DDL statement may name an existing column in
+     * another case, for example {@code AFTER NAME} for the column {@code name}. Resolves such a
+     * name to the column of the table when exactly one column matches it ignoring case.
+     */
+    @Override
+    protected String resolveColumnName(Collection<String> columnNames, String name) {
+        if (name == null || columnNames.contains(name)) {
+            return name;
+        }
+        List<String> matches =
+                columnNames.stream()
+                        .filter(column -> column.equalsIgnoreCase(name))
+                        .collect(Collectors.toList());
+        return matches.size() == 1 ? matches.get(0) : name;
     }
 
     @Override
