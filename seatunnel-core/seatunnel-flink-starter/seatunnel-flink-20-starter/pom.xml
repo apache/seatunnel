@@ -73,5 +73,59 @@
             <scope>${flink.scope}</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-launcher</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+            Local execute(StreamGraph) looks up PipelineExecutorFactory. That factory lives in
+            flink-clients, which the starter does not ship (the Flink distribution does). The
+            submit regression needs it on the test classpath only.
+        -->
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-clients</artifactId>
+            <version>${flink.1.20.1.version}</version>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <configuration>
+                    <!--
+                        The common starter ships an unsupported FlinkLineageHooks with the same
+                        binary name. Exclude that copy so the class compiled in this module is the
+                        one inside the shaded starter jar, independent of shade visit order.
+                    -->
+                    <filters>
+                        <filter>
+                            <artifact>org.apache.seatunnel:seatunnel-flink-starter-common</artifact>
+                            <excludes>
+                                <exclude>org/apache/seatunnel/core/starter/flink/execution/FlinkLineageHooks.class</exclude>
+                            </excludes>
+                        </filter>
+                        <!--
+                            Shading rewrites signed dependencies. Leaving the signature files in
+                            the jar makes the JVM reject every class loaded from it.
+                        -->
+                        <filter>
+                            <artifact>*:*</artifact>
+                            <excludes>
+                                <exclude>META-INF/*.SF</exclude>
+                                <exclude>META-INF/*.DSA</exclude>
+                                <exclude>META-INF/*.RSA</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
