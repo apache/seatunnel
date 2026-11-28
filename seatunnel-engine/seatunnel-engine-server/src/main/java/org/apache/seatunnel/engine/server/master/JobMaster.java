@@ -997,11 +997,44 @@ public class JobMaster {
 
     public void releasePipelineResource(SubPlan subPlan) {
         try {
-            Map<TaskGroupLocation, SlotProfile> taskGroupLocationSlotProfileMap =
+            Map<TaskGroupLocation, SlotProfile> ownedSlotProfiles =
                     ownedSlotProfilesIMap.get(subPlan.getPipelineLocation());
-            if (taskGroupLocationSlotProfileMap == null) {
+
+            Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyFutures =
+                    physicalPlan == null ? null : physicalPlan.getPreApplyResourceFutures();
+            Map<TaskGroupLocation, CompletableFuture<SlotProfile>> pendingPreApplyFutures =
+                    preApplyFutures == null ? Collections.emptyMap() : preApplyFutures;
+
+            // Collect locations belonging to this sub-plan from both vertex lists
+            Set<TaskGroupLocation> subPlanLocations = new HashSet<>();
+            subPlan.getCoordinatorVertexList()
+                    .forEach(vertex -> subPlanLocations.add(vertex.getTaskGroupLocation()));
+            subPlan.getPhysicalVertexList()
+                    .forEach(vertex -> subPlanLocations.add(vertex.getTaskGroupLocation()));
+
+            // Capture completed pre-apply futures and their slot profiles
+            Map<TaskGroupLocation, CompletableFuture<SlotProfile>> completedFutures =
+                    new HashMap<>();
+            Set<SlotProfile> completedSlotProfiles = new HashSet<>();
+            for (TaskGroupLocation location : subPlanLocations) {
+                CompletableFuture<SlotProfile> future = pendingPreApplyFutures.get(location);
+                if (future == null || !future.isDone()) {
+                    continue;
+                }
+                completedFutures.put(location, future);
+                if (!future.isCompletedExceptionally() && !future.isCancelled()) {
+                    SlotProfile slotProfile = future.getNow(null);
+                    if (slotProfile != null) {
+                        completedSlotProfiles.add(slotProfile);
+                    }
+                }
+            }
+
+            // If no owned slots and no completed pre-apply slots, do nothing
+            if (ownedSlotProfiles == null && completedFutures.isEmpty()) {
                 return;
             }
+
             List<SlotProfile> alreadyReleased = new ArrayList<>();
             if (releasedSlotWhenTaskGroupFinished.containsKey(subPlan.getPipelineId())) {
                 alreadyReleased.addAll(
@@ -1014,15 +1047,29 @@ public class JobMaster {
                                 String.format(
                                         "release the pipeline %s resource",
                                         subPlan.getPipelineFullName()));
+                        List<SlotProfile> toRelease = new ArrayList<>();
+                        if (ownedSlotProfiles != null) {
+                            toRelease.addAll(ownedSlotProfiles.values());
+                        }
+                        toRelease.addAll(completedSlotProfiles);
+                        List<SlotProfile> filtered =
+                                toRelease.stream()
+                                        .filter(p -> p != null && !alreadyReleased.contains(p))
+                                        .distinct()
+                                        .collect(Collectors.toList());
                         resourceManager
-                                .releaseResources(
-                                        jobImmutableInformation.getJobId(),
-                                        taskGroupLocationSlotProfileMap.values().stream()
-                                                .filter(p -> !alreadyReleased.contains(p))
-                                                .collect(Collectors.toList()))
+                                .releaseResources(jobImmutableInformation.getJobId(), filtered)
                                 .join();
-                        ownedSlotProfilesIMap.remove(subPlan.getPipelineLocation());
+                        // Remove owned bookkeeping after successful release
+                        if (ownedSlotProfiles != null) {
+                            ownedSlotProfilesIMap.remove(subPlan.getPipelineLocation());
+                        }
                         releasedSlotWhenTaskGroupFinished.remove(subPlan.getPipelineId());
+                        // Remove captured pre-apply futures from physical plan's map
+                        for (Map.Entry<TaskGroupLocation, CompletableFuture<SlotProfile>> entry :
+                                completedFutures.entrySet()) {
+                            pendingPreApplyFutures.remove(entry.getKey(), entry.getValue());
+                        }
                         return null;
                     },
                     new RetryUtils.RetryMaterial(
