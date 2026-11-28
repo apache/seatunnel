@@ -774,8 +774,14 @@ public class CheckpointCoordinator {
             if (readyToCloseStartingTask.size() == plan.getStartingSubtasks().size()) {
                 // All sources already finished before failover; complete the job now.
                 tryTriggerPendingCheckpoint(CheckpointType.COMPLETED_POINT_TYPE);
-            } else {
+            } else if (coordinatorConfig.isCheckpointEnable()) {
                 tryTriggerPendingCheckpoint(CHECKPOINT_TYPE);
+            } else {
+                LOG.info(
+                        "checkpoint is disabled, skip triggering periodic checkpoint after restore,"
+                                + " job id: {}, pipeline id: {}",
+                        jobId,
+                        pipelineId);
             }
         } else {
             isAllTaskReady.set(false);
@@ -803,6 +809,18 @@ public class CheckpointCoordinator {
      *     constraints should be applied
      */
     protected void tryTriggerPendingCheckpoint(CheckpointType checkpointType) {
+        if (checkpointType.isGeneralCheckpoint() && !coordinatorConfig.isCheckpointEnable()) {
+            // A BATCH job without checkpoint.interval disables checkpointing for the whole job.
+            // The restore path is a second entry point into this method (restoreCoordinator), so
+            // it must enforce the same flag as allTaskReady instead of relying on callers.
+            LOG.info(
+                    "checkpoint is disabled, skip triggering periodic checkpoint, job id: {},"
+                            + " pipeline id: {}, checkpoint type: {}",
+                    jobId,
+                    pipelineId,
+                    checkpointType);
+            return;
+        }
         if (Thread.currentThread().isInterrupted()) {
             LOG.warn("currentThread already be interrupted, skip trigger checkpoint");
             return;
