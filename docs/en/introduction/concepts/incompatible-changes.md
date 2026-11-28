@@ -5,11 +5,49 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
-### JDBC timezone timestamp discovery
+### HBase sink: DELETE rows remove mapped data
 
-In the shared JDBC metadata fallback, JDBC type 2014 (`TIMESTAMP_WITH_TIMEZONE`) now produces `TIMESTAMP_TZ` (`OffsetDateTime`), not `TIMESTAMP` (`LocalDateTime`). A native type name of `TIMESTAMPTZ` or `TIMESTAMP[(p)] WITH TIME ZONE` takes precedence over the driver’s numeric type code. For example, a column reported as JDBC type 93 (`TIMESTAMP`) with native type `TIMESTAMPTZ` now retains its offset. An ordinary `TIMESTAMP` reported as type 93 is unchanged.
+`DELETE` rows now remove all cell versions up to the mutation timestamp in the column families
+mapped by this sink. Previously these rows were written as Put mutations of the old values.
+Unmapped families remain intact. If the sink projects only row-key and version columns, it
+rejects DELETE rows because no family is mapped. Include a payload column for the family you
+intend to delete.
+Jobs that need the previous append-only behavior must filter DELETE rows before the sink.
+`UPDATE_BEFORE` rows are now ignored instead of written as Put mutations. Key-changing updates
+require explicit old-key DELETE/new-key
+INSERT events upstream. Use `version_column` to supply correctly ordered timestamps: an equal- or
+older-timestamp Put cannot override a delete tombstone. Checkpoint flushes wait for region-server
+acceptance when the HBase client periodic flush is disabled (the default). Keep it disabled when
+relying on checkpoint flushes. `wal_write = false` still does not protect against a region-server
+crash.
+No configuration or checkpoint-format migration is required.
 
-Presto and Trino `query` jobs are also affected: a result column reported as `timestamp(3) with time zone` previously mapped to `TIMESTAMP` because the mapper discarded the type suffix after the precision. It now maps to `TIMESTAMP_TZ`. Check downstream casts, transforms and target columns before upgrading. To keep a timezone-less contract, explicitly project a timestamp without time zone in the source query, choosing the intended time zone before discarding the offset. Configuration and checkpoint formats are unchanged. The JDBC sink falls back to UTC `setTimestamp` when a driver rejects `setObject(OffsetDateTime)`; this does not guarantee preservation of the original offset.
+### MongoDB sink: omitted buffer and retry options now use their documented defaults
+
+- **Behavior change: a non-transactional MongoDB sink without `buffer-flush.*` or `retry.*` options writes in batches and retries failed writes**
+  - **Affected jobs**: MongoDB sinks with `transaction = false` (the default) that do not set one or more of `buffer-flush.max-rows`, `buffer-flush.interval`, `retry.max` and `retry.interval`. Sinks with `transaction = true` are not affected: they keep the rows until the next checkpoint and write them in one transaction through the committer, which uses neither the buffer options nor `retry.*`.
+  - **Description**: `MongodbSinkFactory` passed these options to the writer only when they were set explicitly. An omitted option was therefore `0` instead of its declared default, so every row was written with its own `bulkWrite` and a failed bulk write was not retried. The declared and documented defaults now apply: `buffer-flush.max-rows = 1000`, `buffer-flush.interval = 30000` ms, `retry.max = 3` and `retry.interval = 1000` ms.
+  - **Impact**: Rows are written in batches of up to 1000 rows instead of row by row, which makes writes to remote servers much faster. The first row of each writer is still written immediately. The 30-second interval is checked only when a new row arrives, so it does not limit how long a partial batch can wait when no more rows come in. A partial batch is written at the next checkpoint, when the writer closes, and at the engine timer flush if `sink.flush.interval` is set in `env` (Zeta only; disabled by default). A failed bulk write is retried up to 3 times, waiting 1, 2 and 3 seconds, before the job fails. A retry sends the whole ordered batch again, so with `upsert-enable = false` a retry after a partly applied batch can fail with duplicate-key errors, as it already could when `retry.max` was set explicitly. Jobs that set these options explicitly are not affected.
+  - **Migration Guide**: No change is needed to get the documented behavior. To keep the previous behavior, set `buffer-flush.max-rows = 1` and `retry.max = 0` explicitly. A smaller `buffer-flush.max-rows` above 1 only reduces how many rows are buffered; it does not limit how long a partial batch waits when no more rows arrive. If a streaming job needs buffered rows to become visible within a bounded time, rely on checkpoints or set `sink.flush.interval` in `env` (Zeta). To write every row immediately, set `buffer-flush.max-rows = 1`. (#13198)
+
+### Flink schema evolution: checkpoint protocol and table routing
+
+Flink CDC jobs with schema evolution enabled now keep sink schema progress and pending rows in
+table-keyed state. The source protocol and operator topology also differ from the former local
+coordinator and broadcast/union-state implementations. Checkpoints and savepoints from those
+implementations are not supported upgrade inputs; there is no state migration adapter.
+`--allowNonRestoredState` is not a safe migration strategy: retaining source offsets while dropping
+schema progress or pending rows can lose data or interpret rows using the wrong schema.
+
+Keep the previous job artifacts and a recoverable savepoint for rollback. Plan a controlled
+cutover using a new full snapshot into a separate destination, validate schema and data, and then
+switch consumers. If reusing an existing destination, reconcile its data and schema explicitly;
+do not simply discard the old state and resume at the latest source offset.
+
+Incremental source parallelism must be one. Sink parallelism remains available across tables,
+but each source table is assigned to one Flink sink subtask. See
+[Flink routing and recovery](../configuration/schema-evolution.md#flink-routing-and-recovery)
+for connector requirements and the restrictions on shared physical destinations.
 
 ### Http sink: `array_mode = true` sends each row as a JSON object
 
@@ -648,6 +686,12 @@ or state format migration is required.
     and the cluster lifecycle are unchanged.
   - **Migration Guide**: Match the new messages, or key on the surrounding lifecycle events instead
     of the exact text.
+
+### JDBC timezone timestamp discovery
+
+In the shared JDBC metadata fallback, JDBC type 2014 (`TIMESTAMP_WITH_TIMEZONE`) now produces `TIMESTAMP_TZ` (`OffsetDateTime`), not `TIMESTAMP` (`LocalDateTime`). A native type name of `TIMESTAMPTZ` or `TIMESTAMP[(p)] WITH TIME ZONE` takes precedence over the driver’s numeric type code. For example, a column reported as JDBC type 93 (`TIMESTAMP`) with native type `TIMESTAMPTZ` now retains its offset. An ordinary `TIMESTAMP` reported as type 93 is unchanged.
+
+Presto and Trino `query` jobs are also affected: a result column reported as `timestamp(3) with time zone` previously mapped to `TIMESTAMP` because the mapper discarded the type suffix after the precision. It now maps to `TIMESTAMP_TZ`. Check downstream casts, transforms and target columns before upgrading. To keep a timezone-less contract, explicitly project a timestamp without time zone in the source query, choosing the intended time zone before discarding the offset. Configuration and checkpoint formats are unchanged. The JDBC sink falls back to UTC `setTimestamp` when a driver rejects `setObject(OffsetDateTime)`; this does not guarantee preservation of the original offset.
 
 ### Dependency Upgrades
 

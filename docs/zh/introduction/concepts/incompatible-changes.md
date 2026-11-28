@@ -4,11 +4,36 @@
 
 ## dev
 
-### JDBC 带时区时间戳发现
+### HBase sink：DELETE 行删除映射的数据
 
-共享 JDBC 元数据回退路径现在把 JDBC 类型 2014（`TIMESTAMP_WITH_TIMEZONE`）映射为 `TIMESTAMP_TZ`（`OffsetDateTime`），不再映射为 `TIMESTAMP`（`LocalDateTime`）。原生类型名 `TIMESTAMPTZ` 或 `TIMESTAMP[(p)] WITH TIME ZONE` 优先于驱动报告的 JDBC 类型编号。例如，驱动同时报告类型 93（`TIMESTAMP`）和原生类型名 `TIMESTAMPTZ` 时，映射结果现在会保留偏移量。编号同为 93 的普通 `TIMESTAMP` 不受影响。
+`DELETE` 行现在会删除本 sink 映射列簇中不晚于该变更时间戳的所有单元格版本。此前这些行会将旧值作为 Put 写入，未映射列簇仍不受影响。仅投影 rowkey 和版本列时，没有映射列簇，sink 会拒绝 DELETE 行。请在投影中包含目标列簇的至少一个数据列。
+需要原先仅追加行为的作业应在 sink 前过滤 DELETE 行。`UPDATE_BEFORE` 行现在会被忽略，不再作为 Put 写入。修改 rowkey 时需要上游显式发送旧键 DELETE 和新键 INSERT。
+使用 `version_column` 提供正确排序的时间戳：相同或更早时间戳的 Put 无法覆盖删除标记。
+关闭 HBase 客户端定时刷新（默认行为）时，checkpoint 刷新会等待 region server 接受数据。依赖 checkpoint 刷新的作业应保持定时刷新关闭。`wal_write = false` 仍不能防止 region server 崩溃导致的数据丢失。
+无需迁移配置或 checkpoint 格式。
 
-Presto 和 Trino 的 `query` 作业也可能受影响：过去，类型映射器会丢弃精度后面的类型名，将 `timestamp(3) with time zone` 结果列映射为 `TIMESTAMP`；现在映射为 `TIMESTAMP_TZ`。升级前请核对下游转换、显式类型转换和目标列。若需保留无时区的字段类型，请在源查询中先确定转换使用的时区，再显式投影为不带时区的时间戳。配置和 checkpoint 格式不变。 如果驱动拒绝 `setObject(OffsetDateTime)`，JDBC Sink 仍回退到使用 UTC 的 `setTimestamp`，不保证保留原始偏移量。
+### MongoDB Sink：未配置的缓冲与重试选项使用文档中的默认值
+
+- **行为变更：未设置 `buffer-flush.*` 或 `retry.*` 选项的非事务 MongoDB Sink 会按批写入，并重试失败的写入**
+  - **影响范围**：`transaction = false`（默认值）且未设置 `buffer-flush.max-rows`、`buffer-flush.interval`、`retry.max`、`retry.interval` 中任意一个或多个选项的 MongoDB Sink。`transaction = true` 的 Sink 不受影响：它们会把数据保留到下一次 checkpoint，再由 committer 在一个事务中写入，既不使用缓冲选项，也不使用 `retry.*`。
+  - **描述**：`MongodbSinkFactory` 此前只在显式设置时才把这些选项传给 writer，未设置的选项实际为 `0` 而不是声明的默认值，因此每一行都单独执行一次 `bulkWrite`，失败的批量写入也不会重试。现在会使用声明并写入文档的默认值：`buffer-flush.max-rows = 1000`、`buffer-flush.interval = 30000` 毫秒、`retry.max = 3`、`retry.interval = 1000` 毫秒。
+  - **影响**：数据按批写入目标端，每批最多 1000 行，而不再逐行写入，写入远端服务器的吞吐量会大幅提升。每个 writer 的第一行仍会立即写入。30 秒间隔只在有新数据到达时检查，因此在没有后续数据时，它不能限制未写满的批次等待多久。未写满的批次会在下一次 checkpoint、writer 关闭时写入；如果在 `env` 中设置了 `sink.flush.interval`，引擎的定时 flush 也会写入（仅 Zeta 支持，默认关闭）。失败的批量写入会在作业失败前最多重试 3 次，依次等待 1、2、3 秒。重试会重新发送整个有序批次，因此在 `upsert-enable = false` 时，如果批次已部分写入，重试可能因主键重复而失败；这与此前显式设置 `retry.max` 时的行为相同。显式设置了这些选项的作业不受影响。
+  - **迁移指南**：如需文档中描述的行为，无需修改配置。如需保持此前的行为，请显式设置 `buffer-flush.max-rows = 1` 和 `retry.max = 0`。把 `buffer-flush.max-rows` 调小到大于 1 的值只能减少缓冲的行数，在没有后续数据时，不能限制未写满的批次等待多久。如果流式作业需要缓冲的数据在一定时间内可见，请依赖 checkpoint，或在 `env` 中设置 `sink.flush.interval`（Zeta）。如需每一行立即写入，请设置 `buffer-flush.max-rows = 1`。(#13198)
+
+### Flink schema evolution：checkpoint 协议与按表路由
+
+启用 schema evolution 的 Flink CDC 任务改为使用按表 keyed state 保存 Sink schema 进度和等待行。
+源端协议和算子拓扑也不同于此前的本地协调器实现及 broadcast/union state 实现。
+这些旧实现生成的 checkpoint 和 savepoint 不支持直接用于升级恢复，当前没有状态迁移适配器。
+`--allowNonRestoredState` 不是安全迁移方案：保留源端位点但丢弃 schema 进度或等待行，
+可能导致数据丢失或使用错误表结构解释数据。
+
+请保留旧任务构件和可恢复的 savepoint 用于回滚。建议规划受控切换：向独立目标执行新的全量快照，
+校验表结构和数据后再切换消费者。复用已有目标时必须显式对账并协调目标结构；
+不要简单丢弃状态后从最新源端位点继续。
+
+增量读取并行度必须为一。Sink 仍支持表间并行，但每张源表只分配给一个 Flink Sink 子任务。
+连接器要求及共享物理目标表的限制见 [Flink 路由与故障恢复](../configuration/schema-evolution.md#flink-路由与故障恢复)。
 
 ### Http Sink：`array_mode = true` 时每行作为 JSON 对象发送
 
@@ -546,6 +571,12 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
     `Init standalone ResourceManager`。
   - **影响**：按旧文案匹配的告警或日志解析不再命中；运行时行为和集群生命周期不变。
   - **迁移指南**：改为匹配新文案，或按前后生命周期事件判断，而不要匹配具体字符串。
+
+### JDBC 带时区时间戳发现
+
+共享 JDBC 元数据回退路径现在把 JDBC 类型 2014（`TIMESTAMP_WITH_TIMEZONE`）映射为 `TIMESTAMP_TZ`（`OffsetDateTime`），不再映射为 `TIMESTAMP`（`LocalDateTime`）。原生类型名 `TIMESTAMPTZ` 或 `TIMESTAMP[(p)] WITH TIME ZONE` 优先于驱动报告的 JDBC 类型编号。例如，驱动同时报告类型 93（`TIMESTAMP`）和原生类型名 `TIMESTAMPTZ` 时，映射结果现在会保留偏移量。编号同为 93 的普通 `TIMESTAMP` 不受影响。
+
+Presto 和 Trino 的 `query` 作业也可能受影响：过去，类型映射器会丢弃精度后面的类型名，将 `timestamp(3) with time zone` 结果列映射为 `TIMESTAMP`；现在映射为 `TIMESTAMP_TZ`。升级前请核对下游转换、显式类型转换和目标列。若需保留无时区的字段类型，请在源查询中先确定转换使用的时区，再显式投影为不带时区的时间戳。配置和 checkpoint 格式不变。 如果驱动拒绝 `setObject(OffsetDateTime)`，JDBC Sink 仍回退到使用 UTC 的 `setTimestamp`，不保证保留原始偏移量。
 
 ### 依赖升级
 
