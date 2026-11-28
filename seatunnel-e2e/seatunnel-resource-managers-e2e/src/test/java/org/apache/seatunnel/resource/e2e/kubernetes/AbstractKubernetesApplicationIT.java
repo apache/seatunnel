@@ -479,18 +479,21 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
     /** Reads retained Pod logs even after the application has finished, for failure diagnostics. */
     protected static String retainedPodLogs(String name) throws Exception {
         try {
-            return core.readNamespacedPodLog(
-                    name,
-                    namespace,
-                    CONTAINER_NAME,
-                    false,
-                    false,
-                    null,
-                    null,
-                    false,
-                    null,
-                    null,
-                    false);
+            String logs =
+                    core.readNamespacedPodLog(
+                            name,
+                            namespace,
+                            CONTAINER_NAME,
+                            false,
+                            false,
+                            null,
+                            null,
+                            false,
+                            null,
+                            null,
+                            false);
+            // The API client can return null for an empty successful log response.
+            return logs == null ? "" : logs;
         } catch (ApiException failure) {
             // Pod phase can become Running before kubelet makes its container log available.
             if (failure.getCode() == 400 || failure.getCode() == 404) {
