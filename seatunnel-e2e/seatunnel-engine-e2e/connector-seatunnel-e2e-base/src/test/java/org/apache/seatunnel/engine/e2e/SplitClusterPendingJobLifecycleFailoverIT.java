@@ -64,19 +64,25 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 
 /**
  * Multi-node failover coverage for the lifecycle of jobs that cannot be dispatched immediately.
  *
  * <p>Every scenario here builds a real split cluster (separate master and worker Hazelcast
- * instances) and changes master ownership while a {@code ScheduleStrategy.WAIT} job is held back by
- * occupied worker slots. That exercises the coordinator's pending-job bookkeeping against real
- * membership changes and real resource contention, rather than against mocked coordinator state as
- * the single-JVM unit tests do.
+ * instances) and holds a {@code ScheduleStrategy.WAIT} job back with occupied worker slots, then
+ * drives the coordinator's pending-job bookkeeping through a master handoff or a cancellation. That
+ * exercises the coordinator against real membership changes and real resource contention, rather
+ * than against mocked coordinator state as the single-JVM unit tests do.
  *
  * <p>Scenarios covered:
  *
@@ -85,6 +91,9 @@ import java.util.logging.Level;
  *       handoff and is dispatched once the cluster grows enough capacity for it.
  *   <li>{@code testPendingJobScheduledAfterRunningJobCanceled} - a pending job is dispatched after
  *       the running job occupying its slots is canceled.
+ *   <li>{@code testCancelPendingJobKeepsItTerminalAndDoesNotStrandCapacity} - cancelling the
+ *       pending job itself leaves it terminal, never deploys it when the blocking job releases its
+ *       slots, and does not strand the freed capacity.
  *   <li>{@code testPendingJobNotDuplicatedAcrossRepeatedMasterFailover} - repeated master handoffs
  *       never revive a stale schedule generation, so the job is dispatched exactly once.
  *   <li>{@code testTerminalJobCleanupSkipsWorkerWaitAfterMasterSwitch} - cleanup of a terminal job
@@ -113,6 +122,14 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
      * poll to observe still-settling cluster state.
      */
     private static final int MASTER_ELECTION_CHURN_ROUNDS = 6;
+
+    /**
+     * Upper bound for a client cancel of a pending job. {@code ClientJobProxy#cancelJob()} joins
+     * the coordinator's cancel future without a timeout, so a cancel that hangs because the
+     * scheduler already started deploying must fail the test at this bound instead of blocking it
+     * before its assertions run.
+     */
+    private static final long CANCEL_TIMEOUT_SECONDS = 30;
 
     @Test
     public void testPendingJobLifecycleInMasterFailover() {
@@ -306,6 +323,224 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             pendingJob.cancelJob();
             assertEventuallyCanceled(pendingJob);
         } finally {
+            if (engineClient != null) {
+                engineClient.close();
+            }
+            if (masterNode != null) {
+                masterNode.shutdown();
+            }
+            if (workerNode != null) {
+                workerNode.shutdown();
+            }
+        }
+    }
+
+    /**
+     * Cancels a job while it is still {@code PENDING} because the only worker's fixed slots are
+     * occupied, and verifies the three engine contracts that make that cancellation safe.
+     *
+     * <p><b>Why this is a boundary with real regression risk.</b> A pending job is not an inert
+     * queue entry: {@code CoordinatorService#pendingJobSchedule} concurrently pre-applies its
+     * resources every retry interval, and the {@code JobMaster} behind it already owns the
+     * checkpoint manager and the job-end future. The dangerous failure mode is not a crash but a
+     * zombie: the cancel removes the job from {@code pendingJobQueue} while a scheduler attempt
+     * that already started continues, the freed slots are later acquired for a job the client
+     * believes is CANCELED, and the replacement work is starved. Fixed-slot capacity is not
+     * elastic, so that leak is permanent until the worker restarts. This is the job-scoped terminal
+     * cleanup tracked in <a href="https://github.com/apache/seatunnel/issues/13344">#13344</a>; the
+     * {@code preApplyResources}-after-cancel window makes any missing release path immediately
+     * visible.
+     *
+     * <p><b>Why the existing coverage does not reach it.</b> {@code
+     * CoordinatorServiceWithCancelPendingJobTest} builds a {@code JobMaster} directly, calls {@code
+     * CoordinatorService#cancelJob} in-process, and asserts queue/IMap cleanup; it never goes
+     * through the client protocol, never competes for real worker slots, and never observes what
+     * happens when capacity is freed afterwards. {@code
+     * testPendingJobScheduledAfterRunningJobCanceled} above covers the opposite direction: the
+     * pending job is the survivor and the runner is cancelled. Neither proves that cancelling the
+     * pending job itself keeps it terminal under a scheduler that is actively retrying it, nor that
+     * a later job gets the released slots.
+     *
+     * <p><b>How the overlap is made deterministic.</b> Sleeping cannot show that the cancel lands
+     * while the scheduler is pre-applying the job's resources: the scheduler pre-applies and then
+     * sleeps for its retry interval, so a sleeping test can cancel entirely inside that retry
+     * sleep. This test instead parks the scheduler with {@link PreApplyBoundary}, a test hook that
+     * signals the pre-apply boundary and holds the scheduler there, issues the cancel under that
+     * hold, and only then releases the scheduler so the pre-application of an already cancelled job
+     * runs. The cancel itself runs on a helper thread and is bounded by {@link
+     * #CANCEL_TIMEOUT_SECONDS}, so a hung cancel fails the test instead of blocking it; the seam
+     * and that executor are always released in {@code finally}.
+     *
+     * <p><b>What this test asserts.</b> After the client cancel returns, the job is CANCELED (not
+     * left CANCELING/PENDING), it is gone from the master's pending queue, and the cancel is
+     * idempotent. Then the holder is cancelled, and for a full {@code during} window with every
+     * slot free the cancelled job must stay CANCELED, must not appear in the pending queue again,
+     * and must own no slot in {@code engine_ownedSlotProfilesIMap}. Finally a replacement job that
+     * needs the same four slots must reach RUNNING: if the cancellation stranded even one slot, it
+     * stays PENDING and this test fails at the capacity assertion rather than silently leaking.
+     */
+    @Test
+    public void testCancelPendingJobKeepsItTerminalAndDoesNotStrandCapacity() throws Exception {
+        String testClusterName =
+                "SplitClusterPendingJobLifecycleFailoverIT_"
+                        + "testCancelPendingJobKeepsItTerminalAndDoesNotStrandCapacity";
+        HazelcastInstanceImpl masterNode = null;
+        HazelcastInstanceImpl workerNode = null;
+        SeaTunnelClient engineClient = null;
+        ClientJobProxy holderJob = null;
+        ClientJobProxy pendingJob = null;
+        ClientJobProxy replacementJob = null;
+        PreApplyBoundary seam = null;
+        ExecutorService cancelExecutor = null;
+
+        SeaTunnelConfig masterNodeConfig = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig workerNodeConfig = getSeaTunnelConfig(testClusterName);
+        configurePendingLifecycleTest(masterNodeConfig);
+        configurePendingLifecycleTest(workerNodeConfig);
+
+        try {
+            masterNode = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNodeConfig);
+            workerNode = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerNodeConfig);
+
+            HazelcastInstanceImpl finalMasterNode = masterNode;
+            Awaitility.await()
+                    .atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, finalMasterNode.getCluster().getMembers().size()));
+
+            Common.setDeployMode(DeployMode.CLUSTER);
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+
+            holderJob =
+                    submitJob(
+                            engineClient,
+                            masterNodeConfig,
+                            "cancel_pending_holder",
+                            TestUtils.getResource(JOB_CONFIG_FILE));
+            assertJobStatusWithTimeout(holderJob, JobStatus.RUNNING, 120);
+
+            HazelcastInstanceImpl activeMaster = waitAndFindActiveMaster(masterNode, null);
+            assertPendingQueueState(activeMaster, null, 0);
+
+            // Park the coordinator's pending-job scheduler at the pre-apply boundary before the
+            // victim is submitted. The queue is empty here, so the first job this scheduler
+            // pre-applies is the victim: waiting for the seam's explicit signal is what proves the
+            // cancellation overlaps resource pre-application, whereas a fixed sleep would leave the
+            // scheduler free to sit in its three-second retry branch instead.
+            seam = PreApplyBoundary.install();
+            cancelExecutor =
+                    Executors.newSingleThreadExecutor(
+                            runnable -> {
+                                Thread thread = new Thread(runnable, "pending-job-cancel-client");
+                                thread.setDaemon(true);
+                                return thread;
+                            });
+
+            pendingJob =
+                    submitJob(
+                            engineClient,
+                            masterNodeConfig,
+                            "cancel_pending_victim",
+                            TestUtils.getResource(JOB_CONFIG_FILE));
+            long pendingJobId = pendingJob.getJobId();
+            Assertions.assertTrue(
+                    seam.awaitPreApplyBoundary(60, TimeUnit.SECONDS),
+                    "The pending-job scheduler must reach the pre-apply boundary for a job it "
+                            + "cannot schedule");
+            Assertions.assertEquals(
+                    pendingJobId,
+                    seam.parkedJobId(),
+                    "The parked pre-apply attempt must belong to the victim job");
+            assertJobStatusWithTimeout(pendingJob, JobStatus.PENDING, 120);
+            assertPendingQueueState(activeMaster, pendingJobId, 1);
+
+            // The scheduler is now held between reserving the job and pre-applying its resources.
+            // Cancel under that hold and only then let the pre-application run, which is the window
+            // where a cancel that only removes the queue entry leaves a zombie behind.
+            try {
+                long cancelStartNanos = System.nanoTime();
+                cancelPendingJobWithin(cancelExecutor, pendingJob, CANCEL_TIMEOUT_SECONDS);
+                long cancelMillis =
+                        TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - cancelStartNanos);
+                Assertions.assertTrue(
+                        cancelMillis < TimeUnit.SECONDS.toMillis(CANCEL_TIMEOUT_SECONDS),
+                        "Cancelling a pending job must not block on deployment: took "
+                                + cancelMillis
+                                + " ms");
+                Assertions.assertTrue(
+                        seam.isParkedAtPreApplyBoundary(),
+                        "The cancellation must complete while the scheduler is still parked at the "
+                                + "pre-apply boundary, otherwise the cancel/pre-apply overlap is "
+                                + "not exercised");
+            } finally {
+                // Always let the parked scheduler continue, including when the cancel above fails.
+                seam.release();
+            }
+
+            assertJobStatusWithTimeout(pendingJob, JobStatus.CANCELED, 60);
+            assertPendingQueueNotContainsJob(activeMaster, pendingJobId);
+            Assertions.assertEquals(
+                    JobStatus.CANCELED.name(),
+                    engineClient.getJobClient().getJobStatus(pendingJobId),
+                    "The master must report the cancelled pending job as terminal");
+
+            // A second cancel of an already terminal job must be a no-op, not an error or a status
+            // regression: clients and cleanup paths retry cancels.
+            cancelPendingJobWithin(cancelExecutor, pendingJob, CANCEL_TIMEOUT_SECONDS);
+            Assertions.assertEquals(JobStatus.CANCELED, pendingJob.getJobStatus());
+
+            holderJob.cancelJob();
+            assertEventuallyCanceled(holderJob);
+
+            // Every slot on the worker is now free. A cancelled pending job that was left in the
+            // pending queue or kept a scheduler reservation would be deployed here.
+            SeaTunnelServer masterServer =
+                    activeMaster.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            ClientJobProxy cancelledPendingJob = pendingJob;
+            Awaitility.await()
+                    .during(15, TimeUnit.SECONDS)
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED,
+                                        cancelledPendingJob.getJobStatus(),
+                                        "Cancelled pending job must never be deployed late");
+                                Assertions.assertFalse(
+                                        masterServer
+                                                .getCoordinatorService()
+                                                .getPendingJobQueue()
+                                                .contains(pendingJobId),
+                                        "Cancelled pending job must stay out of the pending queue");
+                            });
+
+            assertNoOwnedSlots(activeMaster, pendingJobId);
+
+            // Fixed-slot capacity is inelastic: if cancellation stranded any of the four slots,
+            // this replacement job stays PENDING forever under the WAIT strategy.
+            replacementJob =
+                    submitJob(
+                            engineClient,
+                            masterNodeConfig,
+                            "cancel_pending_replacement",
+                            TestUtils.getResource(JOB_CONFIG_FILE));
+            assertJobStatusWithTimeout(replacementJob, JobStatus.RUNNING, 120);
+            replacementJob.cancelJob();
+            assertJobStatusWithTimeout(replacementJob, JobStatus.CANCELED, 60);
+        } finally {
+            // Release the scheduler seam and the test hook before shutting the cluster down: a
+            // parked scheduler thread would otherwise delay or block node shutdown.
+            if (seam != null) {
+                seam.release();
+            }
+            CoordinatorService.setPendingJobPreApplyTestHook(null);
+            if (cancelExecutor != null) {
+                cancelExecutor.shutdownNow();
+            }
             if (engineClient != null) {
                 engineClient.close();
             }
@@ -1468,6 +1703,32 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
     }
 
     /**
+     * Asserts that the master's persisted slot-ownership map holds no pipeline entry for the given
+     * job. A cancelled job that is deployed behind the client's back still writes its pipeline to
+     * {@code engine_ownedSlotProfilesIMap} from {@code ResourceUtils#applyResourceForPipeline}, so
+     * this catches a late deployment even when the job-level status was already CANCELED.
+     */
+    private static void assertNoOwnedSlots(HazelcastInstanceImpl masterNode, long jobId) {
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
+                masterNode
+                        .node
+                        .getNodeEngine()
+                        .getHazelcastInstance()
+                        .getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+        Awaitility.await()
+                .atMost(20, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertFalse(
+                                        ownedSlotProfilesIMap.keySet().stream()
+                                                .anyMatch(location -> location.getJobId() == jobId),
+                                        "Cancelled job "
+                                                + jobId
+                                                + " must not own any slot after the coordinator "
+                                                + "reports it CANCELED"));
+    }
+
+    /**
      * Renders a small, quickly-completing batch job from {@code
      * cluster_batch_fake_to_localfile_template.conf} so it reaches FINISHED almost immediately,
      * leaving a realistic terminal-job IMap tombstone behind for {@link
@@ -1548,5 +1809,85 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
                                         ownedSlotProfilesIMap.keySet().stream()
                                                 .anyMatch(location -> location.getJobId() == jobId),
                                         "Job " + jobId + " slot ownership should be " + expected));
+    }
+
+    /**
+     * Runs a client cancel on a helper thread and fails the test instead of blocking it when the
+     * cancel does not complete in time.
+     *
+     * <p>{@link ClientJobProxy#cancelJob()} joins the coordinator's cancel future without a
+     * timeout. A cancel that hangs while a scheduler attempt is in flight would otherwise block the
+     * test thread before any elapsed-time or terminal-status assertion could run, turning a real
+     * regression into an indefinite build.
+     */
+    private static void cancelPendingJobWithin(
+            ExecutorService cancelExecutor, ClientJobProxy clientJobProxy, long timeoutSeconds)
+            throws Exception {
+        Future<?> cancelFuture = cancelExecutor.submit(clientJobProxy::cancelJob);
+        try {
+            cancelFuture.get(timeoutSeconds, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            cancelFuture.cancel(true);
+            Assertions.fail(
+                    "Cancelling job "
+                            + clientJobProxy.getJobId()
+                            + " did not complete within "
+                            + timeoutSeconds
+                            + "s, so the cancellation is bounded rather than observed hanging");
+        }
+    }
+
+    /**
+     * Deterministic park point on the coordinator's pending-job scheduler.
+     *
+     * <p>{@code CoordinatorService#pendingJobSchedule} pre-applies the reserved job's resources and
+     * then sleeps for its retry interval when the resources are insufficient. A test that only
+     * sleeps therefore cannot tell an in-flight pre-application apart from that retry sleep, and a
+     * cancellation is free to land entirely inside the sleep. This seam installs a test hook that
+     * signals the pre-apply boundary and holds the scheduler there, so the test can cancel a job
+     * whose resource pre-application has not started yet and then release the scheduler under that
+     * cancellation. The hook runs with the reservation still held, and {@link #release()} is
+     * idempotent and harmless before the hook runs, so teardown can always call it.
+     */
+    private static final class PreApplyBoundary {
+        private static final long HOOK_AWAIT_SECONDS = 120;
+
+        private final CountDownLatch atPreApplyBoundary = new CountDownLatch(1);
+        private final CountDownLatch released = new CountDownLatch(1);
+        private final AtomicLong parkedJobId = new AtomicLong(-1);
+
+        static PreApplyBoundary install() {
+            PreApplyBoundary boundary = new PreApplyBoundary();
+            CoordinatorService.setPendingJobPreApplyTestHook(
+                    jobId -> {
+                        boundary.parkedJobId.set(jobId);
+                        boundary.atPreApplyBoundary.countDown();
+                        try {
+                            // Bounded so a test that dies before releasing cannot wedge the
+                            // scheduler; the test's own teardown releases it as well.
+                            boundary.released.await(HOOK_AWAIT_SECONDS, TimeUnit.SECONDS);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    });
+            return boundary;
+        }
+
+        boolean awaitPreApplyBoundary(long timeout, TimeUnit unit) throws InterruptedException {
+            return atPreApplyBoundary.await(timeout, unit);
+        }
+
+        long parkedJobId() {
+            return parkedJobId.get();
+        }
+
+        /** True when the scheduler has signalled this boundary and has not been released yet. */
+        boolean isParkedAtPreApplyBoundary() {
+            return atPreApplyBoundary.getCount() == 0 && released.getCount() != 0;
+        }
+
+        void release() {
+            released.countDown();
+        }
     }
 }

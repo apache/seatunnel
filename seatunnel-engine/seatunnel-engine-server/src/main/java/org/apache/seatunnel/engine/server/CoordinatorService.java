@@ -124,6 +124,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.LongConsumer;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.options.EnvCommonOptions.CHECKPOINT_INTERVAL;
@@ -210,6 +211,30 @@ public class CoordinatorService {
     // by clearCoordinatorService so a freshly-restored scheduler can re-reserve jobs after a
     // master flap.
     private final Set<Long> schedulingPendingJobIds = ConcurrentHashMap.newKeySet();
+
+    // No-op by default: the seam below is only ever replaced by an integration test that needs to
+    // park this scheduler at the pre-apply boundary instead of guessing the phase from a fixed
+    // sleep. It must never be set from production code, and a test must reset it to the no-op.
+    private static final LongConsumer NOOP_PRE_APPLY_TEST_HOOK = jobId -> {};
+
+    private static volatile LongConsumer pendingJobPreApplyTestHook = NOOP_PRE_APPLY_TEST_HOOK;
+
+    /**
+     * Installs a test-only seam that runs on the pending-job scheduler thread immediately before
+     * {@link JobMaster#preApplyResources()} for the reserved job, and immediately before that
+     * resource pre-application can observe a cancellation.
+     *
+     * <p>This exists because the phase cannot be observed from outside: the scheduler pre-applies
+     * the resources of a blocked job and then sleeps for its retry interval, so an external test
+     * that only sleeps cannot tell an in-flight pre-application apart from that retry sleep. A test
+     * installs a hook here to signal that the boundary is reached and to hold the scheduler until
+     * it has issued the cancellation. Production never installs a hook, so the call is a no-op and
+     * the scheduling behavior is unchanged.
+     */
+    @VisibleForTesting
+    public static void setPendingJobPreApplyTestHook(LongConsumer hook) {
+        pendingJobPreApplyTestHook = Objects.isNull(hook) ? NOOP_PRE_APPLY_TEST_HOOK : hook;
+    }
 
     /**
      * IMap key is {@link PipelineLocation}
@@ -442,6 +467,8 @@ public class CoordinatorService {
         boolean preApplyResources;
         schedulingJobMasters.add(jobMaster);
         try {
+            // No-op unless a test installed a seam: see setPendingJobPreApplyTestHook.
+            pendingJobPreApplyTestHook.accept(jobId);
             preApplyResources = jobMaster.preApplyResources();
         } catch (Throwable e) {
             releasePendingJobInfo(pendingJobInfo);
