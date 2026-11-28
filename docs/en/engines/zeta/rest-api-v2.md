@@ -11,6 +11,8 @@ and monitor jobs in that case.
 
 ## Overview
 
+When enabling Zeta HTTP Basic Auth, explicitly set both `basic-auth-username` and `basic-auth-password`. There are no built-in credentials. If either value is missing or blank, the management HTTP/HTTPS service cannot start. Replace any previously used example credentials before upgrading. Follow the [SeaTunnel security model](https://seatunnel.apache.org/security/) and restrict access to management interfaces outside SeaTunnel.
+
 The v2 API and the Web UI are both served by the embedded Jetty server. Jetty starts only when
 `seatunnel.engine.http.enable-http = true` or `enable-https = true`.
 
@@ -74,6 +76,19 @@ seatunnel:
       upload-max-file-size-mb: 10
       upload-max-request-size-mb: 10
       log-response-max-size-mb: 64
+```
+
+### Basic Auth configuration example
+
+Add these settings under `seatunnel.engine.http` in `seatunnel.yaml` for an existing HTTP or HTTPS listener. The example does not enable a listener. Replace the example username and the `********` placeholder with your own credentials before restarting. Use HTTPS when sending credentials over the network.
+
+```yaml
+seatunnel:
+  engine:
+    http:
+      enable-basic-auth: true
+      basic-auth-username: "ops-user" # Replace with your username.
+      basic-auth-password: "********" # Replace with a unique, strong password.
 ```
 
 ## Web UI and Port 8080 Troubleshooting

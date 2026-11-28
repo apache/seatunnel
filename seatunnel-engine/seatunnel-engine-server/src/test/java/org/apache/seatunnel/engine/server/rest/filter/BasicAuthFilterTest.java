@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.engine.server.rest.filter;
 
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
+import org.apache.seatunnel.engine.server.JettyService;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -43,6 +45,33 @@ public class BasicAuthFilterTest {
 
     private static final String USER = "admin";
     private static final String PASSWORD = "s3cret";
+
+    @Test
+    void testJettyRejectsMissingOrBlankCredentialsWhenBasicAuthIsEnabled() {
+        SeaTunnelConfig config = new SeaTunnelConfig();
+        // EngineConfig initially references a shared default; keep this fixture isolated.
+        HttpConfig http = new HttpConfig();
+        config.getEngineConfig().setHttpConfig(http);
+        http.setEnabled(true);
+        http.setEnableBasicAuth(true);
+
+        Assertions.assertNull(http.getBasicAuthUsername());
+        Assertions.assertNull(http.getBasicAuthPassword());
+        Assertions.assertThrows(
+                IllegalArgumentException.class, () -> new JettyService(null, config));
+
+        http.setBasicAuthUsername(USER);
+        http.setBasicAuthPassword(" ");
+        Assertions.assertThrows(
+                IllegalArgumentException.class, () -> new JettyService(null, config));
+
+        http.setEnabled(false);
+        http.setEnableHttps(true);
+        http.setBasicAuthUsername(" ");
+        http.setBasicAuthPassword(PASSWORD);
+        Assertions.assertThrows(
+                IllegalArgumentException.class, () -> new JettyService(null, config));
+    }
 
     @Test
     void testCorrectCredentialsPassThroughTheChain() throws Exception {

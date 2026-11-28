@@ -111,6 +111,15 @@ public class JettyService {
         this.nodeEngine = nodeEngine;
         this.seaTunnelConfig = seaTunnelConfig;
         HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
+        if (httpConfig.isEnableBasicAuth()
+                && (httpConfig.isEnabled() || httpConfig.isEnableHttps())) {
+            String username = httpConfig.getBasicAuthUsername();
+            String password = httpConfig.getBasicAuthPassword();
+            if (username == null || username.isBlank() || password == null || password.isBlank()) {
+                throw new IllegalArgumentException(
+                        "Zeta HTTP Basic Auth requires both basic-auth-username and basic-auth-password");
+            }
+        }
         this.server = new Server();
 
         if (httpConfig.isEnabled()) {
