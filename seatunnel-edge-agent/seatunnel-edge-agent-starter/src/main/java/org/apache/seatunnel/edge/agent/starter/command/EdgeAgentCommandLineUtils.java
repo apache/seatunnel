@@ -24,29 +24,37 @@ import com.beust.jcommander.ParameterException;
 
 public class EdgeAgentCommandLineUtils {
 
+    /** Help keeps the historical usage exit code unless the caller opts in to another one. */
     public static <T extends EdgeAgentCommandArgs> T parse(
             String[] args, T obj, String programName) {
+        return parse(args, obj, programName, EdgeAgentStarterConstants.USAGE_EXIT_CODE);
+    }
+
+    public static <T extends EdgeAgentCommandArgs> T parse(
+            String[] args, T obj, String programName, int helpExitCode) {
         JCommander jCommander =
                 JCommander.newBuilder().programName(programName).addObject(obj).build();
         try {
             jCommander.parse(args);
         } catch (ParameterException e) {
             System.err.println(e.getLocalizedMessage());
-            exit(jCommander, obj);
+            // argument errors are not a successful help request
+            exit(jCommander, obj, EdgeAgentStarterConstants.USAGE_EXIT_CODE);
+            return obj;
         }
 
         if (obj.isHelp()) {
-            exit(jCommander, obj);
+            exit(jCommander, obj, helpExitCode);
         }
         return obj;
     }
 
-    private static void exit(JCommander jCommander, EdgeAgentCommandArgs args) {
+    private static void exit(JCommander jCommander, EdgeAgentCommandArgs args, int exitCode) {
         if (args instanceof org.apache.seatunnel.edge.agent.starter.command.db.DbCommandArgs) {
             EdgeAgentDbUsage.printUsage(System.out);
         } else {
             EdgeAgentUsage.printUsage(System.out);
         }
-        System.exit(EdgeAgentStarterConstants.USAGE_EXIT_CODE);
+        System.exit(exitCode);
     }
 }

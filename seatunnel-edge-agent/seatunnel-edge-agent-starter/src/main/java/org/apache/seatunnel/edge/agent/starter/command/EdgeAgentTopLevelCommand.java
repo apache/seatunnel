@@ -26,6 +26,9 @@ public enum EdgeAgentTopLevelCommand {
     RUN(null, EdgeAgentStarterConstants.PROGRAM_NAME, RunCommandArgs::new),
     DB("db", EdgeAgentStarterConstants.PROGRAM_NAME_DB, DbCommandArgs::new);
 
+    /** A help request is a successful invocation; argument errors keep the usage exit code. */
+    private static final int HELP_EXIT_CODE = 0;
+
     private final String cliName;
     private final String programName;
     private final Supplier<? extends EdgeAgentCommandArgs> argsSupplier;
@@ -49,7 +52,7 @@ public enum EdgeAgentTopLevelCommand {
     public EdgeAgentCommand<?> buildCommand(String[] rawArgs) {
         EdgeAgentCommandArgs commandArgs =
                 EdgeAgentCommandLineUtils.parse(
-                        remainingArgs(rawArgs), argsSupplier.get(), programName);
+                        remainingArgs(rawArgs), argsSupplier.get(), programName, HELP_EXIT_CODE);
         return commandArgs.buildCommand();
     }
 
