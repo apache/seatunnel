@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -117,6 +118,15 @@ public class SubPlan {
 
     /** Longest retained cause. Enough for a message and the first frames that matter. */
     private static final int MAX_RESTORE_CAUSE_LENGTH = 2048;
+
+    /**
+     * How long a restore backoff may sleep before re-checking whether the restore was revoked.
+     *
+     * <p>Bounded so a revocation that does not call {@link #cancelPipeline()} (force stop, a
+     * checkpoint error) is noticed quickly instead of after the whole {@code
+     * job.retry.interval.seconds}.
+     */
+    private static final long RESTORE_BACKOFF_POLL_MILLIS = 200L;
 
     private final ExecutorService executorService;
 
@@ -494,6 +504,10 @@ public class SubPlan {
         // failed-task callback and the end-state computation honor this cancel even though
         // the pipeline state has not left RUNNING yet (#12353).
         markCancelRequested();
+        // Wake a restore that is sleeping out its retry backoff in awaitRestoreBackoff(): the
+        // cancellation must not wait for job.retry.interval.seconds to expire, and the woken
+        // restore has to observe cancelRequested instead of deploying another attempt.
+        notifyAll();
         cancelCheckpointCoordinator();
         if (!getPipelineState().isEndState()) {
             updatePipelineState(PipelineStatus.CANCELING);
@@ -625,7 +639,7 @@ public class SubPlan {
                         "Wait {}s and then restore the pipeline {}",
                         pipelineRestoreIntervalSeconds,
                         getPipelineFullName());
-                Thread.sleep(pipelineRestoreIntervalSeconds * 1000);
+                awaitRestoreBackoff();
                 return true;
             } catch (Throwable e) {
                 if (this.currPipelineStatus.isEndState()) {
@@ -636,6 +650,70 @@ public class SubPlan {
                 return true;
             }
         }
+    }
+
+    /**
+     * Sleeps out the {@code job.retry.interval.seconds} backoff before a pipeline restore.
+     *
+     * <p>The backoff must not hold the SubPlan monitor: {@link #cancelPipeline()} is {@code
+     * synchronized} on this object and, on the previous straight {@code Thread.sleep} version, a
+     * cancel request issued during the backoff blocked on the monitor for the whole remaining
+     * interval. The blocked cancel could not mark the pipeline as canceled either, so when the
+     * sleep finally ended the restore path allocated fresh slots and deployed another attempt of a
+     * job that the user had already canceled, and only afterwards did the waiting cancel tear that
+     * attempt down.
+     *
+     * <p>{@link Object#wait(long)} is the right primitive here because {@code stateProcess()} (the
+     * only caller) already holds this monitor: waiting releases it for the duration of the pause,
+     * letting the cancel thread run {@link #cancelPipeline()} and update the pipeline state to
+     * {@code CANCELING}. The caller must therefore still hold the SubPlan monitor; {@link
+     * #cancelPipeline()} wakes this wait through {@link Object#notifyAll()} so a cancellation does
+     * not have to wait for the pause to expire, and the wait is bounded anyway so a revocation
+     * coming from a path that does not touch the pipeline monitor (force stop or a checkpoint
+     * error) is noticed within {@link #RESTORE_BACKOFF_POLL_MILLIS}.
+     *
+     * <p>Returns normally whether the pause expired or the restore was revoked; the caller decides
+     * what to do with {@link #isRestoreRevoked()}.
+     */
+    private void awaitRestoreBackoff() {
+        long deadlineNanos =
+                System.nanoTime() + TimeUnit.SECONDS.toNanos(pipelineRestoreIntervalSeconds);
+        while (!isRestoreRevoked()) {
+            long remainingNanos = deadlineNanos - System.nanoTime();
+            if (remainingNanos <= 0) {
+                return;
+            }
+            long waitMillis =
+                    Math.min(
+                            RESTORE_BACKOFF_POLL_MILLIS,
+                            TimeUnit.NANOSECONDS.toMillis(remainingNanos));
+            try {
+                wait(Math.max(1L, waitMillis));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        log.info(
+                "Skip the remaining {}s restore backoff of {}, because the restore has been revoked"
+                        + " (cancelRequested={}, needRestore={}, running={})",
+                pipelineRestoreIntervalSeconds,
+                getPipelineFullName(),
+                cancelRequested,
+                jobMaster.isNeedRestore(),
+                isRunning);
+    }
+
+    /**
+     * Whether a restore that was already authorized must no longer run.
+     *
+     * <p>A cancel request (normal cancel or force stop) sets the job's {@code needRestore} flag to
+     * false before it reaches this pipeline, and a pipeline whose state process was stopped is
+     * already terminal. In all of those cases the revoking path owns the terminal transition, so
+     * the restore must not allocate slots or deploy tasks.
+     */
+    private boolean isRestoreRevoked() {
+        return cancelRequested || !jobMaster.isNeedRestore() || !isRunning;
     }
 
     /** restore the pipeline when pipeline failed or canceled by error. */
@@ -878,6 +956,21 @@ public class SubPlan {
             case FAILED:
             case CANCELED:
                 if (checkNeedRestore(state) && prepareRestorePipeline()) {
+                    if (isRestoreRevoked()) {
+                        // The backoff was cut short by a cancel or a stop: do not allocate slots
+                        // or deploy tasks for a job the user already ended. A cancellation may
+                        // still be waiting for this monitor, so drive the pipeline to CANCELING
+                        // here instead of leaving it reset to CREATED; when the revoking path
+                        // already moved it, cancelPipeline() is a no-op.
+                        log.info(
+                                "Skip restoring {}, because the restore has been revoked during"
+                                        + " the backoff",
+                                getPipelineFullName());
+                        if (isRunning) {
+                            cancelPipeline();
+                        }
+                        return;
+                    }
                     jobMaster.releasePipelineResource(this);
                     jobMaster.preApplyResources(this);
                     restorePipeline();
