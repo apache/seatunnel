@@ -146,7 +146,11 @@ public class QianfanModel extends AbstractModel {
             String responseStr = EntityUtils.toString(response.getEntity());
             if (response.getStatusLine().getStatusCode() != 200) {
                 throw ModelInvocationException.fromHttpStatus(
-                        "QIANFAN", model, response.getStatusLine().getStatusCode(), responseStr);
+                        "QIANFAN",
+                        model,
+                        response.getStatusLine().getStatusCode(),
+                        responseStr,
+                        response.getFirstHeader("Retry-After"));
             }
             try {
                 JsonNode result = OBJECT_MAPPER.readTree(responseStr);
@@ -229,7 +233,11 @@ public class QianfanModel extends AbstractModel {
 
             if (response.getStatusLine().getStatusCode() != 200) {
                 throw ModelInvocationException.fromHttpStatus(
-                        "QIANFAN", model, response.getStatusLine().getStatusCode(), responseStr);
+                        "QIANFAN",
+                        model,
+                        response.getStatusLine().getStatusCode(),
+                        responseStr,
+                        response.getFirstHeader("Retry-After"));
             }
 
             try {
