@@ -112,6 +112,11 @@ For specific types in MongoDB, we use Extended JSON format to map them to Seatun
 
 ## Source Options
 
+> **Note:** MongoDB-CDC shares the CDC base option rule, so a few JDBC-oriented snapshot options
+> (`snapshot.split.size`, `snapshot.fetch.size`, `enable_concurrent_read`) are accepted by
+> validation but are not used by MongoDB-CDC. Snapshot chunking is controlled by
+> `incremental.snapshot.chunk.size.mb` instead.
+
 | Name                               | Type    | Required | Default | Description                                                                                                                                                                                                                                                               |
 |------------------------------------|---------|----------|---------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | hosts                              | String  | Yes      | -       | The comma-separated list of hostname and port pairs of the MongoDB servers, or a standard MongoDB connection URI using `mongodb://` or `mongodb+srv://`. For example: `localhost:27017,localhost:27018` or `mongodb+srv://cluster.example.net`.                         |
@@ -587,15 +592,17 @@ sink {
 
 ## CDC Metadata Fields
 
-MongoDB CDC exposes metadata fields that can be used by the `Metadata` transform:
+MongoDB CDC exposes metadata fields that can be used by the `Metadata` transform.
+
+Field names are case-sensitive and must be written exactly as shown below (e.g. `Database`, not `database`), otherwise the job fails with a "cannot find metadata field" error:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| database | STRING | Source database name. |
-| table | STRING | Source collection name. |
-| rowKind | STRING | Change type, such as insert, update, or delete. |
-| ts_ms | LONG | Source event timestamp in milliseconds. |
-| delay | LONG | Delay between event time and processing time in milliseconds. |
+| Database | STRING | Source database name. |
+| Table | STRING | Source collection name. |
+| RowKind | STRING | Change type; emitted as the RowKind short code: `+I` (insert), `+U` (update after), `-D` (delete). |
+| EventTime | LONG | The time when the connector fetched and processed the event, in milliseconds. |
+| Delay | LONG | Delay between the source event time and the connector fetch time, in milliseconds. |
 
 Example:
 

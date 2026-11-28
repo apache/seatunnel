@@ -50,6 +50,9 @@ public class MongodbWriterOptions implements Serializable {
 
     protected final DataSaveMode dataSaveMode;
 
+    /** Optional PEM CA bundle for TLS connections; {@code null} when not configured. */
+    protected final String tlsCaFile;
+
     public MongodbWriterOptions(
             String connectString,
             String database,
@@ -62,6 +65,34 @@ public class MongodbWriterOptions implements Serializable {
             long retryInterval,
             boolean transaction,
             DataSaveMode dataSaveMode) {
+        this(
+                connectString,
+                database,
+                collection,
+                flushSize,
+                batchIntervalMs,
+                upsertEnable,
+                primaryKey,
+                retryMax,
+                retryInterval,
+                transaction,
+                dataSaveMode,
+                null);
+    }
+
+    public MongodbWriterOptions(
+            String connectString,
+            String database,
+            String collection,
+            int flushSize,
+            long batchIntervalMs,
+            boolean upsertEnable,
+            String[] primaryKey,
+            int retryMax,
+            long retryInterval,
+            boolean transaction,
+            DataSaveMode dataSaveMode,
+            String tlsCaFile) {
         this.connectString = connectString;
         this.database = database;
         this.collection = collection;
@@ -73,6 +104,7 @@ public class MongodbWriterOptions implements Serializable {
         this.retryInterval = retryInterval;
         this.transaction = transaction;
         this.dataSaveMode = dataSaveMode;
+        this.tlsCaFile = tlsCaFile;
     }
 
     public static Builder builder() {
@@ -102,6 +134,8 @@ public class MongodbWriterOptions implements Serializable {
         protected boolean transaction;
 
         protected DataSaveMode dataSaveMode;
+
+        protected String tlsCaFile;
 
         public Builder withConnectString(String connectString) {
             this.connectString = connectString;
@@ -158,6 +192,11 @@ public class MongodbWriterOptions implements Serializable {
             return this;
         }
 
+        public Builder withTlsCaFile(String tlsCaFile) {
+            this.tlsCaFile = tlsCaFile;
+            return this;
+        }
+
         public MongodbWriterOptions build() {
             return new MongodbWriterOptions(
                     connectString,
@@ -170,7 +209,8 @@ public class MongodbWriterOptions implements Serializable {
                     retryMax,
                     retryInterval,
                     transaction,
-                    dataSaveMode);
+                    dataSaveMode,
+                    tlsCaFile);
         }
     }
 }
