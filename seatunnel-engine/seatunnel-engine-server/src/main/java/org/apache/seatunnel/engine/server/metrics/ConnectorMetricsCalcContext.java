@@ -300,7 +300,7 @@ public class ConnectorMetricsCalcContext {
     }
 
     private String normalizeTableName(String tableId) {
-        return tableNameCache.computeIfAbsent(tableId, id -> TablePath.of(id).getFullName());
+        return tableNameCache.computeIfAbsent(tableId, id -> TablePath.ofTableId(id).getFullName());
     }
 
     private <T> void processMetrics(

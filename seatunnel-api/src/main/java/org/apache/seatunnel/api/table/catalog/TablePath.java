@@ -69,6 +69,29 @@ public final class TablePath implements Serializable {
                 String.format("Cannot get split '%s' to get databaseName and tableName", fullName));
     }
 
+    /**
+     * Parses the {@code tableId} of a row. Unlike {@link #of(String)}, a name with more than three
+     * parts is read as {@code database.schema.table} whose database name contains '.', so the last
+     * two parts are the schema and table. Names with up to three parts parse as {@link #of(String)}
+     * does.
+     */
+    public static TablePath ofTableId(String tableId) {
+        // same part count as of(): split drops trailing empty parts, so "db.sch.t." has 3 parts
+        if (tableId.split("\\.").length <= 3) {
+            return of(tableId);
+        }
+        int tableDot = tableId.lastIndexOf('.');
+        int schemaDot = tableDot < 0 ? -1 : tableId.lastIndexOf('.', tableDot - 1);
+        int databaseDot = schemaDot < 0 ? -1 : tableId.lastIndexOf('.', schemaDot - 1);
+        if (databaseDot < 0) {
+            return of(tableId);
+        }
+        return of(
+                tableId.substring(0, schemaDot),
+                tableId.substring(schemaDot + 1, tableDot),
+                tableId.substring(tableDot + 1));
+    }
+
     public static TablePath of(String databaseName, String tableName) {
         return of(databaseName, null, tableName);
     }

@@ -406,7 +406,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
 
     private static CatalogTable toLegacyCheckpointTable(
             String tableId, org.apache.seatunnel.api.table.type.SeaTunnelRowType rowType) {
-        TablePath tablePath = TablePath.of(tableId);
+        TablePath tablePath = TablePath.ofTableId(tableId);
         // The deprecated getCatalogTable(String, RowType) overload treats the full table path as a
         // plain tableName and injects a synthetic "default" prefix. Build the identifier
         // explicitly so restored legacy checkpoint tables keep their original path.

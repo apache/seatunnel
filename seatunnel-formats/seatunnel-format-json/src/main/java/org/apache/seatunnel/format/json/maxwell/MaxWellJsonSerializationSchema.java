@@ -84,8 +84,8 @@ public class MaxWellJsonSerializationSchema implements SerializationSchema {
             reuse.setField(1, row);
             reuse.setField(2, rowKind2String(row.getRowKind()));
             if (!StringUtils.isEmpty(row.getTableId())) {
-                reuse.setField(3, TablePath.of(row.getTableId()).getDatabaseName());
-                reuse.setField(4, TablePath.of(row.getTableId()).getTableName());
+                reuse.setField(3, TablePath.ofTableId(row.getTableId()).getDatabaseName());
+                reuse.setField(4, TablePath.ofTableId(row.getTableId()).getTableName());
             }
             if (row.getOptions() != null && row.getOptions().containsKey(EVENT_TIME.getName())) {
                 reuse.setField(5, row.getOptions().get(EVENT_TIME.getName()));

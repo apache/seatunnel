@@ -42,6 +42,14 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
     private Properties jdbcUrlProperties;
 
     /**
+     * Returns {@code schema.table} of a {@code database.schema.table} id. The database name in
+     * front may contain '.', so only the last two parts are kept.
+     */
+    public static String toTableIncludeEntry(String tableId) {
+        return tableId.substring(tableId.lastIndexOf('.', tableId.lastIndexOf('.') - 1) + 1);
+    }
+
+    /**
      * Adds SQL Server JDBC properties parsed from the connector URL.
      *
      * <p>Explicit Debezium properties are applied afterwards and therefore take precedence.
@@ -82,10 +90,11 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
             props.setProperty("database.include.list", String.join(",", databaseList));
         }
         if (tableList != null) {
-            // SqlServer identifier is of the form schemaName.tableName
+            // SqlServer identifier is of the form schemaName.tableName. Keep the last two parts,
+            // because the database name in front of them may contain '.'.
             String tableIncludeList =
                     tableList.stream()
-                            .map(table -> table.substring(table.indexOf(".") + 1))
+                            .map(SqlServerSourceConfigFactory::toTableIncludeEntry)
                             .collect(Collectors.joining(","));
             props.setProperty("table.include.list", tableIncludeList);
         }

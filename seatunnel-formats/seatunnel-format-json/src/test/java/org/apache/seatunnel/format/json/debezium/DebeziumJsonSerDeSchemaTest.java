@@ -140,6 +140,18 @@ public class DebeziumJsonSerDeSchemaTest {
     }
 
     @Test
+    public void testSerializationKeepsDottedDatabaseName() throws Exception {
+        DebeziumJsonSerializationSchema serializationSchema =
+                new DebeziumJsonSerializationSchema(SEATUNNEL_ROW_TYPE);
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "scooter", "desc", 3.14f});
+        row.setTableId("LIS6.0.dbo.LIS_ITEM");
+        JsonNode source = new ObjectMapper().readTree(serializationSchema.serialize(row));
+        assertEquals("LIS6.0", source.get("source").get("database").asText());
+        assertEquals("dbo", source.get("source").get("schema").asText());
+        assertEquals("LIS_ITEM", source.get("source").get("table").asText());
+    }
+
+    @Test
     public void testSerializationSourceCacheAndEventTimeReset() throws Exception {
         DebeziumJsonSerializationSchema serializationSchema =
                 new DebeziumJsonSerializationSchema(SEATUNNEL_ROW_TYPE);

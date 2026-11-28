@@ -40,4 +40,17 @@ public class ZetaUDFContextTest {
         Assertions.assertNull(context.getSchema());
         Assertions.assertNull(context.getTable());
     }
+
+    @Test
+    public void testDottedDatabaseTableId() {
+        ZetaUDFContext context = new ZetaUDFContext();
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1});
+        row.setTableId("LIS6.0.dbo.LIS_ITEM");
+
+        context.update(row);
+
+        Assertions.assertEquals("LIS6.0", context.getDatabase());
+        Assertions.assertEquals("dbo", context.getSchema());
+        Assertions.assertEquals("LIS_ITEM", context.getTable());
+    }
 }
