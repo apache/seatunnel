@@ -82,6 +82,28 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
      */
     private static final String DROPPED_COLUMN_TABLE = "pg_catalog_dropped_column_test";
 
+    /** Partitioned-table fixtures for the full batch read test. */
+    private static final String PARTITION_SOURCE_TABLE = "pg_e2e_partition_source_table";
+
+    private static final String PARTITION_SINK_TABLE = "pg_e2e_partition_sink_table";
+
+    private static final String PARTITION_SOURCE_DDL =
+            "CREATE TABLE IF NOT EXISTS "
+                    + PARTITION_SOURCE_TABLE
+                    + " (\n"
+                    + "  gid INT NOT NULL,\n"
+                    + "  name VARCHAR(255),\n"
+                    + "  PRIMARY KEY (gid)\n"
+                    + ") PARTITION BY RANGE (gid)";
+
+    private static final String PARTITION_SINK_DDL =
+            "CREATE TABLE IF NOT EXISTS "
+                    + PARTITION_SINK_TABLE
+                    + " (\n"
+                    + "  gid INT PRIMARY KEY,\n"
+                    + "  name VARCHAR(255)\n"
+                    + ")";
+
     private static final List<String> PG_CONFIG_FILE_LIST =
             Lists.newArrayList(
                     "/jdbc_postgres_source_and_sink.conf",
@@ -1067,5 +1089,56 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         postgresCatalog.dropTable(tablePathPgSink, true);
         Assertions.assertFalse(postgresCatalog.tableExists(tablePathPgSink));
         postgresCatalog.close();
+    }
+
+    /**
+     * Verifies a full batch read of a PostgreSQL partitioned table. The parent table has a primary
+     * key, so the JDBC source splits it with the dynamic splitter and reads the approximate row
+     * count from pg_class; a partitioned parent is exposed there with relkind 'p' instead of 'r'.
+     * Before the fix the row count lookup returned no row for the parent table and the job failed
+     * during split generation.
+     */
+    @TestTemplate
+    public void testPartitionedTableSource(TestContainer container)
+            throws IOException, InterruptedException {
+        preparePartitionedTables();
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob("/jdbc_postgres_partition_source_and_sink.conf");
+            Assertions.assertEquals(
+                    0,
+                    execResult.getExitCode(),
+                    "jdbc_postgres_partition_source_and_sink.conf job run failed.");
+            Assertions.assertIterableEquals(
+                    querySql("select gid, name from " + PARTITION_SOURCE_TABLE + " order by gid"),
+                    querySql("select gid, name from " + PARTITION_SINK_TABLE + " order by gid"));
+        } finally {
+            executeSQL("truncate table " + PARTITION_SINK_TABLE);
+            executeSQL("truncate table " + PARTITION_SOURCE_TABLE);
+        }
+    }
+
+    private void preparePartitionedTables() {
+        executeSQL("DROP TABLE IF EXISTS " + PARTITION_SOURCE_TABLE + " CASCADE");
+        executeSQL(PARTITION_SOURCE_DDL);
+        executeSQL(
+                "CREATE TABLE "
+                        + PARTITION_SOURCE_TABLE
+                        + "_p0 PARTITION OF "
+                        + PARTITION_SOURCE_TABLE
+                        + " FOR VALUES FROM (0) TO (1000)");
+        executeSQL(
+                "CREATE TABLE "
+                        + PARTITION_SOURCE_TABLE
+                        + "_p1 PARTITION OF "
+                        + PARTITION_SOURCE_TABLE
+                        + " FOR VALUES FROM (1000) TO (2000)");
+        executeSQL(PARTITION_SINK_DDL);
+        executeSQL("truncate table " + PARTITION_SINK_TABLE);
+        executeSQL("truncate table " + PARTITION_SOURCE_TABLE);
+        executeSQL(
+                "insert into "
+                        + PARTITION_SOURCE_TABLE
+                        + " (gid, name) values (1, 'a'), (2, 'b'), (3, 'c'), (1001, 'x'), (1002, 'y'), (1003, 'z')");
     }
 }

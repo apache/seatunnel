@@ -5,12 +5,63 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### HBase sink: DELETE rows remove mapped data
+
+`DELETE` rows now remove all cell versions up to the mutation timestamp in the column families
+mapped by this sink. Previously these rows were written as Put mutations of the old values.
+Unmapped families remain intact. If the sink projects only row-key and version columns, it
+rejects DELETE rows because no family is mapped. Include a payload column for the family you
+intend to delete.
+Jobs that need the previous append-only behavior must filter DELETE rows before the sink.
+`UPDATE_BEFORE` rows are now ignored instead of written as Put mutations. Key-changing updates
+require explicit old-key DELETE/new-key
+INSERT events upstream. Use `version_column` to supply correctly ordered timestamps: an equal- or
+older-timestamp Put cannot override a delete tombstone. Checkpoint flushes wait for region-server
+acceptance when the HBase client periodic flush is disabled (the default). Keep it disabled when
+relying on checkpoint flushes. `wal_write = false` still does not protect against a region-server
+crash.
+No configuration or checkpoint-format migration is required.
+
+### MongoDB sink: omitted buffer and retry options now use their documented defaults
+
+- **Behavior change: a non-transactional MongoDB sink without `buffer-flush.*` or `retry.*` options writes in batches and retries failed writes**
+  - **Affected jobs**: MongoDB sinks with `transaction = false` (the default) that do not set one or more of `buffer-flush.max-rows`, `buffer-flush.interval`, `retry.max` and `retry.interval`. Sinks with `transaction = true` are not affected: they keep the rows until the next checkpoint and write them in one transaction through the committer, which uses neither the buffer options nor `retry.*`.
+  - **Description**: `MongodbSinkFactory` passed these options to the writer only when they were set explicitly. An omitted option was therefore `0` instead of its declared default, so every row was written with its own `bulkWrite` and a failed bulk write was not retried. The declared and documented defaults now apply: `buffer-flush.max-rows = 1000`, `buffer-flush.interval = 30000` ms, `retry.max = 3` and `retry.interval = 1000` ms.
+  - **Impact**: Rows are written in batches of up to 1000 rows instead of row by row, which makes writes to remote servers much faster. The first row of each writer is still written immediately. The 30-second interval is checked only when a new row arrives, so it does not limit how long a partial batch can wait when no more rows come in. A partial batch is written at the next checkpoint, when the writer closes, and at the engine timer flush if `sink.flush.interval` is set in `env` (Zeta only; disabled by default). A failed bulk write is retried up to 3 times, waiting 1, 2 and 3 seconds, before the job fails. A retry sends the whole ordered batch again, so with `upsert-enable = false` a retry after a partly applied batch can fail with duplicate-key errors, as it already could when `retry.max` was set explicitly. Jobs that set these options explicitly are not affected.
+  - **Migration Guide**: No change is needed to get the documented behavior. To keep the previous behavior, set `buffer-flush.max-rows = 1` and `retry.max = 0` explicitly. A smaller `buffer-flush.max-rows` above 1 only reduces how many rows are buffered; it does not limit how long a partial batch waits when no more rows arrive. If a streaming job needs buffered rows to become visible within a bounded time, rely on checkpoints or set `sink.flush.interval` in `env` (Zeta). To write every row immediately, set `buffer-flush.max-rows = 1`. (#13198)
+
+### Flink schema evolution: checkpoint protocol and table routing
+
+Flink CDC jobs with schema evolution enabled now keep sink schema progress and pending rows in
+table-keyed state. The source protocol and operator topology also differ from the former local
+coordinator and broadcast/union-state implementations. Checkpoints and savepoints from those
+implementations are not supported upgrade inputs; there is no state migration adapter.
+`--allowNonRestoredState` is not a safe migration strategy: retaining source offsets while dropping
+schema progress or pending rows can lose data or interpret rows using the wrong schema.
+
+Keep the previous job artifacts and a recoverable savepoint for rollback. Plan a controlled
+cutover using a new full snapshot into a separate destination, validate schema and data, and then
+switch consumers. If reusing an existing destination, reconcile its data and schema explicitly;
+do not simply discard the old state and resume at the latest source offset.
+
+Incremental source parallelism must be one. Sink parallelism remains available across tables,
+but each source table is assigned to one Flink sink subtask. See
+[Flink routing and recovery](../configuration/schema-evolution.md#flink-routing-and-recovery)
+for connector requirements and the restrictions on shared physical destinations.
+
 ### Http sink: `array_mode = true` sends each row as a JSON object
 
 - **Behavior change: the elements of the request body are JSON objects instead of strings**
   - **Description**: With `array_mode = true`, the Http sink added each serialized row to the request array as a string, so the body was `["{\"id\":1}","{\"id\":2}"]` instead of the documented JSON array of rows. It now sends `[{"id":1},{"id":2}]`. Every version since 2.3.11 sent the array of strings. `array_mode = false` is not affected.
   - **Impact**: An endpoint that rejected the old body with an error now accepts it. A receiver written for the old body, which decodes each element as a JSON string, now receives objects and has to be changed.
   - **Migration Guide**: No configuration change is needed. If a receiver decodes each array element from a string, change it to use the element directly.
+
+### Doris source: `case_sensitive = false` now lowercases a single-table `database`/`table`
+
+- **Behavior change: a single-table Doris source configured with `case_sensitive = false` resolves the `database` and `table` names in lowercase**
+  - **Description**: The `case_sensitive` option was introduced for the Doris source in 2.3.11, but the lowercase conversion was applied to an intermediate object that was then discarded, so the option never took effect and the configured spelling reached the query-plan requests unchanged. The conversion now applies to the table configuration the source actually uses. The option only affects a single table configured through `database` and `table`; `table_list` entries and the default (`true`) keep their behavior.
+  - **Impact**: A job that sets `case_sensitive = false` with mixed-case names now resolves `TestDB.TestTable` to `testdb.testtable`. On a cluster whose name matching is case-sensitive this selects a different object, or the lookup fails. A saved checkpoint from an earlier version can also hold splits with the original mixed-case names: restored into a source that now keys its tables by the lowercase names, the reader fails with `the table 'TestDB.TestTable' cannot be found in table_list of job configuration` instead of reading the split.
+  - **Migration Guide**: To keep the historical spelling, set `case_sensitive = true` or remove the option (the default is `true`). To keep using `case_sensitive = false`, restart the job from a new checkpoint after the upgrade instead of restoring an old one; saved splits are not rewritten, so an old mixed-case checkpoint cannot serve a job whose identifiers are now lowercase.
 
 ### Lance sink: BIGINT columns are created as int64
 
@@ -156,6 +207,27 @@ The same strictness applies wherever the shared JSON-to-row conversion is used w
   - **Impact**: With the defaults, timestamps are written as `yyyy-MM-dd HH:mm:ss` (a space instead of `T`, fractional seconds dropped) and times as `HH:mm:ss`. Readers that expect the previous ISO layout must be adjusted.
   - **Migration Guide**: To keep an ISO layout, set `datetime_format` on the sink, for example `YYYY_MM_DD_HH_MM_SS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss`) or `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss.SSS`) to keep milliseconds, and read the files with the matching source `datetime_format`.
 
+### Conditional option rules use AND-before-OR precedence
+
+SeaTunnel uses `Condition` to validate conditional option rules and to describe them in the Zeta REST API and metadata export CLI. The deprecated public `Expression` class, constructor, factories, getters and validator method from 3.1.0 remain available to existing plugin jars.
+
+On upgrade, the runtime flattens a legacy expression into a chain of conditions and evaluates AND before OR. This applies to precompiled plugins too. For example, 3.1.0 evaluated `A.and(B).or(C)` as `A && (B || C)`. It now means `(A && B) || C`. With A and B false and C true, the required option is enforced. Group boundaries inside a chain of legacy expression nodes also disappear. If your rule depends on grouping, rewrite it explicitly, for example `A && (B || C)` as `(A && B) || (A && C)`.
+
+New rules can pass a trigger to `conditional(trigger, requiredOptions...)` or `conditionalRule(trigger, nestedRule)`. Declare the referenced options first and read the trigger with `getCondition()`. Legacy `getExpression()` returns a detached view with one outer node per OR alternative. Each node holds its AND conditions. To change a rule, construct it with the new trigger.
+
+```java
+Condition<?> trigger = Condition.of(MODE, "snapshot").or(REPLAY, true);
+OptionRule rule = OptionRule.builder()
+        .optional(MODE, REPLAY)
+        .conditional(trigger, START_TIME)
+        .conditionalRule(trigger, OptionRule.builder().bundled(USERNAME, PASSWORD).build())
+        .build();
+```
+
+Tools that consume validation messages or metadata should expect AND-before-OR grouping in the rendered text. In a conditional rule's exported trigger tree, follow `operator` and `next` on the expression nodes. Each node's `condition` describes one predicate.
+
+`Condition.equals` and `hashCode` include each node's `ConditionExtension`. Factories that need equivalent rules to compare equal can reuse an extension instance or give it value-based `equals` and `hashCode` implementations.
+
 ### Native CLI help exit code
 
 `seatunnel.sh -h` now exits with `0` instead of `234`.
@@ -174,6 +246,12 @@ protocol still uses `234`; its wrapper scripts continue to translate help to exi
 - **Behavior change**: For streaming jobs using `decoding.plugin.name = "pgoutput"`, columns not published by the PostgreSQL publication are excluded from the source schema. This includes generated columns before PostgreSQL 18, virtual generated columns, and columns omitted by a publication column list. Snapshot-only jobs and other decoding plugins are unchanged.
 - **Impact**: On the next job start or restore, snapshots and auto-created sink tables no longer include unpublished non-key columns. Existing sinks and downstream consumers that expect them may need schema or mapping changes; previously, streamed updates could write NULL into those columns or fail on a schema mismatch. If a required primary key column is unpublished, including in an INSERT-only publication, startup now fails instead of retaining the column and streaming NULL keys.
 - **Migration Guide**: Check the publication and downstream schema before upgrading. On PostgreSQL 18, a publication with `publish_generated_columns = stored` can retain stored generated columns; virtual generated columns remain unpublished. For a column-list publication, include every required primary key column (including configured `table-names-config.primaryKeys`) and all other required columns. PostgreSQL also requires replica identity columns when publishing UPDATE/DELETE. Update sink schemas and downstream mappings to omit other unpublished columns; publications without an explicit column list still follow the generated-column rules.
+
+### PostgreSQL CDC: ADD COLUMN of user-defined enum and range types
+
+- **Behavior change**: With `decoding.plugin.name = "pgoutput"` and schema changes enabled, an added column of a user-defined enum, range or multirange type carries the type name from `format_type(oid, NULL)`: quoted when needed and schema-qualified when the type's schema is not on the source connection's `search_path`. Previously the bare `pg_type.typname` was sent downstream.
+- **Impact**: A PostgreSQL JDBC sink now runs, for example, `ALTER TABLE ... ADD c inv.mood` instead of `ADD c mood`. A job whose sink resolved the bare name to a same-named type in another schema now fails in the sink. If the column type names cannot be read from the source `pg_type`, the job fails with `POSTGRES-05`.
+- **Migration Guide**: Before upgrading, create each user-defined type used by added columns in the sink database under the same schema as on the source.
 
 ### Markdown file source `child_ids` array
 
@@ -818,6 +896,14 @@ or state format migration is required.
   - **Description**: The XML reader previously parsed user-supplied files with a default dom4j `SAXReader`, leaving DTD processing and external entity resolution at their JAXP defaults. A crafted `DOCTYPE`/external-entity payload could disclose local worker-node files, trigger SSRF-style fetches, or exhaust memory via entity expansion ("billion laughs"). `XmlReadStrategy` now routes every parse through a hardened reader that enables JAXP secure processing, rejects any `<!DOCTYPE ...>` declaration outright, disables external general/parameter entities and external DTD loading, and installs a deny-all `EntityResolver` as a parser-agnostic backstop.
   - **Impact**: XML files that previously parsed successfully only because they carried a `<!DOCTYPE ...>` declaration — even a benign one with no external `SYSTEM`/`PUBLIC` reference — now fail with `FileConnectorException(FILE_READ_FAILED)`. There is no configuration option to opt back into the previous behavior.
   - **Migration Guide**: Remove the `DOCTYPE` declaration from XML files before ingesting them with SeaTunnel, or pre-process/re-export the file without it. Well-formed XML without a `DOCTYPE` declaration is unaffected. (#11250)
+
+### CDC Connector Changes
+
+- **Deprecation: inherited CDC sink schema-change no-op will be rejected after the compatibility window**
+  - **Affected component**: CDC jobs with `schema-changes.enabled = true` and a sink writer that does not implement `SupportSchemaEvolutionSinkWriter`
+  - **Description**: In `evolve` mode, both supported Flink sink paths prefer `SupportSchemaEvolutionSinkWriter` and retain explicitly overridden deprecated `SinkWriter.applySchemaChange` with a warning. For one release, a writer that inherits the default no-op also logs a warning and drops the event. This fallback will be removed in the next release. (#11162)
+  - **Impact**: Existing CDC jobs whose writer only inherits the deprecated no-op keep running during the compatibility window, but still do not evolve the sink schema and will fail after the fallback is removed.
+  - **Migration Guide**: Implement an idempotent `SupportSchemaEvolutionSinkWriter` for end-to-end evolution. Alternatively disable `schema-changes.enabled`, or exclude event types the sink should not receive. Use `schema-changes.behavior = ignore` only for comment-only changes; it does not suppress row-layout changes.
 
 ### Transform Changes
 
