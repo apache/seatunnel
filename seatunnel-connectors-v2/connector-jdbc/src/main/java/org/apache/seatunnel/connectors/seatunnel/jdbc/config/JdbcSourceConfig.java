@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.options.MultiTableCommonOptions;
 import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringSplitMode;
@@ -57,6 +58,16 @@ public class JdbcSourceConfig implements Serializable {
      */
     private boolean enableConcurrentRead;
 
+    /**
+     * Reader parallelism explicitly set on the source plugin block. Null when the plugin relies on
+     * the env-level parallelism, which the connector cannot observe; hash chunk capping is skipped
+     * in that case to avoid capping against a wrong reader count.
+     */
+    private Integer explicitReaderParallelism;
+
+    /** Whether to cap hash chunk count at the explicit reader parallelism. */
+    private boolean hashShardParallelismCap;
+
     private StringSplitMode stringSplitMode;
 
     private StringSplitStrategy stringSplitStrategy;
@@ -93,6 +104,11 @@ public class JdbcSourceConfig implements Serializable {
         builder.multiTableFailurePolicy(
                 config.get(MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY));
         builder.enableConcurrentRead(config.get(JdbcSourceOptions.ENABLE_CONCURRENT_READ));
+
+        config.getOptional(EnvCommonOptions.PARALLELISM)
+                .ifPresent(builder::explicitReaderParallelism);
+        builder.hashShardParallelismCap(
+                config.get(JdbcSourceOptions.SPLIT_HASH_SHARD_PARALLELISM_CAP));
 
         config.getOptional(JdbcSourceOptions.WHERE_CONDITION)
                 .ifPresent(builder::whereConditionClause);

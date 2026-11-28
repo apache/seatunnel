@@ -1025,6 +1025,135 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    /**
+     * The default-on hash chunk cap must not change which rows a String-split source reads. With
+     * {@code split.size = 10} and 100 rows MySQL plans 11 hash chunks; an explicit plugin {@code
+     * parallelism = 4} caps them at 4 chunks with residues 0..3, while the opt-out and the absent
+     * plugin parallelism keep the 11 chunks. Every id is read exactly once in all three plans.
+     */
+    @Test
+    public void testStringHashSplitsCapAtExplicitPluginParallelism() throws Exception {
+        String tableName = "hash_shard_cap_string";
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE "
+                            + MYSQL_DATABASE
+                            + "."
+                            + tableName
+                            + " (id INT NOT NULL, code VARCHAR(32) NOT NULL, PRIMARY KEY (id))");
+            try {
+                try (PreparedStatement insert =
+                        connection.prepareStatement(
+                                "INSERT INTO "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + tableName
+                                        + " VALUES (?, ?)")) {
+                    for (int id = 1; id <= 100; id++) {
+                        insert.setInt(1, id);
+                        insert.setString(2, String.format("code%05d", id));
+                        insert.addBatch();
+                    }
+                    insert.executeBatch();
+                }
+                statement.execute("ANALYZE TABLE " + MYSQL_DATABASE + "." + tableName);
+
+                Map<String, Object> configMap = new HashMap<>();
+                configMap.put("url", mysqlUrlInfo.getUrlWithDatabase().get());
+                configMap.put("driver", "com.mysql.cj.jdbc.Driver");
+                configMap.put("user", MYSQL_USERNAME);
+                configMap.put("password", MYSQL_PASSWORD);
+                configMap.put("table_path", MYSQL_DATABASE + "." + tableName);
+                configMap.put("partition_column", "code");
+                configMap.put("split.string-strategy", "hash");
+                configMap.put("split.size", "10");
+
+                TablePath tablePath = TablePath.of(MYSQL_DATABASE, tableName);
+                try (MySqlCatalog mySqlCatalog =
+                        new MySqlCatalog(
+                                "mysql", MYSQL_USERNAME, MYSQL_PASSWORD, mysqlUrlInfo, null)) {
+                    mySqlCatalog.open();
+                    CatalogTable table = mySqlCatalog.getTable(tablePath);
+
+                    configMap.put("parallelism", 4);
+                    Collection<JdbcSourceSplit> cappedSplits =
+                            readEveryIdOnceByStringKey(configMap, table, tablePath, 100);
+                    Assertions.assertEquals(4, cappedSplits.size());
+                    Assertions.assertEquals(
+                            new HashSet<>(Arrays.asList(0, 1, 2, 3)), splitResidues(cappedSplits));
+
+                    configMap.put("split.hash-shard-parallelism-cap", false);
+                    Collection<JdbcSourceSplit> optedOutSplits =
+                            readEveryIdOnceByStringKey(configMap, table, tablePath, 100);
+                    Assertions.assertTrue(
+                            optedOutSplits.size() > cappedSplits.size(),
+                            "the opt-out must keep the uncapped chunk count, but planned "
+                                    + optedOutSplits.size());
+                    Assertions.assertEquals(
+                            11,
+                            optedOutSplits.size(),
+                            "split.size 10 over 100 rows must keep the prior 11 hash chunks");
+
+                    configMap.remove("split.hash-shard-parallelism-cap");
+                    configMap.remove("parallelism");
+                    Collection<JdbcSourceSplit> envParallelismOnlySplits =
+                            readEveryIdOnceByStringKey(configMap, table, tablePath, 100);
+                    Assertions.assertEquals(
+                            optedOutSplits.size(),
+                            envParallelismOnlySplits.size(),
+                            "an env-only parallelism must not change the planned chunk count");
+                }
+            } finally {
+                statement.execute("DROP TABLE IF EXISTS " + MYSQL_DATABASE + "." + tableName);
+            }
+        }
+    }
+
+    /**
+     * Plans the hash chunks of a String partition column from real MySQL metadata, runs every
+     * split, and asserts each expected id is read exactly once: a duplicate fails at once, a row
+     * that no split reads fails the final count.
+     */
+    private Collection<JdbcSourceSplit> readEveryIdOnceByStringKey(
+            Map<String, Object> configMap, CatalogTable table, TablePath tablePath, int rowCount)
+            throws Exception {
+        try (DynamicChunkSplitter splitter = getDynamicChunkSplitter(configMap)) {
+            Collection<JdbcSourceSplit> splits =
+                    splitter.generateSplits(
+                            JdbcSourceTable.builder()
+                                    .tablePath(tablePath)
+                                    .catalogTable(table)
+                                    .partitionColumn("code")
+                                    .build());
+            Set<Integer> ids = new HashSet<>();
+            for (JdbcSourceSplit split : splits) {
+                Assertions.assertEquals("code", split.getSplitKeyName());
+                try (PreparedStatement splitStatement =
+                                splitter.generateSplitStatement(split, table.getTableSchema());
+                        ResultSet resultSet = splitStatement.executeQuery()) {
+                    while (resultSet.next()) {
+                        int id = resultSet.getInt("id");
+                        Assertions.assertTrue(ids.add(id), "duplicated id: " + id);
+                    }
+                }
+            }
+            Assertions.assertEquals(rowCount, ids.size(), "every row must be read exactly once");
+            return splits;
+        }
+    }
+
+    private Set<Integer> splitResidues(Collection<JdbcSourceSplit> splits) {
+        Set<Integer> residues = new HashSet<>();
+        for (JdbcSourceSplit split : splits) {
+            Assertions.assertTrue(
+                    split.getSplitStart() instanceof Integer,
+                    "a hash chunk must carry its residue as an Integer");
+            Assertions.assertTrue(residues.add((Integer) split.getSplitStart()));
+        }
+        return residues;
+    }
+
     /** Inserts ids 1 to 100; every tenth row has a NULL code. */
     private void insertRowsWithNullCodes(Connection connection, String table, boolean withNo)
             throws SQLException {

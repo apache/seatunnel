@@ -70,6 +70,14 @@
   - **影响**：之前按可空主键列或唯一键列分片的表，现在会按下一个 NOT NULL 的键列分片；如果没有这样的列，则作为一个分片读取。这样表中的所有行都会被读取，回退为单个分片时并行度会降低。按 NOT NULL 主键或唯一键列分片的表、未配置 `partition_column` 的 `query` 数据源，以及配置了 `partition_column` 的作业不受影响。从 checkpoint 恢复的作业会保留已生成的分片，此变化只作用于恢复后才分片的表。
   - **迁移指南**：无需修改配置。如需重新并行读取这类表，请将该键列声明为 `NOT NULL`，或将 `partition_column` 设置为不含 NULL 值的列。如果下游表由受影响的作业写入，请重新加载以补齐被跳过的行。
 
+### JDBC Source：String 哈希分片数默认限制为插件显式并行度
+
+- **行为变化：String 分片键的哈希分片计划默认按源插件显式设置的 `parallelism` 限制分片数**
+  - **影响范围**：`seatunnel-connectors-v2/connector-jdbc` 的 Source，适用于动态分片计划使用哈希分片的 String 分片键。
+  - **描述**：动态分片此前只根据预估行数和 `split.size` 计算哈希分片数，因此带 String 分片键的大表可能生成几十个分片。哈希分片条件会对分片列套用哈希函数，任何索引都无法命中，因此每个分片都会全表扫描，总扫描开销随分片数线性增长。新增的 `split.hash-shard-parallelism-cap` 选项默认值为 `true`，会把分片数限制为源插件显式设置的 `parallelism`；各分片仍使用同一模数的 `0..N-1` 余数，因此依然是同一批行的一个划分，每个 Reader 也仍然都有分片可读。
+  - **影响**：在 JDBC Source 上设置了 `parallelism` 且按哈希方式对 String 列分片的作业，现在最多生成 `parallelism` 个分片，而不再沿用此前的分片数，因此每个分片读取的行数更多，全表扫描次数被限制在 Reader 数量级。选项、行数据和 checkpoint 中的分片结构均不变。未在源插件上设置 `parallelism` 的作业保持此前的分片数，因为此时实际 Reader 数可能来自 `env` 块，连接器无法感知。
+  - **迁移指南**：无需修改配置。如需保持此前的分片数，请设置 `split.hash-shard-parallelism-cap = false`；或为数值列建立索引并将其配置为 `partition_column`，让分片命中索引而不是使用哈希分片。从 checkpoint 恢复的作业会保留已经生成的分片，该上限只作用于恢复之后才分片的表。
+
 ### JDBC Sink：未提交数据丢失后拒绝提交
 
 - **影响范围**：开启 checkpoint 且使用手动提交连接的非 XA JDBC Sink（`auto_commit = false`，

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -25,9 +26,11 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.common.utils.HashUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSourceState;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -282,6 +285,101 @@ class JdbcSourceSplitEnumeratorTest {
         Assertions.assertEquals(
                 Collections.singletonList("returned-split"), assignedSplitBatches.get(1));
         Assertions.assertEquals(1, noMoreSplitsCallCount.get());
+    }
+
+    /**
+     * A restored job must assign the hash chunks saved in the checkpoint instead of replanning
+     * them. The restored config sets a different parallelism, so replanning would produce a
+     * different chunk count and different predicates, and it would also need a live database that
+     * this test does not provide. The capped modulus and the residues of the saved chunks must
+     * therefore reach the readers unchanged.
+     */
+    @Test
+    void testRestoredHashSplitsKeepSavedPredicatesWithoutReplanning() throws Exception {
+        int parallelism = 2;
+        TablePath tablePath = TablePath.of("testdb", "test_table");
+
+        Map<TablePath, JdbcSourceTable> tables = new HashMap<>();
+        tables.put(tablePath, createJdbcSourceTable(tablePath));
+
+        List<JdbcSourceSplit> savedSplits = new ArrayList<>();
+        for (int residue = 0; residue < 4; residue++) {
+            savedSplits.add(
+                    new JdbcSourceSplit(
+                            tablePath,
+                            tablePath + "-" + residue,
+                            "SELECT * FROM `testdb`.`test_table` WHERE ABS(CRC32(`code`) % 4) = ?",
+                            "code",
+                            BasicType.STRING_TYPE,
+                            residue,
+                            null));
+        }
+        Map<Integer, List<JdbcSourceSplit>> pendingSplits = new HashMap<>();
+        pendingSplits.put(0, savedSplits);
+        JdbcSourceState restoredState =
+                new JdbcSourceState(new ArrayList<TablePath>(), pendingSplits);
+
+        List<JdbcSourceSplit> assignedSplits = new ArrayList<>();
+        SourceSplitEnumerator.Context<JdbcSourceSplit> context =
+                new SourceSplitEnumerator.Context<JdbcSourceSplit>() {
+                    @Override
+                    public int currentParallelism() {
+                        return parallelism;
+                    }
+
+                    @Override
+                    public Set<Integer> registeredReaders() {
+                        return Collections.singleton(0);
+                    }
+
+                    @Override
+                    public void assignSplit(int subtaskId, List<JdbcSourceSplit> splits) {
+                        assignedSplits.addAll(splits);
+                    }
+
+                    @Override
+                    public void signalNoMoreSplits(int subtask) {}
+
+                    @Override
+                    public void sendEventToSourceReader(int subtaskId, SourceEvent event) {}
+
+                    @Override
+                    public MetricsContext getMetricsContext() {
+                        return null;
+                    }
+
+                    @Override
+                    public EventListener getEventListener() {
+                        return null;
+                    }
+                };
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("url", "jdbc:mysql://localhost:3306/testdb");
+        configMap.put("driver", "com.mysql.cj.jdbc.Driver");
+        configMap.put("table_path", "testdb.test_table");
+        configMap.put("split.string-strategy", "hash");
+        configMap.put("parallelism", parallelism);
+        JdbcSourceConfig sourceConfig = JdbcSourceConfig.of(ReadonlyConfig.fromMap(configMap));
+
+        JdbcSourceSplitEnumerator enumerator =
+                new JdbcSourceSplitEnumerator(context, sourceConfig, tables, restoredState);
+        enumerator.run();
+        // A restore has no pending tables, so the saved splits are assigned when the reader
+        // registers instead of being planned again.
+        enumerator.registerReader(0);
+
+        Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
+        Assertions.assertEquals(savedSplits, assignedSplits);
+        Assertions.assertEquals(
+                4,
+                assignedSplits.size(),
+                "the restored capped hash chunks must not be replanned at the new parallelism");
+        for (JdbcSourceSplit split : assignedSplits) {
+            Assertions.assertTrue(
+                    split.getSplitQuery().contains("% 4) = ?"),
+                    "the saved capped modulus must be kept: " + split.getSplitQuery());
+        }
     }
 
     private JdbcSourceTable createJdbcSourceTable(TablePath tablePath) {

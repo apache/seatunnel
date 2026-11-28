@@ -207,6 +207,7 @@ JDBC Source 是有界（bounded）数据源：完成一次快照读取后即结�
 | split.inverse-sampling.rate                | Int     | 否    | 1000            | 采样分片策略中使用的采样率的倒数。例如，如果此值设置为 1000，则表示在采样过程中应用 1/1000 的采样率。此选项提供了控制采样粒度的灵活性，从而影响最终的分片数量。在处理大数据集时尤为有用，此时较低的采样率可能更合适。默认值为 1000。                                                                                                            |
 | split.allow-sampling                       | Boolean | 否    | true            | 是否启用基于采样的分片策略。当设置为 false 时，无论预估分片数是否超过阈值，系统都将回退到非均匀分片方式（迭代查询方式）。默认值为 true。                                                                                                                                                                                              |
 | enable_concurrent_read                     | Boolean | 否    | true            | 是否在快照阶段启用基于分片的并发读取。当设置为 false 时，source 会跳过分片分析，并以单个 split 读取整张表，适合没有索引的表。默认值为 true。                                                                                                                                                                                          |
+| split.hash-shard-parallelism-cap           | Boolean | 否        | true            | 是否将 String 分片键的哈希分片数限制为源插件显式设置的 `parallelism`。哈希分片条件会对分片列套用哈希函数，任何索引都无法命中，因此每个分片都会全表扫描；该上限用于限制这种读放大。源插件未显式配置 `parallelism` 时不生效，因为此时实际 Reader 数可能来自 env 块，连接器无法感知。 |
 | split.string_split_mode                    | Enum    | 否    | sample          | 支持不同的字符串分割算法。默认使用 `sample`，通过采样字符串值来确定分割。可以切换为 `charset_based` 启用基于字符集的字符串分割算法。设置为 `charset_based` 时，算法假定 partition_column 的字符在 ASCII 32-126 范围内，覆盖了大多数基于字符的分割场景。                                                                                                                                                    |
 | split.string-strategy                      | Enum    | 否    | -               | 控制 String 分区列的分片方式，可选值为 `none`、`hash`、`range`、`auto`。`range` 和 `auto` 当前要求 MySQL binary collation，且键值为固定长度的可打印 ASCII 字符串。其他 JDBC 方言在显式验证 range 分片支持前会拒绝 `range` 和 `auto`。`auto` 会优先尝试 range 分片，range 不安全时回退为 hash 分片。未设置该参数时，SeaTunnel 保持现有 `split.string_split_mode` 行为。                                                                                                                                                                                                                                                                       |
 | split.string_split_mode_collate            | String  | 否    | -               | 当 string_split_mode 设置为 `charset_based` 且表具有特殊排序规则时，指定要使用的排序规则。如果未指定，将使用数据库的默认排序规则。                                                                                                                                                                                                            |
@@ -365,6 +366,10 @@ CockroachDB 不支持 PostgreSQL 的 `HASHTEXT` 函数。本方言使用 `FNV32`
 整表快照建议配置 `table_path`，通常让 SeaTunnel 自动发现分片键。显式配置 `partition_column` 时优先使用该列；否则依次从主键和唯一索引中选择第一个受支持且为 NOT NULL 的列；可为空的列会被跳过并输出 WARN 日志，因为该列为 NULL 的行不会被读取。自动选择依据表的元数据判断列是否可为空，因此只适用于 `table_path` 读取：未配置 `partition_column` 的 `query` 使用一个分片读取。显式配置的 `partition_column` 按配置使用，不做此检查。支持 String、数值和 Date 类型的分片键。
 
 `split.size` 表示每个分片的目标行数，并不是严格的行数上限，实际大小会受到键值分布和数据库统计信息影响。如果表没有可用的 NOT NULL 主键或唯一索引列，也没有显式 `partition_column`，即使任务并行度大于 1，该表仍然只有一个读取分片。
+
+### String 分片键与哈希分片
+
+当分片键是 String 列时，动态分片默认使用哈希分片。哈希分片条件会对分片列套用哈希函数，任何索引都无法命中，因此每个分片都会全表扫描，总扫描开销随分片数线性增长。`split.hash-shard-parallelism-cap`（默认 `true`）会把分片数限制为源插件显式设置的 `parallelism`：这样既能保证每个 Reader 都有分片可读，又把扫描放大限制在 Reader 数量级。源插件未显式配置 `parallelism` 时，连接器无法感知实际 Reader 数，因此不做限制。如需恢复更细粒度的分片，可设置 `split.hash-shard-parallelism-cap = false`；该上限只影响扫描开销，不改变分片覆盖的数据范围。
 
 ### 顶层 `query` 固定分区
 
