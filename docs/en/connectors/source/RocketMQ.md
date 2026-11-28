@@ -1,8 +1,12 @@
 import ChangeLog from '../changelog/connector-rocketmq.md';
 
-# RocketMQ
+# RocketMQ Source Connector
 
 > RocketMQ source connector
+
+## Description
+
+Reads messages from Apache RocketMQ topics. The connector can read one or more topics with one schema, or use `tables_configs` to read multiple topics with different schemas.
 
 ## Support Apache RocketMQ Version
 
@@ -23,10 +27,6 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
-
-## Description
-
-Reads messages from Apache RocketMQ topics. The connector can read one or more topics with one schema, or use `tables_configs` to read multiple topics with different schemas.
 
 ## Source Options
 

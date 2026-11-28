@@ -30,12 +30,12 @@ Amazon DynamoDB 写入连接器用于将 SeaTunnel 数据行写入 DynamoDB 表�
 | region              | string | 是   | -      | DynamoDB 所在的 AWS 区域。    |
 | access_key_id       | string | 是   | -      | AWS access key ID。           |
 | secret_access_key   | string | 是   | -      | AWS secret access key。       |
-| table               | string | 是   | -      | 要写入的 DynamoDB 表名。      |
-| batch_size          | int    | 否   | 25     | 一次批量写入请求缓存的记录数。 |
+| table               | string | 是   | -      | 要写入的 DynamoDB 表名。仅当上游数据行未携带表标识（table id）时，才作为该行的目标表；否则优先使用行内的表标识。 |
+| batch_size          | int    | 否   | 25     | 一次 DynamoDB 批量写入请求缓存的记录数。服务每次 batch write 最多支持 25 条写请求，请勿设置为大于 `25`。 |
 | multi_table_sink_replica | int | 否   | 1      | 每张表对应的 Sink Writer 副本数。 |
 | max_retries         | int    | 否   | 10     | 未处理 item 的最大重试次数，必须大于等于 `0`。 |
 | retry_base_delay_ms | long   | 否   | 100    | 初始重试等待时间，单位毫秒。  |
-| retry_max_delay_ms  | long   | 否   | 5000   | 最大重试等待时间，单位毫秒。  |
+| retry_max_delay_ms  | long   | 否   | 5000   | 加入抖动前的指数退避上限，单位为毫秒。 |
 | common-options      | object | 否   | -      | Sink 插件通用参数。           |
 
 ### url [string]
@@ -84,7 +84,7 @@ DynamoDB batch write 每次最多支持 25 条写请求，所以默认值为 `25
 
 ### retry_max_delay_ms [long]
 
-重试之间的最大等待时间，单位为毫秒。
+指数退避先按此值限制等待毫秒数，再额外加入最多为该次等待时间 50% 的抖动。
 
 ### 通用选项
 

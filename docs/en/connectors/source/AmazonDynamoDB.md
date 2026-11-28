@@ -1,16 +1,12 @@
 import ChangeLog from '../changelog/connector-amazondynamodb.md';
 
-# AmazonDynamoDB
+# AmazonDynamoDB Source Connector
 
-> Amazon DynamoDB source connector
+> AmazonDynamoDB source connector
 
 ## Description
 
-The Amazon DynamoDB source connector reads existing items from an Amazon DynamoDB table by using DynamoDB scan requests.
-
-The connector is a batch source. DynamoDB does not expose field types in the same way as a relational database, so the SeaTunnel schema must be configured explicitly.
-
-This source reads the current table data with scan requests. It does not read DynamoDB Streams or CDC change events.
+Read existing items from an Amazon DynamoDB table by issuing DynamoDB scan requests. The connector is a batch source; DynamoDB does not expose field types the way a relational database does, so the SeaTunnel schema must be configured explicitly. This source reads the current table data with scan requests. It does **not** subscribe to DynamoDB Streams or CDC change events.
 
 Use `tables_configs` to read several DynamoDB tables with different schemas through one source.
 
@@ -30,9 +26,9 @@ Use `tables_configs` to read several DynamoDB tables with different schemas thro
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 - [x] [multi-table](../../introduction/concepts/connector-v2-features.md)
 
-## Options
+## Source Options
 
-| name                  | type   | required | default value | description                                      |
+| Name                  | Type   | Required | Default Value | Description                                      |
 |-----------------------|--------|----------|---------------|--------------------------------------------------|
 | url                   | string | yes      | -             | DynamoDB endpoint URL.                           |
 | region                | string | yes      | -             | AWS region of the DynamoDB service.              |

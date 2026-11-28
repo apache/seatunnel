@@ -1,8 +1,12 @@
 import ChangeLog from '../changelog/connector-jdbc.md';
 
-# Kingbase
+# Kingbase 目标连接器
 
-> JDBC Kingbase Sink 连接器
+> Kingbase 目标连接器（通过 JDBC 插件）
+
+## 描述
+
+通过 JDBC 连接器向 KingbaseES 数据库写入数据。Kingbase 只需将 JDBC 插件的 `driver` 设置为 `com.kingbase8.Driver`，`url` 配置为 `jdbc:kingbase8://` 地址。写入侧提供批量刷写，以及基于 XA 事务的可选精确一次模式；但精确一次仅在 Kingbase JDBC 驱动暴露 XA `DataSource` 时才能正常工作；如果不支持，请保持 `is_exactly_once=false`。
 
 ## 支持连接器版本
 
@@ -16,13 +20,12 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 关键特性
 
+- [x] [批](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
-## 描述
-
-> 使用 `XA 事务` 来确保 `精确一次`。因此仅支持支持 `XA 事务` 的数据库的 `精确一次`。您可以设置 `is_exactly_once=true` 来启用它。Kingbase 目前不支持
+JDBC Sink 的驱动参考表没有为 Kingbase 列出 XA `DataSource` 类。请保持 `is_exactly_once = false`，直到确认当前驱动提供可用的 XA `DataSource`。
 
 ## 支持的数据源信息
 
@@ -70,9 +73,9 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | max_retries                               | Int     | 否   | 0       | 提交失败的重试次数 (executeBatch)                                                                                                                                                                                        |
 | batch_size                                | Int     | 否   | 1000    | 对于批量写入，当缓冲记录数达到 `batch_size` 数量或时间达到 `checkpoint.interval` 时<br/>，数据将被刷新到数据库                                                         |
 | batch_interval_ms                         | Long    | 否   | 0       | 写入触发的定时刷新间隔，单位毫秒。`0` 表示关闭定时刷新；大于 `0` 时，每次写入会检查距离上次刷新是否已超过该间隔，超过则同步刷新。 |
-| is_exactly_once                           | Boolean | 否   | false   | 是否启用精确一次语义，这将使用 Xa 事务。如果启用，您需要<br/>设置 `xa_data_source_class_name`。Kingbase 目前不支持                                                                        |
+| is_exactly_once | Boolean | 否 | false | 启用 XA 事务时，需要在 `xa_data_source_class_name` 中填写已验证的驱动 XA 类。 |
 | generate_sink_sql                         | Boolean | 否   | false   | 根据您要写入的数据库表生成 sql 语句                                                                                                                                                                     |
-| xa_data_source_class_name                 | String  | 否   | -       | 数据库驱动程序的 xa 数据源类名，Kingbase 目前不支持                                                                                                                                                     |
+| xa_data_source_class_name | String | `is_exactly_once = true` 时必填 | - | 已针对当前 Kingbase JDBC 驱动版本验证的 XA `DataSource` 全限定类名。 |
 | max_commit_attempts                       | Int     | 否   | 3       | 事务提交失败的重试次数                                                                                                                                                                                        |
 | transaction_timeout_sec                   | Int     | 否   | -1      | 事务打开后的超时时间，默认为 -1（永不超时）。请注意，设置超时可能会影响<br/>精确一次语义                                                                                          |
 | auto_commit                               | Boolean | 否   | true    | 默认启用自动事务提交                                                                                                                                                                           |

@@ -1,8 +1,12 @@
 import ChangeLog from '../changelog/connector-jdbc.md';
 
-# Kingbase
+# Kingbase Sink Connector
 
-> JDBC Kingbase Sink Connector
+> Kingbase sink connector (via the JDBC plugin)
+
+## Description
+
+Write data to a KingbaseES database through the JDBC connector. Kingbase is configured by setting the JDBC plugin's `driver` to `com.kingbase8.Driver` and `url` to a `jdbc:kingbase8://` URL. Writes support batch flushing and the optional XA-based exactly-once mode that the generic JDBC sink provides — but only if the Kingbase JDBC driver exposes an XA `DataSource`; if not, keep `is_exactly_once=false`.
 
 ## Support Connector Version
 
@@ -16,14 +20,12 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## Key Features
 
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-## Description
-
-> Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
-> support `Xa transactions`. You can set `is_exactly_once=true` to enable it.Kingbase currently does not support
+The JDBC sink's driver reference lists no XA `DataSource` class for Kingbase. Keep `is_exactly_once = false` unless you have verified an XA `DataSource` for your driver version.
 
 ## Supported DataSource Info
 
@@ -71,9 +73,9 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | max_retries                               | Int     | No       | 0       | The number of retries to submit failed (executeBatch)                                                                                                                                                                                        |
 | batch_size                                | Int     | No       | 1000    | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`<br/>, the data will be flushed into the database                                                         |
 | batch_interval_ms                         | Long    | No       | 0       | Write-triggered flush interval in milliseconds. `0` disables interval flushing. When the value is greater than `0`, each write checks elapsed time and flushes synchronously if the interval has passed. |
-| is_exactly_once                           | Boolean | No       | false   | Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to<br/>set `xa_data_source_class_name`. Kingbase currently does not support                                                                        |
+| is_exactly_once | Boolean | No | false | Enables XA transactions with a verified driver XA class in `xa_data_source_class_name`. |
 | generate_sink_sql                         | Boolean | No       | false   | Generate sql statements based on the database table you want to write to                                                                                                                                                                     |
-| xa_data_source_class_name                 | String  | No       | -       | The xa data source class name of the database Driver，Kingbase currently does not support                                                                                                                                                     |
+| xa_data_source_class_name | String | Required when `is_exactly_once = true` | - | Fully qualified name of an XA `DataSource` class verified for the configured Kingbase JDBC driver version. |
 | max_commit_attempts                       | Int     | No       | 3       | The number of retries for transaction commit failures                                                                                                                                                                                        |
 | transaction_timeout_sec                   | Int     | No       | -1      | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect<br/>exactly-once semantics                                                                                          |
 | auto_commit                               | Boolean | No       | true    | Automatic transaction commit is enabled by default                                                                                                                                                                                           |

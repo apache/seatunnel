@@ -1,19 +1,18 @@
 import ChangeLog from '../changelog/connector-jdbc.md';
 
-# Vertica
+# Vertica Sink Connector
 
-> JDBC Vertica Sink Connector
+> Vertica sink connector (via the JDBC plugin)
+
+## Description
+
+Write data to a Vertica database through the JDBC connector. Vertica is configured by setting the JDBC plugin's `driver` to `com.vertica.jdbc.Driver` and `url` to a `jdbc:vertica://` URL. Both batch and streaming jobs are supported, and the sink can run with concurrent writers. Exactly-once is **not** enabled by default: Vertica is not listed with a JDBC XA data source in the shared JDBC appendix, so keep `is_exactly_once = false` unless your Vertica driver exposes a compatible XA `DataSource`.
 
 ## Support Those Engines
 
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
-
-## Description
-
-Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing. Exactly-once
-semantics (XA transaction guarantee) is not supported because Vertica has no JDBC XA data source.
 
 ## Using Dependency
 
@@ -27,10 +26,9 @@ semantics (XA transaction guarantee) is not supported because Vertica has no JDB
 
 ## Key Features
 
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
-
-> Vertica is listed without a JDBC XA data source in the shared JDBC appendix, so this connector should be used with the default `is_exactly_once=false`.
 - [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Supported DataSource Info
