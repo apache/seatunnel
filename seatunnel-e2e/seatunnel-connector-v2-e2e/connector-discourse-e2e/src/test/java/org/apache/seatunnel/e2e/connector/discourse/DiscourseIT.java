@@ -18,8 +18,10 @@ package org.apache.seatunnel.e2e.connector.discourse;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -35,9 +37,25 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
+/**
+ * Verifies packaged plugin discovery and both bounded metadata resources across supported engines.
+ * The anonymous local fixture checks engine execution, without claiming live-site authorization.
+ */
 public class DiscourseIT extends TestSuiteBase implements TestResource {
     private static HttpServer server;
+    // The extra Zeta job holds its response until a real checkpoint completes, without a sleep
+    // race.
+    private static final CountDownLatch checkpointRequest = new CountDownLatch(1);
+    private static final CountDownLatch releaseCheckpointResponse = new CountDownLatch(1);
 
     @BeforeAll
     @Override
@@ -61,6 +79,25 @@ public class DiscourseIT extends TestSuiteBase implements TestResource {
                                 "{\"topic_list\":{\"more_topics_url\":\"/do-not-follow\",\"topics\":["
                                         + "{\"id\":123,\"title\":\"Pipeline Support\",\"slug\":\"pipeline-support\","
                                         + "\"category_id\":4,\"posts_count\":5,\"closed\":false}]}}"));
+        server.createContext(
+                "/checkpoint/latest.json",
+                exchange -> {
+                    checkpointRequest.countDown();
+                    try {
+                        if (!releaseCheckpointResponse.await(25, TimeUnit.SECONDS)) {
+                            throw new IOException("Timed out waiting for the checkpoint assertion");
+                        }
+                        respond(
+                                exchange,
+                                "per_page=2",
+                                "{\"topic_list\":{\"topics\":[{\"id\":123,\"title\":\"Pipeline Support\",\"slug\":\"pipeline-support\"}]}}");
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new IOException("Checkpoint fixture was interrupted", e);
+                    } finally {
+                        exchange.close();
+                    }
+                });
         server.start();
         Testcontainers.exposeHostPorts(server.getAddress().getPort());
     }
@@ -89,6 +126,7 @@ public class DiscourseIT extends TestSuiteBase implements TestResource {
     @AfterAll
     @Override
     public void tearDown() {
+        releaseCheckpointResponse.countDown();
         if (server != null) {
             server.stop(0);
         }
@@ -99,6 +137,44 @@ public class DiscourseIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
         verify(container, "/discourse_categories_to_assert.conf");
         verify(container, "/discourse_topics_to_assert.conf");
+        if (container.identifier().getEngineType() == EngineType.SEATUNNEL) {
+            verifyCheckpointDuringHttp(container);
+        }
+    }
+
+    /*
+     * Reuses the existing Zeta container only: completion must advance while the HTTP response is
+     * held, then the same Assert rules must observe the fully decoded row with retries disabled.
+     */
+    private void verifyCheckpointDuringHttp(TestContainer container)
+            throws IOException, InterruptedException {
+        String jobId = Long.toString(ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE));
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<Container.ExecResult> job =
+                    executor.submit(
+                            () ->
+                                    container.executeJob(
+                                            "/discourse_topics_checkpoint_to_assert.conf",
+                                            jobId,
+                                            "discourse.test.port="
+                                                    + server.getAddress().getPort()));
+            Assertions.assertTrue(checkpointRequest.await(15, TimeUnit.SECONDS));
+            long completedBefore = container.getCompletedCheckpointCount(jobId);
+            Awaitility.await()
+                    .atMost(15, TimeUnit.SECONDS)
+                    .until(() -> container.getCompletedCheckpointCount(jobId) > completedBefore);
+            Assertions.assertFalse(
+                    job.isDone(), "The response must still be held at checkpoint completion");
+            releaseCheckpointResponse.countDown();
+            Container.ExecResult result = job.get(30, TimeUnit.SECONDS);
+            Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        } catch (ExecutionException | TimeoutException e) {
+            throw new IOException("Checkpointed Discourse job did not complete", e);
+        } finally {
+            releaseCheckpointResponse.countDown();
+            executor.shutdownNow();
+        }
     }
 
     private void verify(TestContainer container, String config)

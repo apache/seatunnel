@@ -28,6 +28,10 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
+/**
+ * Registers the dedicated Discourse source through Factory SPI and validates resource-specific
+ * options before constructing the bounded metadata reader.
+ */
 @AutoService(Factory.class)
 public class DiscourseSourceFactory implements TableSourceFactory {
     @Override

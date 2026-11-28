@@ -41,6 +41,8 @@ before starting another job.
 `CATEGORIES` calls `GET /categories.json`. It emits `id` (BIGINT), `name` and `slug` (STRING),
 and `parent_category_id`, `topic_count`, and `post_count` (nullable BIGINT). Top-level categories
 have no parent. IDs are scoped to the site and resource, not globally unique across sites.
+Only the categories and descendants returned in this single response are read. Site lazy-loading
+or pagination policy may omit other categories; `include_subcategories` does not guarantee all descendants.
 
 `LATEST_TOPICS` calls `GET /latest.json`. It emits `id` (BIGINT), `title` and `slug` (STRING),
 `category_id`, `posts_count`, and `views` (nullable BIGINT), `created_at` and `last_posted_at`
@@ -51,7 +53,10 @@ The output reflects only objects visible to the configured identity. A run does 
 links and is not a full forum export, a consistent history snapshot, or an incremental sync. It does
 not read individual posts, message bodies, user records, or audit data. Reruns may return overlapping
 or different rows. Use the source's `id` and the site identity if you need to deduplicate in a sink.
-Decoded responses larger than 16 MiB fail the job rather than producing partial results.
+Decoded responses larger than 16 MiB fail the job rather than producing partial results. The HTTP
+fetch has a 30-second elapsed deadline, including continuously progressing responses. A timeout
+fails the fetch without emitting partially decoded rows. Responses are limited to 100 headers and
+16 KiB per status/header line.
 
 ## Example
 

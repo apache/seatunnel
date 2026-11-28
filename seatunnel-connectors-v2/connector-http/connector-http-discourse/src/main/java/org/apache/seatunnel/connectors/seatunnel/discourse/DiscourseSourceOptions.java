@@ -60,9 +60,9 @@ final class DiscourseSourceOptions {
                     .withDescription(
                             "Number of topics requested for LATEST_TOPICS, from 1 to 100.");
 
-    /*
-     * Maps each resource to its response envelope and row-array name.
-     * These names also determine the produced table path; latest topics remain a single page.
+    /**
+     * Maps each resource to its response envelope and row-array name. These names also determine
+     * the produced table path; latest topics remain a single page.
      */
     enum Resource {
         CATEGORIES("categories", "category_list"),

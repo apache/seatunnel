@@ -37,7 +37,8 @@ Discourse Source 通过 [Discourse API](https://docs.discourse.org/) 读取一�
 
 `CATEGORIES` 调用 `GET /categories.json`，输出 `id`（BIGINT），`name`、`slug`（STRING），
 以及 `parent_category_id`、`topic_count`、`post_count`（可空 BIGINT）。顶层分类没有父分类。
-ID 仅在同一站点和同一资源内有效，不保证跨站点唯一。
+ID 仅在同一站点和同一资源内有效，不保证跨站点唯一。只读取本次响应实际返回的分类及后代；
+站点的延迟加载或分页策略可能省略其他分类，`include_subcategories` 不保证返回所有后代。
 
 `LATEST_TOPICS` 调用 `GET /latest.json`，输出 `id`（BIGINT），`title`、`slug`（STRING），
 `category_id`、`posts_count`、`views`（可空 BIGINT），`created_at`、`last_posted_at`
@@ -46,6 +47,8 @@ ID 仅在同一站点和同一资源内有效，不保证跨站点唯一。
 结果仅包含所用身份可见的记录。连接器不跟随主题后续分页链接，不提供论坛全量导出、历史一致性快照或增量同步；
 不读取单篇帖子、消息正文、用户记录或审计数据。重复运行时输出可能有重叠或变化；跨站写入同一目标时，可使用站点
 标识和 `id` 去重。解码后的响应超过 16 MiB 时，任务失败，而不是输出不完整的结果。
+HTTP 获取具有 30 秒的总耗时上限，即使响应持续传输也适用；超时时获取失败，不输出部分解码的记录。
+响应最多包含 100 个头字段，每条状态行或头字段行最多为 16 KiB。
 
 ## 示例
 
