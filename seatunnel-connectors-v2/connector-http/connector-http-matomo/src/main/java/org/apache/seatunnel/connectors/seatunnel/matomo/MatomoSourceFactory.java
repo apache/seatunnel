@@ -29,6 +29,10 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
+/**
+ * Registers the dedicated bounded daily-report source and validates its shared option definitions
+ * before creating the catalog-based reporting implementation.
+ */
 @AutoService(Factory.class)
 public final class MatomoSourceFactory implements TableSourceFactory {
     @Override

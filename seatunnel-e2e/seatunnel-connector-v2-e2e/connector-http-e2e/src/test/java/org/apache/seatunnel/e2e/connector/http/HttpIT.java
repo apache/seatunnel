@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
@@ -61,11 +62,18 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -75,6 +83,10 @@ import static org.awaitility.Awaitility.given;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
+/**
+ * Exercises installed HTTP-based connectors against the shared controlled server. The Matomo
+ * extension also observes real checkpoint progress while one validated daily response drains.
+ */
 @Slf4j
 public class HttpIT extends TestSuiteBase implements TestResource {
 
@@ -409,6 +421,9 @@ public class HttpIT extends TestSuiteBase implements TestResource {
         Container.ExecResult result = container.executeJob("/matomo_daily_to_assert.conf");
         Assertions.assertEquals(0, result.getExitCode());
         mockServerClient.verify(reportRequest);
+        if (container.identifier().getEngineType() == EngineType.SEATUNNEL) {
+            verifyMatomoCheckpointHandoff(container);
+        }
     }
 
     @TestTemplate
@@ -496,5 +511,99 @@ public class HttpIT extends TestSuiteBase implements TestResource {
 
     public String getMockServerConfig() {
         return "/mockserver-config.json";
+    }
+    /**
+     * Reuses only the existing Zeta invocation. Console dates observe accepted rows; independently
+     * completed checkpoints, one HTTP request and final exact output prove the decoded-page path.
+     */
+    private void verifyMatomoCheckpointHandoff(TestContainer container)
+            throws IOException, InterruptedException {
+        LocalDate first = LocalDate.of(2026, 1, 1);
+        List<String> expected = new ArrayList<>();
+        StringBuilder body = new StringBuilder("{");
+        for (int i = 0; i < 100; i++) {
+            String date = first.plusDays(i).toString();
+            expected.add(date);
+            if (i > 0) {
+                body.append(',');
+            }
+            body.append('"').append(date).append("\":{\"nb_visits\":9,\"nb_actions\":17}");
+        }
+        body.append('}');
+        HttpRequest report =
+                request()
+                        .withMethod("GET")
+                        .withPath("/matomo-throttled-report")
+                        .withQueryStringParameter("module", "API")
+                        .withQueryStringParameter("method", Pattern.quote("VisitsSummary.get"))
+                        .withQueryStringParameter("idSite", "1")
+                        .withQueryStringParameter("period", "day")
+                        .withQueryStringParameter("date", first + "," + first.plusDays(99))
+                        .withQueryStringParameter("format", "JSON");
+        mockServerClient
+                .when(report)
+                .respond(
+                        response()
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(body.toString()));
+        String jobId = Long.toString(ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE));
+        int logOffset = container.getServerLogs().length();
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Future<Container.ExecResult> job =
+                executor.submit(
+                        () -> container.executeJob("/matomo_throttled_to_assert.conf", jobId));
+        try {
+            await().atMost(45, TimeUnit.SECONDS)
+                    .until(() -> !matomoReportDates(container, logOffset).isEmpty());
+            long baseline = container.getCompletedCheckpointCount(jobId);
+            // Two later completions exclude a checkpoint already injected before the first row.
+            await().atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(
+                                        container.getCompletedCheckpointCount(jobId)
+                                                >= baseline + 2);
+                                Assertions.assertTrue(
+                                        matomoReportDates(container, logOffset).size() < 100,
+                                        "The one decoded response must still be draining");
+                                Assertions.assertEquals(
+                                        1,
+                                        mockServerClient.retrieveRecordedRequests(report).length);
+                            });
+            Container.ExecResult result = job.get(45, TimeUnit.SECONDS);
+            Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+            Assertions.assertEquals(expected, matomoReportDates(container, logOffset));
+            Assertions.assertEquals(1, mockServerClient.retrieveRecordedRequests(report).length);
+        } catch (ExecutionException | TimeoutException e) {
+            throw new IOException("Checkpointed Matomo job did not finish", e);
+        } finally {
+            try {
+                if (!job.isDone()) {
+                    container.cancelJob(jobId);
+                }
+            } finally {
+                executor.shutdownNow();
+                Assertions.assertTrue(executor.awaitTermination(30, TimeUnit.SECONDS));
+            }
+        }
+    }
+
+    /*
+     * Reads this job's Console acceptance trace after a captured log boundary. This trace is not a
+     * checkpoint commit receipt; the caller queries actual completed checkpoint counters too.
+     */
+    private static List<String> matomoReportDates(TestContainer container, int offset) {
+        String logs = container.getServerLogs();
+        Assertions.assertTrue(
+                logs.length() >= offset, "Server log must not rotate during the case");
+        String marker = "SeaTunnelRow#kind=INSERT : 1, ";
+        List<String> dates = new ArrayList<>();
+        for (String line : logs.substring(offset).split("\\R")) {
+            int at = line.indexOf(marker);
+            if (at >= 0) {
+                dates.add(line.substring(at + marker.length(), at + marker.length() + 10));
+            }
+        }
+        return dates;
     }
 }

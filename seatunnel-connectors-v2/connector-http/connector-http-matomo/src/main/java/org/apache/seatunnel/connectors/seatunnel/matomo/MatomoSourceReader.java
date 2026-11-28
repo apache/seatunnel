@@ -17,17 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.matomo;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonFactory;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.NameValuePair;
-import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -35,7 +36,6 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
 
 import java.io.IOException;
@@ -45,6 +45,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -54,6 +57,22 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private static final int MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+    private static final long FETCH_TIMEOUT_MS = 120_000;
+    private final long fetchTimeoutMs;
+    // Incoming String parsing retains no shared field-name/intern cache and requires one document.
+    private final ObjectMapper mapper =
+            new ObjectMapper(
+                            new JsonFactory()
+                                    .disable(JsonFactory.Feature.INTERN_FIELD_NAMES)
+                                    .disable(JsonFactory.Feature.CANONICALIZE_FIELD_NAMES))
+                    .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+    /*
+     * Only the polling thread owns this fully validated response and its next row. It is never
+     * checkpointed; a fresh reader still fetches and replays the entire configured interval.
+     */
+    private List<SeaTunnelRow> preparedRows;
+    // A failed collect must not advance the local index.
+    private int nextRow;
     private final URI endpoint;
     private final int siteId;
     private final LocalDate start;
@@ -85,6 +104,27 @@ final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             int timeoutMs,
             SingleSplitReaderContext context,
             String tableId) {
+        this(endpoint, siteId, start, end, token, timeoutMs, context, tableId, FETCH_TIMEOUT_MS);
+    }
+
+    /*
+     * Keeps the production elapsed ceiling fixed while real-I/O regressions use the same abort
+     * boundary with a short budget. The separate timeoutMs remains an inactivity timeout.
+     */
+    MatomoSourceReader(
+            URI endpoint,
+            int siteId,
+            LocalDate start,
+            LocalDate end,
+            String token,
+            int timeoutMs,
+            SingleSplitReaderContext context,
+            String tableId,
+            long fetchTimeoutMs) {
+        if (fetchTimeoutMs <= 0) {
+            throw new IllegalArgumentException("Matomo fetch timeout must be positive");
+        }
+        this.fetchTimeoutMs = fetchTimeoutMs;
         this.endpoint = endpoint;
         this.siteId = siteId;
         this.start = start;
@@ -103,18 +143,7 @@ final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         if (cancelled.get() || client.get() != null) {
             return;
         }
-        CloseableHttpClient created =
-                HttpClients.custom()
-                        .useSystemProperties()
-                        .disableRedirectHandling()
-                        .disableAutomaticRetries()
-                        .setDefaultRequestConfig(
-                                RequestConfig.custom()
-                                        .setConnectTimeout(timeoutMs)
-                                        .setConnectionRequestTimeout(timeoutMs)
-                                        .setSocketTimeout(timeoutMs)
-                                        .build())
-                        .build();
+        CloseableHttpClient created = MatomoHttpClient.create(timeoutMs);
         if (!client.compareAndSet(null, created)) {
             created.close();
         } else if (cancelled.get()) {
@@ -144,29 +173,21 @@ final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         closeClient();
     }
 
-    /*
-     * Transfers close ownership atomically so concurrent lifecycle calls do not close twice.
-     */
-    private void closeClient() throws IOException {
-        CloseableHttpClient current = client.getAndSet(null);
-        if (current != null) {
-            current.close();
-        }
-    }
-
     /**
-     * Fetches and validates outside the checkpoint lock, then collects under that lock. Marks
-     * completion with collection and signals end afterwards unless cancellation wins.
+     * Prepares the whole response outside the checkpoint lock and accepts at most one row before
+     * returning to the engine's cooperative injector handoff. A single collect can still wait on
+     * downstream progress; null split state retains whole-interval replay after restoration.
      */
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         if (noMoreSplits || cancelled.get()) {
             return;
         }
-        List<SeaTunnelRow> rows;
         try {
-            // Keep the HTTP exchange outside the collector checkpoint lock.
-            rows = readRows();
+            if (preparedRows == null) {
+                // Keep the HTTP exchange and complete validation outside the checkpoint lock.
+                preparedRows = readRows();
+            }
         } catch (IOException e) {
             if (cancelled.get()) {
                 return;
@@ -177,13 +198,15 @@ final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             if (noMoreSplits || cancelled.get()) {
                 return;
             }
-            for (SeaTunnelRow row : rows) {
-                if (cancelled.get()) {
-                    return;
-                }
-                output.collect(row);
+            if (nextRow < preparedRows.size()) {
+                output.collect(preparedRows.get(nextRow));
+                nextRow++;
+            }
+            if (nextRow < preparedRows.size() || cancelled.get()) {
+                return;
             }
             noMoreSplits = true;
+            preparedRows = null;
         }
         if (!cancelled.get()) {
             context.signalNoMoreElement();
@@ -223,50 +246,47 @@ final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         if (!activeRequest.compareAndSet(null, request)) {
             throw new IOException("Matomo source reader already has an active request");
         }
+        ScheduledExecutorService deadline =
+                Executors.newSingleThreadScheduledExecutor(
+                        task -> {
+                            Thread thread = new Thread(task, "matomo-fetch-deadline");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
+        AtomicBoolean expired = new AtomicBoolean();
+        AtomicBoolean terminal = new AtomicBoolean();
+        long startedNanos = System.nanoTime();
+        long budgetNanos = TimeUnit.MILLISECONDS.toNanos(fetchTimeoutMs);
         try {
             // A cancel before publication may have missed the newly tracked request.
             checkCancelled();
-            return execute(current, request);
+            deadline.schedule(
+                    () -> {
+                        if (terminal.compareAndSet(false, true)) {
+                            expired.set(true);
+                            request.abort();
+                        }
+                    },
+                    fetchTimeoutMs,
+                    TimeUnit.MILLISECONDS);
+            List<SeaTunnelRow> rows = execute(current, request);
+            // A delayed timer cannot accept a response whose fetch or decoding already expired.
+            if (System.nanoTime() - startedNanos >= budgetNanos
+                    || !terminal.compareAndSet(false, true)) {
+                throw new IOException("Matomo request exceeded the elapsed fetch timeout");
+            }
+            return rows;
         } catch (IOException | IllegalStateException e) {
-            // A concurrent close can shut down the connection pool before execute() acquires it.
             checkCancelled();
+            if (expired.get() || System.nanoTime() - startedNanos >= budgetNanos) {
+                throw new IOException("Matomo request exceeded the elapsed fetch timeout");
+            }
             throw e;
         } finally {
+            terminal.set(true);
+            deadline.shutdownNow();
             activeRequest.compareAndSet(request, null);
-        }
-    }
-
-    /*
-     * Rejects failed, missing or decoded responses over 2 MiB before converting any rows.
-     */
-    private List<SeaTunnelRow> execute(CloseableHttpClient current, HttpRequestBase request)
-            throws IOException {
-        try (CloseableHttpResponse response = current.execute(request)) {
-            int code = response.getStatusLine().getStatusCode();
-            if (code < 200 || code >= 300) {
-                request.abort();
-                throw new IOException("Matomo Reporting API returned HTTP " + code);
-            }
-            HttpEntity entity = response.getEntity();
-            if (entity == null || entity.getContentLength() > MAX_RESPONSE_BYTES) {
-                request.abort();
-                throw new IOException("Missing or oversized Matomo response");
-            }
-            try (InputStream input = entity.getContent()) {
-                byte[] bytes = input.readNBytes(MAX_RESPONSE_BYTES + 1);
-                if (bytes.length > MAX_RESPONSE_BYTES) {
-                    request.abort();
-                    throw new IOException("Oversized Matomo response");
-                }
-                checkCancelled();
-                return decode(new String(bytes, StandardCharsets.UTF_8));
-            }
-        }
-    }
-
-    private void checkCancelled() throws IOException {
-        if (cancelled.get()) {
-            throw new IOException("Matomo source was cancelled");
+            request.releaseConnection();
         }
     }
 
@@ -277,7 +297,7 @@ final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     List<SeaTunnelRow> decode(String json) throws IOException {
         final JsonNode root;
         try {
-            root = JsonUtils.stringToJsonNode(json);
+            root = mapper.readTree(json);
         } catch (Exception ignored) {
             throw new IOException("Matomo returned invalid JSON");
         }
@@ -296,6 +316,85 @@ final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             addRow(rows, date, root.get(date.toString()));
         }
         return rows;
+    }
+
+    /*
+     * Bounds decoded response bytes before conversion. Stream and response close failures are
+     * sanitized too, so malformed framing cannot escape as a cause or suppressed diagnostic.
+     */
+    private List<SeaTunnelRow> execute(CloseableHttpClient current, HttpRequestBase request)
+            throws IOException {
+        CloseableHttpResponse response = executeRequest(current, request);
+        byte[] bytes;
+        try {
+            int code = response.getStatusLine().getStatusCode();
+            if (code < 200 || code >= 300) {
+                request.abort();
+                throw new IOException("Matomo Reporting API returned HTTP " + code);
+            }
+            HttpEntity entity = response.getEntity();
+            if (entity == null || entity.getContentLength() > MAX_RESPONSE_BYTES) {
+                request.abort();
+                throw new IOException("Missing or oversized Matomo response");
+            }
+            try (InputStream input = entity.getContent()) {
+                bytes = input.readNBytes(MAX_RESPONSE_BYTES + 1);
+                if (bytes.length > MAX_RESPONSE_BYTES) {
+                    request.abort();
+                }
+            } catch (IOException | IllegalStateException e) {
+                request.abort();
+                checkCancelled();
+                throw new IOException("Matomo response could not be read");
+            }
+            if (bytes.length > MAX_RESPONSE_BYTES) {
+                throw new IOException("Oversized Matomo response");
+            }
+        } finally {
+            try {
+                response.close();
+            } catch (IOException e) {
+                checkCancelled();
+                throw new IOException("Matomo HTTP response could not be closed");
+            }
+        }
+        checkCancelled();
+        // Preserve the existing UTF8 byte-to-String decoding, without a byte-parser substitution.
+        return decode(new String(bytes, StandardCharsets.UTF_8));
+    }
+
+    /*
+     * Status-line and protocol exceptions can quote private upstream text. Discard their complete
+     * diagnostic chain while retaining connector-owned status, body and JSON failures above.
+     */
+    private CloseableHttpResponse executeRequest(
+            CloseableHttpClient current, HttpRequestBase request) throws IOException {
+        try {
+            return current.execute(request);
+        } catch (IOException | RuntimeException e) {
+            request.abort();
+            checkCancelled();
+            if (e instanceof MatomoHttpClient.ProxyBodyLimitException) {
+                throw (MatomoHttpClient.ProxyBodyLimitException) e;
+            }
+            throw new IOException("Matomo HTTP exchange failed");
+        }
+    }
+
+    private void checkCancelled() throws IOException {
+        if (cancelled.get()) {
+            throw new IOException("Matomo source was cancelled");
+        }
+    }
+
+    /*
+     * Transfers close ownership atomically so concurrent lifecycle calls do not close twice.
+     */
+    private void closeClient() throws IOException {
+        CloseableHttpClient current = client.getAndSet(null);
+        if (current != null) {
+            current.close();
+        }
     }
 
     private void addRow(List<SeaTunnelRow> rows, LocalDate date, JsonNode data) throws IOException {

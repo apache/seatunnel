@@ -42,6 +42,22 @@ emitted. Dates are the reporting days defined by the site's Matomo time zone.
 Repeating the same range can emit the same dates again; the destination can use
 `(site_id, report_date)` as its reconciliation key.
 
+`timeout_ms` retains its connect and socket-inactivity meaning. An independent fixed 120-second
+elapsed ceiling covers HTTP fetching and complete response validation, including a body that
+continues to make progress. Responses are limited to 2 MiB after decompression, 100 headers and
+16 KiB per status/header line. Invalid JSON or trailing content fails before any report row is
+emitted. HTTP proxy CONNECT refusal bodies also have a separate 2 MiB encoded-byte limit before
+native buffering or authentication draining. The request is aborted on timeout; platform DNS
+resolution and native authentication-provider work retain their platform cancellation behavior.
+The elapsed check prevents accepting a late result; it does not forcibly terminate those providers.
+
+The complete report interval is validated before output. The reader keeps that response locally
+and accepts at most one row per poll, allowing the engine's cooperative checkpoint handoff
+between rows without fetching again. A single downstream collection can still wait; this is not
+a wall-clock checkpoint guarantee. Checkpoints retain the existing null split, not the prepared
+response or row position. A restored reader fetches and replays the entire current interval, so
+previously emitted days can repeat or change. This does not provide exactly-once delivery.
+
 ## Output
 
 | Field | Type | Nullable |
