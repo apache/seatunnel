@@ -1,0 +1,42 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements. See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License. You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# Independent request examples: name, path, envelope, paging, cap, identity, time, parent path, parent envelope, parent field.
+contacts	/contacts	contacts	offset	1000	id	modifiedAt	-	-	-
+contacts_attributes	/contacts/attributes	attributes	none	0	name	-	-	-	-
+contacts_folders_lists	/contacts/folders/{parent}/lists	lists	offset	50	id	-	/contacts/folders	folders	folderId
+contacts_folders	/contacts/folders	folders	offset	50	id	-	-	-	-
+contacts_segments	/contacts/segments	segments	offset	50	id	-	-	-	-
+contacts_lists_contacts	/contacts/lists/{parent}/contacts	contacts	offset	500	id	modifiedAt	/contacts/lists	lists	listId
+contacts_lists	/contacts/lists	lists	offset	50	id	-	-	-	-
+senders	/senders	senders	none	0	id	-	-	-	-
+companies	/companies	items	page	500	id	attributes.last_updated_at	-	-	-
+companies_attributes	/crm/attributes/companies	[]	none	0	internalName	-	-	-	-
+crm_pipeline_stages	/crm/pipeline/details	stages	none	0	id	-	-	-	-
+crm_pipeline_details_all	/crm/pipeline/details/all	[]	none	0	pipeline	-	-	-	-
+crm_attributes_deals	/crm/attributes/deals	[]	none	0	internalName	-	-	-	-
+crm_deals	/crm/deals	items	offset	500	id	attributes.last_updated_date	-	-	-
+crm_tasktypes	/crm/tasktypes	[]	none	0	id	-	-	-	-
+crm_tasks	/crm/tasks	items	offset	50	id	updatedAt	-	-	-
+crm_notes	/crm/notes	[]	offset	50	id	updatedAt	-	-	-
+domains	/senders/domains	domains	none	0	id	-	-	-	-
+webhooks	/webhooks	webhooks	none	0	id	-	-	-	-
+account	/account	$	none	0	organization_id	-	-	-	-
+organization_invited_users	/organization/invited/users	users	none	0	email	-	-	-	-
+emailCampaigns	/emailCampaigns	campaigns	offset	100	id	modifiedAt	-	-	-
+smsCampaigns	/smsCampaigns	campaigns	offset	1000	id	modifiedAt	-	-	-
+inbound_email_events	/inbound/events	events	offset	500	uuid	date	-	-	-
+transactional_email_events	/smtp/statistics/events	events	offset	5000	messageId	date	-	-	-
+processes	/processes	processes	offset	50	id	-	-	-	-
+products	/products	products	offset	1000	id	modifiedAt	-	-	-
+categories	/categories	categories	offset	100	id	modifiedAt	-	-	-
+email_templates	/smtp/templates	templates	offset	1000	id	-	-	-	-
