@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -141,13 +143,24 @@ public class MaxcomputeSourceSplitEnumerator
         int numReaders = enumeratorContext.currentParallelism();
         Map<TablePath, Long> tableRecordCounts = new HashMap<>();
         for (SourceTableInfo sourceTableInfo : sourceTableInfos.values()) {
+            TablePath tablePath = sourceTableInfo.getCatalogTable().getTablePath();
+            String partitionSpec = sourceTableInfo.getPartitionSpec();
+
+            if (sourceTableInfo.isIgnoreMissingPartition()
+                    && StringUtils.isNotEmpty(partitionSpec)
+                    && !MaxcomputeUtil.hasPartition(readonlyConfig, tablePath, partitionSpec)) {
+                log.warn(
+                        "Partition '{}' does not exist in table '{}'. Skipping download session and treating as empty because '{}' is true.",
+                        partitionSpec,
+                        tablePath,
+                        MaxcomputeSourceOptions.IGNORE_MISSING_PARTITION.key());
+                tableRecordCounts.put(tablePath, 0L);
+                continue;
+            }
+
             TableTunnel.DownloadSession session =
-                    MaxcomputeUtil.getDownloadSession(
-                            readonlyConfig,
-                            sourceTableInfo.getCatalogTable().getTablePath(),
-                            sourceTableInfo.getPartitionSpec());
-            tableRecordCounts.put(
-                    sourceTableInfo.getCatalogTable().getTablePath(), session.getRecordCount());
+                    MaxcomputeUtil.getDownloadSession(readonlyConfig, tablePath, partitionSpec);
+            tableRecordCounts.put(tablePath, session.getRecordCount());
         }
 
         Set<MaxcomputeSourceSplit> allSplit =

@@ -191,6 +191,7 @@ public class MaxcomputeUtil {
                         buildDownloadSession(
                                 tunnel,
                                 tablePath.getDatabaseName(),
+                                tablePath.getSchemaName(),
                                 tablePath.getTableName(),
                                 partition);
             } else {
@@ -198,6 +199,7 @@ public class MaxcomputeUtil {
                         buildDownloadSession(
                                 tunnel,
                                 tablePath.getDatabaseName(),
+                                tablePath.getSchemaName(),
                                 tablePath.getTableName(),
                                 null);
             }
@@ -206,6 +208,81 @@ public class MaxcomputeUtil {
                     CommonErrorCodeDeprecated.READER_OPERATION_FAILED, e);
         }
         return session;
+    }
+
+    /**
+     * Checks whether a specific partition exists for the given table path using connector
+     * configuration.
+     *
+     * @param readonlyConfig Connector configuration
+     * @param tablePath Target table path
+     * @param partitionSpec Partition specification string
+     * @return true if partition exists or partitionSpec is empty; false if partition does not exist
+     */
+    public static boolean hasPartition(
+            ReadonlyConfig readonlyConfig, TablePath tablePath, String partitionSpec) {
+        if (StringUtils.isEmpty(partitionSpec)) {
+            return true;
+        }
+        Odps odps = getOdps(readonlyConfig);
+        return hasPartition(odps, tablePath, partitionSpec);
+    }
+
+    /**
+     * Checks whether a specific partition exists within an existing MaxCompute table.
+     *
+     * <p>Behavioral contract:
+     *
+     * <ul>
+     *   <li>Partition-only suppression: {@code odpsTable.reload()} is invoked first to verify table
+     *       existence. If the table itself does not exist, an exception is thrown rather than
+     *       returning {@code false}. Failure suppression applies strictly to missing partitions on
+     *       existing tables, never missing tables.
+     *   <li>Schema precedence: {@code tablePath.getSchemaName()} takes precedence if non-empty;
+     *       otherwise falls back to {@code odps.getCurrentSchema()}.
+     *   <li>When consumed: Consumed by {@code MaxcomputeSourceSplitEnumerator#discoverySplits()}
+     *       when {@code ignore_missing_partition} is enabled to determine whether to suppress
+     *       download session creation.
+     * </ul>
+     *
+     * @param odps ODPS client
+     * @param tablePath Target table path
+     * @param partitionSpec Partition specification string (e.g. "ds='20250101'")
+     * @return true if partitionSpec is empty or partition exists; false if partition does not exist
+     *     on existing table
+     */
+    public static boolean hasPartition(Odps odps, TablePath tablePath, String partitionSpec) {
+        if (StringUtils.isEmpty(partitionSpec)) {
+            return true;
+        }
+        try {
+            String effectiveSchema =
+                    StringUtils.isNotEmpty(tablePath.getSchemaName())
+                            ? tablePath.getSchemaName()
+                            : odps.getCurrentSchema();
+            Table odpsTable =
+                    StringUtils.isNotEmpty(effectiveSchema)
+                            ? odps.tables()
+                                    .get(
+                                            tablePath.getDatabaseName(),
+                                            effectiveSchema,
+                                            tablePath.getTableName())
+                            : odps.tables()
+                                    .get(tablePath.getDatabaseName(), tablePath.getTableName());
+            PartitionSpec spec = new PartitionSpec(partitionSpec);
+            // Explicitly check table existence: throws NoSuchObjectException if the TABLE does not
+            // exist! This is only necessary when ConnectorCommonOptions.SCHEMA is provided,
+            // otherwise catalog.getTable raises an error when the table does not exist.
+            odpsTable.reload();
+            return odpsTable.hasPartition(spec);
+        } catch (Exception e) {
+            throw new MaxcomputeConnectorException(
+                    CommonErrorCodeDeprecated.READER_OPERATION_FAILED,
+                    String.format(
+                            "Failed to check partition existence for table %s with partition spec '%s', error: %s",
+                            tablePath, partitionSpec, e.getMessage()),
+                    e);
+        }
     }
 
     public static Table parseTable(Odps odps, String projectName, String tableName) {
@@ -224,12 +301,26 @@ public class MaxcomputeUtil {
     }
 
     private static TableTunnel.DownloadSession buildDownloadSession(
-            TableTunnel tunnel, String projectName, String tableName, PartitionSpec partitionSpec)
+            TableTunnel tunnel,
+            String projectName,
+            String schemaName,
+            String tableName,
+            PartitionSpec partitionSpec)
             throws TunnelException {
+        String effectiveSchema =
+                StringUtils.isNotEmpty(schemaName)
+                        ? schemaName
+                        : tunnel.getConfig().getOdps().getCurrentSchema();
         return tunnel.buildDownloadSession(projectName, tableName)
-                .setSchemaName(tunnel.getConfig().getOdps().getCurrentSchema())
+                .setSchemaName(effectiveSchema)
                 .setPartitionSpec(partitionSpec)
                 .build();
+    }
+
+    private static TableTunnel.DownloadSession buildDownloadSession(
+            TableTunnel tunnel, String projectName, String tableName, PartitionSpec partitionSpec)
+            throws TunnelException {
+        return buildDownloadSession(tunnel, projectName, null, tableName, partitionSpec);
     }
 
     /**

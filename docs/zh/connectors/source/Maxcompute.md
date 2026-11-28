@@ -34,6 +34,7 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 | table_name      | string | 未配置 `table_list` 时必填          | -      | 目标 MaxCompute 表名，例如 `fake`。                                                                          |
 | schema_name     | string | 否                                 | -      | MaxCompute Schema 名称（Project 与 Table 之间的命名空间）。仅当表位于非默认 Schema 时需要设置。               |
 | partition_spec  | string | 否                                 | -      | MaxCompute 分区表的规范，例如 `ds='20220101'`。                                                              |
+| ignore_missing_partition | boolean | 否                       | false  | 读取分区表时是否忽略分区不存在的错误。为 `true` 时，若指定分区不存在则作为空表（0 条记录）处理。                  |
 | split_row       | int    | 否                                 | 10000  | 每个 split 包含的行数。                                                                                       |
 | read_columns    | Array  | 否                                 | -      | 要读取的列；不设置时读取全部列，例如 `["col1", "col2"]`。                                                    |
 | table_list      | Array  | 否                                 | -      | 要读取的表列表；可替代 `table_name` 一次读取多张 MaxCompute 表。                                              |
@@ -80,6 +81,12 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 ### partition_spec [string]
 
 `partition_spec` Maxcompute 分区表的规范，例如: ds='20220101'。
+
+### ignore_missing_partition [boolean]
+
+`ignore_missing_partition` 读取分区表时是否忽略分区不存在的错误。默认值: `false`。
+
+当设置为 `true` 时，若 `partition_spec` 指定的分区在 MaxCompute 中不存在，连接器将记录一条警告日志，并将该分区视为空表（0 条记录）正常完成作业，而不会抛出 `READER_OPERATION_FAILED` 异常。在 `table_list` 中也可以针对单表单独覆盖配置。
 
 ### schema_name [string]
 

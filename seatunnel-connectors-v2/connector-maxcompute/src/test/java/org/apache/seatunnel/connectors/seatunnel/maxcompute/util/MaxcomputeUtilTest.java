@@ -18,11 +18,14 @@
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import com.aliyun.odps.NoSuchObjectException;
 import com.aliyun.odps.Odps;
 import com.aliyun.odps.account.Account;
 import com.aliyun.odps.account.AklessAccount;
@@ -34,6 +37,9 @@ import com.aliyun.odps.tunnel.TableTunnel;
 
 import java.util.HashMap;
 import java.util.Map;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class MaxcomputeUtilTest {
 
@@ -398,5 +404,67 @@ public class MaxcomputeUtilTest {
         Assertions.assertEquals(
                 GeneralConfiguration.DEFAULT_SOCKET_RETRY_TIMES,
                 MaxcomputeBaseOptions.TUNNEL_RETRY_TIMES.defaultValue());
+    }
+
+    // --- hasPartition() tests ---
+
+    @Test
+    void testHasPartitionReturnsTrueWhenPartitionSpecEmpty() {
+        TablePath tablePath = TablePath.of("my_project", "my_schema", "my_table");
+        Odps odps = mock(Odps.class);
+
+        Assertions.assertTrue(MaxcomputeUtil.hasPartition(odps, tablePath, null));
+        Assertions.assertTrue(MaxcomputeUtil.hasPartition(odps, tablePath, ""));
+    }
+
+    @Test
+    void testHasPartitionDelegatesToTableHasPartition() throws Exception {
+        TablePath tablePath = TablePath.of("my_project", "my_schema", "my_table");
+        Odps odps = mock(Odps.class);
+        com.aliyun.odps.Tables tables = mock(com.aliyun.odps.Tables.class);
+        com.aliyun.odps.Table table = mock(com.aliyun.odps.Table.class);
+
+        when(odps.tables()).thenReturn(tables);
+        when(tables.get("my_project", "my_schema", "my_table")).thenReturn(table);
+        when(table.hasPartition(
+                        org.mockito.ArgumentMatchers.any(com.aliyun.odps.PartitionSpec.class)))
+                .thenReturn(true);
+
+        Assertions.assertTrue(MaxcomputeUtil.hasPartition(odps, tablePath, "ds='20250101'"));
+
+        when(table.hasPartition(
+                        org.mockito.ArgumentMatchers.any(com.aliyun.odps.PartitionSpec.class)))
+                .thenReturn(false);
+
+        Assertions.assertFalse(MaxcomputeUtil.hasPartition(odps, tablePath, "ds='20250101'"));
+    }
+
+    @Test
+    void testHasPartitionThrowsOnException() throws Exception {
+        TablePath tablePath = TablePath.of("my_project", "my_schema", "my_table");
+        Odps odps = mock(Odps.class);
+        when(odps.tables()).thenThrow(new RuntimeException("Connection error"));
+
+        Assertions.assertThrows(
+                MaxcomputeConnectorException.class,
+                () -> MaxcomputeUtil.hasPartition(odps, tablePath, "ds='20250101'"));
+    }
+
+    @Test
+    void testHasPartitionThrowsWhenTableNotExists() throws Exception {
+        TablePath tablePath = TablePath.of("my_project", "my_schema", "my_table");
+        Odps odps = mock(Odps.class);
+        com.aliyun.odps.Tables tables = mock(com.aliyun.odps.Tables.class);
+        com.aliyun.odps.Table table = mock(com.aliyun.odps.Table.class);
+
+        when(odps.tables()).thenReturn(tables);
+        when(tables.get("my_project", "my_schema", "my_table")).thenReturn(table);
+        org.mockito.Mockito.doThrow(new NoSuchObjectException("Table not found"))
+                .when(table)
+                .reload();
+
+        Assertions.assertThrows(
+                MaxcomputeConnectorException.class,
+                () -> MaxcomputeUtil.hasPartition(odps, tablePath, "ds='20250101'"));
     }
 }
