@@ -51,6 +51,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -65,8 +66,25 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
     private static final String MYSQL_USER_PASSWORD = "mysqlpw";
     private static final String MYSQL_DATABASE = "mysql_cdc";
     private static final String SOURCE_TABLE = "mysql_cdc_e2e_source_table_no_primary_key";
+    private static final String PRIMARY_KEY_SOURCE_TABLE = "mysql_cdc_e2e_source_table";
     private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table_checkpoint_restore";
+    private static final String MULTI_SPLIT_SAVEPOINT_SINK_TABLE =
+            "mysql_cdc_e2e_sink_table_multi_split_savepoint_restore";
     private static final String CONF_FILE = "/mysqlcdc_to_mysql_with_checkpoint_restore.conf";
+    private static final String MULTI_SPLIT_SAVEPOINT_CONF_FILE =
+            "/mysqlcdc_to_mysql_with_multi_split_savepoint_restore.conf";
+    private static final String WAITING_SNAPSHOT_CHECKPOINT_LOG =
+            "Snapshot split assigner received all splits completed at parallelism 2, waiting for a complete checkpoint to mark the assigner completed.";
+    private static final String SNAPSHOT_ASSIGNER_COMPLETED_LOG =
+            "Snapshot split assigner is turn into completed status.";
+    private static final String SNAPSHOT_SPLIT_ID =
+            Pattern.quote(MYSQL_DATABASE + "." + PRIMARY_KEY_SOURCE_TABLE + ":") + "[0-2]";
+    private static final Pattern RESTORED_ASSIGNED_SPLITS_LOG =
+            Pattern.compile(
+                    "SnapshotSplitAssigner created with assigned splits: \\["
+                            + String.join(
+                                    ", ", SNAPSHOT_SPLIT_ID, SNAPSHOT_SPLIT_ID, SNAPSHOT_SPLIT_ID)
+                            + "\\]");
 
     private static final String SOURCE_SQL_TEMPLATE =
             "select id, cast(f_binary as char) as f_binary, cast(f_blob as char) as f_blob, cast(f_long_varbinary as char) as f_long_varbinary,"
@@ -332,6 +350,127 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
         Assertions.assertEquals(0, restoreFuture.get().getExitCode());
     }
 
+    /**
+     * Verifies that a multi-split ({@code parallelism = 2}, {@code exactly_once = false}) CDC job
+     * saved while {@code SnapshotSplitAssigner} is still waiting for a completed checkpoint to exit
+     * the snapshot phase restores into the snapshot phase, transitions to incremental reading after
+     * restore, and replicates both offline and live binlog rows without replaying snapshot splits.
+     *
+     * <p>The window between a reader finishing the tail split in {@code finishedUnackedSplits} and
+     * the enumerator receiving its completion report is covered deterministically by {@code
+     * IncrementalSourceEnumeratorTest}; this test exercises the multi-split
+     * savepoint-to-incremental handoff end to end through MySQL and Zeta.
+     *
+     * @param container engine test container used to run and restore the job
+     * @throws Exception when savepoint or restore fails
+     */
+    @TestTemplate
+    public void testMysqlCdcSavepointRestoreBeforeSnapshotToIncrementalTransition(
+            TestContainer container) throws Exception {
+        clearTable(MYSQL_DATABASE, PRIMARY_KEY_SOURCE_TABLE);
+        insertCheckpointRestoreRows(MYSQL_DATABASE, PRIMARY_KEY_SOURCE_TABLE, 1, 2, 3, 4, 5);
+        createUnindexedAppendOnlySinkTable(
+                MYSQL_DATABASE, PRIMARY_KEY_SOURCE_TABLE, MULTI_SPLIT_SAVEPOINT_SINK_TABLE);
+
+        long jobId = JobIdGenerator.newJobId();
+        int phase1LogOffset = container.getServerLogs().length();
+        CompletableFuture<Container.ExecResult> sourceJobFuture = null;
+        CompletableFuture<Container.ExecResult> restoreFuture = null;
+        try {
+            sourceJobFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    return container.executeJob(
+                                            MULTI_SPLIT_SAVEPOINT_CONF_FILE,
+                                            String.valueOf(jobId),
+                                            "checkpoint_interval=600000");
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
+
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .pollInterval(200, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            container
+                                                    .getServerLogs()
+                                                    .substring(phase1LogOffset)
+                                                    .contains(WAITING_SNAPSHOT_CHECKPOINT_LOG)));
+
+            String preSavepointLogs = container.getServerLogs().substring(phase1LogOffset);
+            Assertions.assertFalse(preSavepointLogs.contains(SNAPSHOT_ASSIGNER_COMPLETED_LOG));
+            Assertions.assertEquals(
+                    0L, container.getCompletedCheckpointCount(String.valueOf(jobId)));
+
+            Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
+            awaitJobStatus(container, jobId, "SAVEPOINT_DONE");
+            Assertions.assertEquals(0, sourceJobFuture.get(2, TimeUnit.MINUTES).getExitCode());
+            sourceJobFuture = null;
+
+            for (int id : new int[] {1, 2, 3, 4, 5}) {
+                Assertions.assertEquals(
+                        1L, getRowCountById(MYSQL_DATABASE, MULTI_SPLIT_SAVEPOINT_SINK_TABLE, id));
+            }
+
+            // Write a binlog event while the job is stopped so the restored incremental split must
+            // start from the persisted snapshot watermark rather than the post-restore tail.
+            insertCheckpointRestoreRow(MYSQL_DATABASE, PRIMARY_KEY_SOURCE_TABLE, 11);
+
+            int restoreLogOffset = container.getServerLogs().length();
+            restoreFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    return container.restoreJob(
+                                            MULTI_SPLIT_SAVEPOINT_CONF_FILE,
+                                            String.valueOf(jobId),
+                                            "checkpoint_interval=5000");
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
+
+            awaitJobStatus(container, jobId, "RUNNING");
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                String restoreLogs =
+                                        container.getServerLogs().substring(restoreLogOffset);
+                                Assertions.assertTrue(
+                                        RESTORED_ASSIGNED_SPLITS_LOG.matcher(restoreLogs).find());
+                                Assertions.assertTrue(
+                                        restoreLogs.contains(SNAPSHOT_ASSIGNER_COMPLETED_LOG));
+                            });
+
+            insertCheckpointRestoreRow(MYSQL_DATABASE, PRIMARY_KEY_SOURCE_TABLE, 21);
+            awaitOrderedSourceAndSinkConsistent(
+                    MYSQL_DATABASE, PRIMARY_KEY_SOURCE_TABLE, MULTI_SPLIT_SAVEPOINT_SINK_TABLE);
+
+            for (int id : new int[] {1, 2, 3, 4, 5, 11, 21}) {
+                Assertions.assertEquals(
+                        1L, getRowCountById(MYSQL_DATABASE, MULTI_SPLIT_SAVEPOINT_SINK_TABLE, id));
+            }
+
+            container.stopJob(String.valueOf(jobId));
+            awaitJobStatus(container, jobId, "CANCELED");
+            Assertions.assertEquals(0, restoreFuture.get(2, TimeUnit.MINUTES).getExitCode());
+            restoreFuture = null;
+        } finally {
+            if (sourceJobFuture != null || restoreFuture != null) {
+                try {
+                    container.stopJob(String.valueOf(jobId));
+                } catch (Exception ignored) {
+                }
+            }
+        }
+    }
+
     private Connection getJdbcConnection() throws SQLException {
         return DriverManager.getConnection(
                 MYSQL_CONTAINER.getJdbcUrl(),
@@ -417,6 +556,22 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
                                         query(getSinkQuerySQL(database, sinkTable))));
     }
 
+    private void awaitOrderedSourceAndSinkConsistent(
+            String database, String sourceTable, String sinkTable) {
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                getSourceQuerySQL(database, sourceTable)
+                                                        + " order by id"),
+                                        query(
+                                                getSinkQuerySQL(database, sinkTable)
+                                                        + " order by id")));
+    }
+
     private void createAppendOnlySinkTable(String database, String sourceTable, String sinkTable) {
         executeSql("DROP TABLE IF EXISTS " + database + "." + sinkTable);
         executeSql(
@@ -428,6 +583,17 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
                         + database
                         + "."
                         + sourceTable);
+    }
+
+    private void createUnindexedAppendOnlySinkTable(
+            String database, String sourceTable, String sinkTable) {
+        createAppendOnlySinkTable(database, sourceTable, sinkTable);
+        executeSql(
+                "ALTER TABLE "
+                        + database
+                        + "."
+                        + sinkTable
+                        + " MODIFY id INT NOT NULL, DROP PRIMARY KEY, DROP INDEX uniq_key_f");
     }
 
     /**

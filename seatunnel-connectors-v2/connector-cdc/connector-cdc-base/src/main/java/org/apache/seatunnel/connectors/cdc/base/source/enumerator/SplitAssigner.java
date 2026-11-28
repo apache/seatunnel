@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The {@code SplitAssigner} is responsible for deciding what split should be processed. It
@@ -114,5 +115,32 @@ public interface SplitAssigner {
 
         /** key: SnapshotSplit id */
         private final Map<String, SnapshotSplitWatermark> splitCompletedOffsets;
+
+        /**
+         * Creates a shared assigner context.
+         *
+         * <p>{@code assignedSnapshotSplit} and {@code splitCompletedOffsets} are defensively copied
+         * into {@link ConcurrentHashMap} instances (so later mutations on the caller's maps are not
+         * visible through this context and vice versa) and must not contain {@code null} keys or
+         * values; a {@code null} map reference is treated as an empty map. {@code capturedTables}
+         * is deliberately stored by reference and shared mutably (for example when {@link
+         * SnapshotSplitAssigner#open()} discovers tables).
+         */
+        public Context(
+                C sourceConfig,
+                Set<TableId> capturedTables,
+                Map<String, SnapshotSplit> assignedSnapshotSplit,
+                Map<String, SnapshotSplitWatermark> splitCompletedOffsets) {
+            this.sourceConfig = sourceConfig;
+            this.capturedTables = capturedTables;
+            this.assignedSnapshotSplit =
+                    assignedSnapshotSplit == null
+                            ? new ConcurrentHashMap<>()
+                            : new ConcurrentHashMap<>(assignedSnapshotSplit);
+            this.splitCompletedOffsets =
+                    splitCompletedOffsets == null
+                            ? new ConcurrentHashMap<>()
+                            : new ConcurrentHashMap<>(splitCompletedOffsets);
+        }
     }
 }

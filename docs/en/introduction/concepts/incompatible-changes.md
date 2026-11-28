@@ -5,6 +5,14 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### CDC Connector: checkpoint/savepoint restore rejects incomplete snapshot watermarks instead of falling back to `startupOffset`
+
+- **Behavior change: CDC restore fails fast with `IllegalStateException` when completed snapshot watermark state is missing or `null`**
+  - **Affected component**: `seatunnel-connectors-v2/connector-cdc/connector-cdc-base` and CDC connectors built on it.
+  - **Description**: When a CDC job switches from the snapshot phase to the incremental phase after restoring from a checkpoint or savepoint, `IncrementalSplitAssigner` now validates that every completed `SnapshotSplit` has a non-null `SnapshotSplitWatermark` with a non-null `highWatermark` (and a non-null `lowWatermark` when `exactly_once = false` selects the minimum snapshot offset), and `addSplits` validates the `CompletedSnapshotSplitInfo` watermarks carried by a restored `IncrementalSplit`. Previously, a completed snapshot state whose selected watermark offset was `null` could leave `minOffset` as `null` and silently fall back to `tableWatermarks` / `startupOffset`, and a `null` `highWatermark` under `exactly_once = false` or on a restored `IncrementalSplit` could fail later in the reader with an uninformative `NullPointerException`. Valid checkpoints whose finished tail split was persisted in reader `finishedUnackedSplits` now synchronize the reconstructed watermark into the shared context and resume normally.
+  - **Impact**: A malformed or incomplete checkpoint/savepoint that lacks a required snapshot watermark offset now fails immediately at the coordinator with an `IllegalStateException` naming the affected table and split instead of starting from a fallback offset or failing with a bare `NullPointerException` in the reader. Checkpoints that already restored cleanly and newly started jobs continue to behave as before.
+  - **Migration Guide**: No configuration change is required. If an upgraded CDC job fails on restore with this `IllegalStateException`, restore from another complete checkpoint/savepoint or submit a new job. (#13340)
+
 ### HBase sink: DELETE rows remove mapped data
 
 `DELETE` rows now remove all cell versions up to the mutation timestamp in the column families
