@@ -21,7 +21,13 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.catalog.MaxComputeCatalogUtil;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.source.MaxcomputeSourceFactory;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -58,6 +64,7 @@ import java.net.InetAddress;
 import java.net.URL;
 import java.net.UnknownHostException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -260,6 +267,63 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertEquals(3, queryTable(odps, "test_table_sink").size());
         Assertions.assertEquals(2, queryTable(odps, "test_table_2_sink").size());
+    }
+
+    @Test
+    public void testCreateTemplateWithInferredAndExplicitColumns() throws Exception {
+        String tableName = "shared_parser_template";
+        Odps odps = getTestOdps();
+        odps.tables().delete(tableName, true);
+        CatalogTable table =
+                CatalogTable.of(
+                        TableIdentifier.of("maxcompute", "mocked_mc", tableName),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "id",
+                                                BasicType.INT_TYPE,
+                                                (Long) null,
+                                                true,
+                                                null,
+                                                null))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "name",
+                                                BasicType.STRING_TYPE,
+                                                (Long) null,
+                                                true,
+                                                null,
+                                                null))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "age",
+                                                BasicType.INT_TYPE,
+                                                (Long) null,
+                                                true,
+                                                null,
+                                                null))
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "");
+        // The emulator supports unqualified table names and uppercases SQL string literals.
+        String sql =
+                MaxComputeCatalogUtil.getCreateTableStatement(
+                        "CREATE TABLE ${table} (`id`, name STRING, ${rowtype_fields})",
+                        TablePath.of("mocked_mc", tableName),
+                        table);
+        try {
+            SQLTask.run(odps, sql).waitForSuccess();
+            SQLTask.run(odps, "INSERT INTO " + tableName + " VALUES (1, 'PARSED', 42)")
+                    .waitForSuccess();
+            List<Record> records = queryTable(odps, tableName);
+            Assertions.assertEquals(1, records.size());
+            Assertions.assertEquals("1", records.get(0).get(0));
+            Assertions.assertEquals("PARSED", records.get(0).get(1));
+            Assertions.assertEquals("42", records.get(0).get(2));
+        } finally {
+            odps.tables().delete(tableName, true);
+        }
     }
 
     @Test

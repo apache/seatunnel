@@ -89,20 +89,6 @@
                             <appendAssemblyId>true</appendAssemblyId>
                         </configuration>
                     </execution>
-                    <execution>
-                        <id>edge-agent-src</id>
-                        <goals>
-                            <goal>single</goal>
-                        </goals>
-                        <phase>package</phase>
-                        <configuration>
-                            <descriptors>
-                                <descriptor>src/main/assembly/assembly-edge-agent-src.xml</descriptor>
-                            </descriptors>
-                            <finalName>apache-seatunnel-edge-agent-${project.version}</finalName>
-                            <appendAssemblyId>true</appendAssemblyId>
-                        </configuration>
-                    </execution>
                 </executions>
             </plugin>
         </plugins>
@@ -1559,20 +1545,6 @@
                                 <configuration>
                                     <descriptors>
                                         <descriptor>src/main/assembly/assembly-edge-agent-bin.xml</descriptor>
-                                    </descriptors>
-                                    <finalName>apache-seatunnel-edge-agent-${project.version}</finalName>
-                                    <appendAssemblyId>true</appendAssemblyId>
-                                </configuration>
-                            </execution>
-                            <execution>
-                                <id>edge-agent-src</id>
-                                <goals>
-                                    <goal>single</goal>
-                                </goals>
-                                <phase>package</phase>
-                                <configuration>
-                                    <descriptors>
-                                        <descriptor>src/main/assembly/assembly-edge-agent-src.xml</descriptor>
                                     </descriptors>
                                     <finalName>apache-seatunnel-edge-agent-${project.version}</finalName>
                                     <appendAssemblyId>true</appendAssemblyId>

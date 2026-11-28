@@ -82,6 +82,18 @@ const sidebars = {
                 },
                 {
                     "type": "category",
+                    "label": "YARN",
+                    "items": [
+                        "getting-started/yarn/yarn",
+                        "getting-started/yarn/local-mode",
+                        "getting-started/yarn/hybrid-cluster-mode",
+                        "getting-started/yarn/separated-cluster-mode",
+                        "getting-started/yarn/configuration",
+                        "getting-started/yarn/operations"
+                    ]
+                },
+                {
+                    "type": "category",
                     "label": "Application Mode (Experimental)",
                     "items": [
                         "getting-started/application/overview",

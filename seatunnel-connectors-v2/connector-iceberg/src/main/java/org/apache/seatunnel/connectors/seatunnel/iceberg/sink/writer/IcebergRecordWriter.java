@@ -48,7 +48,9 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 public class IcebergRecordWriter implements RecordWriter {
@@ -58,6 +60,11 @@ public class IcebergRecordWriter implements RecordWriter {
     private volatile TaskWriter<Record> writer;
     private RowConverter recordConverter;
     private final IcebergWriterFactory writerFactory;
+    /** Files from flushed v3 generations that have not yet been handed to prepareCommit. */
+    private final Set<String> pendingV3Files = new HashSet<>();
+
+    private boolean v3Aborted;
+    private Exception v3Failure;
     /** Rows written by the current task writer; it is rotated when this reaches the limit. */
     private long rowsInWriter;
 
@@ -76,6 +83,7 @@ public class IcebergRecordWriter implements RecordWriter {
 
     @Override
     public void write(SeaTunnelRow seaTunnelRow, SeaTunnelRowType rowType) {
+        checkForV3Failure();
         if (writer == null) {
             resetWriter();
         }
@@ -91,7 +99,11 @@ public class IcebergRecordWriter implements RecordWriter {
         try {
             this.writer.write(icebergRecord);
         } catch (IOException e) {
+            abortAfterV3Failure(e);
             throw new RuntimeException(e);
+        } catch (RuntimeException e) {
+            abortAfterV3Failure(e);
+            throw e;
         }
         rowsInWriter++;
         Long flushRowSize = config.getFlushRowSize();
@@ -106,6 +118,7 @@ public class IcebergRecordWriter implements RecordWriter {
 
     @Override
     public void applySchemaChange(SeaTunnelRowType afterRowType, SchemaChangeEvent event) {
+        checkForV3Failure();
         log.info("Apply schema change start. Event type: {}", event.getEventType());
         SchemaChangeWrapper updates = new SchemaChangeWrapper();
         // get the latest schema in case another process updated it
@@ -167,17 +180,37 @@ public class IcebergRecordWriter implements RecordWriter {
         // complete the current file
         flush();
         // apply the schema updates, this will refresh the table
-        SchemaUtils.applySchemaUpdates(table, updates);
-        // initialize a new writer with the new schema
-        resetWriter();
+        try {
+            SchemaUtils.applySchemaUpdates(table, updates);
+            // initialize a new writer with the new schema
+            resetWriter();
+        } catch (RuntimeException e) {
+            abortAfterV3Failure(e);
+            throw e;
+        }
     }
 
     @Override
     public List<WriteResult> complete() {
+        checkForV3Failure();
         flush();
         List<WriteResult> result = Lists.newArrayList(writerResults);
         writerResults.clear();
+        // From this point the engine owns the returned files, even if publication has not started.
+        pendingV3Files.clear();
         return result;
+    }
+
+    /** Release only the files still owned by this attempt, never a completed prepare's output. */
+    @Override
+    public void close() {
+        if (writer instanceof DeletionVectorTaskWriter || !pendingV3Files.isEmpty()) {
+            try {
+                abortV3Files();
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
     }
 
     /** Reset record writer */
@@ -190,18 +223,70 @@ public class IcebergRecordWriter implements RecordWriter {
         if (writer == null) {
             return;
         }
-        org.apache.iceberg.io.WriteResult writeResult;
         try {
-            writeResult = writer.complete();
+            org.apache.iceberg.io.WriteResult writeResult = writer.complete();
+            writerResults.add(
+                    new WriteResult(
+                            Arrays.asList(writeResult.dataFiles()),
+                            Arrays.asList(writeResult.deleteFiles()),
+                            table.spec().partitionType()));
+            if (writer instanceof DeletionVectorTaskWriter) {
+                ((DeletionVectorTaskWriter) writer).transferCreatedFiles(pendingV3Files);
+            }
         } catch (IOException e) {
+            abortAfterV3Failure(e);
             throw new UncheckedIOException(e);
+        } catch (RuntimeException e) {
+            abortAfterV3Failure(e);
+            throw e;
         }
-        writerResults.add(
-                new WriteResult(
-                        Arrays.asList(writeResult.dataFiles()),
-                        Arrays.asList(writeResult.deleteFiles()),
-                        table.spec().partitionType()));
         writer = null;
         rowsInWriter = 0;
+    }
+
+    private void checkForV3Failure() {
+        if (v3Aborted) {
+            throw new IllegalStateException("The Iceberg v3 writer attempt was aborted", v3Failure);
+        }
+    }
+
+    private void abortAfterV3Failure(Exception failure) {
+        if (writer instanceof DeletionVectorTaskWriter || !pendingV3Files.isEmpty()) {
+            v3Failure = failure;
+            try {
+                abortV3Files();
+            } catch (IOException cleanupFailure) {
+                failure.addSuppressed(cleanupFailure);
+            }
+        }
+    }
+
+    private void abortV3Files() throws IOException {
+        // A retry must not prepare an empty checkpoint after this attempt discarded accepted rows.
+        v3Aborted = true;
+        writerResults.clear();
+        IOException cleanupFailure = null;
+        if (writer instanceof DeletionVectorTaskWriter) {
+            try {
+                writer.abort();
+                writer = null;
+            } catch (IOException e) {
+                cleanupFailure = e;
+            }
+        }
+        if (!pendingV3Files.isEmpty()) {
+            try {
+                DeletionVectorTaskWriter.deleteOwnedFiles(table.io(), pendingV3Files);
+            } catch (IOException e) {
+                if (cleanupFailure == null) {
+                    cleanupFailure = e;
+                } else {
+                    cleanupFailure.addSuppressed(e);
+                }
+            }
+        }
+        if (cleanupFailure != null) {
+            throw cleanupFailure;
+        }
     }
 }

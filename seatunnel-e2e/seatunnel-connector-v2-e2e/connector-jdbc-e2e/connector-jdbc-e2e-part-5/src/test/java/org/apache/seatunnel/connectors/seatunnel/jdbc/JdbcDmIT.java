@@ -30,9 +30,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm.DamengCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbJdbcRowConverter;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -51,6 +53,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -74,6 +77,10 @@ public class JdbcDmIT extends AbstractJdbcIT {
 
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList("/jdbc_dm_source_and_sink.conf");
+    private static final String VIEW_SOURCE = "E2E_VIEW_SOURCE";
+    private static final String VIEW_SINK = "E2E_VIEW_SINK";
+    private static final List<String> VIEW_COLUMNS =
+            Arrays.asList("DM_INT", "DM_BIGINT", "DM_VARCHAR2", "DM_DATE");
     private static final String CREATE_SQL =
             "create table if not exists %s"
                     + "(\n"
@@ -242,6 +249,43 @@ public class JdbcDmIT extends AbstractJdbcIT {
         }
 
         return Pair.of(fieldNames, rows);
+    }
+
+    /** A source {@code table_path} may name a view, not only a table. */
+    @TestTemplate
+    public void testViewAsSourceTablePath(TestContainer container) throws Exception {
+        assertViewReadThroughTablePath(
+                container,
+                "/jdbc_dm_view_source_to_sink.conf",
+                createViewSql(),
+                buildTableInfoWithSchema(DM_DATABASE, VIEW_SOURCE),
+                buildTableInfoWithSchema(DM_DATABASE, VIEW_SINK));
+    }
+
+    @Test
+    public void testCatalogResolvesView() throws Exception {
+        String jdbcUrl = jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
+        assertCatalogResolvesView(
+                new DamengCatalog(
+                        "dameng",
+                        jdbcCase.getUserName(),
+                        jdbcCase.getPassword(),
+                        JdbcUrlUtil.getUrlInfo(jdbcUrl),
+                        DM_USERNAME,
+                        DRIVER_CLASS),
+                createViewSql(),
+                buildTableInfoWithSchema(DM_DATABASE, VIEW_SOURCE),
+                TablePath.of(DM_DATABASE, DM_USERNAME, VIEW_SOURCE),
+                VIEW_COLUMNS);
+    }
+
+    private String createViewSql() {
+        return "CREATE OR REPLACE VIEW "
+                + buildTableInfoWithSchema(DM_DATABASE, VIEW_SOURCE)
+                + " AS SELECT "
+                + String.join(", ", VIEW_COLUMNS)
+                + " FROM "
+                + buildTableInfoWithSchema(DM_DATABASE, DM_SOURCE);
     }
 
     @Test

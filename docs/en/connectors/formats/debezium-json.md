@@ -27,6 +27,16 @@ UPDATE messages must contain a complete row image; partial updates containing on
 
 > **Note:** The prefixed key `debezium-json.ignore-parse-errors` is not a valid configuration key and has no effect. Whether unparseable records are skipped is decided by each connector (for example, the Kafka source always skips them for Debezium JSON).
 
+:::warning
+
+In the current SeaTunnel implementation, `debezium-json.ignore-parse-errors` is not read from the job
+configuration. The Kafka source always skips rows with parse errors in `debezium_json` format, while
+the Amazon SQS source fails on them. Whether Debezium records include the schema is controlled by
+connector-specific options such as the Kafka source's `debezium_record_include_schema`, not by a
+`debezium-json.*` option.
+
+:::
+
 # How To Use
 
 ## Kafka Uses example
