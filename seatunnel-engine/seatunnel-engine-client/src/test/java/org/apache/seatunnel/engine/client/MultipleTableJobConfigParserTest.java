@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import org.apache.seatunnel.api.common.JobContext;
@@ -27,8 +28,11 @@ import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.metadata.MetadataConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.DynamicLookupSourceCapability;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -38,6 +42,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.factory.ChangeStreamTableSourceCheckpoint;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
@@ -49,7 +54,10 @@ import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
+import org.apache.seatunnel.engine.core.dag.actions.DynamicLookupAction;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 
 import org.junit.jupiter.api.Assertions;
@@ -64,12 +72,16 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class MultipleTableJobConfigParserTest {
 
@@ -526,6 +538,277 @@ public class MultipleTableJobConfigParserTest {
         Assertions.assertTrue(failedTable.getMessageSummary().contains("metadata read failed"));
     }
 
+    @Test
+    public void testDynamicLookupRejectsMismatchedJoinKeyArity() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        JobDefineCheckException exception =
+                Assertions.assertThrows(
+                        JobDefineCheckException.class,
+                        () ->
+                                dynamicLookupParser(
+                                                dynamicLookupConfig(
+                                                        list("fact_id"),
+                                                        list("dimension_id", "dimension_region"),
+                                                        list("FACT_SOURCE_GATE_V1"),
+                                                        list("ORDERED_BOOTSTRAP_V1"),
+                                                        "LEFT",
+                                                        list(
+                                                                "fact.fact_id",
+                                                                "dimension.dimension_name"),
+                                                        "512mb",
+                                                        "512mb"),
+                                                catalogTable(
+                                                        "fact_table",
+                                                        column(
+                                                                "fact_id",
+                                                                BasicType.INT_TYPE,
+                                                                false),
+                                                        column(
+                                                                "fact_name",
+                                                                BasicType.STRING_TYPE,
+                                                                true)),
+                                                Collections.singleton("FACT_SOURCE_GATE_V1"),
+                                                catalogTable(
+                                                        "dimension_table",
+                                                        column(
+                                                                "dimension_id",
+                                                                BasicType.INT_TYPE,
+                                                                false),
+                                                        column(
+                                                                "dimension_region",
+                                                                BasicType.STRING_TYPE,
+                                                                false),
+                                                        column(
+                                                                "dimension_name",
+                                                                BasicType.STRING_TYPE,
+                                                                false)),
+                                                Collections.singleton("ORDERED_BOOTSTRAP_V1"))
+                                        .parse(null));
+        Assertions.assertTrue(exception.getMessage().contains("same number of fields"));
+    }
+
+    @Test
+    public void testDynamicLookupRejectsMismatchedJoinKeyTypes() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        JobDefineCheckException exception =
+                Assertions.assertThrows(
+                        JobDefineCheckException.class,
+                        () ->
+                                dynamicLookupParser(
+                                                dynamicLookupConfig(
+                                                        list("fact_id"),
+                                                        list("dimension_id"),
+                                                        list("FACT_SOURCE_GATE_V1"),
+                                                        list("ORDERED_BOOTSTRAP_V1"),
+                                                        "LEFT",
+                                                        list(
+                                                                "fact.fact_id",
+                                                                "dimension.dimension_name"),
+                                                        "512mb",
+                                                        "512mb"),
+                                                catalogTable(
+                                                        "fact_table",
+                                                        column(
+                                                                "fact_id",
+                                                                BasicType.STRING_TYPE,
+                                                                false)),
+                                                Collections.singleton("FACT_SOURCE_GATE_V1"),
+                                                catalogTable(
+                                                        "dimension_table",
+                                                        column(
+                                                                "dimension_id",
+                                                                BasicType.INT_TYPE,
+                                                                false),
+                                                        column(
+                                                                "dimension_name",
+                                                                BasicType.STRING_TYPE,
+                                                                false)),
+                                                Collections.singleton("ORDERED_BOOTSTRAP_V1"))
+                                        .parse(null));
+        Assertions.assertTrue(exception.getMessage().contains("matching join-key types"));
+    }
+
+    @Test
+    public void testDynamicLookupLeftJoinMakesDimensionProjectionNullable() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        ImmutablePair<List<Action>, Set<URL>> parsed =
+                dynamicLookupParser(
+                                dynamicLookupConfig(
+                                        list("fact_id"),
+                                        list("dimension_id"),
+                                        list("FACT_SOURCE_GATE_V1"),
+                                        list("ORDERED_BOOTSTRAP_V1"),
+                                        "LEFT",
+                                        list(
+                                                "fact.fact_id as lookup_id",
+                                                "dimension.dimension_name as customer_name"),
+                                        "512mb",
+                                        "512mb"),
+                                catalogTable(
+                                        "fact_table", column("fact_id", BasicType.INT_TYPE, false)),
+                                Collections.singleton("FACT_SOURCE_GATE_V1"),
+                                catalogTable(
+                                        "dimension_table",
+                                        column("dimension_id", BasicType.INT_TYPE, false),
+                                        column("dimension_name", BasicType.STRING_TYPE, false)),
+                                Collections.singleton("ORDERED_BOOTSTRAP_V1"))
+                        .parse(null);
+
+        Assertions.assertEquals(1, parsed.getLeft().size());
+        Action upstream = parsed.getLeft().get(0).getUpstream().get(0);
+        Assertions.assertInstanceOf(DynamicLookupAction.class, upstream);
+        DynamicLookupAction dynamicLookupAction = (DynamicLookupAction) upstream;
+        List<org.apache.seatunnel.api.table.catalog.Column> columns =
+                dynamicLookupAction.getProducedCatalogTable().getTableSchema().getColumns();
+        Assertions.assertFalse(columns.get(0).isNullable());
+        Assertions.assertTrue(columns.get(1).isNullable());
+    }
+
+    @Test
+    public void testDynamicLookupRejectsEmptyRequiredCapabilityList() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        JobDefineCheckException exception =
+                Assertions.assertThrows(
+                        JobDefineCheckException.class,
+                        () ->
+                                dynamicLookupParser(
+                                                dynamicLookupConfig(
+                                                        list("fact_id"),
+                                                        list("dimension_id"),
+                                                        "[]",
+                                                        list("ORDERED_BOOTSTRAP_V1"),
+                                                        "LEFT",
+                                                        list(
+                                                                "fact.fact_id",
+                                                                "dimension.dimension_name"),
+                                                        "512mb",
+                                                        "512mb"),
+                                                catalogTable(
+                                                        "fact_table",
+                                                        column(
+                                                                "fact_id",
+                                                                BasicType.INT_TYPE,
+                                                                false)),
+                                                Collections.singleton("FACT_SOURCE_GATE_V1"),
+                                                catalogTable(
+                                                        "dimension_table",
+                                                        column(
+                                                                "dimension_id",
+                                                                BasicType.INT_TYPE,
+                                                                false),
+                                                        column(
+                                                                "dimension_name",
+                                                                BasicType.STRING_TYPE,
+                                                                false)),
+                                                Collections.singleton("ORDERED_BOOTSTRAP_V1"))
+                                        .parse(null));
+        Assertions.assertTrue(exception.getMessage().contains("required-capability"));
+    }
+
+    @Test
+    public void testDynamicLookupRejectsInvalidByteValueWithJobDefineException() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        JobDefineCheckException exception =
+                Assertions.assertThrows(
+                        JobDefineCheckException.class,
+                        () ->
+                                dynamicLookupParser(
+                                                dynamicLookupConfig(
+                                                        list("fact_id"),
+                                                        list("dimension_id"),
+                                                        list("FACT_SOURCE_GATE_V1"),
+                                                        list("ORDERED_BOOTSTRAP_V1"),
+                                                        "LEFT",
+                                                        list(
+                                                                "fact.fact_id",
+                                                                "dimension.dimension_name"),
+                                                        "invalid-size",
+                                                        "512mb"),
+                                                catalogTable(
+                                                        "fact_table",
+                                                        column(
+                                                                "fact_id",
+                                                                BasicType.INT_TYPE,
+                                                                false)),
+                                                Collections.singleton("FACT_SOURCE_GATE_V1"),
+                                                catalogTable(
+                                                        "dimension_table",
+                                                        column(
+                                                                "dimension_id",
+                                                                BasicType.INT_TYPE,
+                                                                false),
+                                                        column(
+                                                                "dimension_name",
+                                                                BasicType.STRING_TYPE,
+                                                                false)),
+                                                Collections.singleton("ORDERED_BOOTSTRAP_V1"))
+                                        .parse(null));
+        Assertions.assertTrue(
+                exception.getMessage().contains("resource.max-logical-state-bytes-per-subtask"));
+    }
+
+    /**
+     * Regression test for a bug where every dotted validator path ({@code schema-change.behavior},
+     * {@code state.backend}, {@code join.type}, ...) was resolved as one literal key instead of a
+     * nested HOCON path, because this project's shaded {@code Config} library uses {@code "->"},
+     * not {@code "."}, as the path-expression separator for {@code getString}/{@code hasPath}. That
+     * bug made every dotted {@code requireDynamicLookupPaths} check report the path as entirely
+     * absent, regardless of what value was actually configured at that nested key.
+     *
+     * <p>A test asserting only that some {@link JobDefineCheckException} is thrown for a wrong
+     * value cannot distinguish "the path was never found" from "the path was found but the value is
+     * wrong" -- both produce *a* exception. This test targets that gap directly: {@code
+     * state.backend} is present at its correctly nested path with a real, well-formed but
+     * unsupported value ({@code "DISK"}), parsed through the real shaded HOCON parser (not a
+     * hand-built {@code Config}). If the dotted-path bug ever regresses, this fails with "Dynamic
+     * lookup M0 requires 'state.backend'" (path treated as absent) instead of the value-specific
+     * message asserted below, making the two failure modes unambiguous to a human or a reviewer.
+     */
+    @Test
+    public void testDynamicLookupRejectsUnsupportedStateBackendValue() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        JobDefineCheckException exception =
+                Assertions.assertThrows(
+                        JobDefineCheckException.class,
+                        () ->
+                                dynamicLookupParser(
+                                                dynamicLookupConfig(
+                                                        list("fact_id"),
+                                                        list("dimension_id"),
+                                                        list("FACT_SOURCE_GATE_V1"),
+                                                        list("ORDERED_BOOTSTRAP_V1"),
+                                                        "LEFT",
+                                                        list(
+                                                                "fact.fact_id",
+                                                                "dimension.dimension_name"),
+                                                        "512mb",
+                                                        "512mb",
+                                                        "DISK"),
+                                                catalogTable(
+                                                        "fact_table",
+                                                        column(
+                                                                "fact_id",
+                                                                BasicType.INT_TYPE,
+                                                                false)),
+                                                Collections.singleton("FACT_SOURCE_GATE_V1"),
+                                                catalogTable(
+                                                        "dimension_table",
+                                                        column(
+                                                                "dimension_id",
+                                                                BasicType.INT_TYPE,
+                                                                false),
+                                                        column(
+                                                                "dimension_name",
+                                                                BasicType.STRING_TYPE,
+                                                                false)),
+                                                Collections.singleton("ORDERED_BOOTSTRAP_V1"))
+                                        .parse(null));
+        Assertions.assertTrue(
+                exception.getMessage().contains("state.backend=IN_MEMORY"),
+                "expected the value-specific rejection message, but got: "
+                        + exception.getMessage());
+    }
+
     private CatalogTable mockCatalogTable(String tableName) {
         return CatalogTable.of(
                 TableIdentifier.of(
@@ -538,6 +821,356 @@ public class MultipleTableJobConfigParserTest {
                 Collections.emptyMap(),
                 Collections.emptyList(),
                 "");
+    }
+
+    @Test
+    public void testDynamicLookupRejectsParallelForwardInputsWithoutKeyedExchange() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        for (int[] parallelism : new int[][] {{2, 2}, {1, 2}, {2, 1}}) {
+            Config config =
+                    dynamicLookupConfig(
+                                    list("fact_id"),
+                                    list("dimension_id"),
+                                    list("FACT_SOURCE_GATE_V1"),
+                                    list("ORDERED_BOOTSTRAP_V1"),
+                                    "LEFT",
+                                    list("fact.fact_id"),
+                                    "512mb",
+                                    "512mb")
+                            .withValue(
+                                    "fact-test-parallelism",
+                                    ConfigValueFactory.fromAnyRef(parallelism[0]))
+                            .withValue(
+                                    "dimension-test-parallelism",
+                                    ConfigValueFactory.fromAnyRef(parallelism[1]));
+            JobDefineCheckException error =
+                    Assertions.assertThrows(
+                            JobDefineCheckException.class,
+                            () ->
+                                    dynamicLookupParser(
+                                                    config,
+                                                    catalogTable(
+                                                            "fact_table",
+                                                            column(
+                                                                    "fact_id",
+                                                                    BasicType.INT_TYPE,
+                                                                    false)),
+                                                    Collections.singleton("FACT_SOURCE_GATE_V1"),
+                                                    catalogTable(
+                                                            "dimension_table",
+                                                            column(
+                                                                    "dimension_id",
+                                                                    BasicType.INT_TYPE,
+                                                                    false)),
+                                                    Collections.singleton("ORDERED_BOOTSTRAP_V1"))
+                                            .parse(null));
+            Assertions.assertTrue(
+                    error.getMessage().contains("parallelism = 1"), error.getMessage());
+        }
+    }
+
+    /**
+     * Regression for restoring a dynamic lookup job from its own checkpoint.
+     *
+     * <p>The fact and dimension sources share one pipeline, so the engine exports one pipeline
+     * checkpoint for two source configs. The parser used to require one pipeline per source and to
+     * take source {@code i} from pipeline {@code i + 1}, failing with "The number of source
+     * configurations and pipeline checkpoints must be equal." before any source was restored. Each
+     * source must instead get its own state from the shared pipeline, and a pipeline checkpoint
+     * that contains none of the configured sources must still be rejected.
+     */
+    @Test
+    public void testDynamicLookupRestoreResolvesBothSourcesFromOnePipelineCheckpoint() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        Config config =
+                dynamicLookupConfig(
+                        list("fact_id"),
+                        list("dimension_id"),
+                        list("FACT_SOURCE_GATE_V1"),
+                        list("ORDERED_BOOTSTRAP_V1"),
+                        "LEFT",
+                        list(
+                                "fact.fact_id as lookup_id",
+                                "dimension.dimension_name as customer_name"),
+                        "512mb",
+                        "512mb");
+        CatalogTable factTable =
+                catalogTable("fact_table", column("fact_id", BasicType.INT_TYPE, false));
+        CatalogTable dimensionTable =
+                catalogTable(
+                        "dimension_table",
+                        column("dimension_id", BasicType.INT_TYPE, false),
+                        column("dimension_name", BasicType.STRING_TYPE, false));
+        Map<String, JobPipelineCheckpointData.ActionState> taskStates = new HashMap<>();
+        taskStates.put("Source[0]-FakeSource", actionState((byte) 1, (byte) 11));
+        taskStates.put("Source[1]-FakeSource", actionState((byte) 2, (byte) 22));
+        taskStates.put("lookup_test", actionState((byte) 3, (byte) 33));
+        JobPipelineCheckpointData lookupPipeline =
+                JobPipelineCheckpointData.builder().pipelineId(1).taskStates(taskStates).build();
+        Map<String, ChangeStreamTableSourceCheckpoint> restoredSources = new HashMap<>();
+
+        dynamicLookupParser(
+                        config,
+                        factTable,
+                        Collections.singleton("FACT_SOURCE_GATE_V1"),
+                        dimensionTable,
+                        Collections.singleton("ORDERED_BOOTSTRAP_V1"),
+                        Collections.singletonList(lookupPipeline),
+                        restoredSources)
+                .parse(null);
+
+        Assertions.assertEquals(2, restoredSources.size());
+        Assertions.assertArrayEquals(
+                new byte[] {1}, restoredSources.get("fact").getEnumeratorState());
+        Assertions.assertArrayEquals(
+                new byte[] {11}, restoredSources.get("fact").getSplits().get(0).get(0));
+        Assertions.assertArrayEquals(
+                new byte[] {2}, restoredSources.get("dimension").getEnumeratorState());
+        Assertions.assertArrayEquals(
+                new byte[] {22}, restoredSources.get("dimension").getSplits().get(0).get(0));
+
+        Map<String, JobPipelineCheckpointData.ActionState> foreignStates = new HashMap<>();
+        foreignStates.put("Source[0]-OtherSource", actionState((byte) 4, (byte) 44));
+        JobPipelineCheckpointData foreignPipeline =
+                JobPipelineCheckpointData.builder().pipelineId(2).taskStates(foreignStates).build();
+        IllegalStateException error =
+                Assertions.assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                dynamicLookupParser(
+                                                config,
+                                                factTable,
+                                                Collections.singleton("FACT_SOURCE_GATE_V1"),
+                                                dimensionTable,
+                                                Collections.singleton("ORDERED_BOOTSTRAP_V1"),
+                                                Arrays.asList(lookupPipeline, foreignPipeline),
+                                                new HashMap<>())
+                                        .parse(null));
+        Assertions.assertTrue(
+                error.getMessage()
+                        .contains("The pipeline checkpoint 2 contains none of the configured"),
+                error.getMessage());
+    }
+
+    private static JobPipelineCheckpointData.ActionState actionState(
+            byte coordinatorState, byte subtaskState) {
+        return new JobPipelineCheckpointData.ActionState(
+                Collections.singletonList(new byte[] {coordinatorState}),
+                Collections.singletonList(
+                        new JobPipelineCheckpointData.ActionSubtaskState(
+                                0, Collections.singletonList(new byte[] {subtaskState}))));
+    }
+
+    private static MultipleTableJobConfigParser dynamicLookupParser(
+            Config config,
+            CatalogTable factCatalogTable,
+            Set<String> factCapabilities,
+            CatalogTable dimensionCatalogTable,
+            Set<String> dimensionCapabilities) {
+        return dynamicLookupParser(
+                config,
+                factCatalogTable,
+                factCapabilities,
+                dimensionCatalogTable,
+                dimensionCapabilities,
+                Collections.emptyList(),
+                null);
+    }
+
+    /**
+     * Same fixture as the 5-argument overload, optionally started in restore mode. When {@code
+     * pipelineCheckpoints} is not empty the parser restores from them, and each source's resolved
+     * checkpoint is recorded in {@code restoredSources} by plugin_output.
+     */
+    private static MultipleTableJobConfigParser dynamicLookupParser(
+            Config config,
+            CatalogTable factCatalogTable,
+            Set<String> factCapabilities,
+            CatalogTable dimensionCatalogTable,
+            Set<String> dimensionCapabilities,
+            List<JobPipelineCheckpointData> pipelineCheckpoints,
+            Map<String, ChangeStreamTableSourceCheckpoint> restoredSources) {
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        return new MultipleTableJobConfigParser(
+                config,
+                new IdGenerator(),
+                jobConfig,
+                Collections.emptyList(),
+                !pipelineCheckpoints.isEmpty(),
+                pipelineCheckpoints,
+                new MetadataConfig()) {
+            @Override
+            public Tuple2<String, List<Tuple2<CatalogTable, Action>>> parseSource(
+                    int configIndex, Config sourceConfig, ClassLoader classLoader) {
+                String outputId =
+                        ReadonlyConfig.fromConfig(sourceConfig)
+                                .get(ConnectorCommonOptions.PLUGIN_OUTPUT);
+                if (restoredSources != null) {
+                    restoredSources.put(outputId, getSourceCheckpoint(configIndex, "FakeSource"));
+                }
+                CatalogTable catalogTable;
+                Set<String> capabilities;
+                if ("fact".equals(outputId)) {
+                    catalogTable = factCatalogTable;
+                    capabilities = factCapabilities;
+                } else {
+                    catalogTable = dimensionCatalogTable;
+                    capabilities = dimensionCapabilities;
+                }
+                SourceAction<Object, SourceSplit, Serializable> action =
+                        new SourceAction<>(
+                                configIndex + 1L,
+                                "Source[" + configIndex + "]-" + outputId,
+                                new TestDynamicLookupSource(outputId, catalogTable, capabilities),
+                                Collections.emptySet(),
+                                Collections.emptySet());
+                String parallelismKey = outputId + "-test-parallelism";
+                action.setParallelism(
+                        config.hasPath(parallelismKey) ? config.getInt(parallelismKey) : 1);
+                return new Tuple2<>(
+                        outputId, Collections.singletonList(new Tuple2<>(catalogTable, action)));
+            }
+        };
+    }
+
+    private static Config dynamicLookupConfig(
+            String factKeys,
+            String dimensionKeys,
+            String factRequiredCapabilities,
+            String dimensionRequiredCapabilities,
+            String joinType,
+            String joinFields,
+            String maxLogicalBytes,
+            String maxResidentBytes) {
+        return dynamicLookupConfig(
+                factKeys,
+                dimensionKeys,
+                factRequiredCapabilities,
+                dimensionRequiredCapabilities,
+                joinType,
+                joinFields,
+                maxLogicalBytes,
+                maxResidentBytes,
+                "IN_MEMORY");
+    }
+
+    /**
+     * Builds the same {@code dynamic_lookup} fixture as the 8-argument overload, with the {@code
+     * state.backend} value parameterized so a test can assert on a value that is present at the
+     * correct nested path but semantically invalid for M0's fenced feature scope. A test that
+     * cannot distinguish "the path was never found" from "the path was found but had the wrong
+     * value" would not have caught the shaded-HOCON dotted-path regression this class of test
+     * guards against; see {@link
+     * org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser}'s private
+     * navigateDynamicLookupParent/hasDynamicLookupPath helpers for the underlying fix.
+     */
+    private static Config dynamicLookupConfig(
+            String factKeys,
+            String dimensionKeys,
+            String factRequiredCapabilities,
+            String dimensionRequiredCapabilities,
+            String joinType,
+            String joinFields,
+            String maxLogicalBytes,
+            String maxResidentBytes,
+            String stateBackend) {
+        return ConfigFactory.parseString(
+                "env {\n"
+                        + "  job.mode = \"STREAMING\"\n"
+                        + "  parallelism = 1\n"
+                        + "  checkpoint.interval = 10000\n"
+                        + "}\n"
+                        + "source {\n"
+                        + "  FakeSource {\n"
+                        + "    plugin_output = \"fact\"\n"
+                        + "    schema = { fields { fact_id = \"int\", fact_name = \"string\" } }\n"
+                        + "  }\n"
+                        + "  FakeSource {\n"
+                        + "    plugin_output = \"dimension\"\n"
+                        + "    schema = { fields { dimension_id = \"int\", dimension_name = \"string\", dimension_region = \"string\" } }\n"
+                        + "  }\n"
+                        + "}\n"
+                        + "dynamic_lookup {\n"
+                        + "  lookup_test {\n"
+                        + "    plugin_output = \"lookup_out\"\n"
+                        + "    fact {\n"
+                        + "      input = \"fact\"\n"
+                        + "      key = "
+                        + factKeys
+                        + "\n"
+                        + "      changelog-mode = \"APPEND_ONLY\"\n"
+                        + "      required-capability = "
+                        + factRequiredCapabilities
+                        + "\n"
+                        + "    }\n"
+                        + "    dimension {\n"
+                        + "      input = \"dimension\"\n"
+                        + "      key = "
+                        + dimensionKeys
+                        + "\n"
+                        + "      primary-key-update = \"FAIL\"\n"
+                        + "      required-capability = "
+                        + dimensionRequiredCapabilities
+                        + "\n"
+                        + "    }\n"
+                        + "    join {\n"
+                        + "      type = \""
+                        + joinType
+                        + "\"\n"
+                        + "      fields = "
+                        + joinFields
+                        + "\n"
+                        + "    }\n"
+                        + "    schema-change {\n"
+                        + "      behavior = \"FAIL\"\n"
+                        + "    }\n"
+                        + "    state {\n"
+                        + "      backend = \""
+                        + stateBackend
+                        + "\"\n"
+                        + "      ttl = \"NONE\"\n"
+                        + "      max-concurrent-snapshots = 1\n"
+                        + "    }\n"
+                        + "    resource {\n"
+                        + "      max-logical-state-bytes-per-subtask = \""
+                        + maxLogicalBytes
+                        + "\"\n"
+                        + "      max-resident-state-bytes-per-subtask = \""
+                        + maxResidentBytes
+                        + "\"\n"
+                        + "      max-concurrent-snapshots = 1\n"
+                        + "    }\n"
+                        + "  }\n"
+                        + "}\n"
+                        + "sink {\n"
+                        + "  Console {\n"
+                        + "    plugin_input = \"lookup_out\"\n"
+                        + "  }\n"
+                        + "}\n");
+    }
+
+    private static CatalogTable catalogTable(String tableName, PhysicalColumn... columns) {
+        return CatalogTable.of(
+                TableIdentifier.of(
+                        "test_catalog", TablePath.of("test_db", "test_schema", tableName)),
+                TableSchema.builder().columns(Arrays.asList(columns)).build(),
+                Collections.emptyMap(),
+                Collections.emptyList(),
+                "");
+    }
+
+    private static PhysicalColumn column(
+            String name,
+            org.apache.seatunnel.api.table.type.SeaTunnelDataType<?> type,
+            boolean nullable) {
+        return PhysicalColumn.of(name, type, 0L, nullable, null, null);
+    }
+
+    private static String list(String... values) {
+        return Arrays.stream(values)
+                .map(value -> "\"" + value + "\"")
+                .collect(Collectors.joining(", ", "[", "]"));
     }
 
     private static class TestSeaTunnelSource
@@ -569,6 +1202,36 @@ public class MultipleTableJobConfigParserTest {
         @Override
         public String getPluginName() {
             return "TestSource";
+        }
+    }
+
+    private static final class TestDynamicLookupSource extends TestSeaTunnelSource
+            implements DynamicLookupSourceCapability {
+
+        private final String pluginName;
+        private final CatalogTable catalogTable;
+        private final Set<String> capabilities;
+
+        private TestDynamicLookupSource(
+                String pluginName, CatalogTable catalogTable, Set<String> capabilities) {
+            this.pluginName = pluginName;
+            this.catalogTable = catalogTable;
+            this.capabilities = new LinkedHashSet<>(capabilities);
+        }
+
+        @Override
+        public List<CatalogTable> getProducedCatalogTables() {
+            return Collections.singletonList(catalogTable);
+        }
+
+        @Override
+        public String getPluginName() {
+            return pluginName;
+        }
+
+        @Override
+        public Set<String> dynamicLookupCapabilities() {
+            return capabilities;
         }
     }
 }

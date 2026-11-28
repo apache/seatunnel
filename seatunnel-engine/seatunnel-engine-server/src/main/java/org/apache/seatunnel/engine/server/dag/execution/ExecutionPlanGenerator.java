@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
+import org.apache.seatunnel.engine.core.dag.actions.DynamicLookupAction;
+import org.apache.seatunnel.engine.core.dag.actions.DynamicLookupCoordinatorAction;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SinkConfig;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
@@ -31,6 +33,7 @@ import org.apache.seatunnel.engine.core.dag.actions.UnknownActionException;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
+import org.apache.seatunnel.engine.core.dag.logical.PortAwareLogicalEdge;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.observability.ObservabilityConfig;
@@ -126,6 +129,38 @@ public class ExecutionPlanGenerator {
                             action.getJarUrls(),
                             action.getConnectorJarIdentifiers(),
                             ((TransformChainAction<?>) action).getTransforms());
+        } else if (action instanceof DynamicLookupAction) {
+            DynamicLookupAction lookupAction = (DynamicLookupAction) action;
+            newAction =
+                    new DynamicLookupAction(
+                            id,
+                            action.getName(),
+                            lookupAction.getOperatorUid(),
+                            lookupAction.getFactSourceActionId(),
+                            lookupAction.getFactSourceActionUid(),
+                            lookupAction.getDimensionSourceActionId(),
+                            lookupAction.getDimensionSourceActionUid(),
+                            lookupAction.getInputPortBindings(),
+                            lookupAction.getDescriptor(),
+                            lookupAction.getProducedCatalogTable(),
+                            // Carry the per-subtask state budgets across ID regeneration, otherwise
+                            // the rebuilt action would lose the limits the runtime enforces before
+                            // snapshotting.
+                            lookupAction.getMaxLogicalStateBytesPerSubtask(),
+                            lookupAction.getMaxResidentStateBytesPerSubtask(),
+                            action.getJarUrls(),
+                            action.getConnectorJarIdentifiers());
+        } else if (action instanceof DynamicLookupCoordinatorAction) {
+            DynamicLookupCoordinatorAction coordinatorAction =
+                    (DynamicLookupCoordinatorAction) action;
+            newAction =
+                    new DynamicLookupCoordinatorAction(
+                            id,
+                            action.getName(),
+                            coordinatorAction.getOperatorUid(),
+                            coordinatorAction.getLookupActionId(),
+                            action.getJarUrls(),
+                            action.getConnectorJarIdentifiers());
         } else {
             throw new UnknownActionException(action);
         }
@@ -139,17 +174,7 @@ public class ExecutionPlanGenerator {
         Map<Long, ExecutionVertex> logicalVertexIdToExecutionVertexMap = new HashMap();
 
         List<LogicalEdge> sortedLogicalEdges = new ArrayList<>(logicalEdges);
-        Collections.sort(
-                sortedLogicalEdges,
-                (o1, o2) -> {
-                    if (!o1.getInputVertexId().equals(o2.getInputVertexId())) {
-                        return o1.getInputVertexId() > o2.getInputVertexId() ? 1 : -1;
-                    }
-                    if (!o1.getTargetVertexId().equals(o2.getTargetVertexId())) {
-                        return o1.getTargetVertexId() > o2.getTargetVertexId() ? 1 : -1;
-                    }
-                    return 0;
-                });
+        Collections.sort(sortedLogicalEdges, ExecutionPlanGenerator::compareLogicalEdges);
         for (LogicalEdge logicalEdge : sortedLogicalEdges) {
             LogicalVertex logicalInputVertex =
                     logicalPlan.getLogicalVertexMap().get(logicalEdge.getInputVertexId());
@@ -187,11 +212,49 @@ public class ExecutionPlanGenerator {
                                         logicalTargetVertex.getParallelism());
                             });
 
-            ExecutionEdge executionEdge =
-                    new ExecutionEdge(executionInputVertex, executionTargetVertex);
+            ExecutionEdge executionEdge;
+            if (logicalEdge instanceof PortAwareLogicalEdge) {
+                executionEdge =
+                        PortAwareExecutionEdge.fromLogicalEdge(
+                                executionInputVertex,
+                                executionTargetVertex,
+                                (PortAwareLogicalEdge) logicalEdge);
+            } else {
+                executionEdge = new ExecutionEdge(executionInputVertex, executionTargetVertex);
+            }
             executionEdges.add(executionEdge);
         }
         return executionEdges;
+    }
+
+    private static int compareLogicalEdges(LogicalEdge first, LogicalEdge second) {
+        int comparison = Long.compare(first.getInputVertexId(), second.getInputVertexId());
+        if (comparison != 0) {
+            return comparison;
+        }
+        comparison = Long.compare(first.getTargetVertexId(), second.getTargetVertexId());
+        if (comparison != 0) {
+            return comparison;
+        }
+        if (first instanceof PortAwareLogicalEdge && second instanceof PortAwareLogicalEdge) {
+            PortAwareLogicalEdge firstPortAware = (PortAwareLogicalEdge) first;
+            PortAwareLogicalEdge secondPortAware = (PortAwareLogicalEdge) second;
+            comparison =
+                    Integer.compare(
+                            firstPortAware.getTargetInputPort(),
+                            secondPortAware.getTargetInputPort());
+            if (comparison != 0) {
+                return comparison;
+            }
+            return Long.compare(firstPortAware.getEdgeId(), secondPortAware.getEdgeId());
+        }
+        if (first instanceof PortAwareLogicalEdge) {
+            return 1;
+        }
+        if (second instanceof PortAwareLogicalEdge) {
+            return -1;
+        }
+        return 0;
     }
 
     private Set<ExecutionEdge> generateTransformChainEdges(Set<ExecutionEdge> executionEdges) {
@@ -258,7 +321,7 @@ public class ExecutionPlanGenerator {
                                 chainedTransformVerticesMapping.get(rightVertex.getVertexId()));
             }
             if (needRebuild) {
-                executionEdge = new ExecutionEdge(leftVertex, rightVertex);
+                executionEdge = executionEdge.withVertices(leftVertex, rightVertex);
             }
             transformChainEdges.add(executionEdge);
         }
