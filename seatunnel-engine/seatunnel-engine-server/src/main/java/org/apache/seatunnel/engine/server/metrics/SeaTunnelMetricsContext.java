@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.metrics;
 import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
 import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.Meter;
+import org.apache.seatunnel.api.common.metrics.MetricNames;
 import org.apache.seatunnel.api.common.metrics.Unit;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 
@@ -59,6 +60,37 @@ public class SeaTunnelMetricsContext extends AbstractMetricsContext
                                         + " data type");
                     }
                 });
+    }
+
+    /**
+     * Clears transient intermediate queue metrics loaded from a previous snapshot.
+     *
+     * <p>Intermediate queues are recreated on restore, so stale keys cause duplicate registrations
+     * when queue ownership changes (#13137).
+     */
+    public void cleanIntermediateQueueMetrics() {
+        metrics.keySet()
+                .removeIf(
+                        name ->
+                                matchesQueueMetric(name, MetricNames.INTERMEDIATE_QUEUE_SIZE)
+                                        || matchesQueueMetric(
+                                                name,
+                                                MetricNames.INTERMEDIATE_QUEUE_PUT_BLOCKED_NANOS)
+                                        || matchesQueueMetric(
+                                                name, MetricNames.INTERMEDIATE_QUEUE_CAPACITY));
+    }
+
+    /**
+     * Matches either the exact metric name (e.g. {@code IntermediateQueueSize}) or its
+     * queue-ID-partitioned variant (e.g. {@code IntermediateQueueSize#-2}).
+     *
+     * <p>Queue metrics are partitioned by appending {@code "#" + queueId}. Matching with {@code
+     * name.equals(metricName) || name.startsWith(metricName + "#")} ensures both exact metric names
+     * and their queue-ID variants are removed, while strictly avoiding accidental removal of
+     * unrelated metrics that might share a common name prefix without the delimiter.
+     */
+    private boolean matchesQueueMetric(String name, String metricName) {
+        return name.equals(metricName) || name.startsWith(metricName + "#");
     }
 
     private ProbeUnit toProbeUnit(Unit unit) {
