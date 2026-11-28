@@ -29,6 +29,10 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
+/**
+ * Registers the dedicated StatLine source and its options without adding provider-specific rules to
+ * a shared HTTP factory or changing the fixed observation catalog.
+ */
 @AutoService(Factory.class)
 public class CbsStatLineSourceFactory implements TableSourceFactory {
     static final String IDENTIFIER = "CbsStatLine";

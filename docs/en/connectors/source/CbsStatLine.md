@@ -36,6 +36,14 @@ The `CbsStatLine` source reads the `Observations` entity of one public Statistic
 | `max_rows` | Integer | No | `0` | Positive values cap the output and send the initial OData `$top` query. Zero reads available pages up to the 10,000-page safety limit. Exceeding that limit fails the job. |
 | `base_url` | String | No | `https://datasets.cbs.nl` | Origin serving the same API. Use HTTPS outside controlled test networks. |
 
+## Resource limits and recovery
+
+Each consumed page is limited to 64 MiB after HTTP decompression. One JSON string or property-name token is limited to 1 MiB of encoded bytes, including quotes and escapes. Each observation is staged within 4 MiB and 200,000 JSON tokens before tree conversion; nesting is limited to 64 levels and number text to 1,000 characters. Response headers are limited to 64 entries and 8,192 characters per line; continuation URLs are limited to 8,192 characters before URI resolution. Proxy CONNECT refusal bodies are limited to 64 KiB before native tunnel buffering or cleanup consumption. These fixed limits fail explicitly instead of accepting arbitrarily large responses.
+
+Connection and socket-inactivity timeouts remain 30 seconds. A page additionally has 120 seconds of cumulative active fetch/decode time. Time spent waiting for the engine, checkpoints or downstream row throttling is excluded from that budget. HTTP and parsing run outside the collector checkpoint monitor; each accepted row returns to the engine's checkpoint handoff. Cancellation aborts the owned request and suppresses late delivery.
+
+Observations are streamed. A later invalid envelope may fail after earlier rows were accepted. A positive `max_rows` stops immediately after its accepted prefix, without validating or draining the unread suffix. Checkpoints and savepoints retain null source state: restoration deliberately starts the entire scan again, including previously emitted rows. They do not store a cursor, provide exactly-once output or create a remote snapshot.
+
 ## Output
 
 | Field | Type | Description |

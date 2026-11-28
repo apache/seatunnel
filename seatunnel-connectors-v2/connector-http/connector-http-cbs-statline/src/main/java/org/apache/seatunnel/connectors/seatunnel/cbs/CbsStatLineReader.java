@@ -17,250 +17,265 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cbs;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonParser;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonToken;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
 import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.config.ConnectionConfig;
+import org.apache.http.config.MessageConstraints;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.socket.PlainConnectionSocketFactory;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Streams observations one at a time and follows opaque same-dataset continuation URLs. Inherited
- * polling holds the checkpoint lock for the traversal; a restored split starts over.
+ * Demands one bounded observation at a time off the checkpoint monitor. Accepted rows return to
+ * native engine handoff; inherited null split state deliberately replays a full scan on restore.
  */
 final class CbsStatLineReader extends AbstractSingleSplitReader<SeaTunnelRow> {
-    private static final int HTTP_TIMEOUT_MS = 30_000;
-    private static final int MAX_PAGES = 10_000;
-    private static final ObjectMapper MAPPER =
-            new ObjectMapper().enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
-
+    private static final int HTTP_TIMEOUT_MS = 30000;
     private final URI start;
     private final String dataset;
     private final int maxRows;
     private final SingleSplitReaderContext context;
-    /*
-     * Published before checking sticky cancellation so cancel either aborts or prevents dispatch.
-     */
+    private final CbsStatLineCursor.Limits limits;
+    private final AtomicBoolean cancelled = new AtomicBoolean();
+    // Publication before the sticky cancellation check prevents a late unowned request.
     private final AtomicReference<HttpGet> inFlight = new AtomicReference<>();
-    /*
-     * Sticky lifecycle flag checked by traversal and after abort-induced I/O errors.
-     */
-    private volatile boolean cancelled;
-    /*
-     * Reader-owned transport created by open and closed by close under the normal engine lifecycle.
-     */
+    private volatile Future<SeaTunnelRow> pending;
     private CloseableHttpClient client;
-    /*
-     * Counts emitted rows across pages for the output cap; this counter is not checkpointed.
-     */
+    private ExecutorService worker;
+    private ScheduledExecutorService timer;
+    private CbsStatLineCursor cursor;
+    // This local count is not checkpointed: restored null splits retain whole-scan replay.
     private long emitted;
 
     CbsStatLineReader(URI start, String dataset, int maxRows, SingleSplitReaderContext context) {
+        this(start, dataset, maxRows, context, CbsStatLineCursor.Limits.defaults());
+    }
+
+    CbsStatLineReader(
+            URI start,
+            String dataset,
+            int maxRows,
+            SingleSplitReaderContext context,
+            CbsStatLineCursor.Limits limits) {
         this.start = start;
         this.dataset = dataset;
         this.maxRows = maxRows;
         this.context = context;
+        this.limits = limits;
     }
 
-    /*
-     * Creates the owned HTTP client with finite inactivity timeouts and no redirects or retries.
+    /**
+     * Owns one client, worker and timer. The registry retains system TLS/protocol/cipher settings;
+     * useSystemProperties retains native proxy routing while headers gain a finite admission bound.
      */
     @Override
-    public void open() {
-        client =
-                HttpClients.custom()
-                        .useSystemProperties()
-                        .disableRedirectHandling()
-                        .disableAutomaticRetries()
-                        .disableCookieManagement()
-                        .setDefaultRequestConfig(
-                                RequestConfig.custom()
-                                        .setConnectTimeout(HTTP_TIMEOUT_MS)
-                                        .setSocketTimeout(HTTP_TIMEOUT_MS)
+    public void open() throws IOException {
+        PoolingHttpClientConnectionManager manager =
+                new PoolingHttpClientConnectionManager(
+                        RegistryBuilder.<ConnectionSocketFactory>create()
+                                .register("http", PlainConnectionSocketFactory.getSocketFactory())
+                                .register(
+                                        "https",
+                                        SSLConnectionSocketFactory.getSystemSocketFactory())
+                                .build());
+        manager.setDefaultConnectionConfig(
+                ConnectionConfig.custom()
+                        .setMessageConstraints(
+                                MessageConstraints.custom()
+                                        .setMaxHeaderCount(64)
+                                        .setMaxLineLength(8192)
                                         .build())
-                        .build();
-    }
-
-    /*
-     * Permanently marks cancellation and aborts the currently published page request.
-     */
-    @Override
-    public void cancel() {
-        cancelled = true;
-        HttpGet request = inFlight.get();
-        if (request != null) {
-            request.abort();
-        }
-    }
-
-    /*
-     * Aborts active I/O before releasing the owned HTTP client.
-     */
-    @Override
-    public void close() throws IOException {
-        cancel();
-        if (client != null) {
-            client.close();
-        }
-    }
-
-    /*
-     * Traverses under the inherited checkpoint lock with a 10,000-page and repeated-URI guard.
-     * No continuation state is checkpointed; reaching max_rows intentionally ends a prefix read.
-     */
-    @Override
-    public void internalPollNext(Collector<SeaTunnelRow> output) throws IOException {
-        URI next = start;
-        Set<URI> visited = new HashSet<>();
-        while (!cancelled && next != null && !limitReached()) {
-            if (visited.size() == MAX_PAGES || !visited.add(next)) {
-                throw new IOException("CBS OData continuation repeated or exceeded the page limit");
+                        .build());
+        try {
+            client =
+                    HttpClients.custom()
+                            .useSystemProperties()
+                            .setConnectionManager(manager)
+                            .setRequestExecutor(new CbsStatLineRequestExecutor())
+                            .disableRedirectHandling()
+                            .disableAutomaticRetries()
+                            .disableCookieManagement()
+                            .setDefaultRequestConfig(
+                                    RequestConfig.custom()
+                                            .setConnectTimeout(HTTP_TIMEOUT_MS)
+                                            .setSocketTimeout(HTTP_TIMEOUT_MS)
+                                            .setConnectionRequestTimeout(HTTP_TIMEOUT_MS)
+                                            .build())
+                            .build();
+            worker =
+                    Executors.newSingleThreadExecutor(
+                            task -> {
+                                Thread thread = new Thread(task, "cbs-statline-source-fetch");
+                                thread.setDaemon(true);
+                                return thread;
+                            });
+            timer =
+                    Executors.newSingleThreadScheduledExecutor(
+                            task -> {
+                                Thread thread = new Thread(task, "cbs-statline-source-deadline");
+                                thread.setDaemon(true);
+                                return thread;
+                            });
+            cursor =
+                    new CbsStatLineCursor(
+                            client, start, dataset, timer, cancelled, inFlight, limits);
+        } catch (RuntimeException error) {
+            manager.close();
+            try {
+                close();
+            } catch (IOException cleanup) {
+                error.addSuppressed(cleanup);
             }
-            next = fetchPage(next, output);
+            throw error;
         }
-        if (!cancelled) {
+    }
+
+    /**
+     * Never waits on remote work and accepts at most one row per call. Network/parser ownership
+     * remains on the worker while only collection and local completion use the checkpoint monitor.
+     */
+    @Override
+    public void pollNext(Collector<SeaTunnelRow> output) throws IOException {
+        if (cancelled.get() || noMoreSplits) {
+            return;
+        }
+        Future<SeaTunnelRow> operation = pending;
+        if (operation == null) {
+            try {
+                pending = worker.submit(cursor::next);
+            } catch (RejectedExecutionException error) {
+                if (cancelled.get()) {
+                    return;
+                }
+                throw new IOException("CBS OData fetch worker is unavailable");
+            }
+            if (cancelled.get()) {
+                pending.cancel(true);
+            }
+            return;
+        }
+        if (!operation.isDone()) {
+            return;
+        }
+        SeaTunnelRow row;
+        try {
+            row = operation.get();
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throw new IOException("CBS OData reader interrupted");
+        } catch (CancellationException error) {
+            if (cancelled.get()) {
+                return;
+            }
+            throw new IOException("CBS OData read unexpectedly canceled");
+        } catch (ExecutionException error) {
+            if (cancelled.get()) {
+                return;
+            }
+            Throwable cause = error.getCause();
+            if (cause instanceof IOException) {
+                throw (IOException) cause;
+            }
+            throw new IOException("CBS OData read failed (details withheld)");
+        }
+        pending = null;
+        if (cancelled.get()) {
+            return;
+        }
+        synchronized (output.getCheckpointLock()) {
+            if (cancelled.get()) {
+                return;
+            }
+            if (row != null) {
+                output.collect(row);
+                emitted++;
+            }
+            noMoreSplits = row == null || maxRows > 0 && emitted >= maxRows;
+        }
+        if (noMoreSplits && !cancelled.get()) {
+            // Abort before closing unread entity data; max_rows never drains/validates its suffix.
+            cursor.close();
             context.signalNoMoreElement();
         }
     }
 
-    private boolean limitReached() {
-        return maxRows > 0 && emitted >= maxRows;
+    @Override
+    public void internalPollNext(Collector<SeaTunnelRow> output) throws IOException {
+        pollNext(output);
     }
 
-    /*
-     * Publishes the current request before checking cancellation and always detaches it.
-     * Non-cancellation HTTP/parser failures propagate even when earlier rows have already been emitted.
+    /**
+     * Cancellation never waits for the collector monitor. Sticky cancellation and request abort
+     * suppress late response delivery even when the queued worker has not dispatched yet.
      */
-    private URI fetchPage(URI page, Collector<SeaTunnelRow> output) throws IOException {
-        HttpGet request = new HttpGet(page);
-        request.setHeader("Accept", "application/json");
-        inFlight.set(request);
-        try {
-            if (cancelled) {
-                return null;
-            }
-            try (CloseableHttpResponse response = client.execute(request)) {
-                int status = response.getStatusLine().getStatusCode();
-                if (status != 200 || response.getEntity() == null) {
-                    throw new IOException("CBS OData Observations request returned HTTP " + status);
-                }
-                try (JsonParser parser =
-                        MAPPER.getFactory().createParser(response.getEntity().getContent())) {
-                    return parsePage(page, parser, output);
-                }
-            }
-        } catch (IOException error) {
-            if (cancelled) {
-                return null;
-            }
-            throw error;
-        } finally {
-            inFlight.compareAndSet(request, null);
+    @Override
+    public void cancel() {
+        cancelled.set(true);
+        HttpGet request = inFlight.get();
+        if (request != null) {
+            request.abort();
+        }
+        Future<SeaTunnelRow> operation = pending;
+        if (operation != null) {
+            operation.cancel(true);
         }
     }
 
-    /*
-     * Streams each observation without buffering a whole page. A later envelope error can fail after output.
-     * At max_rows only the emitted prefix is validated; the unread suffix and nextLink are not consumed.
+    /**
+     * Releases all owned resources after abort, preserving a primary cleanup failure and still
+     * stopping both executors. Active parser cleanup remains on its worker.
      */
-    private URI parsePage(URI page, JsonParser parser, Collector<SeaTunnelRow> output)
-            throws IOException {
-        if (parser.nextToken() != JsonToken.START_OBJECT) {
-            throw new IOException("CBS OData response must be an object");
+    @Override
+    public void close() throws IOException {
+        // Reverse resource-close order keeps abort/parser/client cleanup before executor shutdown.
+        try (Closeable stopTimer =
+                        () -> {
+                            if (timer != null) {
+                                timer.shutdownNow();
+                            }
+                        };
+                Closeable stopWorker =
+                        () -> {
+                            if (worker != null) {
+                                worker.shutdownNow();
+                            }
+                        };
+                Closeable closeClient =
+                        () -> {
+                            if (client != null) {
+                                client.close();
+                            }
+                        };
+                Closeable closeCursor =
+                        () -> {
+                            if (cursor != null) {
+                                cursor.close();
+                            }
+                        }) {
+            cancel();
         }
-        URI next = null;
-        boolean sawValue = false;
-        boolean sawNext = false;
-        while (parser.nextToken() == JsonToken.FIELD_NAME) {
-            String field = parser.getCurrentName();
-            JsonToken token = parser.nextToken();
-            if ("value".equals(field)) {
-                if (sawValue || token != JsonToken.START_ARRAY) {
-                    throw new IOException("CBS OData response must contain one value array");
-                }
-                sawValue = true;
-                while ((token = parser.nextToken()) != JsonToken.END_ARRAY) {
-                    if (token != JsonToken.START_OBJECT) {
-                        throw new IOException("CBS OData observations must be objects");
-                    }
-                    emit(MAPPER.readTree(parser), output);
-                    if (cancelled || limitReached()) {
-                        return null;
-                    }
-                }
-            } else if ("@odata.nextLink".equals(field)) {
-                if (sawNext || (token != JsonToken.VALUE_NULL && token != JsonToken.VALUE_STRING)) {
-                    throw new IOException("CBS OData nextLink must be a URL string or null");
-                }
-                sawNext = true;
-                if (token == JsonToken.VALUE_STRING) {
-                    next = continuation(page, parser.getText());
-                }
-            } else {
-                parser.skipChildren();
-            }
-        }
-        if (!sawValue
-                || parser.currentToken() != JsonToken.END_OBJECT
-                || parser.nextToken() != null) {
-            throw new IOException("Invalid CBS OData response envelope");
-        }
-        return next;
-    }
-
-    /*
-     * Validates required fields and retains numeric text via BIG_DECIMAL parsing, optional text spaces
-     * and all dimension fields in raw observation JSON before incrementing the local output count.
-     */
-    private void emit(JsonNode observation, Collector<SeaTunnelRow> output) throws IOException {
-        JsonNode id = observation.path("Id");
-        JsonNode measure = observation.path("Measure");
-        JsonNode value = observation.path("Value");
-        if (!id.isIntegralNumber()
-                || !id.canConvertToLong()
-                || !measure.isTextual()
-                || (!value.isNull() && !value.isMissingNode() && !value.isNumber())) {
-            throw new IOException("Invalid CBS OData observation Id, Measure, or Value");
-        }
-        output.collect(
-                new SeaTunnelRow(
-                        new Object[] {
-                            dataset,
-                            id.longValue(),
-                            measure.textValue(),
-                            value.isNumber() ? value.asText() : null,
-                            optionalText(observation, "StringValue"),
-                            optionalText(observation, "ValueAttribute"),
-                            observation.toString()
-                        }));
-        emitted++;
-    }
-
-    private static String optionalText(JsonNode observation, String field) throws IOException {
-        JsonNode value = observation.path(field);
-        if (value.isNull() || value.isMissingNode()) {
-            return null;
-        }
-        if (!value.isTextual()) {
-            throw new IOException("CBS OData observation field " + field + " must be text or null");
-        }
-        return value.textValue();
     }
 
     /*
