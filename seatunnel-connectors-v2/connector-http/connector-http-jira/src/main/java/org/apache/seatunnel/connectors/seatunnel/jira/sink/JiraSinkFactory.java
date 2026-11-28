@@ -26,6 +26,9 @@ import org.apache.seatunnel.connectors.seatunnel.jira.sink.config.JiraSinkOption
 
 import com.google.auto.service.AutoService;
 
+/**
+ * Registers the Jira command Sink independently of the existing Jira Source in the same artifact.
+ */
 @AutoService(Factory.class)
 public class JiraSinkFactory implements TableSinkFactory {
 

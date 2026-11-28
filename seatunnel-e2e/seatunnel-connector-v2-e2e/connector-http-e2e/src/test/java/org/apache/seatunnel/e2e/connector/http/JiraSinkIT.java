@@ -58,6 +58,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Exercises real engine command execution against a stateful Jira protocol fixture, including
+ * uncertain outcomes, cancellation and checkpoint restore without automatic mutation replay.
+ */
 @Execution(ExecutionMode.SAME_THREAD)
 class JiraSinkIT extends TestSuiteBase implements TestResource {
     private static final String ORIGIN = "http://jira-sink-fixture:8080";
@@ -387,7 +391,12 @@ class JiraSinkIT extends TestSuiteBase implements TestResource {
         String jobId = id();
         String restoredId = id();
         ExecutorService jobs = Executors.newSingleThreadExecutor();
-        try {
+        // Reverse close order attempts every cleanup and preserves the original failure.
+        try (AutoCloseable removeConfig = () -> Files.deleteIfExists(config);
+                AutoCloseable stopExecutor = jobs::shutdownNow;
+                AutoCloseable stopOriginal = () -> stopIfRunning(container, jobId);
+                AutoCloseable stopRestored = () -> stopIfRunning(container, restoredId);
+                AutoCloseable releaseHeldRequest = this::release) {
             Future<Container.ExecResult> original =
                     jobs.submit(() -> container.executeJob(name, jobId));
             Awaitility.await()
@@ -426,12 +435,6 @@ class JiraSinkIT extends TestSuiteBase implements TestResource {
                     .until(() -> "CANCELED".equals(container.getJobStatus(restoredId)));
             Assertions.assertEquals(0, restored.get(60, TimeUnit.SECONDS).getExitCode());
             Assertions.assertEquals(1, state().path("requests").size());
-        } finally {
-            release();
-            stopIfRunning(container, restoredId);
-            stopIfRunning(container, jobId);
-            jobs.shutdownNow();
-            Files.deleteIfExists(config);
         }
     }
 

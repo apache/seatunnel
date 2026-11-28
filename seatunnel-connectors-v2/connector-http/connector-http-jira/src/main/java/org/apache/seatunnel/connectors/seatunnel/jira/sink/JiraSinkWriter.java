@@ -33,6 +33,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.regex.Pattern;
 
+/**
+ * Converts INSERT command rows into one validated Jira mutation at a time, preserving field values.
+ * A returned write acknowledges that command, without guaranteeing exactly-once engine replay.
+ */
 final class JiraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     static final int MAX_JSON_BYTES = 1024 * 1024;
@@ -70,7 +74,7 @@ final class JiraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         this.client = client;
     }
 
-    /** Sends one command and returns only after Jira acknowledges its outcome. */
+    /* Return only after Jira acknowledges this command; an ambiguous failure must not be replayed. */
     @Override
     public void write(SeaTunnelRow row) throws IOException {
         if (row.getRowKind() != RowKind.INSERT) {
@@ -92,6 +96,7 @@ final class JiraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         client.mutate(path, fieldsIndex < 0 ? null : encodeFields(row.getField(fieldsIndex)));
     }
 
+    /* Validate before IO, but send original JSON bytes to avoid rounding numbers or losing nulls. */
     private byte[] encodeFields(Object value) throws IOException {
         if (!(value instanceof String) || ((String) value).length() > MAX_JSON_BYTES) {
             throw invalid("requires a STRING containing a bounded JSON object in fields");

@@ -20,7 +20,14 @@ package org.apache.seatunnel.connectors.seatunnel.jira.sink.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+/**
+ * Defines the Jira Cloud command contract and finite transport/retry budgets for each mutation.
+ * Options are independent of the existing Source and do not imply transactional checkpoint commits.
+ */
 public final class JiraSinkOptions {
+
+    private JiraSinkOptions() {}
+
     public static final Option<String> BASE_URL =
             Options.key("base_url")
                     .stringType()
@@ -66,8 +73,9 @@ public final class JiraSinkOptions {
                     .withDescription(
                             "Maximum retries for UPDATE explicitly rejected with HTTP 429 and Retry-After (0 to 10).");
 
-    private JiraSinkOptions() {}
-
+    /**
+     * Selects the single mutation applied to each INSERT command row, with no cascading deletion.
+     */
     public enum Operation {
         CREATE,
         UPDATE,

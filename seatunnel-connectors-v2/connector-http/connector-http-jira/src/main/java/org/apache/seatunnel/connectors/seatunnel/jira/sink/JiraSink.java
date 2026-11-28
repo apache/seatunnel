@@ -33,6 +33,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Optional;
 
+/**
+ * Validates the command schema and trusted Jira origin before creating isolated synchronous
+ * writers. Mutations are acknowledged individually and do not participate in a checkpoint
+ * transaction.
+ */
 final class JiraSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     private final CatalogTable table;
@@ -104,6 +109,7 @@ final class JiraSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
                 "Jira Sink schema requires a STRING column named " + name);
     }
 
+    /* Reject paths and embedded credentials so command paths cannot escape the configured origin. */
     private static URI validateOrigin(String value, boolean allowInsecureHttp) {
         URI uri;
         try {

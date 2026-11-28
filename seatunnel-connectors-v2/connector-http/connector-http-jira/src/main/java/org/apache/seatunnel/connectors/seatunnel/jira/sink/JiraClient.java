@@ -62,7 +62,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.zip.GZIPInputStream;
 
-/** Owns the request worker and active socket so close can interrupt I/O or throttling waits. */
+/**
+ * Owns one mutation worker and its active socket, with one deadline covering IO and throttling
+ * waits. Transport failures expose an uncertain outcome rather than automatically replaying
+ * mutations.
+ */
 final class JiraClient implements AutoCloseable {
     private static final int MAX_RESPONSE_BYTES = 64 * 1024;
     private static final DefaultBHttpClientConnectionFactory CONNECTION_FACTORY =
@@ -88,6 +92,7 @@ final class JiraClient implements AutoCloseable {
                         return thread;
                     });
 
+    // Guarded by this: close is sticky and owns cancellation of the single Future and socket.
     private boolean closed;
     private Future<Void> activeRequest;
     private Socket activeSocket;
@@ -105,6 +110,7 @@ final class JiraClient implements AutoCloseable {
         this.maxRetries = maxRetries;
     }
 
+    /* The caller waits outside the ownership lock so close can abort IO and deadline expiry. */
     void mutate(String path, byte[] body) throws IOException {
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
         Future<Void> request;
@@ -146,6 +152,7 @@ final class JiraClient implements AutoCloseable {
         }
     }
 
+    /* Only an explicitly rejected UPDATE 429 may retry, within the original command deadline. */
     private void send(String path, byte[] body, long deadline)
             throws IOException, InterruptedException {
         for (int attempt = 0; ; attempt++) {
@@ -212,6 +219,7 @@ final class JiraClient implements AutoCloseable {
         }
     }
 
+    /* A negative result is an acknowledgement; a nonnegative result is a rejected UPDATE delay. */
     private long execute(Socket socket, String path, byte[] body)
             throws IOException, HttpException {
         BasicHttpRequest request;
@@ -273,6 +281,7 @@ final class JiraClient implements AutoCloseable {
                 "rejected with HTTP " + status + "; check the Jira permissions, issue and fields");
     }
 
+    /* Bound both compressed bytes and decoded bytes before parsing a CREATE acknowledgement. */
     private byte[] readBody(HttpResponse response) throws IOException {
         HttpEntity entity = response.getEntity();
         if (entity == null) {
@@ -310,6 +319,7 @@ final class JiraClient implements AutoCloseable {
         return body.toByteArray();
     }
 
+    /* A nominal 201 with malformed or contradictory content leaves the mutation outcome unknown. */
     private void validateCreatedIssue(byte[] body) throws IOException {
         JsonNode issue;
         try {
@@ -398,6 +408,10 @@ final class JiraClient implements AutoCloseable {
         }
     }
 
+    /**
+     * Carries only connector-authored diagnostics across the worker boundary, without attaching
+     * transport or parser causes that may contain credentials or provider response data.
+     */
     private static final class JiraRequestException extends IOException {
         private static final long serialVersionUID = 1L;
 
