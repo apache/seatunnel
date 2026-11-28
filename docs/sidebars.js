@@ -334,6 +334,7 @@ const sidebars = {
                         "engines/zeta/realtime-observability",
                         "engines/zeta/live-metrics-chart",
                         "engines/zeta/slot-allocation-strategy",
+                        "engines/zeta/managed-source-runtime",
                         "engines/zeta/benchmark",
                         "engines/zeta/tuning-guide"
                     ]

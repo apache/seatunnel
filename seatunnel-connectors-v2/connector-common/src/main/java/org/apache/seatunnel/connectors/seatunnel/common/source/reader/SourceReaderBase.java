@@ -22,6 +22,9 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.source.managed.ManagedSourceReader;
+import org.apache.seatunnel.api.source.managed.PollContext;
+import org.apache.seatunnel.api.source.managed.PollStatus;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.fetcher.SplitFetcherManager;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreader.SplitReader;
@@ -36,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -54,7 +58,7 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
  */
 @Slf4j
 public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitStateT>
-        implements SourceReader<T, SplitT> {
+        implements ManagedSourceReader<T, SplitT> {
     private final BlockingQueue<RecordsWithSplitIds<E>> elementsQueue;
     private final ConcurrentMap<String, SplitContext<T, SplitStateT>> splitStates;
     protected final RecordEmitter<E, T, SplitStateT> recordEmitter;
@@ -66,6 +70,9 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
     protected SplitContext<T, SplitStateT> currentSplitContext;
     private Collector<T> currentSplitOutput;
     @Getter private volatile boolean noMoreSplitsAssignment;
+    private final Object availabilityLock = new Object();
+    private CompletableFuture<Void> availability = new CompletableFuture<>();
+    private volatile boolean managedRuntimeActive;
 
     public SourceReaderBase(
             BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
@@ -79,6 +86,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
         this.splitStates = new ConcurrentHashMap<>();
         this.options = options;
         this.context = context;
+        this.splitFetcherManager.setAvailabilityNotifier(this::signalAvailable);
     }
 
     @Override
@@ -87,7 +95,13 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
     }
 
     @Override
+    public void activateManagedRuntime() {
+        managedRuntimeActive = true;
+    }
+
+    @Override
     public void pollNext(Collector<T> output) throws Exception {
+        drainAsyncCompletions();
         RecordsWithSplitIds<E> recordsWithSplitId = this.currentFetch;
         if (recordsWithSplitId == null) {
             recordsWithSplitId = getNextFetch(output);
@@ -116,6 +130,64 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
     }
 
     @Override
+    public PollStatus pollNextManaged(Collector<T> output, PollContext pollContext)
+            throws Exception {
+        drainAsyncCompletions();
+        boolean emitted = false;
+        while (!pollContext.shouldYield()) {
+            RecordsWithSplitIds<E> recordsWithSplitId = currentFetch;
+            if (recordsWithSplitId == null) {
+                splitFetcherManager.checkErrors();
+                recordsWithSplitId = elementsQueue.poll();
+                if (recordsWithSplitId == null) {
+                    if (Boundedness.BOUNDED.equals(context.getBoundedness())
+                            && noMoreSplitsAssignment
+                            && isNoMoreElement()) {
+                        context.signalNoMoreElement();
+                        return PollStatus.END_OF_INPUT;
+                    }
+                    return emitted ? PollStatus.MORE_AVAILABLE : PollStatus.NOTHING_AVAILABLE;
+                }
+                if (!moveToNextSplit(recordsWithSplitId, output)) {
+                    continue;
+                }
+                currentFetch = recordsWithSplitId;
+            }
+
+            E record = recordsWithSplitId.nextRecordFromSplit();
+            if (record != null) {
+                recordEmitter.emitRecord(record, currentSplitOutput, currentSplitContext.state);
+                emitted = true;
+                log.trace("Emitted managed record: {}", record);
+            } else if (!moveToNextSplit(recordsWithSplitId, output)) {
+                continue;
+            }
+        }
+        return PollStatus.MORE_AVAILABLE;
+    }
+
+    @Override
+    public CompletableFuture<Void> isAvailable() {
+        synchronized (availabilityLock) {
+            if (currentFetch != null || !elementsQueue.isEmpty() || noMoreSplitsAssignment) {
+                return CompletableFuture.completedFuture(null);
+            }
+            if (availability.isDone()) {
+                CompletableFuture<Void> completed = availability;
+                availability = new CompletableFuture<>();
+                return completed;
+            }
+            return availability;
+        }
+    }
+
+    @Override
+    public void wakeUp() {
+        splitFetcherManager.wakeUp();
+        signalAvailable();
+    }
+
+    @Override
     public List<SplitT> snapshotState(long checkpointId) {
         List<SplitT> splits = new ArrayList<>();
         splitStates.forEach((id, context) -> splits.add(toSplitType(id, context.state)));
@@ -134,12 +206,14 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
                             new SplitContext<>(split.splitId(), initializedState(split)));
                 });
         splitFetcherManager.addSplits(splits);
+        signalAvailable();
     }
 
     @Override
     public void handleNoMoreSplits() {
         log.info("Reader {} received NoMoreSplits event.", context.getIndexOfSubtask());
         noMoreSplitsAssignment = true;
+        signalAvailable();
     }
 
     @Override
@@ -160,6 +234,28 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
             splitFetcherManager.close(options.getSourceReaderCloseTimeout());
         } catch (Exception e) {
             throw new RuntimeException(e);
+        } finally {
+            signalAvailable();
+        }
+    }
+
+    /** Applies connector-specific async completions on the Reader owner thread. */
+    protected void drainAsyncCompletions() {}
+
+    /**
+     * Returns whether the engine explicitly activated this Reader's managed lane.
+     *
+     * <p>Shared Reader bases must use this guard for behavior that would otherwise change legacy
+     * callback timing.
+     */
+    protected final boolean isManagedRuntimeActive() {
+        return managedRuntimeActive;
+    }
+
+    /** Coalesces concurrent availability notifications without losing a pre-subscription signal. */
+    protected final void signalAvailable() {
+        synchronized (availabilityLock) {
+            availability.complete(null);
         }
     }
 

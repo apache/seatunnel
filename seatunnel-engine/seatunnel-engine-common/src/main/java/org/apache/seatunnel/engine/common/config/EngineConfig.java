@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.CoordinatorServiceConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
+import org.apache.seatunnel.engine.common.config.server.ManagedSourceRuntimeConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
@@ -82,6 +83,9 @@ public class EngineConfig {
 
     private QueueType queueType =
             ServerConfigOptions.WorkerServerConfigOptions.QUEUE_TYPE.defaultValue();
+
+    private ManagedSourceRuntimeConfig managedSourceRuntimeConfig =
+            ServerConfigOptions.MANAGED_SOURCE_RUNTIME.defaultValue();
 
     private int timerFlushPoolSize =
             ServerConfigOptions.WorkerServerConfigOptions.TIMER_FLUSH_POOL_SIZE.defaultValue();

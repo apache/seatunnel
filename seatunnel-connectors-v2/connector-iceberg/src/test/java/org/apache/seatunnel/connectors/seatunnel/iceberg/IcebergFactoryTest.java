@@ -17,22 +17,26 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg;
 
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.configuration.util.RequiredOption;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.IcebergSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.source.IcebergSource;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.IcebergSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -45,6 +49,23 @@ class IcebergFactoryTest {
 
     private static final OptionRule SOURCE_RULE = new IcebergSourceFactory().optionRule();
     private static final OptionRule SINK_RULE = new IcebergSinkFactory().optionRule();
+
+    /**
+     * Bounded Iceberg enumeration plans splits synchronously and must stay off the managed loop.
+     *
+     * <p>The streaming enumerator's asynchronous capability must remain available independently.
+     */
+    @Test
+    void managedCoordinatorCapabilityDependsOnJobMode() {
+        // Exercise the real context/mode/capability methods without opening an unrelated catalog.
+        IcebergSource source = Mockito.mock(IcebergSource.class, Mockito.CALLS_REAL_METHODS);
+        Assertions.assertFalse(source.getManagedSourceCapability().supportsManagedCoordinator());
+        source.setJobContext(new JobContext().setJobMode(JobMode.BATCH));
+        Assertions.assertFalse(source.getManagedSourceCapability().supportsManagedCoordinator());
+        source.setJobContext(new JobContext().setJobMode(JobMode.STREAMING));
+        Assertions.assertTrue(source.getManagedSourceCapability().supportsManagedCoordinator());
+        Assertions.assertTrue(source.getManagedSourceCapability().supportsAsyncEnumerator());
+    }
 
     // rule structure
 
