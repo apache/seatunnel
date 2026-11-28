@@ -58,6 +58,13 @@ fetch has a 30-second elapsed deadline, including continuously progressing respo
 fails the fetch without emitting partially decoded rows. Responses are limited to 100 headers and
 16 KiB per status/header line.
 
+The complete response is validated before any row is emitted. The reader retains that response
+and emits at most one row per poll, allowing the engine's cooperative checkpoint handoff between
+rows without another HTTP request. A single collection can still wait on downstream progress;
+this is not a wall-clock checkpoint guarantee. Checkpoints keep the existing null split state,
+not the prepared response or row position. A restored reader fetches the whole current response
+again, so already emitted rows can repeat or change; this does not provide exactly-once delivery.
+
 ## Example
 
 ```hocon

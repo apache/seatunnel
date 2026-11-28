@@ -91,6 +91,15 @@ final class DiscourseSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
      * Client publication is not atomically coordinated with a concurrent open/close call.
      */
     private CloseableHttpClient client;
+    /*
+     * Owned only by the polling thread, never included in the inherited null split snapshot.
+     * Retaining the validated response allows each poll to yield after one accepted row without
+     * fetching again; a restored reader still requests and replays the whole response.
+     */
+    private List<SeaTunnelRow> preparedRows;
+
+    // Advance only after collect succeeds, retaining a failed row for a subsequent explicit poll.
+    private int nextRow;
 
     DiscourseSourceReader(
             URI endpoint,
@@ -209,23 +218,30 @@ final class DiscourseSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
     /*
      * The engine owns one polling thread. HTTP and whole-response validation do not hold the
      * collector lock, so a checkpoint can retain the existing null-state/whole-response replay
-     * contract during slow I/O. Each emission and normal completion remain checkpoint-coordinated.
+     * contract during slow I/O. At most one row is collected before returning to the engine's
+     * cooperative checkpoint handoff; individual collection can still wait on downstream progress.
      */
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws IOException {
         if (noMoreSplits) {
             return;
         }
-        for (SeaTunnelRow row : fetchRows()) {
-            synchronized (output.getCheckpointLock()) {
-                checkCancelled();
-                output.collect(row);
-            }
+        checkCancelled();
+        if (preparedRows == null) {
+            preparedRows = fetchRows();
         }
         synchronized (output.getCheckpointLock()) {
             checkCancelled();
-            context.signalNoMoreElement();
-            noMoreSplits = true;
+            if (nextRow < preparedRows.size()) {
+                output.collect(preparedRows.get(nextRow));
+                nextRow++;
+            }
+            if (nextRow == preparedRows.size()) {
+                checkCancelled();
+                context.signalNoMoreElement();
+                noMoreSplits = true;
+                preparedRows = null;
+            }
         }
     }
 

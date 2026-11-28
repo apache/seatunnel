@@ -365,6 +365,11 @@ class DiscourseSourceTest {
                                     return this;
                                 }
                             };
+                    if (count == 2) {
+                        // One successful poll now returns after the row that requests cancellation.
+                        // The next poll must preserve the existing no-tail/no-success assertions.
+                        reader.pollNext(output);
+                    }
                     assertEquals(
                             "Discourse source was cancelled",
                             assertThrows(IOException.class, () -> reader.pollNext(output))
@@ -372,6 +377,55 @@ class DiscourseSourceTest {
                     assertEquals(1, rows.size());
                     assertEquals(1L, rows.get(0).getField(0));
                     assertEquals(0, context.signals);
+                    assertEquals(1, server.getRequestCount());
+                }
+            }
+        }
+    }
+
+    @Test
+    void yieldsPreparedRowsWithoutRefetchAndKeepsNullStateReplayAndCancellation() throws Exception {
+        for (boolean cancelAfterFirst : new boolean[] {false, true}) {
+            try (MockWebServer server = new MockWebServer()) {
+                server.enqueue(
+                        json(
+                                "{\"category_list\":{\"categories\":["
+                                        + "{\"id\":1,\"name\":\"one\",\"slug\":\"one\"},"
+                                        + "{\"id\":2,\"name\":\"two\",\"slug\":\"two\"},"
+                                        + "{\"id\":3,\"name\":\"three\",\"slug\":\"three\"}]}}"));
+                TestContext context = new TestContext();
+                try (DiscourseSourceReader reader =
+                        reader(source(server.url("/").toString(), "CATEGORIES"), context)) {
+                    List<SeaTunnelRow> rows = new ArrayList<>();
+                    Collector<SeaTunnelRow> output = collecting(rows);
+                    reader.pollNext(output);
+                    assertEquals(1, rows.size());
+                    assertEquals(1L, rows.get(0).getField(0));
+                    assertEquals(0, context.signals);
+                    assertEquals(1, reader.snapshotState(7).size());
+                    assertNull(reader.snapshotState(7).get(0).getState());
+                    assertEquals(1, server.getRequestCount());
+                    if (cancelAfterFirst) {
+                        reader.cancel();
+                        assertEquals(
+                                "Discourse source was cancelled",
+                                assertThrows(IOException.class, () -> reader.pollNext(output))
+                                        .getMessage());
+                        assertEquals(1, rows.size());
+                        assertEquals(0, context.signals);
+                    } else {
+                        reader.pollNext(output);
+                        assertEquals(2, rows.size());
+                        assertEquals(2L, rows.get(1).getField(0));
+                        assertEquals(0, context.signals);
+                        reader.pollNext(output);
+                        assertEquals(3, rows.size());
+                        assertEquals(3L, rows.get(2).getField(0));
+                        assertEquals(1, context.signals);
+                        reader.pollNext(output);
+                        assertEquals(3, rows.size());
+                        assertEquals(1, context.signals);
+                    }
                     assertEquals(1, server.getRequestCount());
                 }
             }
