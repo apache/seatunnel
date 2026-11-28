@@ -10,7 +10,7 @@
 
 |      名称       | 类型      | 是否必须 |  默认值  |
 |---------------|---------|------|-------|
-| replace_fields | array   | yes  |       |
+| replace_fields | array   | 是   | -     |
 | pattern       | string  | yes  | -     |
 | replacement   | string  | yes  | -     |
 | is_regex      | boolean | no   | false |
@@ -59,7 +59,7 @@
 
 控制当多个 `table_transform` 条目的 `table_path` 相同时的处理方式：`FIRST_MATCH` 只应用第一个匹配的条目，`ALL_MATCH` 按顺序应用所有匹配的条目。如果未设置，重复的 `table_path` 条目会被拒绝。
 
-### common options [string]
+### common options
 
 转换插件的常见参数, 请参考  [Transform Plugin](common-options/common-options.md) 了解详情
 

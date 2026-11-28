@@ -70,32 +70,32 @@ libfb303-xxx.jar
 
 | 名称                           | 类型   | 是否必须 | 默认值                          | 描述                                                                                                   |
 |------------------------------|------|------|------------------------------|------------------------------------------------------------------------------------------------------|
-| warehouse                    | 字符串  | 是    | -                            | warehouse 路径；REST catalog 使用托管 warehouse 名称，而不是存储路径。 |
-| catalog_name                 | 字符串  | 否    | paimon                       | Paimon catalog名称                                                                                     |
-| catalog_type                 | 字符串  | 否    | filesystem                   | catalog 类型：`filesystem`、`hive` 或 `rest`。 |
-| catalog_uri                  | 字符串  | `hive` 或 `rest` 时必填 | -                            | Hive metastore URI 或 REST catalog 服务端点。 |
+| warehouse                    | String | 是    | -                            | warehouse 路径；REST catalog 使用托管 warehouse 名称，而不是存储路径。 |
+| catalog_name                 | String | 否    | paimon                       | Paimon catalog名称                                                                                     |
+| catalog_type                 | String | 否    | filesystem                   | catalog 类型：`filesystem`、`hive` 或 `rest`。 |
+| catalog_uri                  | String | `hive` 或 `rest` 时必填 | -                            | Hive metastore URI 或 REST catalog 服务端点。 |
 | token.provider | String | `rest` 时必填 | - | 认证提供者：仅小写 `bear` 或 `dlf`。 |
 | token | String | `bear` 时必填 | - | Bearer token。 |
 | dlf.access-key-id | String | `dlf` 时必填 | - | DLF access key ID。 |
 | dlf.access-key-secret | String | `dlf` 时必填 | - | DLF access key secret。 |
 | dlf.security-token | String | 否 | - | 可选的临时 DLF security token。 |
 | dlf.region | String | 否 | - | DLF region；未配置时从 `catalog_uri` 推断。 |
-| database                     | 字符串  | 是    | -                            | 数据库名称，不能为空白字符串。                                                                                        |
-| table                        | 字符串  | 是    | -                            | 表名，不能为空白字符串。                                                                                          |
-| user                         | 字符串  | 否    | -                            | paimon开启权限后，用户名                                                                                      |
-| password                     | 字符串  | 否    | -                            | paimon开启权限后，用户名对应密码                                                                                  |
-| hdfs_site_path               | 字符串  | 否    | -                            | 已废弃。hdfs-site.xml 文件路径。新作业建议使用 `paimon.hadoop.conf` 或 `paimon.hadoop.conf-path`                         |
-| schema_save_mode             | 枚举   | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema保存模式                                                                                           |
-| data_save_mode               | 枚举   | 否    | APPEND_DATA                  | 数据保存模式                                                                                               |
-| paimon.table.primary-keys    | 字符串  | 否    | -                            | 主键字段列表，联合主键使用逗号分隔(注意：分区字段需要包含在主键字段中)                                                                 |
-| paimon.table.partition-keys  | 字符串  | 否    | -                            | 分区字段列表，多字段使用逗号分隔                                                                                     |
+| database                     | String | 是    | -                            | 数据库名称，不能为空白字符串。                                                                                        |
+| table                        | String | 是    | -                            | 表名，不能为空白字符串。                                                                                          |
+| user                         | String | 否    | -                            | paimon开启权限后，用户名                                                                                      |
+| password                     | String | 否    | -                            | paimon开启权限后，用户名对应密码                                                                                  |
+| hdfs_site_path               | String | 否    | -                            | 已废弃。hdfs-site.xml 文件路径。新作业建议使用 `paimon.hadoop.conf` 或 `paimon.hadoop.conf-path`                         |
+| schema_save_mode             | Enum | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema保存模式                                                                                           |
+| data_save_mode               | Enum | 否    | APPEND_DATA                  | 数据保存模式                                                                                               |
+| paimon.table.primary-keys    | String | 否    | -                            | 主键字段列表，联合主键使用逗号分隔(注意：分区字段需要包含在主键字段中)                                                                 |
+| paimon.table.partition-keys  | String | 否    | -                            | 分区字段列表，多字段使用逗号分隔                                                                                     |
 | paimon.table.write-props     | Map  | 否    | -                            | Paimon表初始化指定的属性, [参考](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions) |
 | table_options                | Map  | 否    | -                            | Sink 侧表属性，仅用于 SaveMode 自动建表（不进入运行时 write-props）。详见下文。                                          |
 | paimon.hadoop.conf           | Map  | 否    | -                            | Hadoop配置文件属性信息                                                                                       |
-| paimon.hadoop.conf-path      | 字符串  | 否    | -                            | Hadoop配置文件目录，用于加载'core-site.xml', 'hdfs-site.xml', 'hive-site.xml'文件配置                               |
+| paimon.hadoop.conf-path      | String  | 否    | -                            | Hadoop配置文件目录，用于加载'core-site.xml', 'hdfs-site.xml', 'hive-site.xml'文件配置                               |
 | paimon.table.non-primary-key | Boolean | 否    | false                        | 控制创建主键表或者非主键表. 当为true时,创建非主键表, 为false时,创建主键表                                                         |
-| branch                       | 字符串  | 否    | -                            | 要写入数据的 Paimon 表分支名称。不配置时写入 main 分支。非 main 分支要求 main 表和目标分支已存在，且不支持 `schema_save_mode=RECREATE_SCHEMA` 或 `data_save_mode=DROP_DATA`。 |
-| multi_table_sink_replica     | int    | 否    | 1                            | 多表写入模式下每张表的 writer 副本数。当一个上游作业写入多张 Paimon 表、且每张表需要多个 sink writer 时使用。                                      |
+| branch                       | String  | 否    | -                            | 要写入数据的 Paimon 表分支名称。不配置时写入 main 分支。非 main 分支要求 main 表和目标分支已存在，且不支持 `schema_save_mode=RECREATE_SCHEMA` 或 `data_save_mode=DROP_DATA`。 |
+| multi_table_sink_replica     | Int    | 否    | 1                            | 多表写入模式下每张表的 writer 副本数。当一个上游作业写入多张 Paimon 表、且每张表需要多个 sink writer 时使用。                                      |
 
 ### table_options [Map]
 

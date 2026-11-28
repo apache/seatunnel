@@ -54,16 +54,19 @@ Write data to Snowflake through JDBC. The sink supports batch and streaming jobs
 | BINARY<br/>VARBINARY                                                        | BYTES               |
 | GEOGRAPHY<br/>GEOMETRY                                                      | STRING              |
 
+When the sink creates a table, a SeaTunnel `DECIMAL(p, s)` column with `p > 38` is reduced to precision 38, with the scale reduced by the same overflow. SeaTunnel `BYTES` columns are created as Snowflake `GEOMETRY`.
+
 ## Sink Options
 
 |                   Name                    |  Type   | Required | Default | Description                                                                                                                                                                                |
 |-------------------------------------------|---------|----------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                       | String  | Yes      | -       | JDBC connection URL, for example `jdbc:snowflake://<account_name>.snowflakecomputing.com`.                                                                                                  |
+| url                                       | String  | Yes      | -       | JDBC connection URL, for example `jdbc:snowflake://<account_name>.snowflakecomputing.com`. |
 | driver                                    | String  | Yes      | -       | JDBC driver class name. Use `net.snowflake.client.jdbc.SnowflakeDriver` for Snowflake.                                                                                                     |
+| generate_sink_sql                         | Boolean | No       | false   | Generate sink SQL from `database`, `table`, and `primary_keys` instead of using a custom `query`. When `true`, `database` becomes required; omit `query` so the generated SQL is used — a nonblank `query` still takes precedence.                          |
 | username                                  | String  | No       | -       | Username for the Snowflake account.                                                                                                                                                        |
 | password                                  | String  | No       | -       | Password for the Snowflake account.                                                                                                                                                        |
 | query                                     | String  | No       | -       | SQL used to write upstream rows. Takes precedence over `database`/`table` auto-generated SQL, and disables catalog-based optimizations (no auto-generated upsert).                          |
-| database                                  | String  | No       | -       | Database name. When `generate_sink_sql = true`, used with `table` to generate `INSERT`/upsert SQL. Mutually exclusive with `query`; when both are set, `query` wins.                        |
+| database | String | Yes when `generate_sink_sql = true` | - | Target database used with `table` to generate write SQL. |
 | table                                     | String  | No       | -       | Target table name. Used together with `database` and `generate_sink_sql` to generate writes.                                                                                              |
 | primary_keys                              | Array   | No       | -       | Primary-key columns. Required when `generate_sink_sql = true` together with `enable_upsert = true` to build an upsert (insert-or-update) statement.                                        |
 | connection_check_timeout_sec              | Int     | No       | 30      | Seconds to wait for the connection check before failing.                                                                                                                                   |

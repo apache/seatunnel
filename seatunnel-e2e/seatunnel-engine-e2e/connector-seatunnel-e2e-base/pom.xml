@@ -52,6 +52,32 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
+        <!--
+            connector-cdc-mysql declares connector-cdc-base as provided, so Maven does not pull it
+            in transitively for a test-scope dependency on connector-cdc-mysql. Without this
+            explicit dependency, classes connector-cdc-mysql assumes are on its own classpath at
+            runtime (for example BaseChangeStreamTableSourceFactory) are absent here and the CDC
+            e2e tests in this module fail with NoClassDefFoundError.
+        -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-cdc-base</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-cdc-mysql</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-cdc-mysql</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-file-local</artifactId>

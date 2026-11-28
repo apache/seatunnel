@@ -23,6 +23,14 @@ UPDATE messages must contain a complete row image; partial updates containing on
 
 > **Note:** The prefixed keys `maxwell_json.ignore-parse-errors`, `maxwell_json.database.include`, and `maxwell_json.table.include` are not valid configuration keys and have no effect. Whether unparseable records are skipped is decided by each connector (for example, the Kafka source always skips them for Maxwell JSON), and the `database.include`/`table.include` filters of the format module are currently not wired to any connector.
 
+:::warning
+
+In the current SeaTunnel implementation, the options above (except `format`) are not read from the job
+configuration. Only the Kafka source supports `maxwell_json`, and it always skips rows with parse
+errors. The `maxwell_json.database.include` / `maxwell_json.table.include` filtering is not applied.
+
+:::
+
 # How To Use MaxWell format
 
 ## Kafka Uses Example

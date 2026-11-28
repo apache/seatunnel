@@ -104,7 +104,7 @@ Source 的输出 schema。该参数为必填：Source 根据 `schema` 构建输�
 
 Source 插件通用参数，详见 [Source Common Options](../common-options/source-common-options.md)。
 
-### Schema 映射
+## Schema 映射
 
 字段名须使用 `列族:列限定符` 格式，例如 `cf:name`、`stats:age`。行键字段由 `rowkey_column` 控制；如果未配置，特殊字段名 `rowkey` 会映射到 Bigtable 行键。
 
