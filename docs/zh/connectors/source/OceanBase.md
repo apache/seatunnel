@@ -57,7 +57,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | TIME | TIME |
 | DATETIME | TIMESTAMP |
 | TIMESTAMP | TIMESTAMP_TZ |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)<br/>GEOMETRY | BYTES |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINARY<br/>BIT(n)<br/>GEOMETRY | BYTES |
 
 ### Oracle 模式
 
@@ -94,7 +94,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | table_list | Array | 否 | - | 待读取的表列表，用于多表读取。每个表配置中可以包含 `table_path`、`query`、`partition_column` 等表级参数。 |
 | where_condition | String | 否 | - | 所有表或查询共用的过滤条件，必须以 `where` 开头，例如 `where id > 100`。 |
 | connection_check_timeout_sec | Int | 否 | 30 | 等待用于验证连接的数据库操作完成的时间（秒） |
-| partition_column | String | 否 | - | 用于并行性分割的列名，仅支持数值类型列和字符串类型列。 |
+| partition_column | String | 否 | - | 用于并行性分割的列名，支持数值类型列、字符串类型列和 DATE 类型列。 |
 | partition_lower_bound | String | 否 | - | partition_column 的最小值用于扫描，如果未设置，SeaTunnel 将查询数据库获取最小值。 |
 | partition_upper_bound | String | 否 | - | partition_column 的最大值用于扫描，如果未设置，SeaTunnel 将查询数据库获取最大值。 |
 | partition_num | Int | 否 | 10 | 分片数量，仅支持正整数。使用 `table_path` 读取时，推荐通过 `split.size` 控制单个分片大小。 |
@@ -112,7 +112,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | skip_analyze | Boolean | 否 | false | 动态分片阶段跳过表行数分析，主要用于 Oracle 兼容读取场景。 |
 | use_regex | Boolean | 否 | false | 是否将 `table_path` 当作正则表达式匹配表。 |
 | decimal_type_narrowing | Boolean | 否 | true | Oracle 兼容模式下，在不丢失精度时将 Decimal 收窄为 INT 或 BIGINT。 |
-| int_type_narrowing | Boolean | 否 | true | MySQL 兼容模式下，在不丢失精度时将 `TINYINT(1)` 收窄为 BOOLEAN。 |
+| int_type_narrowing | Boolean | 否 | true | OceanBase 连接器当前不使用该选项：MySQL 兼容模式下 `TINYINT(1)` 始终读取为 BOOLEAN。 |
 | dialect | String | 否 | - | 指定 JDBC 方言。OceanBase 通常会根据 URL 自动识别，只有特殊兼容场景才需要显式配置。 |
 | properties | Map | 否 | - | 其他连接配置参数，当 properties 和 URL 具有相同参数时，优先级由驱动程序的具体实现确定。例如，在 MySQL 中，properties 优先于 URL。 |
 | common-options | | 否 | - | 源插件通用参数，详见 [源通用选项](../common-options/source-common-options.md)。 |

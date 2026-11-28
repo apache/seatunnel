@@ -39,6 +39,8 @@ In streaming mode, the connector repeatedly calls the configured API. Set `poll_
 | json_field                  | Config | No       | -             | JSONPath mapping from response fields to output columns. Must be used together with `schema`. |
 | content_field               | String | No       | -             | JSONPath used to select the array or object that should be parsed as rows. |
 | pageing                     | Config | No       | -             | Pagination settings. See [Pagination](#pagination). |
+| keep_params_as_form         | Boolean | No      | false         | Whether the `params` are submitted as a form field in the request body instead of URL query parameters. Used for compatibility with legacy behavior. |
+| keep_page_param_as_http_param | Boolean | No    | false         | Whether paging parameters are written into `params`. Used for compatibility with legacy behavior. |
 | poll_interval_millis        | int    | No       | -             | Request interval in milliseconds for streaming jobs. |
 | retry                       | int    | No       | -             | Maximum retry count when the request throws `IOException`. |
 | retry_backoff_multiplier_ms | int    | No       | 100           | Retry backoff multiplier in milliseconds. |

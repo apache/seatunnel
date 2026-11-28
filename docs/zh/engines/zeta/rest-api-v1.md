@@ -151,6 +151,23 @@ network:
 - `requiredOptions[].ruleType` 可能是 `ABSOLUTELY_REQUIRED`、`EXCLUSIVE`、`BUNDLED` 或 `CONDITIONAL`。
 - `optionRule.conditionRules` 会递归返回嵌套条件规则；当 connector 未定义嵌套规则时，该字段返回空数组。
 - 对于条件规则，会同时返回 `expression` 和 `expressionTree`，便于 Web 做动态表单渲染。
+- 条件必填项和嵌套规则的每个判断条件位于 `expressionTree.condition`，表达式节点通过 `next` 连接到下一项。下面是 `A OR B AND C` 的节选，求值顺序为 `A || (B && C)`。为便于查看，仅列出选项键和连接关系。
+
+  ```json
+  {
+    "expressionTree": {
+      "condition": {"option": {"key": "a"}},
+      "operator": "OR",
+      "next": {
+        "condition": {"option": {"key": "b"}},
+        "operator": "AND",
+        "next": {"condition": {"option": {"key": "c"}}}
+      }
+    }
+  }
+  ```
+
+- 独立的 `valueConstraints[].conditionTree` 由条件节点本身携带 `operator` 和 `next`。CLI 采用相同的优先级。[CLI 元数据导出](../../architecture/configuration-and-option-system.md#导出连接器元数据)
 - `optionRule.valueConstraints` 描述取值级别的校验规则（例如数值范围、字符串模式、跨字段比较）。每个条目包含人类可读的 `expression` 字符串和结构化的 `conditionTree`。当 connector 没有取值约束时该数组为空。
 - 在 `conditionTree` 中，`compareOperator` 在 `EQUAL` 时为 `null`，其余情况下为运行时规则暴露的操作符符号（例如 `>=`、`is not blank`、`extension`）。`compareOption` 仅在跨字段比较时填充。
 - `conditionOperator` 是稳定的操作符标识，取值包括 `EQUAL`、`GREATER_OR_EQUAL`、`NOT_BLANK`、`FIELD_LESS_THAN`、`EXTENSION` 等；`conditionOperatorCategory` 表示操作符类别，例如 `NUMERIC`、`STRING`、`COLLECTION`、`EQUALITY`、`EXTENSION` 等。
@@ -174,7 +191,7 @@ network:
 
 ```json
 {
-    "projectVersion":"3.1.0-SNAPSHOT",
+    "projectVersion":"3.1.1-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
@@ -247,10 +264,9 @@ network:
 <details>
  <summary><code>GET</code> <code><b>/hazelcast/rest/maps/thread-dump</b></code> <code>(返回当前节点的线程堆栈信息。)</code></summary>
 
-#### Parameters
+#### 参数
 
-
-#### Responses
+#### 响应
 
 ```json
 [
@@ -286,6 +302,7 @@ network:
     "envOptions": {
     },
     "createTime": "",
+    "startTime": "",
     "jobDag": {
       "jobId": "",
       "envOptions": [],
@@ -419,9 +436,9 @@ network:
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` 字段总会返回.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
-`finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
+`finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCELED
 运行中的Job还会返回 `diagnostics` 字段（状态时间戳与各 Pipeline 的恢复次数），字段说明见 [REST API V2](rest-api-v2.md)。该字段只在本接口返回，`/running-jobs` 不返回。
 
 #### 指标字段说明
@@ -508,9 +525,9 @@ network:
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` 字段总会返回.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
-`finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
+`finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCELED
 
 当我们查询不到这个Job时，返回结果只包含请求的 `jobId`：
 
@@ -545,6 +562,7 @@ network:
     "jobStatus": "",
     "errorMsg": null,
     "createTime": "",
+    "startTime": "",
     "finishTime": "",
     "jobDag": {
       "jobId": "",
@@ -634,7 +652,7 @@ network:
 ]
 ```
 
-每个成员的请求会被并行发出，并共享一个统一截止时间（`seatunnel.engine.health-metrics-timeout-seconds`，默认 `3` 秒）。在截止时间内未应答的成员会以 `{"host": "10.0.0.1", "port": 5801, "error": "timeout"}` 的形式返回；请求分发或响应失败时也会带有对应的 `error` 标记。
+每个成员的请求会被并行发出，并共享一个统一截止时间（`seatunnel.engine.health-metrics-timeout-seconds`，默认 `3` 秒）。在截止时间内未应答的成员会以 `{"host": "10.0.0.1", "port": 5801, "error": "timeout"}` 的形式返回；请求分发或响应失败时也会带有对应的 `error` 标记。健康成员还会额外包含 `isMaster` 与示例中的连接信息（`host`、`port`）。
 
 
 </details>
@@ -653,6 +671,9 @@ network:
 > | jobId                | optional | string | job id                            |
 > | jobName              | optional | string | job name                          |
 > | isStartWithSavePoint | optional | string | if job is started with save point |
+> | restoreMode          | optional | string | 作业恢复的数据来源：`CHECKPOINT` 或 `SAVEPOINT`。详见 [作业恢复与重启](rest-api-job-lifecycle.md#6-作业恢复与重启)。 |
+> | restoreSourceJobId   | optional | string | 要恢复的作业 ID，使用 `CHECKPOINT` 时必填。使用 `SAVEPOINT` 时，省略此参数则使用 `jobId`。 |
+> | format               | optional | string | 配置风格,支持json、hocon 和 sql,默认 json |
 
 #### 请求体
 
@@ -712,7 +733,9 @@ network:
 > | jobId                | optional | string | job id                            |
 > | jobName              | optional | string | job name                          |
 > | isStartWithSavePoint | optional | string | if job is started with save point |
-
+> | restoreMode          | optional | string | 作业恢复的数据来源：`CHECKPOINT` 或 `SAVEPOINT`。详见 [作业恢复与重启](rest-api-job-lifecycle.md#6-作业恢复与重启)。 |
+> | restoreSourceJobId   | optional | string | 要恢复的作业 ID，使用 `CHECKPOINT` 时必填。使用 `SAVEPOINT` 时，省略此参数则使用 `jobId`。 |
+> | format               | optional | string | 配置风格,支持json、hocon 和 sql,默认 json |
 
 
 #### 请求体

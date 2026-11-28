@@ -89,6 +89,7 @@ libfb303-xxx.jar
 | custom_sql                             | string  | 当 `data_save_mode` 为 `CUSTOM_PROCESSING` 时是 | -                            | `CUSTOM_PROCESSING` 数据写入方式使用的自定义 `delete` SQL，例如 `delete from ... where ...`。                                                                                                                                       |
 | iceberg.table.commit-branch            | string  | 否   | -                            | 提交的默认分支                                                                                                                                                                                                           |
 | multi_table_sink_replica               | int     | 否   | 1                            | 多表写入模式下每张表对应的 Sink 写入并发数。一个作业写入多张 Iceberg 表，并且每张表都需要多个写入器时使用。                                                                                                                                                                                                           |
+| flush_row_size                         | long    | 否       | -                            | Sink 写入器处理这么多行后就轮换，不再一直保持到下一次 checkpoint，用来限制大批量 upsert 和 CDC 写入时的内存。必须大于 0。请参考下面的 `flush_row_size`。                                                                                                                                                       |
 | krb5_path                              | string  | 否       | /etc/krb5.conf              | `krb5.conf` 文件的路径，用于 Kerberos 认证。                                                                                                                                                                                                                                                                |
 | kerberos_principal                     | string  | 否       | -                            | Kerberos 认证的 principal。                                                                                                                                                                                                                                                                               |
 | kerberos_keytab_path                   | string  | 否       | -                            | Kerberos 认证的 keytab 文件路径。                                                                                                                                                                                                                                                                         |
@@ -105,7 +106,21 @@ iceberg.table.auto-create-props = {
 }
 ```
 
-格式版本 3 的表支持追加写入。Upsert 和 CDC 写入会在写入任何数据前以错误 `ICEBERG-04` 拒绝，因为 Sink 写出的是 position delete 文件，而格式版本 3 要求使用 deletion vector。这包括配置了 `iceberg.table.primary-keys` 或 `iceberg.table.upsert-mode-enabled`、写入带有 identifier fields 的已有表，以及为带主键的源表创建格式版本 3 的表（源表主键会成为 identifier fields）。Upsert 和 CDC 场景请使用格式版本 2 的表。
+格式版本 3 的表支持追加、Upsert 和 CDC 写入。Sink 使用 equality delete 删除已提交的行，并使用 Puffin deletion vector 删除当前任务写入器新数据文件中已失效的行，例如同一个主键在检查点之前被多次更新。Sink 不会扫描已有数据文件来定位删除行，也不会重写这些文件已有的 deletion vector。数据文件支持 Parquet、ORC 和 Avro；deletion vector 始终使用 Puffin。格式版本 2 保持原有的 equality delete 和 position delete 写入方式，且仍然是新建表的默认版本。
+
+### Upsert、CDC 写入与检查点重放
+
+对于分区表的 Upsert，请按照 Iceberg equality delete 的要求，将所有分区源列包含在主键中。同一个主键的更新应按源顺序交给同一个 Sink 写入器。跨分区更新需要显式删除旧主键和旧分区中的行，并插入新行；与格式版本 2 一样，Upsert 模式会忽略 `UPDATE_BEFORE`。流式作业应启用检查点。
+
+当检查点内的 Schema 变更或 `flush_row_size` 触发写入器轮换时，后续 equality delete 需要让此前写入器生成的数据位于更早的快照中。对于格式版本 2 和 3，Sink 按顺序发布这些提交组，并在各组的快照中记录该组负载的指纹。若在组间失败，外部读取方可以看到检查点已发布的前缀；普通提交或恢复重放会跳过已发布的结果并完成剩余提交组。此类检查点不具有跨组原子性。单个写入器生成的结果，以及不依赖上述删除顺序的仅追加结果，仍只使用一个快照。组编号仅用于诊断，不能证明复用的检查点 ID 对应的负载已发布。
+
+普通提交和恢复提交都会检查检查点重放。Sink 在发布数据和删除文件的同一个 Iceberg 快照中记录不可变写入结果的版本化指纹。检查点 ID 仅用于诊断：不同作业复用同一个编号时，不会丢弃新文件。检查仅使用配置分支的快照历史。对于没有指纹的旧快照，必须确认全部文件已发布；部分匹配会失败，而不是静默丢失或重复数据。读取 manifest 失败也会向上传播。
+
+未匹配指纹的提交（包括新作业的首次提交）会检查具有相同正检查点 ID 的旧快照，并可能读取历史 manifest。同一次有序提交中的各组可复用这些文件标识，但每组都会重新检查当前分支的祖先快照。对于没有正检查点 ID 且指纹未匹配的负载，如果快照祖先存在缺口，还需要扫描当前存活文件的 manifest；包括新批处理负载在内，这项兼容检查的开销可能随表的文件数增长。指纹已匹配的重放和新的正 ID 检查点提交不需要这项存活文件扫描。
+
+对于仍可能恢复的检查点，必须保留其所需的快照祖先、manifest 和待提交的数据及删除文件。快照过期、分支回滚或孤立文件清理不能删除这些恢复证据；相关历史已经过期后的重放不在保证范围内。与引擎的单一聚合提交器一致，同一个检查点负载只能由一个活动尝试发布；不同文件的独立作业可以并发写入，但同一负载的重叠尝试需要引擎进行 fencing。v3 delta 写入器在可处理的失败或取消时清理尚未交给提交阶段的自有文件。成功 prepare 返回的文件保留给提交或恢复。无需修改检查点序列化或配置。
+
+快照属性 `seatunnel.checkpoint-id`、`seatunnel.commit-group` 和 `seatunnel.commit-group-count` 用于检查点和分组诊断。`seatunnel.commit-ids` 存储发布指纹；每个非空写入结果约增加 65 个字符。
 
 ### iceberg.table.upsert-mode-enabled [boolean]
 
@@ -118,6 +133,43 @@ iceberg.table.auto-create-props = {
 ### iceberg.table.commit-branch [string]
 
 将提交写入指定的 Iceberg 分支。不配置时写入表的默认分支。
+
+### flush_row_size [long]
+
+默认情况下，Sink 写入器会把当前的 task writer 一直保持到下一次 checkpoint。表有主键时（配置了 `iceberg.table.primary-keys`、开启 upsert 模式或上游是 CDC 源），task writer 会记住写过的每个主键，以便同一行后续的变更可以写成 position delete 或 deletion vector，这些主键要等 task writer 完成时才释放。因此 checkpoint 间隔很长的大批量导入，或者只在结束时做 checkpoint 的批作业，可能会内存溢出。
+
+设置 `flush_row_size` 后，task writer 每处理这么多行就完成一次并新建一个。这样会提前关闭当前文件并释放记住的主键，单个 task writer 处理的行数有上限。已完成各代生成的文件仍会在 checkpoint 前累积。不设置时仍在 checkpoint 或 schema 变更时轮换。
+
+写入器轮换可能让一个 checkpoint 按顺序提交为多个快照，详见上文“Upsert、CDC 写入与检查点重放”。Zeta 通过 Sink 的恢复路径提交。Flink 1.20 将恢复的 committable 交给普通提交路径，该路径执行相同的发布检查。Flink 1.13 和 1.15 会丢弃恢复的全局 committable，无法补交已部分发布的 checkpoint。需要恢复拆分快照的作业应使用能够转交恢复 committable 的引擎版本。各组依次提交，`flush_row_size` 过小会延长 checkpoint 时间。
+
+取值越小内存占用越低，但文件更多更小。分区表轮换时会完成所有已打开分区的文件，而不只是当前分区。带有 equality delete 的后续写入代可能产生新快照，实际数量取决于操作类型和轮换次数。因此取值过小会让表元数据膨胀、查询规划变慢；请取较大的值，例如几十万到几百万行，并只清理不再用于检查点恢复的快照。
+
+```hocon
+sink {
+  Iceberg {
+    ...
+    iceberg.table.primary-keys = "id"
+    iceberg.table.upsert-mode-enabled = true
+    flush_row_size = 1000000
+  }
+}
+```
+
+### schema_save_mode [Enum]
+
+在 Sink 开始写入之前，控制如何处理目标表的结构。
+- `RECREATE_SCHEMA` ：如果目标表存在，则先删除该表然后重新创建；如果不存在则直接创建。
+- `CREATE_SCHEMA_WHEN_NOT_EXIST` ：如果目标表不存在则创建它；如果已存在则跳过创建。
+- `ERROR_WHEN_SCHEMA_NOT_EXIST` ：如果目标表不存在，则抛出异常并报错。
+- `IGNORE` ：忽略目标表结构的处理，不执行任何与结构相关的检查或 DDL 动作。
+
+### data_save_mode [Enum]
+
+在 Sink 开始写入之前，控制如何处理目标表中的已有数据。
+- `DROP_DATA` ：删除目标表中的已有数据。
+- `APPEND_DATA` ：保留目标表中的已有数据，并将新数据追加写入。
+- `CUSTOM_PROCESSING` ：执行用户自定义的处理。此选项需要配合 `custom_sql` 参数。
+- `ERROR_WHEN_DATA_EXISTS` ：如果目标表已包含数据，则抛出异常并报错。
 
 ### custom_sql [string]
 

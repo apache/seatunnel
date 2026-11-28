@@ -23,16 +23,40 @@ import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.datatype.MaxComputeTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.CreateTableParser;
 
 import org.junit.jupiter.api.Test;
 
 import com.aliyun.odps.type.TypeInfo;
+
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class MaxComputeCatalogUtilTest {
+    @Test
+    @SuppressWarnings("deprecation")
+    void legacyParserPreservesColumnTypesAndOffsets() {
+        String sql = "CREATE TABLE demo (`id` BIGINT, amount DECIMAL(10, 2), PRIMARY KEY (`id`))";
+        Map<String, CreateTableParser.ColumnInfo> columns = CreateTableParser.getColumnList(sql);
+        assertEquals(2, columns.size());
+        CreateTableParser.ColumnInfo id = columns.get("id");
+        assertEquals("id", id.getName());
+        assertEquals("BIGINT", id.getInfo());
+        assertEquals(sql.indexOf("id"), id.getStartIndex());
+        assertEquals(sql.indexOf("id") + 2, id.getEndIndex());
+        CreateTableParser.ColumnInfo amount = columns.get("amount");
+        assertEquals("amount", amount.getName());
+        assertEquals("DECIMAL(10, 2)", amount.getInfo());
+        assertEquals(sql.indexOf("amount"), amount.getStartIndex());
+        assertEquals(sql.indexOf("amount") + 6, amount.getEndIndex());
+        // Retain the public nested constructor and mutable map contract as well.
+        columns.put("extra", new CreateTableParser.ColumnInfo("extra", "INT", 1, 6));
+        assertEquals("INT", columns.get("extra").getInfo());
+    }
+
     @Test
     void returnsReconvertedTypeWhenSinkTypeNotNull() {
         Column column = mock(Column.class);

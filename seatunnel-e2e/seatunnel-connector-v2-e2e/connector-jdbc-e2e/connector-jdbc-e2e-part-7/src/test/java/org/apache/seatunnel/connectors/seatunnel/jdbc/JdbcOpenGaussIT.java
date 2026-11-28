@@ -33,11 +33,14 @@ import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.opengauss.OpenGaussCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -45,7 +48,11 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -71,6 +78,7 @@ public class JdbcOpenGaussIT extends AbstractJdbcIT {
     private static final String SCHEMA = "public";
     private static final String SOURCE_TABLE = "gs_e2e_source_table";
     private static final String SINK_TABLE = "gs_e2e_sink_table";
+    private static final String UPSERT_SINK_TABLE = "gs_e2e_upsert_sink_table";
     private static final String CATALOG_TABLE = "e2e_table_catalog";
 
     /**
@@ -240,6 +248,51 @@ public class JdbcOpenGaussIT extends AbstractJdbcIT {
             boolean createIndex) {
         openGaussCatalog.createTable(targetTablePath, catalogTable, false, createIndex);
         Assertions.assertTrue(openGaussCatalog.tableExists(targetTablePath));
+    }
+
+    /**
+     * Writes the source table into a target that already holds some of its keys, with {@code
+     * primary_keys} set so the sink generates an upsert. The existing rows must be updated.
+     */
+    @TestTemplate
+    public void testUpsertWithPrimaryKeys(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        String sinkTable = buildTableInfoWithSchema(SCHEMA, UPSERT_SINK_TABLE);
+        String sourceTable = buildTableInfoWithSchema(SCHEMA, SOURCE_TABLE);
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS " + sinkTable);
+            statement.execute(String.format(CREATE_SQL, sinkTable));
+            statement.execute(
+                    "INSERT INTO "
+                            + sinkTable
+                            + " SELECT * FROM "
+                            + sourceTable
+                            + " WHERE gid < 10");
+            statement.execute("UPDATE " + sinkTable + " SET varchar_col = 'stale'");
+            connection.commit();
+        }
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob("/jdbc_opengauss_source_and_sink_upsert.conf");
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+            try (Statement statement = connection.createStatement();
+                    ResultSet resultSet =
+                            statement.executeQuery(
+                                    "SELECT COUNT(*), SUM(CASE WHEN varchar_col = CAST(gid AS VARCHAR)"
+                                            + " THEN 1 ELSE 0 END) FROM "
+                                            + sinkTable)) {
+                Assertions.assertTrue(resultSet.next());
+                Assertions.assertEquals(GEN_ROWS.longValue(), resultSet.getLong(1));
+                Assertions.assertEquals(GEN_ROWS.longValue(), resultSet.getLong(2));
+            }
+            connection.commit();
+        } finally {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("DROP TABLE IF EXISTS " + sinkTable);
+                connection.commit();
+            }
+        }
     }
 
     @Override
