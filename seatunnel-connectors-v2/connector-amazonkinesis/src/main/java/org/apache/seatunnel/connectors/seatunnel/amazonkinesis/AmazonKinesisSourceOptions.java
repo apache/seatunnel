@@ -20,7 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.amazonkinesis;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-/** Shared-throughput Kinesis source settings. */
+/**
+ * Shared-throughput Kinesis source settings. Read validation and serialized reader settings use
+ * these stable user-facing option keys.
+ */
 public final class AmazonKinesisSourceOptions {
     public static final Option<String> START_POSITION =
             Options.key("start_position")

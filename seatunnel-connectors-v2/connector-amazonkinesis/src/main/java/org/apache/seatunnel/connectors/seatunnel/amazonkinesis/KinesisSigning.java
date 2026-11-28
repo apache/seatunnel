@@ -76,6 +76,10 @@ final class KinesisSigning
         return this;
     }
 
+    /*
+     * Sign the constrained POST-root contract with normalized host/content-type/x-amz headers.
+     * The client-local signer never logs a canonical request, whose session-token header is sensitive.
+     */
     @Override
     public SignedRequest sign(SignRequest<? extends AwsCredentialsIdentity> input) {
         SdkHttpRequest unsigned = input.request();
@@ -178,6 +182,15 @@ final class KinesisSigning
         }
     }
 
+    @Override
+    public CompletableFuture<AsyncSignedRequest> signAsync(
+            AsyncSignRequest<? extends AwsCredentialsIdentity> request) {
+        CompletableFuture<AsyncSignedRequest> result = new CompletableFuture<>();
+        result.completeExceptionally(
+                new UnsupportedOperationException("Kinesis uses synchronous signing"));
+        return result;
+    }
+
     private static byte[] hmac(byte[] key, String value) throws Exception {
         Mac mac = Mac.getInstance("HmacSHA256");
         mac.init(new SecretKeySpec(key, "HmacSHA256"));
@@ -192,14 +205,5 @@ final class KinesisSigning
             value[2 * i + 1] = HEX[b & 0x0f];
         }
         return new String(value);
-    }
-
-    @Override
-    public CompletableFuture<AsyncSignedRequest> signAsync(
-            AsyncSignRequest<? extends AwsCredentialsIdentity> request) {
-        CompletableFuture<AsyncSignedRequest> result = new CompletableFuture<>();
-        result.completeExceptionally(
-                new UnsupportedOperationException("Kinesis uses synchronous signing"));
-        return result;
     }
 }

@@ -26,6 +26,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import com.google.auto.service.AutoService;
 
+/**
+ * Registers the Kinesis table sink through the factory SPI and its dedicated option rule. The
+ * supplied catalog table remains the sink schema/identity throughout writer construction.
+ */
 @AutoService(Factory.class)
 public final class AmazonKinesisSinkFactory
         implements TableSinkFactory<SeaTunnelRow, Void, Void, Void> {

@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.amazonkinesis;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpException;
+import org.apache.http.HttpResponse;
 import org.apache.http.config.MessageConstraints;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.DefaultBHttpClientConnection;
@@ -52,7 +53,10 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 
-/** Quiet, abortable transport for the generated SDK CBOR/JSON client. */
+/**
+ * Quiet, abortable transport for the generated SDK CBOR/JSON client. The owner enforces call
+ * deadlines while this transport bounds framing and closes its own sockets.
+ */
 final class KinesisTransport implements SdkHttpClient {
     static final int MAX_WIRE_BYTES = 16 * 1024 * 1024;
     private static final MessageConstraints HEADERS =
@@ -84,6 +88,10 @@ final class KinesisTransport implements SdkHttpClient {
         inFlight.forEach(Call::abort);
     }
 
+    /**
+     * Owns one published abortable socket, including cancellation before connect or TLS completes.
+     * Socket I/O stays outside the transport monitor so close can abort an active exchange.
+     */
     private final class Call implements ExecutableHttpRequest {
         private final HttpExecuteRequest execution;
         private Socket socket;
@@ -93,6 +101,10 @@ final class KinesisTransport implements SdkHttpClient {
             this.execution = execution;
         }
 
+        /*
+         * Publish the raw socket before connect/TLS so abort can close a held exchange independently.
+         * Return only a fully detached bounded body to SDK decoding; no default header/wire logger is involved.
+         */
         @Override
         public HttpExecuteResponse call() throws IOException {
             synchronized (KinesisTransport.this) {
@@ -134,6 +146,12 @@ final class KinesisTransport implements SdkHttpClient {
             }
         }
 
+        @Override
+        public synchronized void abort() {
+            aborted = true;
+            closeSocket(socket);
+        }
+
         private HttpExecuteResponse exchange(SdkHttpRequest sdk, Socket tls, Socket raw)
                 throws IOException {
             BasicHttpEntityEnclosingRequest request =
@@ -162,7 +180,7 @@ final class KinesisTransport implements SdkHttpClient {
                     new DefaultBHttpClientConnection(8192, null, null, HEADERS);
             connection.bind(tls);
             try {
-                org.apache.http.HttpResponse response =
+                HttpResponse response =
                         new HttpRequestExecutor()
                                 .execute(request, connection, HttpCoreContext.create());
                 SdkHttpResponse.Builder metadata =
@@ -210,12 +228,6 @@ final class KinesisTransport implements SdkHttpClient {
                 throw new IOException("Invalid Kinesis HTTP response");
             }
         }
-
-        @Override
-        public synchronized void abort() {
-            aborted = true;
-            closeSocket(socket);
-        }
     }
 
     private static byte[] readAll(InputStream input) throws IOException {
@@ -241,7 +253,10 @@ final class KinesisTransport implements SdkHttpClient {
         }
     }
 
-    /** Compressed bytes and decompressed bytes have independent finite budgets. */
+    /**
+     * Compressed bytes and decompressed bytes have independent finite budgets. The owner enforces
+     * call deadlines while this transport bounds framing and closes its own sockets.
+     */
     private static final class WireLimit extends FilterInputStream {
         private long count;
 

@@ -29,6 +29,10 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
+/**
+ * Registers the Kinesis table source through the factory SPI without a legacy source entry. The
+ * source owns its fixed raw-record schema and its job-scoped shard checkpoint contract.
+ */
 @AutoService(Factory.class)
 public final class AmazonKinesisSourceFactory implements TableSourceFactory {
     @Override

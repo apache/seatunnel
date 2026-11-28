@@ -46,6 +46,10 @@ temporary credentials require both keys and the session token. Batched mode uses
 `kinesis:PutRecords`. Ordered mode needs `kinesis:PutRecord` and a fixed or field partition key.
 Encrypted stream writes can require additional KMS access.
 
+Native JSON conversion has a work budget derived from the remaining record bytes before its tree is built, followed by an exact encoded-byte limit. Every array/map/row occurrence is charged, including repeated references and map entries later overwritten by canonical keys. An input with excessive conversion work can therefore be rejected even when key collisions would leave a small final object. Text is measured as UTF-8 before encoding. No shared formatter or checkpoint format is changed.
+
+Composite schema validation, conversion and JSON container output are iterative; only scalar converters are constructed through the native formatter. Shared schema branches and deep, narrow values therefore do not require recursive composite construction or a new fixed depth cap. Numeric text that normalizes to a shorter value still consumes input-conversion work.
+
 ## Batching, ordering, and recovery
 
 Checkpoint-enabled jobs flush on size limits, flush signals where the engine supports them, and

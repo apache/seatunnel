@@ -26,12 +26,18 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Checkpoint for a single logical scan. Only durable positions and topology are serialized. */
+/**
+ * Checkpoint for a single logical scan. Only durable positions and topology are serialized.
+ * Recovery uses the same scope and version; SDK tokens, credentials and buffered records remain
+ * transient.
+ */
 final class KinesisSplit implements SourceSplit {
     private static final long serialVersionUID = 1L;
     private static final int VERSION = 1;
     private final int version;
+    // Non-secret identity/configuration scope is checked before any restored split is installed.
     final String scope;
+    // Stable timestamp for a starting shard that has not yet produced a committed sequence.
     final Instant anchor;
     String arn;
     Instant created;
@@ -69,13 +75,20 @@ final class KinesisSplit implements SourceSplit {
         return "kinesis-stream";
     }
 
+    /**
+     * Persists one shard lineage and its last successfully collected sequence without a provider
+     * iterator. Completion is logical progress; the reader separately tracks whether a successful
+     * checkpoint made it durable.
+     */
     static final class ShardState implements Serializable {
         private static final long serialVersionUID = 1L;
         final String id;
         final List<String> parents;
         final boolean discoveredAtStart;
         boolean closed;
+        // Exact provider sequence is assigned only after collector.collect returns successfully.
         String committed;
+        // Logical terminal/caught-up state; successful checkpoint durability is reader-local.
         boolean done;
 
         ShardState(String id, List<String> parents, boolean discoveredAtStart, boolean closed) {

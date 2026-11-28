@@ -67,7 +67,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Real engine validation of the packaged producer and consumer using the default AWS CBOR wire. */
+/**
+ * Exercises the packaged source and sink through Zeta using an independent HTTPS CBOR/SigV4
+ * fixture. Captured wire data, restore/cancel outcomes and DEBUG privacy checks do not certify live
+ * AWS behavior.
+ */
 class AmazonKinesisIT extends TestSuiteBase {
     private static final String HOST = "kinesis.us-east-1.amazonaws.com";
     private static final String ARN = "arn:aws:kinesis:us-east-1:111122223333:stream/in";
@@ -164,70 +168,6 @@ class AmazonKinesisIT extends TestSuiteBase {
                     }
                 };
         engine.startUp();
-    }
-
-    private void prepareTls() throws Exception {
-        Path file = temp.resolve("fixture.p12");
-        Process keytool =
-                new ProcessBuilder(
-                                Paths.get(System.getProperty("java.home"), "bin", "keytool")
-                                        .toString(),
-                                "-genkeypair",
-                                "-noprompt",
-                                "-alias",
-                                "fixture",
-                                "-keyalg",
-                                "RSA",
-                                "-keysize",
-                                "2048",
-                                "-validity",
-                                "2",
-                                "-dname",
-                                "CN=" + HOST,
-                                "-ext",
-                                "SAN=dns:" + HOST,
-                                "-storetype",
-                                "PKCS12",
-                                "-keystore",
-                                file.toString(),
-                                "-storepass",
-                                CERT_PASSWORD)
-                        .redirectErrorStream(true)
-                        .redirectOutput(temp.resolve("keytool.log").toFile())
-                        .start();
-        if (!keytool.waitFor(30, TimeUnit.SECONDS)) {
-            keytool.destroyForcibly();
-            throw new IllegalStateException("Kinesis fixture certificate generation timed out");
-        }
-        assertEquals(0, keytool.exitValue());
-        KeyStore privateStore = KeyStore.getInstance("PKCS12");
-        try (InputStream in = Files.newInputStream(file)) {
-            privateStore.load(in, CERT_PASSWORD.toCharArray());
-        }
-        Certificate cert = privateStore.getCertificate("fixture");
-        pem("CERTIFICATE", cert.getEncoded(), temp.resolve("cert.pem"));
-        pem(
-                "PRIVATE KEY",
-                privateStore.getKey("fixture", CERT_PASSWORD.toCharArray()).getEncoded(),
-                temp.resolve("key.pem"));
-        KeyStore trust = KeyStore.getInstance("JKS");
-        trust.load(null, null);
-        trust.setCertificateEntry("fixture", cert);
-        try (OutputStream out = Files.newOutputStream(temp.resolve("trust.jks"))) {
-            trust.store(out, CERT_PASSWORD.toCharArray());
-        }
-    }
-
-    private static void pem(String type, byte[] payload, Path target) throws Exception {
-        String content =
-                "-----BEGIN "
-                        + type
-                        + "-----\n"
-                        + Base64.getMimeEncoder(64, new byte[] {'\n'}).encodeToString(payload)
-                        + "\n-----END "
-                        + type
-                        + "-----\n";
-        Files.write(target, content.getBytes(StandardCharsets.US_ASCII));
     }
 
     @AfterAll
@@ -402,66 +342,6 @@ class AmazonKinesisIT extends TestSuiteBase {
         heldRecovery("checkpoint-sink", BOTH, true);
     }
 
-    private void heldRecovery(String scenario, String conf, boolean binarySink) throws Exception {
-        select(scenario);
-        String job = jobId();
-        List<String> args = args("LATEST", 60000, 60000, "binary", "data", 100, 1024, 1024);
-        CompletableFuture<Container.ExecResult> running = submit(conf, job, args, false);
-        try {
-            await().atMost(55, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () -> {
-                                assertTrue(
-                                        filter(calls(), "GetRecords").stream()
-                                                .anyMatch(n -> n.path("held").asBoolean()));
-                                assertEquals(1, binarySink ? accepted().size() : rows().size());
-                            });
-            long baseline = engine.getCompletedCheckpointCount(job);
-            await().atMost(30, TimeUnit.SECONDS)
-                    .until(() -> engine.getCompletedCheckpointCount(job) > baseline);
-            assertEquals(0, engine.savepointJob(job).getExitCode());
-            assertEquals(0, running.get(40, TimeUnit.SECONDS).getExitCode());
-            assertFalse(
-                    filter(calls(), "GetRecords").stream()
-                            .anyMatch(n -> n.path("released").asBoolean()));
-            await().atMost(15, TimeUnit.SECONDS)
-                    .until(
-                            () ->
-                                    filter(calls(), "GetRecords").stream()
-                                            .anyMatch(
-                                                    n ->
-                                                            n.path("held").asBoolean()
-                                                                    && n.has("closed_after")));
-            control("/release");
-            CompletableFuture<Container.ExecResult> restored = submit(conf, job, args, true);
-            await().atMost(55, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () -> {
-                                if (binarySink) {
-                                    assertEquals(
-                                            Arrays.asList(
-                                                    "k:" + b64("first"), "k:" + b64("second")),
-                                            payloads(accepted()));
-                                } else {
-                                    assertEquals(
-                                            Arrays.asList(
-                                                    row(A, FIRST, "k", WHEN, b64("first")),
-                                                    row(A, SECOND, "k", WHEN, b64("second"))),
-                                            rows());
-                                }
-                            });
-            List<JsonNode> opens = filter(signedCalls(), "GetShardIterator");
-            assertEquals(
-                    Arrays.asList("AT_TIMESTAMP", "AFTER_SEQUENCE_NUMBER"),
-                    values(opens, "ShardIteratorType"));
-            assertTrue(opens.get(0).path("body").path("Timestamp").asLong() > 1700000000000L);
-            assertEquals(FIRST, opens.get(1).path("body").path("StartingSequenceNumber").asText());
-            cancel(job, restored);
-        } finally {
-            cleanup(job);
-        }
-    }
-
     @Test
     void rejectsIncompleteDiscoveryAndStopsBoundedReadsWithNoProgress() throws Exception {
         List<String> args = args("TRIM_HORIZON", 3000, 12000, "text", "payload", 3, 100, 100);
@@ -623,6 +503,166 @@ class AmazonKinesisIT extends TestSuiteBase {
                                                     && held.path("closed_after").asDouble() < 5.0);
                                 });
             }
+        }
+    }
+
+    @Test
+    void boundsNativeArrayPayloadsAndPreservesSmallTypedOutput() throws Exception {
+        select("bounded-sink");
+        List<String> small =
+                new ArrayList<>(args("TRIM_HORIZON", 10000, 30000, "json", "", 3, 1024, 512));
+        small.add("test_nested=雪");
+        int baseline = engine.getServerLogs().length();
+        assertSuccess(engine.executeJob("/sink_nested.conf", small), baseline);
+        List<JsonNode> writes = filter(signedCalls(), "PutRecords");
+        assertEquals(1, writes.size());
+        JsonNode records = accepted();
+        assertEquals(1, records.size());
+        byte[] encoded =
+                Base64.getDecoder().decode(records.get(0).path("Data").path("bytes").asText());
+        assertEquals(
+                JSON.readTree(
+                        "{\"key\":\"k\",\"payload\":["
+                                + String.join(",", Collections.nCopies(16, "\"雪\""))
+                                + "]}"),
+                JSON.readTree(encoded));
+
+        select("bounded-sink");
+        char[] content = new char[128];
+        Arrays.fill(content, 'a');
+        List<String> oversized =
+                new ArrayList<>(args("TRIM_HORIZON", 10000, 30000, "json", "", 3, 1024, 512));
+        oversized.add("test_nested=" + new String(content));
+        baseline = engine.getServerLogs().length();
+        assertFailure(
+                engine.executeJob("/sink_nested.conf", oversized),
+                baseline,
+                "invalid payload, key or size");
+        assertEquals(0, filter(signedCalls(), "PutRecords").size());
+        assertEquals(0, accepted().size());
+    }
+
+    private void prepareTls() throws Exception {
+        Path file = temp.resolve("fixture.p12");
+        Process keytool =
+                new ProcessBuilder(
+                                Paths.get(System.getProperty("java.home"), "bin", "keytool")
+                                        .toString(),
+                                "-genkeypair",
+                                "-noprompt",
+                                "-alias",
+                                "fixture",
+                                "-keyalg",
+                                "RSA",
+                                "-keysize",
+                                "2048",
+                                "-validity",
+                                "2",
+                                "-dname",
+                                "CN=" + HOST,
+                                "-ext",
+                                "SAN=dns:" + HOST,
+                                "-storetype",
+                                "PKCS12",
+                                "-keystore",
+                                file.toString(),
+                                "-storepass",
+                                CERT_PASSWORD)
+                        .redirectErrorStream(true)
+                        .redirectOutput(temp.resolve("keytool.log").toFile())
+                        .start();
+        if (!keytool.waitFor(30, TimeUnit.SECONDS)) {
+            keytool.destroyForcibly();
+            throw new IllegalStateException("Kinesis fixture certificate generation timed out");
+        }
+        assertEquals(0, keytool.exitValue());
+        KeyStore privateStore = KeyStore.getInstance("PKCS12");
+        try (InputStream in = Files.newInputStream(file)) {
+            privateStore.load(in, CERT_PASSWORD.toCharArray());
+        }
+        Certificate cert = privateStore.getCertificate("fixture");
+        pem("CERTIFICATE", cert.getEncoded(), temp.resolve("cert.pem"));
+        pem(
+                "PRIVATE KEY",
+                privateStore.getKey("fixture", CERT_PASSWORD.toCharArray()).getEncoded(),
+                temp.resolve("key.pem"));
+        KeyStore trust = KeyStore.getInstance("JKS");
+        trust.load(null, null);
+        trust.setCertificateEntry("fixture", cert);
+        try (OutputStream out = Files.newOutputStream(temp.resolve("trust.jks"))) {
+            trust.store(out, CERT_PASSWORD.toCharArray());
+        }
+    }
+
+    private static void pem(String type, byte[] payload, Path target) throws Exception {
+        String content =
+                "-----BEGIN "
+                        + type
+                        + "-----\n"
+                        + Base64.getMimeEncoder(64, new byte[] {'\n'}).encodeToString(payload)
+                        + "\n-----END "
+                        + type
+                        + "-----\n";
+        Files.write(target, content.getBytes(StandardCharsets.US_ASCII));
+    }
+
+    private void heldRecovery(String scenario, String conf, boolean binarySink) throws Exception {
+        select(scenario);
+        String job = jobId();
+        List<String> args = args("LATEST", 60000, 60000, "binary", "data", 100, 1024, 1024);
+        CompletableFuture<Container.ExecResult> running = submit(conf, job, args, false);
+        try {
+            await().atMost(55, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                assertTrue(
+                                        filter(calls(), "GetRecords").stream()
+                                                .anyMatch(n -> n.path("held").asBoolean()));
+                                assertEquals(1, binarySink ? accepted().size() : rows().size());
+                            });
+            long baseline = engine.getCompletedCheckpointCount(job);
+            await().atMost(30, TimeUnit.SECONDS)
+                    .until(() -> engine.getCompletedCheckpointCount(job) > baseline);
+            assertEquals(0, engine.savepointJob(job).getExitCode());
+            assertEquals(0, running.get(40, TimeUnit.SECONDS).getExitCode());
+            assertFalse(
+                    filter(calls(), "GetRecords").stream()
+                            .anyMatch(n -> n.path("released").asBoolean()));
+            await().atMost(15, TimeUnit.SECONDS)
+                    .until(
+                            () ->
+                                    filter(calls(), "GetRecords").stream()
+                                            .anyMatch(
+                                                    n ->
+                                                            n.path("held").asBoolean()
+                                                                    && n.has("closed_after")));
+            control("/release");
+            CompletableFuture<Container.ExecResult> restored = submit(conf, job, args, true);
+            await().atMost(55, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                if (binarySink) {
+                                    assertEquals(
+                                            Arrays.asList(
+                                                    "k:" + b64("first"), "k:" + b64("second")),
+                                            payloads(accepted()));
+                                } else {
+                                    assertEquals(
+                                            Arrays.asList(
+                                                    row(A, FIRST, "k", WHEN, b64("first")),
+                                                    row(A, SECOND, "k", WHEN, b64("second"))),
+                                            rows());
+                                }
+                            });
+            List<JsonNode> opens = filter(signedCalls(), "GetShardIterator");
+            assertEquals(
+                    Arrays.asList("AT_TIMESTAMP", "AFTER_SEQUENCE_NUMBER"),
+                    values(opens, "ShardIteratorType"));
+            assertTrue(opens.get(0).path("body").path("Timestamp").asLong() > 1700000000000L);
+            assertEquals(FIRST, opens.get(1).path("body").path("StartingSequenceNumber").asText());
+            cancel(job, restored);
+        } finally {
+            cleanup(job);
         }
     }
 

@@ -89,7 +89,10 @@ final class KinesisConnection implements AutoCloseable {
         }
     }
 
-    /** Retries only read operations. Cursor expiration is handled by the logical reader. */
+    /**
+     * Retries only read operations. Cursor expiration is handled by the logical reader. The logical
+     * reader owns iterator/token refresh; failed physical writes are never implicitly repeated.
+     */
     <T> T read(String operation, Supplier<T> action) throws InterruptedException {
         for (int attempt = 1; ; attempt++) {
             boolean throttled = false;
@@ -137,6 +140,10 @@ final class KinesisConnection implements AutoCloseable {
         TimeUnit.MILLISECONDS.sleep(wait + ThreadLocalRandom.current().nextLong(wait + 1));
     }
 
+    /**
+     * Release the transport, SDK and optional credential provider once, preserving ownership order.
+     * Closing the transport first aborts requests before the SDK/client provider teardown.
+     */
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
@@ -151,6 +158,11 @@ final class KinesisConnection implements AutoCloseable {
         }
     }
 
+    /**
+     * Carries only connector-owned read reasons across the worker boundary without sensitive SDK
+     * causes. Iterator and pagination expiration remain distinct so the reader can refresh the
+     * correct cursor.
+     */
     static final class ReadFailure extends IllegalStateException {
         private final String reason;
 
@@ -168,6 +180,10 @@ final class KinesisConnection implements AutoCloseable {
         }
     }
 
+    /**
+     * Defines shared source/sink connection options and validates stream/credential identity before
+     * I/O. Only non-secret scope fields participate in checkpoint compatibility checks.
+     */
     static final class Settings implements Serializable {
         private static final long serialVersionUID = 1L;
         static final Option<String> REGION =
@@ -252,6 +268,15 @@ final class KinesisConnection implements AutoCloseable {
             return region + "/" + (streamArn == null ? streamName : streamArn);
         }
 
+        static int bounded(ReadonlyConfig options, Option<Integer> option, int min, int max) {
+            int value = options.get(option);
+            if (value < min || value > max) {
+                throw new IllegalArgumentException(
+                        "Kinesis option is out of range: " + option.key());
+            }
+            return value;
+        }
+
         private String credential(ReadonlyConfig options, Option<String> option) {
             String value = options.get(option);
             if (value != null
@@ -259,15 +284,6 @@ final class KinesisConnection implements AutoCloseable {
                             || value.length() > 8192
                             || !value.chars().allMatch(c -> c >= 33 && c <= 126))) {
                 throw new IllegalArgumentException("Invalid Kinesis option " + option.key());
-            }
-            return value;
-        }
-
-        static int bounded(ReadonlyConfig options, Option<Integer> option, int min, int max) {
-            int value = options.get(option);
-            if (value < min || value > max) {
-                throw new IllegalArgumentException(
-                        "Kinesis option is out of range: " + option.key());
             }
             return value;
         }

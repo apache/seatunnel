@@ -54,8 +54,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.regex.Pattern;
 
-/** Owns a fair one-page read loop and a checkpointed graph of shard positions. */
+/**
+ * Owns a fair one-page read loop and a checkpointed graph of shard positions. Worker I/O stays
+ * outside checkpoint collection; only collected records advance durable sequences.
+ */
 final class KinesisReader implements SourceReader<SeaTunnelRow, KinesisSplit> {
     private static final int MAX_SHARDS = 8192;
     private static final int MAX_DISCOVERY_PAGES = 128;
@@ -69,8 +73,12 @@ final class KinesisReader implements SourceReader<SeaTunnelRow, KinesisSplit> {
     private final String scope;
     private final Object state = new Object();
     private final Object lifecycle = new Object();
+    // State-lock owned; provider tokens are transient and reacquired from the split after restore.
     private final Map<String, Cursor> cursors = new HashMap<>();
+    // First snapshot containing a completed parent; only a later successful notification releases
+    // it.
     private final Map<String, Long> firstFinishedCheckpoint = new HashMap<>();
+    // State-lock owned completion gate for descendants, initialized from restored durable state.
     private final Set<String> durableParents = new HashSet<>();
 
     // These are worker lifecycle fields. Cancel never needs the engine checkpoint lock.
@@ -83,11 +91,14 @@ final class KinesisReader implements SourceReader<SeaTunnelRow, KinesisSplit> {
     private boolean assignedNoMore;
     private boolean signaled;
     private boolean verified;
+    // Per-attempt catch-up bound, reset on assignment/restore rather than serialized as wall time.
     private long batchDeadline;
     private long nextDiscovery;
+    // Monotonic absolute budget for the published discovery/read Future, not an idle timeout.
     private long requestDeadline;
     private String lastShard;
     private Future<Result> request;
+    // Engine-thread page cursor; snapshot persists only the sequence after successful collection.
     private Page page;
     private int pageIndex;
 
@@ -106,6 +117,10 @@ final class KinesisReader implements SourceReader<SeaTunnelRow, KinesisSplit> {
         this.scope = scope;
     }
 
+    /*
+     * Only the active reader owns a client/worker. Publish them under the lifecycle lock so cancel
+     * can abort without taking the engine checkpoint monitor or waiting for state collection.
+     */
     @Override
     public void open() {
         synchronized (lifecycle) {
@@ -146,6 +161,96 @@ final class KinesisReader implements SourceReader<SeaTunnelRow, KinesisSplit> {
         if (!closed) {
             context.signalNoMoreElement();
         }
+    }
+
+    /**
+     * Capture logical sequence after collection; provider iterators and buffered pages stay
+     * transient.
+     */
+    @Override
+    public List<KinesisSplit> snapshotState(long checkpointId) {
+        synchronized (state) {
+            if (split == null) {
+                return Collections.emptyList();
+            }
+            split.shards.values().stream()
+                    .filter(shard -> shard.done && !durableParents.contains(shard.id))
+                    .forEach(shard -> firstFinishedCheckpoint.putIfAbsent(shard.id, checkpointId));
+            return Collections.singletonList(split.copy());
+        }
+    }
+
+    /**
+     * Only a successful checkpoint makes newly completed parents eligible to unblock descendants.
+     * Completion notifications are serialized by the same logical state lock as snapshot and
+     * polling.
+     */
+    @Override
+    public void notifyCheckpointComplete(long checkpointId) {
+        synchronized (state) {
+            firstFinishedCheckpoint
+                    .entrySet()
+                    .removeIf(
+                            entry -> {
+                                if (entry.getValue() <= checkpointId) {
+                                    durableParents.add(entry.getKey());
+                                    return true;
+                                }
+                                return false;
+                            });
+        }
+    }
+
+    /**
+     * Install exactly one scoped split after enumerator restore/assignment, copying durable state.
+     * Previously terminal parents are already durable in this restored checkpoint; buffers/tokens
+     * are not restored.
+     */
+    @Override
+    public void addSplits(List<KinesisSplit> splits) {
+        if (splits.size() != 1) {
+            throw invalid("invalid split assignment");
+        }
+        KinesisSplit restored = splits.get(0);
+        restored.verify(scope);
+        synchronized (state) {
+            if (split != null) {
+                throw invalid("duplicate active split");
+            }
+            split = restored.copy();
+            split.shards.values().stream()
+                    .filter(shard -> shard.done)
+                    .forEach(shard -> durableParents.add(shard.id));
+            batchDeadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(options.batchTimeout);
+        }
+    }
+
+    @Override
+    public void handleNoMoreSplits() {
+        synchronized (state) {
+            assignedNoMore = true;
+        }
+    }
+
+    /**
+     * Cancel without the collector checkpoint lock so held I/O and collection cannot block
+     * teardown. The owned connection aborts active sockets; no new logical progress is published
+     * after closure.
+     */
+    @Override
+    public void cancel() {
+        synchronized (lifecycle) {
+            closed = true;
+            if (worker != null) {
+                worker.shutdownNow();
+                connection.close();
+            }
+        }
+    }
+
+    @Override
+    public void close() {
+        cancel();
     }
 
     private void pollAssigned(Collector<SeaTunnelRow> output) throws Exception {
@@ -224,7 +329,11 @@ final class KinesisReader implements SourceReader<SeaTunnelRow, KinesisSplit> {
         }
     }
 
-    /** Round-robin across currently eligible shards; closed parents gate both sides of a merge. */
+    /**
+     * Round-robin across currently eligible shards; closed parents gate both sides of a merge.
+     * Worker I/O stays outside checkpoint collection; only collected records advance durable
+     * sequences.
+     */
     private KinesisSplit.ShardState nextShard(long now) {
         KinesisSplit.ShardState first = null;
         boolean passedPrevious = lastShard == null;
@@ -251,6 +360,10 @@ final class KinesisReader implements SourceReader<SeaTunnelRow, KinesisSplit> {
         return !split.shards.containsKey(id) || durableParents.contains(id);
     }
 
+    /*
+     * Require a complete bounded listing and stable stream identity before installing logical topology.
+     * Token-expiration restarts share one elapsed budget rather than restarting the whole discovery deadline.
+     */
     private Topology discover(long deadline) throws InterruptedException {
         StreamDescriptionSummary summary =
                 connection.read(
@@ -297,7 +410,7 @@ final class KinesisReader implements SourceReader<SeaTunnelRow, KinesisSplit> {
                 "arn:aws[a-z0-9-]*:kinesis:"
                         + connectionSettings.region
                         + ":[0-9]{12}:stream/"
-                        + java.util.regex.Pattern.quote(connectionSettings.streamName));
+                        + Pattern.quote(connectionSettings.streamName));
     }
 
     private Map<String, KinesisSplit.ShardState> discoverPages(String arn, long deadline)
@@ -450,6 +563,10 @@ final class KinesisReader implements SourceReader<SeaTunnelRow, KinesisSplit> {
         }
     }
 
+    /*
+     * Reacquire transient iterators after the durable sequence or preserved timestamp anchor.
+     * Validate the entire page before the engine can emit any of its records or advance a checkpoint.
+     */
     private Page read(String arn, Instant anchor, KinesisSplit.ShardState shard, String token)
             throws InterruptedException {
         String iterator = token;
@@ -531,6 +648,10 @@ final class KinesisReader implements SourceReader<SeaTunnelRow, KinesisSplit> {
         }
     }
 
+    /*
+     * Advance a durable sequence only after collection returns; a partially emitted page can replay
+     * from that sequence after recovery. Parent completion becomes durable through checkpoint notification.
+     */
     private void emit(Collector<SeaTunnelRow> output) {
         KinesisSplit.ShardState shard = split.shards.get(page.shard);
         Cursor cursor = cursors.get(page.shard);
@@ -592,81 +713,6 @@ final class KinesisReader implements SourceReader<SeaTunnelRow, KinesisSplit> {
         pageIndex = 0;
     }
 
-    /**
-     * Capture logical sequence after collection; provider iterators and buffered pages stay
-     * transient.
-     */
-    @Override
-    public List<KinesisSplit> snapshotState(long checkpointId) {
-        synchronized (state) {
-            if (split == null) {
-                return Collections.emptyList();
-            }
-            split.shards.values().stream()
-                    .filter(shard -> shard.done && !durableParents.contains(shard.id))
-                    .forEach(shard -> firstFinishedCheckpoint.putIfAbsent(shard.id, checkpointId));
-            return Collections.singletonList(split.copy());
-        }
-    }
-
-    @Override
-    public void notifyCheckpointComplete(long checkpointId) {
-        synchronized (state) {
-            firstFinishedCheckpoint
-                    .entrySet()
-                    .removeIf(
-                            entry -> {
-                                if (entry.getValue() <= checkpointId) {
-                                    durableParents.add(entry.getKey());
-                                    return true;
-                                }
-                                return false;
-                            });
-        }
-    }
-
-    @Override
-    public void addSplits(List<KinesisSplit> splits) {
-        if (splits.size() != 1) {
-            throw invalid("invalid split assignment");
-        }
-        KinesisSplit restored = splits.get(0);
-        restored.verify(scope);
-        synchronized (state) {
-            if (split != null) {
-                throw invalid("duplicate active split");
-            }
-            split = restored.copy();
-            split.shards.values().stream()
-                    .filter(shard -> shard.done)
-                    .forEach(shard -> durableParents.add(shard.id));
-            batchDeadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(options.batchTimeout);
-        }
-    }
-
-    @Override
-    public void handleNoMoreSplits() {
-        synchronized (state) {
-            assignedNoMore = true;
-        }
-    }
-
-    @Override
-    public void cancel() {
-        synchronized (lifecycle) {
-            closed = true;
-            if (worker != null) {
-                worker.shutdownNow();
-                connection.close();
-            }
-        }
-    }
-
-    @Override
-    public void close() {
-        cancel();
-    }
-
     private static boolean validShard(String value) {
         return value != null && value.matches("[A-Za-z0-9_.-]{1,128}");
     }
@@ -696,14 +742,26 @@ final class KinesisReader implements SourceReader<SeaTunnelRow, KinesisSplit> {
         return new ProtocolFailure("Kinesis source: " + text);
     }
 
+    /**
+     * Carries local protocol validation text across the worker boundary without provider response
+     * content. Unexpected SDK failures are sanitized before they reach the engine task.
+     */
     private static final class ProtocolFailure extends IllegalStateException {
         private ProtocolFailure(String message) {
             super(message);
         }
     }
 
+    /**
+     * Marks an immutable worker result accepted by the engine thread under the state/checkpoint
+     * locks. Workers never mutate the durable split or collect rows directly.
+     */
     private interface Result {}
 
+    /**
+     * Represents a complete validated listing before it is reconciled into the durable shard graph.
+     * A partial page sequence never replaces checkpointed topology.
+     */
     private static final class Topology implements Result {
         private final String arn;
         private final Instant created;
@@ -716,12 +774,21 @@ final class KinesisReader implements SourceReader<SeaTunnelRow, KinesisSplit> {
         }
     }
 
+    /**
+     * Holds transient provider iterator, poll timing and expiration counters for one shard. Restore
+     * discards these fields and reacquires an iterator from the durable sequence or anchor.
+     */
     private static final class Cursor {
         private String token;
         private long eligibleAt;
         private int expirations;
     }
 
+    /**
+     * Transfers one bounded, validated provider page from the worker to the engine polling thread.
+     * Only records actually collected advance the durable sequence; unread page data stays
+     * transient.
+     */
     private static final class Page implements Result {
         private final String shard;
         private final List<Record> records;

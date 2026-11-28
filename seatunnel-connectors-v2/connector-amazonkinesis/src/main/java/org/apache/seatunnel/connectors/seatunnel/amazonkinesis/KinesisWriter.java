@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.amazonkinesis;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.kinesis.model.PutRecordRequest;
@@ -46,12 +45,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 
-/** Destructive requests use one physical SDK attempt. Only explicit failed slots are replayed. */
+/**
+ * Destructive requests use one physical SDK attempt. Only explicit failed slots are replayed.
+ * Ambiguous whole-call acceptance fails the attempt instead of silently replaying a complete batch.
+ */
 final class KinesisWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     private final KinesisConnection connection;
     private final KinesisConnection.Settings target;
     private final AmazonKinesisSink.SinkSettings options;
-    private final JsonSerializationSchema serializer;
+    private final KinesisPayload serializer;
     private final boolean buffered;
     private final ExecutorService io =
             Executors.newSingleThreadExecutor(
@@ -60,11 +62,13 @@ final class KinesisWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
                         worker.setDaemon(true);
                         return worker;
                     });
+    // Writer-session ordering only; neither these acknowledgments nor buffered batches are state.
     private final Map<String, String> previousSequence = new HashMap<>();
     private final List<PutRecordsRequestEntry> batch = new ArrayList<>();
     private int bytes;
     private volatile boolean closed;
     private boolean failed;
+    // Published independently of engine state so close can interrupt a held writer request.
     private volatile Thread flushThread;
 
     KinesisWriter(
@@ -74,11 +78,14 @@ final class KinesisWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
         this.target = target;
         this.options = options;
         this.buffered = buffered;
-        serializer =
-                "json".equals(options.format) ? new JsonSerializationSchema(options.type) : null;
+        serializer = "json".equals(options.format) ? new KinesisPayload(options.type) : null;
         connection = new KinesisConnection(target);
     }
 
+    /*
+     * Admit append-only key/payload bytes before copying a record into the batch or issuing a write.
+     * A serialization failure is sticky so later rows cannot accidentally acknowledge an abandoned batch.
+     */
     @Override
     public void write(SeaTunnelRow row) throws IOException {
         ensureOpen();
@@ -94,8 +101,8 @@ final class KinesisWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
                                     ? options.fixedKey
                                     : UUID.randomUUID().toString();
             verifyKey(key);
-            byte[] payload = payload(row);
             int keyBytes = key.getBytes(StandardCharsets.UTF_8).length;
+            byte[] payload = payload(row, options.recordBytes - keyBytes);
             if (payload.length > options.recordBytes - keyBytes) {
                 throw new IllegalArgumentException("record exceeds the configured limit");
             }
@@ -122,56 +129,6 @@ final class KinesisWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
         }
     }
 
-    /** A writer without checkpoints sends immediately, and ordered mode chains key-local acks. */
-    private void orderedPut(String key, byte[] payload) throws IOException {
-        if (!previousSequence.containsKey(key) && previousSequence.size() == 8192) {
-            failed = true;
-            throw new IOException("Kinesis ordered key budget exceeded");
-        }
-        flushThread = Thread.currentThread();
-        try {
-            ensureOpen();
-            PutRecordRequest request =
-                    PutRecordRequest.builder()
-                            .streamName(target.streamName)
-                            .streamARN(target.streamArn)
-                            .partitionKey(key)
-                            .data(SdkBytes.fromByteArray(payload))
-                            .sequenceNumberForOrdering(previousSequence.get(key))
-                            .build();
-            PutRecordResponse response = send("PutRecord", () -> connection.sdk.putRecord(request));
-            if (response.sequenceNumber() == null
-                    || !response.sequenceNumber().matches("[0-9]{1,129}")
-                    || response.shardId() == null
-                    || response.shardId().isEmpty()) {
-                throw new IOException("Kinesis PutRecord returned an invalid acknowledgment");
-            }
-            previousSequence.put(key, response.sequenceNumber());
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            failed = true;
-            throw new IOException("Kinesis ordered write interrupted");
-        } catch (IOException ex) {
-            failed = true;
-            throw ex;
-        } finally {
-            flushThread = null;
-        }
-    }
-
-    private byte[] payload(SeaTunnelRow row) {
-        if (serializer != null) {
-            return serializer.serialize(row);
-        }
-        Object value = row.getField(options.dataIndex);
-        if (value == null) {
-            throw new IllegalArgumentException("Kinesis payload cannot be null");
-        }
-        return "binary".equals(options.format)
-                ? (byte[]) value
-                : ((String) value).getBytes(StandardCharsets.UTF_8);
-    }
-
     static void verifyKey(String key) {
         if (key == null
                 || key.isEmpty()
@@ -182,7 +139,11 @@ final class KinesisWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
         }
     }
 
-    /** Run in the writer's engine thread, also invoked from the checkpoint and flush signal. */
+    /**
+     * Run in the writer's engine thread, also invoked from the checkpoint and flush signal.
+     * Ambiguous whole-call acceptance fails the attempt instead of silently replaying a complete
+     * batch.
+     */
     void flush() throws IOException {
         ensureOpen();
         if (batch.isEmpty()) {
@@ -272,6 +233,99 @@ final class KinesisWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     }
 
     /**
+     * A checkpoint/final acknowledgment follows a complete flush of all buffered records. No
+     * external commit handle or rollback exists, so recovery can replay accepted rows.
+     */
+    @Override
+    public Optional<Void> prepareCommit() throws IOException {
+        flush();
+        return Optional.empty();
+    }
+
+    @Override
+    public void abortPrepare() {
+        close();
+    }
+
+    /**
+     * Abort outstanding work without flushing abandoned rows during failure or cancellation.
+     * Shutdown and socket abort do not wait for the engine writer thread to reacquire its task
+     * state.
+     */
+    @Override
+    public void close() {
+        closed = true;
+        io.shutdownNow();
+        connection.close();
+        Thread interrupted = flushThread;
+        if (interrupted != null && interrupted != Thread.currentThread()) {
+            interrupted.interrupt();
+        }
+    }
+
+    /**
+     * A writer without checkpoints sends immediately, and ordered mode chains key-local acks.
+     * Ambiguous whole-call acceptance fails the attempt instead of silently replaying a complete
+     * batch.
+     */
+    private void orderedPut(String key, byte[] payload) throws IOException {
+        if (!previousSequence.containsKey(key) && previousSequence.size() == 8192) {
+            failed = true;
+            throw new IOException("Kinesis ordered key budget exceeded");
+        }
+        flushThread = Thread.currentThread();
+        try {
+            ensureOpen();
+            PutRecordRequest request =
+                    PutRecordRequest.builder()
+                            .streamName(target.streamName)
+                            .streamARN(target.streamArn)
+                            .partitionKey(key)
+                            .data(SdkBytes.fromByteArray(payload))
+                            .sequenceNumberForOrdering(previousSequence.get(key))
+                            .build();
+            PutRecordResponse response = send("PutRecord", () -> connection.sdk.putRecord(request));
+            if (response.sequenceNumber() == null
+                    || !response.sequenceNumber().matches("[0-9]{1,129}")
+                    || response.shardId() == null
+                    || response.shardId().isEmpty()) {
+                throw new IOException("Kinesis PutRecord returned an invalid acknowledgment");
+            }
+            previousSequence.put(key, response.sequenceNumber());
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            failed = true;
+            throw new IOException("Kinesis ordered write interrupted");
+        } catch (IOException ex) {
+            failed = true;
+            throw ex;
+        } finally {
+            flushThread = null;
+        }
+    }
+
+    /*
+     * Admit native conversion and text encoding before they can allocate the complete payload.
+     * Serializer diagnostics are discarded because exception paths can contain private row values.
+     */
+    private byte[] payload(SeaTunnelRow row, int limit) {
+        if (serializer != null) {
+            try {
+                return serializer.json(row, limit);
+            } catch (IOException ex) {
+                throw new IllegalArgumentException("Kinesis native JSON encoding failed");
+            }
+        }
+        Object value = row.getField(options.dataIndex);
+        if (value == null) {
+            throw new IllegalArgumentException("Kinesis payload cannot be null");
+        }
+        return "binary".equals(options.format)
+                ? (byte[]) value
+                : KinesisPayload.text((String) value, limit);
+    }
+
+    /**
      * Interruption of the engine writer aborts the socket even when the worker is still in the SDK.
      */
     private <T> T send(String operation, Supplier<T> call)
@@ -302,28 +356,6 @@ final class KinesisWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     private void ensureOpen() throws IOException {
         if (closed || failed || Thread.currentThread().isInterrupted()) {
             throw new IOException("Kinesis writer is closed or failed");
-        }
-    }
-
-    @Override
-    public Optional<Void> prepareCommit() throws IOException {
-        flush();
-        return Optional.empty();
-    }
-
-    @Override
-    public void abortPrepare() {
-        close();
-    }
-
-    @Override
-    public void close() {
-        closed = true;
-        io.shutdownNow();
-        connection.close();
-        Thread interrupted = flushThread;
-        if (interrupted != null && interrupted != Thread.currentThread()) {
-            interrupted.interrupt();
         }
     }
 }

@@ -97,10 +97,6 @@ public final class AmazonKinesisSource
                         null));
     }
 
-    private static PhysicalColumn column(String name, SeaTunnelDataType<?> type, boolean nullable) {
-        return PhysicalColumn.of(name, type, 0, nullable, null, null);
-    }
-
     @Override
     public SourceReader<SeaTunnelRow, KinesisSplit> createReader(SourceReader.Context context) {
         return new KinesisReader(connection, settings, context, streaming, checkpointing, scope());
@@ -120,6 +116,10 @@ public final class AmazonKinesisSource
         return new Enumerator(context, scope(), checkpoint);
     }
 
+    private static PhysicalColumn column(String name, SeaTunnelDataType<?> type, boolean nullable) {
+        return PhysicalColumn.of(name, type, 0, nullable, null, null);
+    }
+
     private String scope() {
         return connection.scope()
                 + "/"
@@ -130,6 +130,10 @@ public final class AmazonKinesisSource
                 + settings.timestamp;
     }
 
+    /**
+     * Immutable read settings serialized to each reader; the logical source activates only subtask
+     * zero. Batch catch-up and streaming discovery remain distinct from the per-call SDK deadline.
+     */
     static final class ReadSettings implements Serializable {
         private static final long serialVersionUID = 1L;
         final String start;
@@ -164,12 +168,16 @@ public final class AmazonKinesisSource
         }
     }
 
-    /** Stores the initial anchor even if the first checkpoint precedes reader assignment. */
+    /**
+     * Stores the initial anchor even if the first checkpoint precedes reader assignment. The anchor
+     * is restored before registration so an unassigned checkpoint cannot advance the start time.
+     */
     private static final class Enumerator
             implements SourceSplitEnumerator<KinesisSplit, KinesisSplit> {
         private final Context<KinesisSplit> context;
         private final String scope;
         private final Set<Integer> finishedIdleReaders = new HashSet<>();
+        // Context-monitor owned fallback assignment/anchor; restored reader progress replaces it.
         private KinesisSplit pending;
         private boolean running;
         private boolean assigned;
@@ -191,18 +199,10 @@ public final class AmazonKinesisSource
             }
         }
 
-        private void dispatch(int subtask) {
-            if (!running) {
-                return;
-            }
-            if (subtask == 0 && !assigned) {
-                context.assignSplit(subtask, pending.copy());
-                assigned = true;
-            } else if (subtask != 0 && finishedIdleReaders.add(subtask)) {
-                context.signalNoMoreSplits(subtask);
-            }
-        }
-
+        /*
+         * Reader restore sends its checkpointed split back before normal reader registration/run.
+         * Replace the initial assignment and anchor with that scoped state before dispatching subtask zero.
+         */
         @Override
         public void addSplitsBack(List<KinesisSplit> splits, int subtask) {
             if (splits.isEmpty()) {
@@ -241,6 +241,10 @@ public final class AmazonKinesisSource
             registerReader(subtask);
         }
 
+        /*
+         * Keep the coordinator anchor even before assignment; reader snapshots carry collected positions.
+         * Returned reader state replaces this pending fallback during restore before dispatch.
+         */
         @Override
         public KinesisSplit snapshotState(long checkpoint) {
             synchronized (context) {
@@ -253,5 +257,21 @@ public final class AmazonKinesisSource
 
         @Override
         public void notifyCheckpointComplete(long checkpoint) {}
+
+        /*
+         * The context monitor serializes assignment and restore; only subtask zero receives the logical scan.
+         * Every other reader is terminally idle and must be signaled exactly once.
+         */
+        private void dispatch(int subtask) {
+            if (!running) {
+                return;
+            }
+            if (subtask == 0 && !assigned) {
+                context.assignSplit(subtask, pending.copy());
+                assigned = true;
+            } else if (subtask != 0 && finishedIdleReaders.add(subtask)) {
+                context.signalNoMoreSplits(subtask);
+            }
+        }
     }
 }

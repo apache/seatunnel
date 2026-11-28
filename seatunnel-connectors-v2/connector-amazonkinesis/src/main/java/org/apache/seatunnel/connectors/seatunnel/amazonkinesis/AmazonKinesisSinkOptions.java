@@ -20,7 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.amazonkinesis;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-/** Native Kinesis producer settings. */
+/**
+ * Native Kinesis producer settings. Factory validation and serialized sink settings use these
+ * stable user-facing option keys.
+ */
 public final class AmazonKinesisSinkOptions {
     public static final Option<String> FORMAT =
             Options.key("format")

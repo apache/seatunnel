@@ -27,17 +27,24 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 
 import java.io.Serializable;
+import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.amazonkinesis.KinesisConnection.Settings.bounded;
 
-/** Produces append-only records for an existing stream. */
+/**
+ * Produces append-only records for an existing stream. Writer creation preserves catalog metadata
+ * and allocates only connector-owned resources.
+ */
 public final class AmazonKinesisSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> {
     private static final long serialVersionUID = 1L;
     private final KinesisConnection.Settings connection;
     private final SinkSettings settings;
+    // Keep the factory-supplied identity/schema for DAG table metadata and connector metrics.
+    private final CatalogTable table;
     private boolean checkpointing;
 
     AmazonKinesisSink(ReadonlyConfig options, CatalogTable table) {
+        this.table = table;
         connection = new KinesisConnection.Settings(options);
         settings = new SinkSettings(options, table.getSeaTunnelRowType());
     }
@@ -45,6 +52,11 @@ public final class AmazonKinesisSink implements SeaTunnelSink<SeaTunnelRow, Void
     @Override
     public String getPluginName() {
         return AmazonKinesisSource.IDENTIFIER;
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.of(table);
     }
 
     @Override
@@ -59,6 +71,10 @@ public final class AmazonKinesisSink implements SeaTunnelSink<SeaTunnelRow, Void
         return writer;
     }
 
+    /**
+     * Immutable validated row-format, partition-key and batching settings serialized with the sink.
+     * Limits count key bytes as well as payload bytes before records are admitted to a writer.
+     */
     static final class SinkSettings implements Serializable {
         private static final long serialVersionUID = 1L;
         final SeaTunnelRowType type;
