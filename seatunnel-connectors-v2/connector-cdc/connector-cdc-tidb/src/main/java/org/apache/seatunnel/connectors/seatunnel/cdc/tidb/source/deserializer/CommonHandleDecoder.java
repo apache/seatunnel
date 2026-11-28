@@ -23,6 +23,8 @@ import org.tikv.common.meta.TiColumnInfo;
 import org.tikv.common.meta.TiIndexColumn;
 import org.tikv.common.meta.TiIndexInfo;
 import org.tikv.common.meta.TiTableInfo;
+import org.tikv.common.types.DataType;
+import org.tikv.common.types.MySQLType;
 import org.tikv.common.types.StringType;
 
 import java.util.Locale;
@@ -82,9 +84,10 @@ final class CommonHandleDecoder {
      * when a delete row carries no row image, or {@code null} when every key component is
      * reversible.
      *
-     * <p>A string column under a collation that is neither binary nor a {@code *_bin} collation
-     * stores collation weights in the key, so decoding the key alone yields bytes that are not the
-     * stored string.
+     * <p>A string column is only reversible when its key bytes are the stored value itself. A
+     * collation that orders by weights stores those weights, and even a {@code *_bin} collation is
+     * not byte-preserving for a variable-length string, so decoding the key alone can yield a value
+     * the stored row never had.
      */
     static TiColumnInfo unrecoverableKeyOnlyColumn(TiTableInfo tableInfo) {
         TiIndexInfo primaryIndex = primaryIndex(tableInfo);
@@ -94,7 +97,7 @@ final class CommonHandleDecoder {
         for (TiIndexColumn indexColumn : primaryIndex.getIndexColumns()) {
             TiColumnInfo column = tableInfo.getColumn(indexColumn.getOffset());
             if (column.getType() instanceof StringType
-                    && !isBinaryCollation(column.getType().getCollationCode())) {
+                    && !isReversibleStringKey(column.getType())) {
                 return column;
             }
         }
@@ -102,16 +105,35 @@ final class CommonHandleDecoder {
     }
 
     /**
-     * Resolves whether a collation orders by code point, in which case key bytes round-trip the
-     * stored string. Unknown or unspecified collations are treated as not reversible.
+     * Resolves whether the key encoding of a string column reproduces the stored value exactly, so
+     * an image-less delete can rebuild the row identity from the key alone.
+     *
+     * <p>The {@code binary} collation stores the value bytes themselves and is reversible. A {@code
+     * *_bin} collation is a padding collation in TiDB: its comparison key drops trailing spaces, so
+     * a stored {@code VARCHAR} such as {@code "bob "} is encoded like {@code "bob"} and the
+     * original can no longer be recovered from the key. Emitting the trimmed value would make a
+     * downstream target with a different equality contract delete or miss the wrong row, so a
+     * variable-length string is rejected here. {@code CHAR} is exempt because its stored value is
+     * space-trimmed by the type itself, which is the same type distinction TiDB makes when it
+     * decides whether a binary-collated column needs restored row data. Unknown or unspecified
+     * collations are treated as not reversible.
+     *
+     * @param columnType type of the string column, including its collation and length semantics
+     * @return true only when the key bytes are the stored value
      */
-    static boolean isBinaryCollation(int collationCode) {
-        String collationName = Collation.translate(collationCode);
+    static boolean isReversibleStringKey(DataType columnType) {
+        String collationName = Collation.translate(columnType.getCollationCode());
         if (collationName == null || collationName.isEmpty()) {
             return false;
         }
         String normalized = collationName.toLowerCase(Locale.ROOT);
-        return "binary".equals(normalized) || normalized.endsWith("_bin");
+        if ("binary".equals(normalized)) {
+            return true;
+        }
+        if (!normalized.endsWith("_bin")) {
+            return false;
+        }
+        return columnType.getType() == MySQLType.TypeString;
     }
 
     private static TiIndexInfo primaryIndex(TiTableInfo tableInfo) {

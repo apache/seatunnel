@@ -319,8 +319,10 @@ class CommonHandleDecoderTest {
     }
 
     @Test
-    void imageLessDeleteStillRestoresBinaryCollatedStringKey() throws Exception {
-        TiColumnInfo code = stringPrimaryKeyColumn("utf8mb4_bin");
+    void imageLessDeleteStillRestoresBinaryCollatedCharKey() throws Exception {
+        // CHAR is space-trimmed by the type itself, so a *_bin comparison key is still the stored
+        // value, which is the type distinction TiDB's own restore decision makes.
+        TiColumnInfo code = stringPrimaryKeyColumn(MySQLType.TypeString, "utf8mb4_bin");
         TiTableInfo table = stringKeyTableInfo(code, "utf8mb4_bin");
         String value = "bob@example.com";
         byte[] key = stringRecordKey(table, code, value);
@@ -338,6 +340,64 @@ class CommonHandleDecoderTest {
         assertEquals(RowKind.DELETE, row.getRowKind());
         assertEquals(value, row.getField(0));
         assertNull(row.getField(1));
+    }
+
+    @Test
+    void imageLessDeleteStillRestoresExactBinaryCollatedVarcharKey() throws Exception {
+        // The exact binary collation stores the value bytes themselves, trailing spaces included.
+        TiColumnInfo code = stringPrimaryKeyColumn(MySQLType.TypeVarchar, "binary");
+        TiTableInfo table = stringKeyTableInfo(code, "binary");
+        String value = "bob ";
+        byte[] key = stringRecordKey(table, code, value);
+        ListCollector collector = new ListCollector();
+        new SeaTunnelRowStreamingRecordDeserializer(table, stringKeyCatalogTable(), true)
+                .deserialize(
+                        Cdcpb.Event.Row.newBuilder()
+                                .setOpType(Cdcpb.Event.Row.OpType.DELETE)
+                                .setKey(ByteString.copyFrom(key))
+                                .build(),
+                        collector);
+
+        assertEquals(1, collector.rows.size());
+        SeaTunnelRow row = collector.rows.get(0);
+        assertEquals(RowKind.DELETE, row.getRowKind());
+        assertEquals(value, row.getField(0));
+        assertNull(row.getField(1));
+    }
+
+    /**
+     * A {@code *_bin} collation is a padding collation for a variable-length string: TiDB encodes
+     * the comparison key, whose bin padding implementation drops trailing spaces, so the stored
+     * value cannot be recovered from the key. The key below is the server-side encoding of a stored
+     * {@code 'bob '}: the padding collator encodes it exactly like {@code 'bob'}, which is the
+     * pinned fixture for this boundary.
+     */
+    @Test
+    void imageLessDeleteRejectsPaddingBinaryCollatedVarcharKey() throws Exception {
+        TiColumnInfo code = stringPrimaryKeyColumn(MySQLType.TypeVarchar, "utf8mb4_bin");
+        TiTableInfo table = stringKeyTableInfo(code, "utf8mb4_bin");
+        // Stored value 'bob ' with trailing space; the padding collator kept only 'bob'.
+        byte[] key = stringRecordKey(table, code, "bob");
+        ListCollector collector = new ListCollector();
+        SeaTunnelRowStreamingRecordDeserializer deserializer =
+                new SeaTunnelRowStreamingRecordDeserializer(table, stringKeyCatalogTable(), true);
+
+        IllegalStateException error =
+                assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                deserializer.deserialize(
+                                        Cdcpb.Event.Row.newBuilder()
+                                                .setOpType(Cdcpb.Event.Row.OpType.DELETE)
+                                                .setKey(ByteString.copyFrom(key))
+                                                .build(),
+                                        collector));
+
+        assertTrue(error.getMessage().contains("code"), error.getMessage());
+        assertTrue(error.getMessage().contains("utf8mb4_bin"), error.getMessage());
+        assertTrue(
+                collector.rows.isEmpty(),
+                "a key that may have lost trailing spaces must not emit a row identity");
     }
 
     @Test
@@ -366,27 +426,62 @@ class CommonHandleDecoderTest {
     }
 
     @Test
-    void binaryCollationClassificationMatchesKeyReversibility() {
-        assertTrue(CommonHandleDecoder.isBinaryCollation(63));
-        assertTrue(CommonHandleDecoder.isBinaryCollation(46));
-        assertTrue(CommonHandleDecoder.isBinaryCollation(83));
-        assertFalse(CommonHandleDecoder.isBinaryCollation(45));
-        assertFalse(CommonHandleDecoder.isBinaryCollation(224));
-        assertFalse(CommonHandleDecoder.isBinaryCollation(0));
+    void stringKeyReversibilityFollowsCollationAndTypeSemantics() {
+        // The exact binary collation stores the value bytes.
+        assertTrue(
+                CommonHandleDecoder.isReversibleStringKey(
+                        stringType(MySQLType.TypeVarchar, "binary")));
+        assertTrue(
+                CommonHandleDecoder.isReversibleStringKey(
+                        stringType(MySQLType.TypeString, "binary")));
+        // A *_bin collation only round-trips a fixed-length CHAR, whose value the type trims
+        // itself.
+        assertTrue(
+                CommonHandleDecoder.isReversibleStringKey(
+                        stringType(MySQLType.TypeString, "utf8mb4_bin")));
+        assertTrue(
+                CommonHandleDecoder.isReversibleStringKey(
+                        stringType(MySQLType.TypeString, "utf8_bin")));
+        // A padding collation drops trailing spaces from a variable-length string key.
+        assertFalse(
+                CommonHandleDecoder.isReversibleStringKey(
+                        stringType(MySQLType.TypeVarchar, "utf8mb4_bin")));
+        assertFalse(
+                CommonHandleDecoder.isReversibleStringKey(
+                        stringType(MySQLType.TypeVarchar, "utf8_bin")));
+        assertFalse(
+                CommonHandleDecoder.isReversibleStringKey(
+                        stringType(MySQLType.TypeBlob, "utf8mb4_bin")));
+        // A weight-based collation never stores the original bytes.
+        assertFalse(
+                CommonHandleDecoder.isReversibleStringKey(
+                        stringType(MySQLType.TypeVarchar, "utf8mb4_general_ci")));
+        assertFalse(
+                CommonHandleDecoder.isReversibleStringKey(
+                        stringType(MySQLType.TypeString, "utf8mb4_general_ci")));
+        // Unknown or missing collations are not reversible.
+        assertFalse(
+                CommonHandleDecoder.isReversibleStringKey(stringType(MySQLType.TypeVarchar, "")));
+    }
+
+    private DataType stringType(MySQLType mySQLType, String collation) {
+        return new StringType(
+                new TiColumnInfo.InternalTypeHolder(
+                        mySQLType.getTypeCode(),
+                        0,
+                        320L,
+                        0,
+                        "utf8mb4",
+                        collation,
+                        Collections.<String>emptyList()));
     }
 
     private TiColumnInfo stringPrimaryKeyColumn(String collation) {
-        DataType type =
-                new StringType(
-                        new TiColumnInfo.InternalTypeHolder(
-                                MySQLType.TypeVarchar.getTypeCode(),
-                                0,
-                                320L,
-                                0,
-                                "utf8mb4",
-                                collation,
-                                Collections.<String>emptyList()));
-        return new TiColumnInfo(1L, "code", 0, type, true);
+        return stringPrimaryKeyColumn(MySQLType.TypeVarchar, collation);
+    }
+
+    private TiColumnInfo stringPrimaryKeyColumn(MySQLType mySQLType, String collation) {
+        return new TiColumnInfo(1L, "code", 0, stringType(mySQLType, collation), true);
     }
 
     private TiTableInfo stringKeyTableInfo(TiColumnInfo primaryKey, String collation) {
