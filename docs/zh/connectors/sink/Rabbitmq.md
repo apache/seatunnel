@@ -47,7 +47,7 @@ RabbitMQ Sink 连接器会把每一行上游数据发布为一条 RabbitMQ 消�
 | topology_recovery_enabled  | boolean | 否    | -     | 是否启用拓扑恢复。 |
 | AUTOMATIC_RECOVERY_ENABLED | boolean | 否    | -     | 是否启用连接恢复；配置键使用大写。 |
 | connection_timeout         | int     | 否    | -     | TCP 建连超时，单位为毫秒；`0` 表示无限等待。 |
-| rabbitmq.config            | map     | 否    | -     | 额外的 RabbitMQ 客户端配置。 |
+| rabbitmq.config            | map     | 否    | {}    | 额外的 RabbitMQ 客户端配置。 |
 | durable                    | boolean | 否    | true  | 是否声明持久化队列，在服务器重启后保留。 |
 | exclusive                  | boolean | 否    | false | 是否声明仅当前连接使用、连接关闭后删除的队列。 |
 | auto_delete                | boolean | 否    | false | 是否在最后一个消费者取消订阅后自动删除队列。 |

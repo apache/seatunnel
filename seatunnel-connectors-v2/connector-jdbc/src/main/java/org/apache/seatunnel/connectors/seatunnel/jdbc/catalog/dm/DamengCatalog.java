@@ -110,13 +110,25 @@ public class DamengCatalog extends AbstractJdbcCatalog {
         return String.format(getListDatabaseSql() + " where name = '%s'", databaseName);
     }
 
+    /**
+     * Existence check behind {@link #tableExists} and {@link #getTable(TablePath)}: a table or a
+     * view. {@code ALL_TABLES} has no views, so a source {@code table_path} naming a view used to
+     * fail with {@code TableNotExistException} although the view is readable and {@code
+     * ALL_TAB_COLUMNS} lists its columns. {@link #listTables} still lists tables only.
+     */
     @Override
     protected String getTableWithConditionSql(TablePath tablePath) {
+        String schema = tablePath.getSchemaName();
+        String table = tablePath.getTableName();
         return String.format(
                 getListTableSql(tablePath.getDatabaseName())
-                        + " where OWNER = '%s' and TABLE_NAME = '%s'",
-                tablePath.getSchemaName(),
-                tablePath.getTableName());
+                        + " where OWNER = '%s' and TABLE_NAME = '%s'"
+                        + " UNION ALL SELECT OWNER, VIEW_NAME FROM ALL_VIEWS"
+                        + " where OWNER = '%s' and VIEW_NAME = '%s'",
+                schema,
+                table,
+                schema,
+                table);
     }
 
     @Override

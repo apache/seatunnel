@@ -678,4 +678,89 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             throw new SeaTunnelRuntimeException(JdbcITErrorCode.DATA_COMPARISON_FAILED, e);
         }
     }
+
+    /**
+     * Runs a job whose source {@code table_path} names a view over the source table and checks that
+     * every source row reaches the table the sink creates. The view exists only for the job; it and
+     * the sink table are dropped afterwards, so the shared sink table is left untouched.
+     *
+     * @param configFile job config reading the view through {@code table_path}
+     * @param createViewSql statement creating the view
+     * @param viewTableInfo qualified view name, used to drop it
+     * @param sinkTableInfo qualified name of the table the sink creates, used to count and drop it
+     */
+    protected void assertViewReadThroughTablePath(
+            TestContainer container,
+            String configFile,
+            String createViewSql,
+            String viewTableInfo,
+            String sinkTableInfo)
+            throws IOException, InterruptedException, SQLException {
+        executeAndCommit(createViewSql);
+        try {
+            Container.ExecResult execResult = container.executeJob(configFile);
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            try (Statement statement = connection.createStatement();
+                    ResultSet resultSet =
+                            statement.executeQuery("SELECT COUNT(*) FROM " + sinkTableInfo)) {
+                Assertions.assertTrue(resultSet.next());
+                Assertions.assertEquals(
+                        jdbcCase.getTestData().getValue().size(), resultSet.getInt(1), configFile);
+            }
+        } finally {
+            dropQuietly("DROP TABLE " + sinkTableInfo);
+            executeAndCommit("DROP VIEW " + viewTableInfo);
+        }
+    }
+
+    /**
+     * Checks that the catalog resolves a view by its path, as the source does for {@code
+     * table_path}: the view exists and its columns come back in order.
+     *
+     * @param viewCatalog an unopened catalog; it is opened and closed here
+     * @param createViewSql statement creating the view
+     * @param viewTableInfo qualified view name, used to drop it
+     * @param viewPath path of the view as the source passes it to the catalog
+     * @param viewColumns the columns the view selects, in order
+     */
+    protected void assertCatalogResolvesView(
+            Catalog viewCatalog,
+            String createViewSql,
+            String viewTableInfo,
+            TablePath viewPath,
+            List<String> viewColumns)
+            throws SQLException {
+        executeAndCommit(createViewSql);
+        try {
+            viewCatalog.open();
+            Assertions.assertTrue(viewCatalog.tableExists(viewPath), viewPath.getFullName());
+            Assertions.assertEquals(
+                    viewColumns,
+                    Arrays.asList(viewCatalog.getTable(viewPath).getTableSchema().getFieldNames()));
+        } finally {
+            viewCatalog.close();
+            executeAndCommit("DROP VIEW " + viewTableInfo);
+        }
+    }
+
+    private void executeAndCommit(String sql) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        }
+        connection.commit();
+    }
+
+    /** Drops what a failed job may never have created; the failure is reported by the caller. */
+    private void dropQuietly(String sql) {
+        try {
+            executeAndCommit(sql);
+        } catch (SQLException e) {
+            log.warn("Ignore failure of [{}]: {}", sql, e.getMessage());
+            try {
+                connection.rollback();
+            } catch (SQLException rollbackFailure) {
+                log.warn("Rollback failed after [{}]", sql, rollbackFailure);
+            }
+        }
+    }
 }

@@ -31,6 +31,7 @@ import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -78,24 +79,18 @@ public class DorisTableConfig implements Serializable {
         if (connectorConfig.getOptional(TABLE_LIST).isPresent()) {
             tableList = connectorConfig.get(TABLE_LIST);
         } else {
-            DorisTableConfig dorisTableConfig = new DorisTableConfig();
-            dorisTableConfig.setDatabase(connectorConfig.get(DATABASE));
-            dorisTableConfig.setTable(connectorConfig.get(TABLE));
-
-            boolean caseSensitive = true;
-            if (connectorConfig.getOptional(CASE_SENSITIVE).isPresent()) {
-                caseSensitive = connectorConfig.get(CASE_SENSITIVE);
-            }
-
+            boolean caseSensitive = connectorConfig.get(CASE_SENSITIVE);
+            String database = connectorConfig.get(DATABASE);
+            String table = connectorConfig.get(TABLE);
             if (!caseSensitive) {
-                dorisTableConfig.setDatabase(dorisTableConfig.getDatabase().toLowerCase());
-                dorisTableConfig.setTable(dorisTableConfig.getTable().toLowerCase());
+                database = database.toLowerCase(Locale.ROOT);
+                table = table.toLowerCase(Locale.ROOT);
             }
 
             DorisTableConfig tableProperty =
                     DorisTableConfig.builder()
-                            .table(connectorConfig.get(TABLE))
-                            .database(connectorConfig.get(DATABASE))
+                            .table(table)
+                            .database(database)
                             .readField(connectorConfig.get(DORIS_READ_FIELD))
                             .filterQuery(connectorConfig.get(DORIS_FILTER_QUERY))
                             .batchSize(connectorConfig.get(DORIS_BATCH_SIZE))
