@@ -29,6 +29,10 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
+/**
+ * Registers the dedicated public-post Source identity and shares its actual option definitions with
+ * source construction, keeping factory validation and runtime configuration aligned.
+ */
 @AutoService(Factory.class)
 public class WordPressSourceFactory implements TableSourceFactory {
     @Override

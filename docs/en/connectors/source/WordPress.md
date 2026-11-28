@@ -26,6 +26,7 @@ Reads published posts from one public WordPress.com site using the [WordPress.co
 - The window filters the **publication** timestamp, not the timestamp of later edits. It does not report deletes.
 - Reads are ordered by ascending post ID. Changing totals, inconsistent page sizes, out-of-order or repeated IDs, malformed responses, HTTP failures (including 429), and results above the page limit fail the job. Stable totals and order cannot detect every concurrent edit; this is not a transactional snapshot. Prefer an older, stable window.
 - Restarting a job replays the window. There is no remote checkpoint or exactly-once guarantee; a nontransactional sink may have committed rows before a failure. For replay-safe loads, use the site and post ID as a destination key.
+- Zeta BATCH jobs enable periodic engine checkpoints only when `checkpoint.interval` is set in `env`. Those checkpoints do not persist remote page progress; restored readers replay the configured window.
 
 ## Options
 

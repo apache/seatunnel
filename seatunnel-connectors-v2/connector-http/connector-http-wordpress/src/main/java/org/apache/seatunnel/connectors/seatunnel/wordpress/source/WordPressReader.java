@@ -72,6 +72,10 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final int maxPages;
     private final CatalogTable table;
     private final SingleSplitReaderContext context;
+    // Reader-local scan progress only. The inherited null split state still replays the window.
+    private int total = -1;
+    private int offset;
+    private long previousId;
     /*
      * Tracks the dispatched request so cancellation can abort I/O without taking lifecycleLock.
      */
@@ -162,73 +166,108 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     /**
-     * Runs under the inherited checkpoint lock, including HTTP and output collection. Validates
-     * each complete page before emission and rejects count or ID drift across pages. Earlier pages
-     * may already be emitted when a later page fails; this is not a snapshot.
+     * Fetches and validates one page outside the checkpoint monitor, then emits it under that
+     * monitor. Returning between pages lets the engine inject checkpoints during a long scan.
+     * Earlier pages may already be emitted when a later page fails; this is not a snapshot.
      */
     @Override
-    public void internalPollNext(Collector<SeaTunnelRow> output) throws Exception {
-        int total = -1;
-        long previousId = 0;
-        int offset = 0;
-        do {
+    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+        if (noMoreSplits) {
+            return;
+        }
+        requireOpenResources();
+        JsonNode page = readPage(offset);
+        JsonNode found = page.path("found");
+        JsonNode posts = page.path("posts");
+        if (!found.isIntegralNumber()
+                || !found.canConvertToInt()
+                || found.intValue() < 0
+                || !posts.isArray()) {
+            throw failure("Invalid posts pagination envelope");
+        }
+        int pageTotal = found.intValue();
+        if (total < 0) {
+            if (pageTotal > maxPages * pageSize) {
+                throw failure("Result exceeds max_pages; choose a smaller date window");
+            }
+        } else if (total != pageTotal) {
+            throw failure(
+                    "Post count changed during pagination; retry a stable publication window");
+        }
+        if (posts.size() != Math.min(pageSize, pageTotal - offset)) {
+            throw failure("Unexpected page size; retry a stable publication window");
+        }
+        List<SeaTunnelRow> rows = new ArrayList<>(posts.size());
+        long pagePreviousId = previousId;
+        for (JsonNode post : posts) {
+            JsonNode id = post.path("ID");
+            if (!id.isIntegralNumber()
+                    || !id.canConvertToLong()
+                    || id.longValue() <= pagePreviousId) {
+                throw failure("Post IDs must be positive and strictly increasing across pages");
+            }
+            pagePreviousId = id.longValue();
+            LocalDateTime published = timestamp(post, "date");
+            Instant publication = published.toInstant(ZoneOffset.UTC);
+            if (publication.isBefore(start) || publication.isAfter(end)) {
+                throw failure("Received a publication timestamp outside the requested window");
+            }
+            SeaTunnelRow row =
+                    new SeaTunnelRow(
+                            new Object[] {
+                                pagePreviousId,
+                                string(post, "slug"),
+                                string(post, "title"),
+                                string(post, "URL"),
+                                published,
+                                timestamp(post, "modified")
+                            });
+            row.setTableId(table.getTableId().toTablePath().toString());
+            rows.add(row);
+        }
+        synchronized (output.getCheckpointLock()) {
             requireOpenResources();
-            JsonNode page = readPage(offset);
-            JsonNode found = page.path("found");
-            JsonNode posts = page.path("posts");
-            if (!found.isIntegralNumber()
-                    || !found.canConvertToInt()
-                    || found.intValue() < 0
-                    || !posts.isArray()) {
-                throw failure("Invalid posts pagination envelope");
-            }
-            if (total < 0) {
-                total = found.intValue();
-                if (total > maxPages * pageSize) {
-                    throw failure("Result exceeds max_pages; choose a smaller date window");
-                }
-            } else if (total != found.intValue()) {
-                throw failure(
-                        "Post count changed during pagination; retry a stable publication window");
-            }
-            if (posts.size() != Math.min(pageSize, total - offset)) {
-                throw failure("Unexpected page size; retry a stable publication window");
-            }
-            List<SeaTunnelRow> rows = new ArrayList<>(posts.size());
-            for (JsonNode post : posts) {
-                JsonNode id = post.path("ID");
-                if (!id.isIntegralNumber()
-                        || !id.canConvertToLong()
-                        || id.longValue() <= previousId) {
-                    throw failure("Post IDs must be positive and strictly increasing across pages");
-                }
-                previousId = id.longValue();
-                LocalDateTime published = timestamp(post, "date");
-                Instant publication = published.toInstant(ZoneOffset.UTC);
-                if (publication.isBefore(start) || publication.isAfter(end)) {
-                    throw failure("Received a publication timestamp outside the requested window");
-                }
-                SeaTunnelRow row =
-                        new SeaTunnelRow(
-                                new Object[] {
-                                    previousId,
-                                    string(post, "slug"),
-                                    string(post, "title"),
-                                    string(post, "URL"),
-                                    published,
-                                    timestamp(post, "modified")
-                                });
-                row.setTableId(table.getTableId().toTablePath().toString());
-                rows.add(row);
-            }
             for (SeaTunnelRow row : rows) {
                 requireOpenResources();
                 output.collect(row);
             }
-            offset += posts.size();
-        } while (offset < total);
-        requireOpenResources();
-        context.signalNoMoreElement();
+            total = pageTotal;
+            previousId = pagePreviousId;
+            offset += rows.size();
+            if (offset >= total) {
+                requireOpenResources();
+                context.signalNoMoreElement();
+                noMoreSplits = true;
+            }
+        }
+    }
+
+    /*
+     * Permanently marks cancellation and aborts any published request without locking.
+     */
+    @Override
+    public void cancel() {
+        cancelled = true;
+        HttpGet request = activeRequest.get();
+        if (request != null) {
+            request.abort();
+        }
+    }
+
+    /*
+     * Detaches resources once under lifecycleLock, then shuts them down outside the lock.
+     */
+    @Override
+    public void close() throws IOException {
+        cancel();
+        ClientResources closing;
+        synchronized (lifecycleLock) {
+            closing = resources;
+            resources = null;
+        }
+        if (closing != null) {
+            closing.close();
+        }
     }
 
     /**
@@ -345,34 +384,6 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private static IllegalStateException failure(String message) {
         return new IllegalStateException("WordPress: " + message);
-    }
-
-    /*
-     * Permanently marks cancellation and aborts any published request without locking.
-     */
-    @Override
-    public void cancel() {
-        cancelled = true;
-        HttpGet request = activeRequest.get();
-        if (request != null) {
-            request.abort();
-        }
-    }
-
-    /*
-     * Detaches resources once under lifecycleLock, then shuts them down outside the lock.
-     */
-    @Override
-    public void close() throws IOException {
-        cancel();
-        ClientResources closing;
-        synchronized (lifecycleLock) {
-            closing = resources;
-            resources = null;
-        }
-        if (closing != null) {
-            closing.close();
-        }
     }
 
     /**

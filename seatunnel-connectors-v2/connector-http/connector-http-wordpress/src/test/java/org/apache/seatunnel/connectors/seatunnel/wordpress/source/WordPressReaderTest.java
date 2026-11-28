@@ -48,9 +48,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Protects ordered public-post decoding, bounded page validation and cancellation ownership.
+ * In-flight HTTP fixtures also verify that checkpoint access does not depend on response arrival.
+ */
 class WordPressReaderTest {
     private static final Instant START = Instant.parse("2024-01-01T00:00:00Z");
     private static final Instant END = Instant.parse("2024-01-31T23:59:59Z");
@@ -134,6 +139,12 @@ class WordPressReaderTest {
         try (WordPressReader reader = reader(1, 2)) {
             reader.open();
             reader.pollNext(collector);
+            assertEquals(1, calls.get());
+            assertEquals(1, rows.size());
+            assertEquals(0, completions.get());
+            assertNull(reader.snapshotState(1).get(0).getState());
+            reader.pollNext(collector);
+            assertNull(reader.snapshotState(2).get(0).getState());
             reader.pollNext(collector);
         }
         assertEquals(2, calls.get());
@@ -261,8 +272,17 @@ class WordPressReaderTest {
                                                 () -> reader.pollNext(collector)));
                 assertTrue(
                         received.await(5, TimeUnit.SECONDS), "HTTP request did not reach fixture");
-                // The real HTTP request is blocked, and polling already holds the checkpoint
-                // lock. Even a caller holding the reader monitor must not hold up cancellation.
+                // A barrier must acquire the checkpoint monitor while HTTP remains blocked.
+                // The null split state preserves full-window replay rather than a new cursor.
+                tasks.submit(
+                                () -> {
+                                    synchronized (collector.getCheckpointLock()) {
+                                        assertNull(reader.snapshotState(1).get(0).getState());
+                                    }
+                                    return null;
+                                })
+                        .get(5, TimeUnit.SECONDS);
+                // Even a caller holding the reader monitor must not hold up cancellation.
                 synchronized (reader) {
                     tasks.submit(reader::cancel).get(5, TimeUnit.SECONDS);
                     IllegalStateException error = poll.get(5, TimeUnit.SECONDS);
@@ -345,7 +365,13 @@ class WordPressReaderTest {
         try (WordPressReader reader = reader(pageSize, maxPages)) {
             reader.open();
             IllegalStateException exception =
-                    assertThrows(IllegalStateException.class, () -> reader.pollNext(collector));
+                    assertThrows(
+                            IllegalStateException.class,
+                            () -> {
+                                for (int page = 0; page <= maxPages; page++) {
+                                    reader.pollNext(collector);
+                                }
+                            });
             assertTrue(exception.getMessage().contains(expected), exception.getMessage());
         }
         assertEquals(0, completions.get());

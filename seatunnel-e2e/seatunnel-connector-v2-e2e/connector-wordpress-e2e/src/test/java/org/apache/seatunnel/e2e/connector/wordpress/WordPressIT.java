@@ -49,6 +49,10 @@ import java.util.stream.Collectors;
 
 import static org.awaitility.Awaitility.await;
 
+/**
+ * Exercises the installed Source through an isolated HTTPS fixture in Zeta, checking exact rows and
+ * checkpoint/cancellation progress while a later response is held by the fixture.
+ */
 class WordPressIT extends TestSuiteBase {
     private static final String HOST = "public-api.wordpress.com";
     private static final String STORE_PASSWORD = "fixture-only";
@@ -123,7 +127,7 @@ class WordPressIT extends TestSuiteBase {
                                 () -> {
                                     try {
                                         return engine.executeJob(
-                                                "/wordpress_to_console.conf", jobId);
+                                                "/wordpress_to_console_checkpoint.conf", jobId);
                                     } catch (InterruptedException e) {
                                         Thread.currentThread().interrupt();
                                         throw new CompletionException(e);
@@ -139,6 +143,19 @@ class WordPressIT extends TestSuiteBase {
                                                 .contains("WordPress fixture holds offset=1"));
                 Assertions.assertFalse(
                         job.isDone(), "The blocked source job unexpectedly completed");
+                // Observe a newly completed checkpoint after the second HTTP page is held.
+                // This requires the real source barrier to pass while that request is in flight.
+                long completedBefore = completedCheckpoints(engine.getServerLogs(), jobId);
+                await().atMost(10, TimeUnit.SECONDS)
+                        .until(
+                                () ->
+                                        completedCheckpoints(engine.getServerLogs(), jobId)
+                                                > completedBefore);
+                Assertions.assertFalse(
+                        job.isDone(), "The held source finished before checkpoint verification");
+                Assertions.assertFalse(
+                        fixture.getLogs().contains("WordPress fixture saw offset=1 disconnect"),
+                        "The held request disconnected before cancellation");
                 CompletableFuture<Void> stop =
                         CompletableFuture.runAsync(
                                 () -> {
@@ -165,6 +182,17 @@ class WordPressIT extends TestSuiteBase {
                 engine.tearDown();
             }
         }
+    }
+
+    private static long completedCheckpoints(String logs, String jobId) {
+        return logs.lines()
+                .filter(
+                        line ->
+                                line.contains(
+                                        "pending checkpoint notify finished, job id: "
+                                                + jobId
+                                                + ","))
+                .count();
     }
 
     private static GenericContainer<?> fixture(Path serverPem) {
