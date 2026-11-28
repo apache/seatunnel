@@ -22,6 +22,7 @@ import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.e2e.sink.inmemory.InMemoryAggregatedCommitter;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
@@ -31,11 +32,15 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
+import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
+import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
@@ -409,8 +414,29 @@ public class ClusterFaultToleranceIT {
 
     @Test
     public void testStreamJobRestoreIn2NodeWorkerDown() throws Exception {
-        String testCaseName = "testStreamJobRestoreIn2NodeWorkerDown";
-        String testClusterName = "ClusterFaultToleranceIT_testStreamJobRestoreIn2NodeWorkerDown";
+        assertStreamJobRestoreIn2NodeWorkerDown(false);
+    }
+
+    /**
+     * A real worker loss reaches READY_START but cannot complete its first checkpoint before the
+     * configured progress deadline; the opt-in fail-fast policy must end the job as FAILED.
+     */
+    @Test
+    public void testRestoreProgressTimeoutFailsStalledWorkerRecovery() throws Exception {
+        assertStreamJobRestoreIn2NodeWorkerDown(true);
+    }
+
+    /**
+     * Reuses the real worker-loss fixture for successful progress and a controlled post-restore
+     * checkpoint stall, retaining the existing data reconciliation and cluster cleanup.
+     */
+    private void assertStreamJobRestoreIn2NodeWorkerDown(boolean stallAfterRestore)
+            throws Exception {
+        String testCaseName =
+                stallAfterRestore
+                        ? "testRestoreProgressTimeoutFailsStalledWorkerRecovery"
+                        : "testStreamJobRestoreIn2NodeWorkerDown";
+        String testClusterName = "ClusterFaultToleranceIT_" + testCaseName;
         long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
@@ -422,6 +448,10 @@ public class ClusterFaultToleranceIT {
                 .getHazelcastConfig()
                 .setClusterName(TestUtils.getClusterName(testClusterName));
         seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
+        SlotServiceConfig slots = seaTunnelConfig.getEngineConfig().getSlotServiceConfig();
+        slots.setDynamicSlot(false);
+        slots.setSlotNum(10);
+        slots.setAllocateStrategy(AllocateStrategy.SLOT_RATIO);
         try {
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
@@ -436,12 +466,31 @@ public class ClusterFaultToleranceIT {
                                     Assertions.assertEquals(
                                             2, finalNode.getCluster().getMembers().size()));
 
+            SeaTunnelServer master =
+                    node1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            ResourceManager resourceManager = master.getCoordinatorService().getResourceManager();
+            Address survivingWorker = node1.node.address;
+            Address workerToRemove = node2.node.address;
+            // Membership does not guarantee eligibility for task-group placement.
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .until(
+                            () ->
+                                    resourceManager.getRegisterWorker().containsKey(survivingWorker)
+                                            && resourceManager
+                                                    .getRegisterWorker()
+                                                    .containsKey(workerToRemove));
+
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
                     createTestResources(
                             testCaseName, JobMode.STREAMING, testRowNumber, testParallelism);
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(testCaseName);
+            if (stallAfterRestore) {
+                // Permit the worker-loss recovery, then terminate on its progress timeout.
+                jobConfig.getEnvOptions().put("job.retry.times", 1);
+            }
 
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
@@ -470,9 +519,56 @@ public class ClusterFaultToleranceIT {
             CompletableFuture<JobStatus> waitForCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
+            JobMaster job = master.getCoordinatorService().getJobMaster(clientJobProxy.getJobId());
+            CheckpointCoordinator coordinator =
+                    job.getCheckpointManager().getCheckpointCoordinator(1);
+            Assertions.assertTrue(
+                    job.getPhysicalPlan().getPipelineList().get(0).getPhysicalVertexList().stream()
+                            .map(PhysicalVertex::getCurrentExecutionAddress)
+                            .anyMatch(workerToRemove::equals),
+                    "The worker being shut down must host a task in the pipeline under test");
+            // Change only this job's coordinator config. Delaying its first post-restore barrier
+            // creates a deterministic stall without blocking tasks or relaxing data assertions.
+            CheckpointConfig checkpointConfig =
+                    ReflectionUtils.getField(coordinator, "coordinatorConfig")
+                            .map(CheckpointConfig.class::cast)
+                            .orElseThrow(
+                                    () ->
+                                            new AssertionError(
+                                                    "Missing coordinator checkpoint config"));
+            checkpointConfig.setRestoreProgressFailFast(true);
+            checkpointConfig.setRestoreProgressTimeout(stallAfterRestore ? 30_000L : 60_000L);
+            if (stallAfterRestore) {
+                checkpointConfig.setCheckpointInterval(120_000L);
+            }
+
             Thread.sleep(5000);
             // shutdown on worker node
             node2.shutdown();
+
+            if (stallAfterRestore) {
+                Awaitility.await()
+                        .atMost(90, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () -> {
+                                    Assertions.assertTrue(
+                                            coordinator.getLastRestoreTimestamp().get() > 0);
+                                    Assertions.assertTrue(
+                                            coordinator
+                                                            .getAllTasksReadyAfterRestoreTimestamp()
+                                                            .get()
+                                                    >= coordinator.getLastRestoreTimestamp().get());
+                                    Assertions.assertTrue(
+                                            coordinator.getRestoreProgressStalled().get());
+                                    Assertions.assertTrue(
+                                            coordinator.getRestoreStalledTimestamp().get() > 0);
+                                    Assertions.assertEquals(
+                                            JobStatus.FAILED, clientJobProxy.getJobStatus());
+                                    Assertions.assertTrue(waitForCompletableFuture.isDone());
+                                });
+                Assertions.assertEquals(JobStatus.FAILED, waitForCompletableFuture.get());
+                return;
+            }
 
             Awaitility.await()
                     .atMost(300000, TimeUnit.MILLISECONDS)
@@ -487,6 +583,26 @@ public class ClusterFaultToleranceIT {
                                 Assertions.assertEquals(
                                         JobStatus.RUNNING, clientJobProxy.getJobStatus());
                                 Assertions.assertTrue(lineNumberFromDir > 1);
+                            });
+
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                long restored = coordinator.getLastRestoreTimestamp().get();
+                                long ready =
+                                        coordinator.getAllTasksReadyAfterRestoreTimestamp().get();
+                                Assertions.assertTrue(restored > 0L);
+                                Assertions.assertTrue(ready >= restored);
+                                Assertions.assertTrue(
+                                        coordinator
+                                                        .getFirstPostRestoreCheckpointCompletedTimestamp()
+                                                        .get()
+                                                >= ready);
+                                Assertions.assertFalse(
+                                        coordinator.getRestoreProgressTracking().get());
+                                Assertions.assertFalse(
+                                        coordinator.getRestoreProgressStalled().get());
                             });
 
             FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
