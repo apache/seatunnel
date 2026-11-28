@@ -31,7 +31,11 @@ import java.util.Map;
 
 import static org.apache.seatunnel.connectors.seatunnel.onehundredms.OneHundredMsConfig.digest;
 
-/** Wire routes, envelope shapes and incremental fields for the eight 100ms resources. */
+/**
+ * Defines wire routes, response shapes and incremental fields for all eight resources. A complete
+ * bounded response, including cursor and row identities, is validated before any page is emitted.
+ * Child discovery uses unfiltered parents; settings/destinations preserve the complete object.
+ */
 enum OneHundredMsResource {
     SESSIONS("/v2/sessions", "active", null, null, null),
     ROOMS("/v2/rooms", "enabled", "updated_at", "created_at", null),
@@ -148,6 +152,10 @@ enum OneHundredMsResource {
                 values);
     }
 
+    IOException invalid(String reason) {
+        return new IOException("100ms source " + tableName() + ": " + reason);
+    }
+
     private Instant updateTime(JsonNode row) throws IOException {
         Instant changed = timestamp(row.get(updatedField));
         if (changed == null || changed.equals(UNSET_TIMESTAMP)) {
@@ -192,10 +200,6 @@ enum OneHundredMsResource {
         return text;
     }
 
-    IOException invalid(String reason) {
-        return new IOException("100ms source " + tableName() + ": " + reason);
-    }
-
     private static String encode(String value) {
         StringBuilder encoded = new StringBuilder();
         String hex = "0123456789ABCDEF";
@@ -216,7 +220,10 @@ enum OneHundredMsResource {
         return encoded.toString();
     }
 
-    /** A validated response, including a continuation independently of page length. */
+    /**
+     * A validated response, including a continuation independently of page length. Its ID
+     * fingerprint detects repeated consecutive pages; empty and short pages may still continue.
+     */
     static final class Page {
         final String next;
         final List<Value> rows;
@@ -235,7 +242,10 @@ enum OneHundredMsResource {
         }
     }
 
-    /** Public identity and provider payload before the source applies its update window. */
+    /**
+     * Public identity and provider payload before the source applies its update window. The reader
+     * uses these validated values to build the five output columns without projecting nested data.
+     */
     static final class Value {
         final String id;
         final JsonNode data;

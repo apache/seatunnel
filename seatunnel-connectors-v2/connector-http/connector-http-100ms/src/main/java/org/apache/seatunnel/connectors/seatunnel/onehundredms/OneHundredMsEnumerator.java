@@ -52,6 +52,10 @@ final class OneHundredMsEnumerator
     @Override
     public void open() {}
 
+    /**
+     * Assigns the pending crawl once reader zero is registered; restored readers retain their
+     * split.
+     */
     @Override
     public synchronized void run() {
         running = true;
@@ -63,6 +67,10 @@ final class OneHundredMsEnumerator
         running = false;
     }
 
+    /**
+     * Reassigns the detached returned crawl, including its current page and accepted prefix. The
+     * single reader continues that state instead of creating a fresh upper timestamp or cursor.
+     */
     @Override
     public synchronized void addSplitsBack(List<OneHundredMsProgress> splits, int subtaskId) {
         if (splits.isEmpty()) {
@@ -92,6 +100,10 @@ final class OneHundredMsEnumerator
         assign();
     }
 
+    /**
+     * Saves only a still-unassigned crawl; assigned progress is owned by the reader checkpoint. The
+     * copy prevents later assignment or cursor changes from mutating a coordinator snapshot.
+     */
     @Override
     public synchronized State snapshotState(long checkpointId) {
         return new State(fingerprint, pending == null ? null : new OneHundredMsProgress(pending));
@@ -112,7 +124,10 @@ final class OneHundredMsEnumerator
         }
     }
 
-    /** Coordinator state keeps the original scrape boundary until it reaches the reader. */
+    /**
+     * Coordinator state keeps the original scrape boundary until it reaches the reader. An assigned
+     * crawl is excluded because reader snapshots then own its accepted-prefix progress.
+     */
     static final class State implements Serializable {
         private static final long serialVersionUID = 1L;
         private final String fingerprint;

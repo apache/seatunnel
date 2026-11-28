@@ -23,7 +23,10 @@ import org.apache.seatunnel.api.configuration.Options;
 import java.util.Arrays;
 import java.util.List;
 
-/** Options for reading bounded sets of 100ms resources. */
+/**
+ * Declares authentication, resource selection and finite limits for a single bounded 100ms crawl.
+ * Request-shaping options are checked against the saved crawl when restoring its one split.
+ */
 public final class OneHundredMsSourceOptions {
     public static final Option<String> API_URL =
             Options.key("api_url")

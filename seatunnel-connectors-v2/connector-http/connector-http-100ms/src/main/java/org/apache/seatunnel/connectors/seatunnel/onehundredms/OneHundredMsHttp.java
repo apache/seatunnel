@@ -65,7 +65,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.GZIPInputStream;
 
-/** Quiet, cancelable HTTPS transport. The caller controls the absolute deadline across retries. */
+/**
+ * Owns each HTTPS socket and management-token cache for one reader. The poller can close the
+ * published socket independently; retries, TLS, decoding and waits share one absolute deadline.
+ * Each response copies the constrained parser factory, so remote symbols cannot cross responses.
+ */
 final class OneHundredMsHttp implements AutoCloseable {
     private static final int TOKEN_LIFETIME_SECONDS = 86400;
     private static final Base64.Encoder JWT_ENCODING = Base64.getUrlEncoder().withoutPadding();
@@ -84,6 +88,7 @@ final class OneHundredMsHttp implements AutoCloseable {
     private static final ObjectMapper JSON =
             new ObjectMapper(
                             JsonFactory.builder()
+                                    .disable(JsonFactory.Feature.INTERN_FIELD_NAMES)
                                     .streamReadConstraints(
                                             StreamReadConstraints.builder()
                                                     .maxNestingDepth(100)
@@ -107,7 +112,11 @@ final class OneHundredMsHttp implements AutoCloseable {
         this.config = config;
     }
 
-    /** GET retries are limited to explicitly retryable statuses and a single app-token refresh. */
+    /**
+     * GET retries are limited to explicitly retryable statuses and a single app-token refresh.
+     * Every attempt shares the caller's absolute deadline and rejects exhausted continuation
+     * snapshots.
+     */
     JsonNode get(
             OneHundredMsResource resource,
             String target,
@@ -152,6 +161,20 @@ final class OneHundredMsHttp implements AutoCloseable {
             }
         }
         throw resource.invalid("request attempt limit reached");
+    }
+
+    @Override
+    public void close() {
+        if (closed.compareAndSet(false, true)) {
+            Socket active = socket.getAndSet(null);
+            if (active != null) {
+                try {
+                    active.close();
+                } catch (IOException ignored) {
+                    // The network task also owns and closes the socket.
+                }
+            }
+        }
     }
 
     private Result request(OneHundredMsResource resource, String target, long deadline)
@@ -250,7 +273,11 @@ final class OneHundredMsHttp implements AutoCloseable {
             try (InputStream decoded =
                     "gzip".equalsIgnoreCase(coding) ? new GZIPInputStream(wire) : wire) {
                 JsonNode node =
-                        JSON.reader()
+                        // A fresh factory keeps the strict native byte decoder and owns symbols
+                        // only for this response. Disabling canonicalization would change its
+                        // decoder.
+                        JSON.copy()
+                                .reader()
                                 .without(JsonParser.Feature.AUTO_CLOSE_SOURCE)
                                 .readTree(new LimitedInput(decoded, config.maxResponseBytes));
                 if (node == null || !node.isObject()) {
@@ -348,25 +375,14 @@ final class OneHundredMsHttp implements AutoCloseable {
                         Math.max(1, TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime())));
     }
 
-    @Override
-    public void close() {
-        if (closed.compareAndSet(false, true)) {
-            Socket active = socket.getAndSet(null);
-            if (active != null) {
-                try {
-                    active.close();
-                } catch (IOException ignored) {
-                    // The network task also owns and closes the socket.
-                }
-            }
-        }
-    }
-
     private static HttpFailure failure(OneHundredMsResource resource, String reason) {
         return new HttpFailure("100ms source " + resource.tableName() + ": " + reason);
     }
 
-    /** Internal transport validation error whose message already has safe resource context. */
+    /**
+     * Internal transport validation error whose message already has safe resource context. Raw
+     * upstream bodies, credentials and nested transport causes are excluded from this diagnostic.
+     */
     private static final class HttpFailure extends IOException {
         private static final long serialVersionUID = 1L;
 
@@ -375,7 +391,11 @@ final class OneHundredMsHttp implements AutoCloseable {
         }
     }
 
-    /** Exposes successful JSON and retry metadata without retaining any provider error body. */
+    /**
+     * Exposes successful JSON and retry metadata without retaining any provider error body. A
+     * retryable status carries only its bounded delay while decoded successful data remains
+     * request-local.
+     */
     private static final class Result {
         private final int status;
         private final JsonNode body;

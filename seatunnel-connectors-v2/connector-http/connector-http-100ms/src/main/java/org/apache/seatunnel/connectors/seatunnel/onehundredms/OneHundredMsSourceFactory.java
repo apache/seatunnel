@@ -45,7 +45,10 @@ import static org.apache.seatunnel.connectors.seatunnel.onehundredms.OneHundredM
 import static org.apache.seatunnel.connectors.seatunnel.onehundredms.OneHundredMsSourceOptions.START_DATE;
 import static org.apache.seatunnel.connectors.seatunnel.onehundredms.OneHundredMsSourceOptions.TOKEN;
 
-/** Registers the 100ms source and validates its authentication and resource options. */
+/**
+ * Registers the bounded 100ms source and its catalog through the standard factory SPI. Dedicated
+ * configuration validation resolves authentication and resource choices before creating readers.
+ */
 @AutoService(Factory.class)
 public final class OneHundredMsSourceFactory implements TableSourceFactory {
     @Override

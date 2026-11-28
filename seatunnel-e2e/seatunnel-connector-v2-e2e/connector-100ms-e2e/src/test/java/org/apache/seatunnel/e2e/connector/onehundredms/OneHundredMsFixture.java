@@ -53,7 +53,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPOutputStream;
 
-/** Independent HTTPS API peer. Verifies credentials and records each inbound route. */
+/**
+ * Independent HTTPS API peer. Verifies credentials and records each inbound route. Each scenario
+ * controls actual response bytes and timing without reusing the connector transport.
+ */
 final class OneHundredMsFixture implements AutoCloseable {
     static final String HOST = "host.testcontainers.internal";
     static final String TOKEN = "fixture-only-management-token";
@@ -90,6 +93,31 @@ final class OneHundredMsFixture implements AutoCloseable {
         Scenario next = new Scenario(app, action);
         current = next;
         return next;
+    }
+
+    static void respond(HttpExchange exchange, int status, String body) throws IOException {
+        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().set("Content-Type", "application/json");
+        exchange.sendResponseHeaders(status, bytes.length);
+        exchange.getResponseBody().write(bytes);
+    }
+
+    static void compressed(HttpExchange exchange, String body) throws IOException {
+        ByteArrayOutputStream encoded = new ByteArrayOutputStream();
+        try (GZIPOutputStream gzip = new GZIPOutputStream(encoded)) {
+            gzip.write(body.getBytes(StandardCharsets.UTF_8));
+        }
+        exchange.getResponseHeaders().set("Content-Type", "application/json");
+        exchange.getResponseHeaders().set("Content-Encoding", "gzip");
+        exchange.sendResponseHeaders(200, 0);
+        exchange.getResponseBody().write(encoded.toByteArray());
+    }
+
+    @Override
+    public void close() throws InterruptedException {
+        server.stop(0);
+        handlers.shutdownNow();
+        Assertions.assertTrue(handlers.awaitTermination(15, TimeUnit.SECONDS));
     }
 
     private String host() {
@@ -174,31 +202,6 @@ final class OneHundredMsFixture implements AutoCloseable {
         }
     }
 
-    static void respond(HttpExchange exchange, int status, String body) throws IOException {
-        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
-        exchange.getResponseHeaders().set("Content-Type", "application/json");
-        exchange.sendResponseHeaders(status, bytes.length);
-        exchange.getResponseBody().write(bytes);
-    }
-
-    static void compressed(HttpExchange exchange, String body) throws IOException {
-        ByteArrayOutputStream encoded = new ByteArrayOutputStream();
-        try (GZIPOutputStream gzip = new GZIPOutputStream(encoded)) {
-            gzip.write(body.getBytes(StandardCharsets.UTF_8));
-        }
-        exchange.getResponseHeaders().set("Content-Type", "application/json");
-        exchange.getResponseHeaders().set("Content-Encoding", "gzip");
-        exchange.sendResponseHeaders(200, 0);
-        exchange.getResponseBody().write(encoded.toByteArray());
-    }
-
-    @Override
-    public void close() throws InterruptedException {
-        server.stop(0);
-        handlers.shutdownNow();
-        Assertions.assertTrue(handlers.awaitTermination(15, TimeUnit.SECONDS));
-    }
-
     private static KeyStore makeStore(Path path) throws Exception {
         Process keytool =
                 new ProcessBuilder(
@@ -241,14 +244,20 @@ final class OneHundredMsFixture implements AutoCloseable {
         return store;
     }
 
-    /** Handles one verified route with independently chosen response timing and payload. */
+    /**
+     * Handles one verified route with independently chosen response timing and payload. Exceptions
+     * are recorded by the fixture and returned as a private error response to the caller.
+     */
     @FunctionalInterface
     interface Handler {
         void handle(Request request, HttpExchange exchange, int index)
                 throws IOException, InterruptedException;
     }
 
-    /** Security-relevant request observations used by the tests. */
+    /**
+     * Security-relevant request observations used by the tests. Captured routes and token IDs
+     * establish encoding, retry and credential reuse without storing secrets.
+     */
     static final class Request {
         final String target;
         final String jti;
@@ -261,7 +270,10 @@ final class OneHundredMsFixture implements AutoCloseable {
         }
     }
 
-    /** Per-job route history and fixture assertions. */
+    /**
+     * Per-job route history and fixture assertions. Concurrent handlers record requests while test
+     * threads obtain detached history and surface fixture failures.
+     */
     static final class Scenario {
         final boolean app;
         final Handler action;

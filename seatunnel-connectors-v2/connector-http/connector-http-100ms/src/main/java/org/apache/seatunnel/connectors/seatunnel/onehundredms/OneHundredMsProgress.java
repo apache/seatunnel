@@ -30,11 +30,13 @@ import java.util.Set;
 import static org.apache.seatunnel.connectors.seatunnel.onehundredms.OneHundredMsConfig.digest;
 
 /**
- * A detached checkpoint records the next request, current parent page and bounded history.
- * Credentials, decoded response payloads and in-flight requests never enter checkpoints.
+ * A detached v2 checkpoint records the current request, parent traversal and accepted page prefix.
+ * A partial page keeps its cursor until every included row is accepted; its count and fixed-size
+ * rolling digest let restore validate the refetched prefix before skipping it. Credentials, decoded
+ * response payloads and in-flight requests never enter checkpoints.
  */
 final class OneHundredMsProgress implements SourceSplit {
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
 
     final String fingerprint;
     final Instant upperBound;
@@ -85,13 +87,19 @@ final class OneHundredMsProgress implements SourceSplit {
         discovery = new Scan();
     }
 
-    /** Cursor hashes catch retries and cycles without retaining the cursor chain in plain text. */
+    /**
+     * Cursor hashes catch retries and cycles without retaining the cursor chain in plain text. The
+     * current page also carries only an accepted-row count and digest, never its decoded row
+     * payloads.
+     */
     static final class Scan implements Serializable {
-        private static final long serialVersionUID = 1L;
+        private static final long serialVersionUID = 2L;
 
         String current;
         String previousPage;
         int pages;
+        int acceptedCount;
+        String acceptedHash;
         final Set<String> visited = new HashSet<>();
 
         void validate(OneHundredMsResource resource, OneHundredMsResource.Page page, int max)
@@ -107,11 +115,13 @@ final class OneHundredMsProgress implements SourceSplit {
             }
         }
 
-        void advance(OneHundredMsResource.Page page) {
+        void advance(OneHundredMsResource.Page page, String fingerprint) {
+            acceptedCount = 0;
+            acceptedHash = null;
             pages++;
             current = page.next;
             if (!page.rows.isEmpty()) {
-                previousPage = page.fingerprint();
+                previousPage = fingerprint;
             }
             if (current != null) {
                 visited.add(digest(current));
@@ -123,6 +133,8 @@ final class OneHundredMsProgress implements SourceSplit {
             copy.current = current;
             copy.previousPage = previousPage;
             copy.pages = pages;
+            copy.acceptedCount = acceptedCount;
+            copy.acceptedHash = acceptedHash;
             copy.visited.addAll(visited);
             return copy;
         }

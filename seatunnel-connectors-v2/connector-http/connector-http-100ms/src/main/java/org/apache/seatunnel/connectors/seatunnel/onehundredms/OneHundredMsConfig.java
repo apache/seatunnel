@@ -52,7 +52,11 @@ import static org.apache.seatunnel.connectors.seatunnel.onehundredms.OneHundredM
 import static org.apache.seatunnel.connectors.seatunnel.onehundredms.OneHundredMsSourceOptions.START_DATE;
 import static org.apache.seatunnel.connectors.seatunnel.onehundredms.OneHundredMsSourceOptions.TOKEN;
 
-/** Validated connector options. Only request-shaping fields enter the checkpoint fingerprint. */
+/**
+ * Validates authentication, trusted origin and finite request/crawl limits before reader creation.
+ * The fingerprint binds request-shaping options and the unreleased accepted-prefix v2 format;
+ * credentials are excluded so same-account rotation does not put secrets into checkpoint state.
+ */
 final class OneHundredMsConfig implements Serializable {
     private static final long serialVersionUID = 1L;
 
@@ -117,7 +121,31 @@ final class OneHundredMsConfig implements Serializable {
         readTimeout = range(config, READ_TIMEOUT, 1, 300000);
         requestTimeout = range(config, REQUEST_TIMEOUT, 1, 300000);
         attempts = range(config, MAX_ATTEMPTS, 1, 10);
-        planFingerprint = digest(origin + "|" + resources + "|" + startDate + "|" + pageSize);
+        planFingerprint =
+                digest(
+                        "accepted-prefix-v2|"
+                                + origin
+                                + "|"
+                                + resources
+                                + "|"
+                                + startDate
+                                + "|"
+                                + pageSize);
+    }
+
+    static String digest(String value) {
+        try {
+            byte[] digest =
+                    MessageDigest.getInstance("SHA-256")
+                            .digest(value.getBytes(StandardCharsets.UTF_8));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        }
+    }
+
+    static IllegalArgumentException invalid(String message) {
+        return new IllegalArgumentException("100ms source: " + message);
     }
 
     private static URI origin(String value) {
@@ -165,20 +193,5 @@ final class OneHundredMsConfig implements Serializable {
             throw invalid(key.key() + " must be between " + min + " and " + max);
         }
         return result;
-    }
-
-    static String digest(String value) {
-        try {
-            byte[] digest =
-                    MessageDigest.getInstance("SHA-256")
-                            .digest(value.getBytes(StandardCharsets.UTF_8));
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 unavailable", e);
-        }
-    }
-
-    static IllegalArgumentException invalid(String message) {
-        return new IllegalArgumentException("100ms source: " + message);
     }
 }

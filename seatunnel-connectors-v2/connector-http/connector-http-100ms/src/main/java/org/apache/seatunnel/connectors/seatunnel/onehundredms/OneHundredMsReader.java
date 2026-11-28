@@ -24,10 +24,16 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -40,7 +46,11 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.seatunnel.connectors.seatunnel.onehundredms.OneHundredMsConfig.digest;
 
-/** Coordinates one asynchronous request at a time with a checkpoint-aligned page boundary. */
+/**
+ * Owns one asynchronous request and one bounded decoded page. Network/decode work stays outside the
+ * collector monitor; each accepted row and its resumable prefix are checkpointed atomically.
+ * Cancellation closes the independent HTTP owner without waiting for collection or checkpointing.
+ */
 final class OneHundredMsReader implements SourceReader<SeaTunnelRow, OneHundredMsProgress> {
     private static final long ANALYTICS_LIFETIME_SECONDS = TimeUnit.HOURS.toSeconds(24);
 
@@ -58,11 +68,13 @@ final class OneHundredMsReader implements SourceReader<SeaTunnelRow, OneHundredM
                         return thread;
                     });
 
-    // Updated only by the source poller under the collector checkpoint lock.
+    // Only the poller mutates progress; snapshots take this short lock after the collector lock.
+    private final Object stateLock = new Object();
     private OneHundredMsProgress progress;
     private Request request;
     private volatile Future<JsonNode> pending;
     private boolean signaled;
+    private PreparedPage prepared;
 
     OneHundredMsReader(OneHundredMsConfig config, Context context, String tableId) {
         this.config = config;
@@ -75,11 +87,12 @@ final class OneHundredMsReader implements SourceReader<SeaTunnelRow, OneHundredM
     public void open() {}
 
     /**
-     * Starts or harvests one request and yields immediately while the network task is in flight.
+     * Yields during network I/O and between accepted rows, including when collection is throttled.
+     * Full-page validation and prefix comparison finish before any row from that page is emitted.
      */
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        synchronized (output.getCheckpointLock()) {
+        synchronized (stateLock) {
             if (closed.get()) {
                 return;
             }
@@ -93,40 +106,73 @@ final class OneHundredMsReader implements SourceReader<SeaTunnelRow, OneHundredM
                 }
                 progress = new OneHundredMsProgress(initial);
             }
-            if (progress.finished) {
-                if (!signaled) {
+        }
+        if (progress.finished) {
+            synchronized (output.getCheckpointLock()) {
+                if (!closed.get() && !signaled) {
                     signaled = true;
                     context.signalNoMoreElement();
                 }
-                return;
             }
-            Future<JsonNode> active = pending;
-            if (active == null) {
-                launch();
-                return;
-            }
-            if (!active.isDone()) {
-                if (request.deadline - System.nanoTime() <= 0) {
-                    close();
-                    throw request.resource.invalid("request deadline exceeded");
-                }
-                return;
-            }
-            JsonNode body = response(active);
-            if (!closed.get()) {
-                applyPage(body, output);
-            }
-            pending = null;
-            request = null;
+            return;
         }
+        if (prepared != null) {
+            synchronized (output.getCheckpointLock()) {
+                synchronized (stateLock) {
+                    if (closed.get()) {
+                        return;
+                    }
+                    PreparedPage page = prepared;
+                    int index = progress.data.acceptedCount;
+                    if (index < page.rows.size()) {
+                        output.collect(page.rows.get(index));
+                        progress.data.acceptedCount = index + 1;
+                        progress.data.acceptedHash = page.hashes.get(index);
+                        rememberAnalyticsClock(page.request);
+                    }
+                    if (progress.data.acceptedCount == page.rows.size()) {
+                        completePage(page);
+                        prepared = null;
+                    }
+                }
+            }
+            return;
+        }
+        Future<JsonNode> active = pending;
+        if (active == null) {
+            synchronized (stateLock) {
+                if (!closed.get()) {
+                    launch();
+                }
+            }
+            return;
+        }
+        if (!active.isDone()) {
+            if (request.deadline - System.nanoTime() <= 0) {
+                close();
+                throw request.resource.invalid("request deadline exceeded");
+            }
+            return;
+        }
+        JsonNode body = response(active);
+        if (!closed.get()) {
+            preparePage(body);
+        }
+        pending = null;
+        request = null;
     }
 
+    /**
+     * Returns a detached current-page prefix; decoded rows and active request objects remain local.
+     */
     @Override
     public List<OneHundredMsProgress> snapshotState(long checkpointId) {
-        OneHundredMsProgress state = progress == null ? assigned.get() : progress;
-        return state == null
-                ? Collections.emptyList()
-                : Collections.singletonList(new OneHundredMsProgress(state));
+        synchronized (stateLock) {
+            OneHundredMsProgress state = progress == null ? assigned.get() : progress;
+            return state == null
+                    ? Collections.emptyList()
+                    : Collections.singletonList(new OneHundredMsProgress(state));
+        }
     }
 
     @Override
@@ -176,7 +222,7 @@ final class OneHundredMsReader implements SourceReader<SeaTunnelRow, OneHundredM
         String cursor = discovery ? progress.discovery.current : progress.data.current;
         long startedAt = Instant.now().getEpochSecond();
         boolean analytics = resource == OneHundredMsResource.ANALYTICS_EVENTS && !discovery;
-        boolean continuation = analytics && cursor != null;
+        boolean continuation = analytics && (cursor != null || progress.data.acceptedCount > 0);
         if (continuation
                 && (progress.analyticsStartedAt <= 0
                         || startedAt - progress.analyticsStartedAt >= ANALYTICS_LIFETIME_SECONDS)) {
@@ -215,17 +261,22 @@ final class OneHundredMsReader implements SourceReader<SeaTunnelRow, OneHundredM
         }
     }
 
-    private void applyPage(JsonNode body, Collector<SeaTunnelRow> output) throws IOException {
-        OneHundredMsResource endpoint = request.resource;
+    /**
+     * Materializes a bounded page without blocking checkpoint snapshots or changing their progress.
+     */
+    private void preparePage(JsonNode body) throws IOException {
+        Request issued = request;
+        OneHundredMsResource endpoint = issued.resource;
         OneHundredMsResource.Page page =
-                endpoint.page(body, request.parentId, config.maxRecords, request.discovery);
-        if (request.discovery) {
+                endpoint.page(body, issued.parentId, config.maxRecords, issued.discovery);
+        if (issued.discovery) {
             discover(page);
             return;
         }
         progress.data.validate(endpoint, page, config.maxPages);
-        // All records and the continuation are validated before the page can reach its collector.
         List<SeaTunnelRow> rows = new ArrayList<>();
+        List<String> hashes = new ArrayList<>();
+        String hash = null;
         for (OneHundredMsResource.Value record : page.rows) {
             if (include(endpoint, record)) {
                 SeaTunnelRow row =
@@ -233,25 +284,38 @@ final class OneHundredMsReader implements SourceReader<SeaTunnelRow, OneHundredM
                                 new Object[] {
                                     endpoint.tableName(),
                                     record.id,
-                                    request.parentId,
+                                    issued.parentId,
                                     record.updated == null ? null : record.updated.toString(),
                                     record.data.toString()
                                 });
                 row.setTableId(tableId);
                 rows.add(row);
+                hash = prefixHash(hash, row);
+                hashes.add(hash);
             }
         }
-        for (SeaTunnelRow row : rows) {
-            if (closed.get()) {
-                return;
+        int accepted = progress.data.acceptedCount;
+        if (accepted < 0
+                || accepted > rows.size()
+                || (accepted > 0 && !hashes.get(accepted - 1).equals(progress.data.acceptedHash))) {
+            throw endpoint.invalid("checkpoint page prefix changed or is missing");
+        }
+        PreparedPage ready = new PreparedPage(issued, page, rows, hashes, page.fingerprint());
+        synchronized (stateLock) {
+            if (!closed.get()) {
+                prepared = ready;
             }
-            output.collect(row);
         }
-        progress.data.advance(page);
-        if (endpoint == OneHundredMsResource.ANALYTICS_EVENTS && progress.analyticsStartedAt == 0) {
-            progress.analyticsStartedAt = request.startedAt;
-        }
-        if (page.next == null) {
+    }
+
+    /**
+     * Advances only after the last included row, in the same critical section as its acceptance.
+     */
+    private void completePage(PreparedPage ready) {
+        OneHundredMsResource endpoint = ready.request.resource;
+        progress.data.advance(ready.page, ready.fingerprint);
+        rememberAnalyticsClock(ready.request);
+        if (ready.page.next == null) {
             if (endpoint.parent != null) {
                 progress.parentIndex++;
                 progress.data = new OneHundredMsProgress.Scan();
@@ -264,25 +328,82 @@ final class OneHundredMsReader implements SourceReader<SeaTunnelRow, OneHundredM
         }
     }
 
-    /** Discovery ignores any update window applied to emitted room/template records. */
+    private void rememberAnalyticsClock(Request issued) {
+        if (issued.resource == OneHundredMsResource.ANALYTICS_EVENTS
+                && progress.analyticsStartedAt == 0) {
+            progress.analyticsStartedAt = issued.startedAt;
+        }
+    }
+
+    /**
+     * Discovery ignores emitted update windows and validates all parent additions before
+     * committing.
+     */
     private void discover(OneHundredMsResource.Page page) throws IOException {
         OneHundredMsResource parent = request.resource;
-        progress.discovery.validate(parent, page, config.maxPages);
+        OneHundredMsProgress.Scan scan = progress.discovery.copy();
+        scan.validate(parent, page, config.maxPages);
+        Set<String> history = new HashSet<>(progress.parentHistory);
         List<String> parents = new ArrayList<>();
         for (OneHundredMsResource.Value row : page.rows) {
-            if (progress.parentHistory.add(digest(row.id))) {
-                if (progress.parentHistory.size() > config.maxParents) {
+            if (history.add(digest(row.id))) {
+                if (history.size() > config.maxParents) {
                     throw parent.invalid("max_parents was reached before discovery finished");
                 }
                 parents.add(row.id);
             }
         }
-        progress.parents = parents;
-        progress.parentIndex = 0;
-        progress.discovery.advance(page);
-        if (page.next == null) {
-            progress.discoveryFinished = ++progress.phase == parent.phases();
-            progress.discovery = new OneHundredMsProgress.Scan();
+        scan.advance(page, page.fingerprint());
+        synchronized (stateLock) {
+            if (closed.get()) {
+                return;
+            }
+            progress.parentHistory.clear();
+            progress.parentHistory.addAll(history);
+            progress.parents = parents;
+            progress.parentIndex = 0;
+            progress.discovery = scan;
+            if (page.next == null) {
+                progress.discoveryFinished = ++progress.phase == parent.phases();
+                progress.discovery = new OneHundredMsProgress.Scan();
+            }
+        }
+    }
+
+    /**
+     * Length framing distinguishes null, empty and concatenated columns. Hashing exact UTF-16 code
+     * units also distinguishes Java strings containing isolated surrogate escapes, without a lossy
+     * charset replacement or retaining any column payload in the checkpoint.
+     */
+    private static String prefixHash(String previous, SeaTunnelRow row) {
+        try {
+            MessageDigest hash = MessageDigest.getInstance("SHA-256");
+            if (previous != null) {
+                hash.update(previous.getBytes(StandardCharsets.US_ASCII));
+            }
+            byte[] buffer = new byte[8192];
+            for (Object field : row.getFields()) {
+                String value = (String) field;
+                int length = value == null ? -1 : value.length();
+                hash.update((byte) (length >>> 24));
+                hash.update((byte) (length >>> 16));
+                hash.update((byte) (length >>> 8));
+                hash.update((byte) length);
+                int used = 0;
+                for (int i = 0; i < length; i++) {
+                    char unit = value.charAt(i);
+                    buffer[used++] = (byte) (unit >>> 8);
+                    buffer[used++] = (byte) unit;
+                    if (used == buffer.length) {
+                        hash.update(buffer);
+                        used = 0;
+                    }
+                }
+                hash.update(buffer, 0, used);
+            }
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash.digest());
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable");
         }
     }
 
@@ -301,7 +422,35 @@ final class OneHundredMsReader implements SourceReader<SeaTunnelRow, OneHundredM
                 && !record.updated.isAfter(progress.upperBound);
     }
 
-    /** The page stays associated with the route and clock bound it was issued for. */
+    /**
+     * Transient validated rows and prefix hashes are bounded by the configured response/record
+     * caps.
+     */
+    private static final class PreparedPage {
+        final Request request;
+        final OneHundredMsResource.Page page;
+        final List<SeaTunnelRow> rows;
+        final List<String> hashes;
+        final String fingerprint;
+
+        PreparedPage(
+                Request request,
+                OneHundredMsResource.Page page,
+                List<SeaTunnelRow> rows,
+                List<String> hashes,
+                String fingerprint) {
+            this.request = request;
+            this.page = page;
+            this.rows = rows;
+            this.hashes = hashes;
+            this.fingerprint = fingerprint;
+        }
+    }
+
+    /**
+     * The page stays associated with the route and clock bound it was issued for. Prepared output
+     * retains this request metadata even after the asynchronous future is released.
+     */
     private static final class Request {
         final OneHundredMsResource resource;
         final String parentId;

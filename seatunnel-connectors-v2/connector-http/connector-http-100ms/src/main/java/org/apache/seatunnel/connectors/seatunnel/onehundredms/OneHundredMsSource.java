@@ -74,6 +74,9 @@ public final class OneHundredMsSource
         return Collections.singletonList(catalog);
     }
 
+    /**
+     * Creates the single reader with its own transport, worker and detached checkpoint progress.
+     */
     @Override
     public SourceReader<SeaTunnelRow, OneHundredMsProgress> createReader(
             SourceReader.Context context) {
@@ -87,6 +90,9 @@ public final class OneHundredMsSource
         return new OneHundredMsEnumerator(context, config, null);
     }
 
+    /**
+     * Restores coordinator assignment state without replacing a reader-owned accepted-row prefix.
+     */
     @Override
     public SourceSplitEnumerator<OneHundredMsProgress, OneHundredMsEnumerator.State>
             restoreEnumerator(

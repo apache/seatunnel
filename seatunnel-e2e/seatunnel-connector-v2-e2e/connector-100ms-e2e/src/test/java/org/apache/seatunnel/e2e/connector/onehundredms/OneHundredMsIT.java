@@ -50,6 +50,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -525,6 +526,143 @@ class OneHundredMsIT extends TestSuiteBase {
                 targets(fixture));
     }
 
+    @Test
+    void preservesDistinctLongMemberNamesAcrossResponsesAndRejectsMalformedUtf8() throws Exception {
+        String prefix = new String(new char[4096]).replace('\0', 'n');
+        String first = prefix + "雪-first";
+        String second = prefix + "雪-second";
+        String a = "{\"id\":\"a\",\"" + first + "\":{\"value\":\"雪 🦊\"}}";
+        String b = "{\"id\":\"b\",\"" + second + "\":12345678901234567890.12345678}";
+        OneHundredMsFixture.Scenario fixture =
+                api.set(
+                        false,
+                        (request, exchange, index) -> {
+                            if (LIST_ROOMS.equals(request.target)) {
+                                respond(exchange, 200, list(a, "next"));
+                            } else if ((LIST_ROOMS + "&start=next").equals(request.target)) {
+                                respond(exchange, 200, list(b, null));
+                            } else {
+                                assertEquals(NO_ROOMS, request.target);
+                                respond(exchange, 200, EMPTY);
+                            }
+                        });
+        List<JsonNode> rows =
+                finish(start(TOKEN_CONFIG, api, 15000, 4194304, 3, 20, null, "rooms"));
+        assertEquals(Arrays.asList("a", "b"), ids(rows));
+        Map<String, JsonNode> values = new HashMap<>();
+        for (JsonNode row : rows) {
+            values.put(row.path("record_id").asText(), payload(row));
+        }
+        assertEquals(JSON.readTree(a), values.get("a"));
+        assertEquals(JSON.readTree(b), values.get("b"));
+        assertEquals(
+                Arrays.asList(LIST_ROOMS, LIST_ROOMS + "&start=next", NO_ROOMS), targets(fixture));
+
+        byte[] invalid =
+                "{\"data\":[{\"id\":\"bad\",\"name\":\"X\"}]}".getBytes(StandardCharsets.UTF_8);
+        invalid[new String(invalid, StandardCharsets.UTF_8).indexOf('X')] = (byte) 0x80;
+        OneHundredMsFixture.Scenario malformed =
+                api.set(
+                        false,
+                        (request, exchange, index) -> {
+                            assertEquals(LIST_ROOMS, request.target);
+                            exchange.getResponseHeaders().set("Content-Type", "application/json");
+                            exchange.sendResponseHeaders(200, invalid.length);
+                            exchange.getResponseBody().write(invalid);
+                        });
+        Job rejected = start(TOKEN_CONFIG, api, 15000, 4194304, 3, 20, null, "rooms");
+        fail(rejected, "invalid, incomplete or oversized JSON response");
+        assertTrue(readRows(rejected.output).isEmpty());
+        assertEquals(Arrays.asList(LIST_ROOMS), targets(malformed));
+    }
+
+    @Test
+    void checkpointsDecodedThrottledPageAndValidatesAcceptedPrefixOnRestore() throws Exception {
+        String config = "/onehundredms_throttled_to_localfile.conf";
+        String peers = "/v2/active-rooms/" + ROOM_OLD_ENCODED + "/peers";
+        List<String> expected = new ArrayList<>();
+        StringBuilder page = new StringBuilder("{\"peers\":{");
+        for (int i = 0; i < 200; i++) {
+            String key = String.format(Locale.ROOT, "peer-%03d", i);
+            expected.add(key);
+            if (i != 0) {
+                page.append(',');
+            }
+            page.append('"').append(key).append("\":{\"name\":\"stable\"}");
+        }
+        String body = page.append("}}").toString();
+        for (boolean changed : Arrays.asList(false, true)) {
+            AtomicInteger responses = new AtomicInteger();
+            OneHundredMsFixture.Scenario fixture =
+                    api.set(
+                            false,
+                            (request, exchange, index) -> {
+                                if (LIST_ROOMS.equals(request.target)) {
+                                    respond(exchange, 200, list(room(ROOM_OLD, OLD_DATE), null));
+                                } else if (NO_ROOMS.equals(request.target)) {
+                                    respond(exchange, 200, EMPTY);
+                                } else {
+                                    assertEquals(peers, request.target);
+                                    int attempt = responses.incrementAndGet();
+                                    respond(
+                                            exchange,
+                                            200,
+                                            changed && attempt > 1
+                                                    ? body.replace("peer-000", "changed-000")
+                                                    : body);
+                                }
+                            });
+            Job original = start(config, api, 15000, 4194304, 3, 20, null, "active_room_peers");
+            Awaitility.await()
+                    .atMost(20, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                int count = readRows(original.output).size();
+                                assertTrue(
+                                        count >= 5 && count < 200,
+                                        "A checkpoint must commit a partial decoded page");
+                            });
+            long baseline = engine.getCompletedCheckpointCount(original.id);
+            Awaitility.await()
+                    .atMost(10, TimeUnit.SECONDS)
+                    .until(() -> engine.getCompletedCheckpointCount(original.id) > baseline);
+            assertEquals(1, responses.get());
+            assertTrue(readRows(original.output).size() < 200);
+            engine.stopJob(original.id);
+            Awaitility.await()
+                    .atMost(20, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> assertEquals("CANCELED", engine.getJobStatus(original.id)));
+            original.result.get(25, TimeUnit.SECONDS);
+            List<String> committed = ids(readRows(original.output));
+            assertTrue(committed.size() >= 5 && committed.size() < 200);
+            String id = id();
+            int offset = engine.getServerLogs().length();
+            Future<Container.ExecResult> restored =
+                    jobs.submit(
+                            () ->
+                                    engine.restoreJobWithCheckpoint(
+                                            config, original.id, id, original.variables));
+            Job resumed = new Job(id, original.output, offset, original.variables, restored);
+            if (changed) {
+                fail(resumed, "checkpoint page prefix changed or is missing");
+                assertEquals(committed, ids(readRows(original.output)));
+            } else {
+                List<JsonNode> rows = finish(resumed);
+                assertEquals(expected, ids(rows));
+                assertEquals(200, rows.size());
+                assertTrue(
+                        rows.stream()
+                                .allMatch(row -> ROOM_OLD.equals(row.path("parent_id").asText())));
+            }
+            assertEquals(
+                    2, responses.get(), "Restore refetches the same partial page exactly once");
+            assertEquals(LIST_ROOMS, targets(fixture).get(0));
+            assertEquals(peers, targets(fixture).get(1));
+            assertEquals(peers, targets(fixture).get(2));
+        }
+    }
+
     private static Map<String, String> inventory() throws Exception {
         Map<String, String> data = new HashMap<>();
         data.put(
@@ -707,7 +845,10 @@ class OneHundredMsIT extends TestSuiteBase {
         return Long.toString(ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE));
     }
 
-    /** Isolates a CLI run's log interval and output directory. */
+    /**
+     * Isolates a CLI run's log interval and output directory. The retained variables restore the
+     * same source request plan and transactional sink output.
+     */
     private static final class Job {
         final String id;
         final String output;
@@ -729,7 +870,10 @@ class OneHundredMsIT extends TestSuiteBase {
         }
     }
 
-    /** Installs only the test CA in the dedicated Zeta JVM trust store. */
+    /**
+     * Installs only the test CA in the dedicated Zeta JVM trust store. The separate untrusted HTTPS
+     * peer remains outside this store for the hostname/trust failure tests.
+     */
     private static final class Engine extends SeaTunnelContainer {
         private final Path trust;
 
