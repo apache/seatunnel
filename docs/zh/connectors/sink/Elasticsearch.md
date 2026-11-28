@@ -176,7 +176,23 @@ sink {
 
 ### max_batch_size [int]
 
-批次批量文档最大大小
+每个 Sink Writer 在发送一次 Bulk API 请求前缓冲的最大文档数，默认值为 `10`。该参数按文档数计量，不是字节数限制。
+
+批量导入时，建议显式设置此参数，并使用有代表性的数据逐步增大批大小进行测试。比较结果时，保持并行度和索引设置一致。例如：
+
+```hocon
+sink {
+  Elasticsearch {
+    hosts = ["http://localhost:9200"]
+    index = "batch-import"
+    max_batch_size = 1000
+  }
+}
+```
+
+`1000` 是用于测试的起点，并非所有场景下的最优值。增大批次可以分摊每次请求的开销，也会增加缓冲内存及低流量输入等待凑满批次的时间。评估时需同时考虑文档大小和并发的表级 Writer；限制文档数不能限制 HTTP 请求的字节数。批大小选择方法见 Elasticsearch 官方的[写入性能指南](https://www.elastic.co/docs/deploy-manage/production-guidance/optimize-performance/indexing-speed)。
+
+批任务结束时会刷新剩余文档。Zeta 上的低流量流任务可参考[Zeta 定时刷新](#zeta-定时刷新)，通过 `sink.flush.interval` 配置独立于批大小阈值的刷新间隔。
 
 ### tls_verify_certificate [boolean]
 
