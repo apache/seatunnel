@@ -19,6 +19,8 @@ package org.apache.seatunnel.edge.agent.starter.command;
 
 public class EdgeAgentStarterConstants {
 
+    public static final int HELP_EXIT_CODE = 0;
+
     public static final int USAGE_EXIT_CODE = 234;
 
     public static final String PROGRAM_NAME = "seatunnel-edge-agent";

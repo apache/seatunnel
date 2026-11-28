@@ -45,6 +45,16 @@ public class CommandLineUtils {
         return parse(args, obj, programName, acceptUnknownOptions, ignored -> {});
     }
 
+    /** Parses arguments with an explicit help exit code and the default no-op validator. */
+    public static <T extends CommandArgs> T parse(
+            String[] args,
+            T obj,
+            String programName,
+            boolean acceptUnknownOptions,
+            int helpExitCode) {
+        return parse(args, obj, programName, acceptUnknownOptions, ignored -> {}, helpExitCode);
+    }
+
     /**
      * Parses command-line arguments and runs command-specific validation through the same usage
      * error path as JCommander validation.

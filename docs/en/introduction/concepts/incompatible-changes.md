@@ -230,9 +230,14 @@ Tools that consume validation messages or metadata should expect AND-before-OR g
 
 ### Native CLI help exit code
 
-`seatunnel.sh -h` now exits with `0` instead of `234`.
-Update scripts that recognize native help by exit code `234`. The Spark/Flink Java launcher
-protocol still uses `234`; its wrapper scripts continue to translate help to exit `0`.
+Native help requests for `seatunnel.sh`, `seatunnel-application.sh`, `seatunnel-cluster.sh`,
+`seatunnel-connector.sh`, `seatunnel-metadata-export.sh`, and the Edge Agent starter now exit with
+`0` instead of `234`.
+Update scripts that recognize native help by exit code `234`. Explicit help requests, including the
+connector script's no-argument help, exit `0`; missing required arguments still show usage and exit
+with `234`. Other invalid arguments remain nonzero.
+The Spark/Flink Java launcher protocol still uses `234`; its wrapper scripts continue to translate
+help to exit `0`.
 
 ### CDC: nullable columns are no longer used as the snapshot split column
 
