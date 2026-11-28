@@ -4,6 +4,10 @@
 
 ## dev
 
+### Zeta 固定 slot 心跳格式
+
+配置 `dynamic-slot: false` 的 Worker 会发送紧凑心跳。请同时升级或回退集群中所有 Zeta Master 和 Worker，旧版 Master 无法解析新版 Worker 的固定 slot 心跳。此改动保持作业配置和 checkpoint 格式兼容。
+
 ### 文件连接器：ORC ZSTD 输出需要兼容的读取器
 
 - **影响组件**：`connector-file-base` 及使用其 ORC 读写实现的文件连接器。

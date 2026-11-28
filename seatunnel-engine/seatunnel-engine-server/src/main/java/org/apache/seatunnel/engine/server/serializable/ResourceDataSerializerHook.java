@@ -65,6 +65,8 @@ public class ResourceDataSerializerHook implements DataSerializerHook {
 
     public static final int GET_WORKER_RESOURCES_TYPE = 13;
 
+    public static final int FIXED_SLOT_HEARTBEAT_TYPE = 14;
+
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
                     SeaTunnelFactoryIdConstant.SEATUNNEL_RESOURCE_DATA_SERIALIZER_FACTORY,
@@ -87,6 +89,8 @@ public class ResourceDataSerializerHook implements DataSerializerHook {
             switch (typeId) {
                 case WORKER_HEARTBEAT_TYPE:
                     return new WorkerHeartbeatOperation();
+                case FIXED_SLOT_HEARTBEAT_TYPE:
+                    return new WorkerHeartbeatOperation(true);
                 case REQUEST_SLOT_TYPE:
                     return new RequestSlotOperation();
                 case RELEASE_SLOT_TYPE:

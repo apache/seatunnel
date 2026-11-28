@@ -5,6 +5,10 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Zeta fixed-slot heartbeat format
+
+Workers configured with `dynamic-slot: false` send compact heartbeats. Upgrade or roll back all Zeta masters and workers together. An older master cannot decode a fixed-slot heartbeat from a newer worker. Existing job configuration and checkpoint formats remain compatible with this change.
+
 ### File connectors: ORC ZSTD output requires compatible readers
 
 - **Affected component**: `connector-file-base` and file connectors using its ORC reader/writer.
