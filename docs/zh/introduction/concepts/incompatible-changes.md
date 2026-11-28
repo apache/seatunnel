@@ -42,6 +42,27 @@
   - **影响**：此前因请求体格式报错的接口现在可以正常接收。专门适配旧格式、把每个元素再按 JSON 字符串解码的接收方，现在收到的是对象，需要修改。
   - **迁移指南**：无需修改配置。如果接收方会把数组的每个元素从字符串解码，请改为直接使用该元素。
 
+### Cassandra：NULL 单元格保持为 NULL
+
+- **影响范围**：使用 Cassandra Source 读取 NULL 单元格，或使用 Cassandra Sink 写入 NULL 值的作业。
+- **行为变化**：Source 以前会把 NULL 的 `tinyint`、`smallint`、`int`、`bigint`、`float`、`double`、
+  `boolean` 读取为 `0` 或 `false`，把 NULL 的 `list`、`set`、`map` 读取为空集合；NULL 的 `decimal`、
+  `varint`、`uuid`、`timeuuid`、`inet`、`blob` 会导致作业失败。现在 Source 对以上类型都输出 NULL。Sink
+  现在把 NULL 值写为 NULL，并覆盖目标行该列已有的值；以前大多数类型会导致作业失败，NULL 的 `inet` 会被写为
+  `127.0.0.1`。主键列为 NULL 时，作业现在会失败并给出表名和列名；对于 `text`、`ascii`、`time` 或 `date` 主键，以前作业会成功但丢失数据行。为此，Sink 在启动时从驱动的 schema 元数据中读取目标表的主键，读取不到时作业失败。
+- **迁移方式**：无需修改配置。依赖 NULL 单元格读取为 `0`、`false` 或空集合的 Transform、Sink 和查询需要
+  改为处理 NULL；目标列声明为 `NOT NULL` 时，这些行现在会被拒绝。请在 Cassandra Sink 之前过滤掉主键为 NULL 的行。
+
+### Cassandra Sink：无法写入的行会导致作业失败
+
+- **影响范围**：使用 Cassandra Sink 的作业，`async_write` 取任意值。
+- **行为变化**：`async_write = true`（默认值）时，被 Cassandra 拒绝或超时的写入以前只会记录日志，作业会在缺少该行的情况下
+  正常结束。`async_write = false` 时，为下一批缓冲的行以前要等下一次 checkpoint 完成后才发送，因此此时的失败会让作业从该
+  checkpoint 恢复并跳过这些行。现在 Sink 在每次 checkpoint、每写入 `batch_size` 行以及关闭时，都会写入缓冲的行并等待正在进行的
+  写入完成；无法写入的行会使作业失败，错误码为 `CASSANDRA-07`，并给出表名和 Cassandra 返回的错误。
+- **迁移方式**：无需修改配置。以前在丢失数据行的情况下仍成功结束的作业，现在会失败；请修正被 Cassandra 拒绝的行或表，例如超过其
+  mutation 大小上限的值。恢复后的作业可能会再次写入上次 checkpoint 之后的行。
+
 ### Doris Source：`case_sensitive = false` 现在会将单表 `database`/`table` 转为小写
 
 - **行为变更：单表 Doris Source 配置 `case_sensitive = false` 时，`database` 与 `table` 名称按小写解析**
