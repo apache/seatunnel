@@ -273,6 +273,32 @@ class IncrementalSourceTest {
     }
 
     @Test
+    void testFreshEnumeratorOpensDialectAsNew() throws Exception {
+        TestIncrementalSource source =
+                new TestIncrementalSource(
+                        ReadonlyConfig.fromMap(Collections.emptyMap()), Collections.emptyList());
+        Mockito.when(source.getDialect().discoverDataCollections(source.getSourceConfig()))
+                .thenReturn(Collections.emptyList());
+
+        source.createEnumerator(enumeratorContext());
+
+        Mockito.verify(source.getDialect()).openEnumerator(source.getSourceConfig(), false);
+    }
+
+    @Test
+    void testIncrementalPhaseRestoreOpensDialectAsRestored() throws Exception {
+        TestIncrementalSource source =
+                new TestIncrementalSource(
+                        ReadonlyConfig.fromMap(Collections.emptyMap()), Collections.emptyList());
+        Mockito.when(source.getDialect().discoverDataCollections(source.getSourceConfig()))
+                .thenReturn(Collections.emptyList());
+
+        source.restoreEnumerator(enumeratorContext(), new IncrementalPhaseState());
+
+        Mockito.verify(source.getDialect()).openEnumerator(source.getSourceConfig(), true);
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void testSnapshotOnlyRestoreRejectsIncrementalCheckpoint() {
         // A job that already entered the binlog phase checkpoints an IncrementalPhaseState.

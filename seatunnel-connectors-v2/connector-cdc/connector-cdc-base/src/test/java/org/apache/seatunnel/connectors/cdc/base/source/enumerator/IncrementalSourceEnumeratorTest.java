@@ -398,6 +398,9 @@ public class IncrementalSourceEnumeratorTest {
                             if ("createChunkSplitter".equals(method.getName())) {
                                 return chunkSplitter;
                             }
+                            if ("openEnumerator".equals(method.getName())) {
+                                return null;
+                            }
                             throw new UnsupportedOperationException(method.getName());
                         });
     }

@@ -31,6 +31,7 @@ import io.debezium.connector.postgresql.connection.ReplicationConnection;
 import io.debezium.connector.postgresql.connection.ReplicationMessage.Operation;
 import io.debezium.connector.postgresql.connection.ReplicationStream;
 import io.debezium.connector.postgresql.connection.WalPositionLocator;
+import io.debezium.connector.postgresql.connection.WalProgressAwareReplicationStream;
 import io.debezium.connector.postgresql.spi.Snapshotter;
 import io.debezium.heartbeat.Heartbeat;
 import io.debezium.pipeline.ErrorHandler;
@@ -170,11 +171,7 @@ public class PostgresStreamingChangeEventSource
                                 ? offsetContext.lastCompletelyProcessedLsn()
                                 : offsetContext.lsn();
                 LOGGER.info("Retrieved latest position from stored offset '{}'", lsn);
-                walPosition =
-                        new WalPositionLocator(
-                                offsetContext.lastCommitLsn(),
-                                lsn,
-                                offsetContext.lastProcessedMessageType());
+                walPosition = createWalPositionLocator(offsetContext, lsn);
                 replicationStream.compareAndSet(
                         null, replicationConnection.startStreaming(lsn, walPosition));
             } else {
@@ -257,6 +254,27 @@ public class PostgresStreamingChangeEventSource
         }
     }
 
+    /**
+     * Creates the resume locator for an unbounded reader, but skips recovery-position discovery for
+     * a fresh bounded snapshot backfill.
+     *
+     * <p>The bounded reader starts from the just-recorded LOW watermark and has no previously
+     * emitted record to locate. Searching for one can wait forever when only another database
+     * advances cluster WAL because the logical decoder emits no message for that WAL.
+     */
+    static WalPositionLocator createWalPositionLocator(
+            PostgresOffsetContext offsetContext, Lsn startLsn) {
+        if (offsetContext.getStreamingStoppingLsn() != null) {
+            LOGGER.info(
+                    "WAL recovery-position search is not required for bounded streaming from '{}' to '{}'",
+                    startLsn,
+                    offsetContext.getStreamingStoppingLsn());
+            return new WalPositionLocator();
+        }
+        return new WalPositionLocator(
+                offsetContext.lastCommitLsn(), startLsn, offsetContext.lastProcessedMessageType());
+    }
+
     private void processMessages(
             ChangeEventSourceContext context,
             PostgresPartition partition,
@@ -265,11 +283,7 @@ public class PostgresStreamingChangeEventSource
             throws SQLException, InterruptedException {
         LOGGER.info("Processing messages");
         int noMessageIterations = 0;
-        while (context.isRunning()
-                && (offsetContext.getStreamingStoppingLsn() == null
-                        || (lastCompletelyProcessedLsn.compareTo(
-                                        offsetContext.getStreamingStoppingLsn())
-                                < 0))) {
+        while (context.isRunning() && !hasCompletelyProcessedStopLsn(offsetContext)) {
 
             boolean receivedMessage =
                     stream.readPending(
@@ -383,6 +397,12 @@ public class PostgresStreamingChangeEventSource
                 }
                 noMessageIterations++;
                 if (noMessageIterations >= THROTTLE_NO_MESSAGE_BEFORE_PAUSE) {
+                    if (hasReceivedStopLsn(stream, offsetContext)) {
+                        LOGGER.info(
+                                "Replication stream received bounded stopping LSN {}",
+                                offsetContext.getStreamingStoppingLsn());
+                        break;
+                    }
                     noMessageIterations = 0;
                     pauseNoMessage.sleepWhen(true);
                 }
@@ -398,6 +418,63 @@ public class PostgresStreamingChangeEventSource
                 connection.commit();
             }
         }
+    }
+
+    private boolean hasCompletelyProcessedStopLsn(PostgresOffsetContext offsetContext) {
+        Lsn stoppingLsn = offsetContext.getStreamingStoppingLsn();
+        return stoppingLsn != null && lastCompletelyProcessedLsn.compareTo(stoppingLsn) >= 0;
+    }
+
+    /**
+     * Returns whether the client has received server WAL through the bounded stopping LSN.
+     *
+     * <p>A logical decoder can emit no record when WAL belongs only to another database. A server
+     * keepalive still carries the decoded WAL end. OpenGauss exposes that value directly from its
+     * driver wrapper; PostgreSQL reports the same client-received position as the WAL sender's
+     * write position after pgjdbc sends its status update.
+     */
+    private boolean hasReceivedStopLsn(
+            ReplicationStream stream, PostgresOffsetContext offsetContext) throws SQLException {
+        Lsn stoppingLsn = offsetContext.getStreamingStoppingLsn();
+        if (stoppingLsn == null) {
+            return false;
+        }
+
+        Lsn receivedLsn;
+        if (stream instanceof WalProgressAwareReplicationStream) {
+            receivedLsn = ((WalProgressAwareReplicationStream) stream).lastReceivedWalLsn();
+        } else {
+            // Debezium's PostgreSQL stream delegates flushLsn() to pgjdbc's
+            // forceUpdateStatus(). Acknowledging only the last completely processed position is
+            // safe and makes pgjdbc report its raw lastReceiveLSN immediately, instead of waiting
+            // for the asynchronous keep-alive interval. The server exposes that receive position
+            // as the WAL sender's write_lsn.
+            stream.flushLsn(lastCompletelyProcessedLsn);
+            receivedLsn = readPostgresClientReceivedLsn();
+        }
+        return receivedLsn != null && receivedLsn.compareTo(stoppingLsn) >= 0;
+    }
+
+    /** Reads the latest WAL position pgjdbc has reported as received for this logical slot. */
+    private Lsn readPostgresClientReceivedLsn() throws SQLException {
+        int serverMajorVersion = connection.connection().getMetaData().getDatabaseMajorVersion();
+        String writeLsnColumn = serverMajorVersion >= 10 ? "write_lsn" : "write_location";
+        String query =
+                "SELECT r."
+                        + writeLsnColumn
+                        + "::text FROM pg_catalog.pg_replication_slots s "
+                        + "JOIN pg_catalog.pg_stat_replication r ON r.pid = s.active_pid "
+                        + "WHERE s.slot_name = ?";
+        return connection.prepareQueryAndMap(
+                query,
+                statement -> statement.setString(1, connectorConfig.slotName()),
+                resultSet -> {
+                    if (!resultSet.next()) {
+                        return null;
+                    }
+                    String receivedLsn = resultSet.getString(1);
+                    return receivedLsn == null ? null : Lsn.valueOf(receivedLsn);
+                });
     }
 
     private void searchWalPosition(

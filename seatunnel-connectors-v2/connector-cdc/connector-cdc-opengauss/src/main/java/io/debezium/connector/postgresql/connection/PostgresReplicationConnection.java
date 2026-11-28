@@ -565,7 +565,7 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
 
         final PGReplicationStream stream = s;
 
-        return new ReplicationStream() {
+        return new WalProgressAwareReplicationStream() {
 
             private static final int CHECK_WARNINGS_AFTER_COUNT = 100;
             private int warningCheckCounter = CHECK_WARNINGS_AFTER_COUNT;
@@ -576,6 +576,7 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
 
             // make sure this is volatile since multiple threads may be interested in this value
             private volatile Lsn lastReceivedLsn;
+            private volatile Lsn lastReceivedWalLsn;
 
             @Override
             public void read(ReplicationMessageProcessor processor)
@@ -583,6 +584,7 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
                 processWarnings(false);
                 ByteBuffer read = stream.read();
                 final Lsn lastReceiveLsn = Lsn.valueOf(stream.getLastReceiveLSN());
+                lastReceivedWalLsn = lastReceiveLsn;
                 LOGGER.trace(
                         "Streaming requested from LSN {}, received LSN {}",
                         startLsn,
@@ -600,6 +602,7 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
                 processWarnings(false);
                 ByteBuffer read = stream.readPending();
                 final Lsn lastReceiveLsn = Lsn.valueOf(stream.getLastReceiveLSN());
+                lastReceivedWalLsn = lastReceiveLsn;
                 LOGGER.trace(
                         "Streaming requested from LSN {}, received LSN {}",
                         startLsn,
@@ -648,6 +651,11 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
             @Override
             public Lsn lastReceivedLsn() {
                 return lastReceivedLsn;
+            }
+
+            @Override
+            public Lsn lastReceivedWalLsn() {
+                return lastReceivedWalLsn;
             }
 
             @Override

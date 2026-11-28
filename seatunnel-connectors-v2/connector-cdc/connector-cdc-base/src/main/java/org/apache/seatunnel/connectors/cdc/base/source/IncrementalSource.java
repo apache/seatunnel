@@ -331,6 +331,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
             }
         }
         C sourceConfig = configFactory.create(0);
+        dataSourceDialect.openEnumerator(sourceConfig, false);
         final List<TableId> remainingTables =
                 dataSourceDialect.discoverDataCollections(sourceConfig);
         final SplitAssigner splitAssigner;
@@ -393,6 +394,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         C sourceConfig = configFactory.create(0);
         StartupMode startupMode = sourceConfig.getStartupConfig().getStartupMode();
         validateRestoredState(startupMode, checkpointState);
+        dataSourceDialect.openEnumerator(sourceConfig, true);
 
         final SplitAssigner splitAssigner;
         if (checkpointState instanceof SnapshotPhaseState) {

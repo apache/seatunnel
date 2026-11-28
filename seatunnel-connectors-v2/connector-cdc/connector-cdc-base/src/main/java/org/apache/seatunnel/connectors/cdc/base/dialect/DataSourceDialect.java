@@ -39,6 +39,13 @@ public interface DataSourceDialect<C extends SourceConfig> extends Serializable 
     /** Get the name of dialect. */
     String getName();
 
+    /**
+     * Acquires or validates resources that must exist before the enumerator resolves its splits.
+     *
+     * @param restored whether the enumerator is being restored from checkpoint state
+     */
+    default void openEnumerator(C sourceConfig, boolean restored) {}
+
     /** Discovers the list of data collection to capture. */
     List<TableId> discoverDataCollections(C sourceConfig);
 

@@ -105,4 +105,16 @@ public class PostgresDialectTest {
         PostgresConnection conn = new TestPostgresConnection(ServerInfo.ReplicaIdentity.DEFAULT);
         Assertions.assertDoesNotThrow(() -> dialect.checkAllTablesEnabledCapture(conn, tableIds));
     }
+
+    @Test
+    public void shouldRejectMissingStreamingSlotWhenRestoringSnapshotEnumerator() {
+        SeaTunnelException exception =
+                Assertions.assertThrows(
+                        SeaTunnelException.class,
+                        () -> PostgresDialect.validateStreamingSlotForRestore("seatunnel", true));
+
+        Assertions.assertTrue(exception.getMessage().contains("missing while restoring"));
+        Assertions.assertDoesNotThrow(
+                () -> PostgresDialect.validateStreamingSlotForRestore("seatunnel", false));
+    }
 }
