@@ -685,66 +685,49 @@ public class SeaTunnelClientTest {
                             .filter(e -> e.getKey().startsWith(SINK_WRITE_BYTES + "#"))
                             .mapToLong(Map.Entry::getValue)
                             .sum());
-            // Instantaneous rates in the same direction are directly added
-            // The size does not fluctuate more than %2 of the total value
-            Assertions.assertTrue(
-                    Math.abs(
-                                    totalCount.get(SOURCE_RECEIVED_QPS)
-                                            - tableCount.entrySet().stream()
-                                                    .filter(
-                                                            e ->
-                                                                    e.getKey()
-                                                                            .startsWith(
-                                                                                    SOURCE_RECEIVED_QPS
-                                                                                            + "#"))
-                                                    .mapToLong(Map.Entry::getValue)
-                                                    .sum())
-                            < totalCount.get(SOURCE_RECEIVED_QPS) * 0.02);
-            Assertions.assertTrue(
-                    Math.abs(
-                                    totalCount.get(SINK_WRITE_QPS)
-                                            - tableCount.entrySet().stream()
-                                                    .filter(
-                                                            e ->
-                                                                    e.getKey()
-                                                                            .startsWith(
-                                                                                    SINK_WRITE_QPS
-                                                                                            + "#"))
-                                                    .mapToLong(Map.Entry::getValue)
-                                                    .sum())
-                            < totalCount.get(SINK_WRITE_QPS) * 0.02);
-            Assertions.assertTrue(
-                    Math.abs(
-                                    totalCount.get(SOURCE_RECEIVED_BYTES_PER_SECONDS)
-                                            - tableCount.entrySet().stream()
-                                                    .filter(
-                                                            e ->
-                                                                    e.getKey()
-                                                                            .startsWith(
-                                                                                    SOURCE_RECEIVED_BYTES_PER_SECONDS
-                                                                                            + "#"))
-                                                    .mapToLong(Map.Entry::getValue)
-                                                    .sum())
-                            < totalCount.get(SOURCE_RECEIVED_BYTES_PER_SECONDS) * 0.02);
-            Assertions.assertTrue(
-                    Math.abs(
-                                    totalCount.get(SINK_WRITE_BYTES_PER_SECONDS)
-                                            - tableCount.entrySet().stream()
-                                                    .filter(
-                                                            e ->
-                                                                    e.getKey()
-                                                                            .startsWith(
-                                                                                    SINK_WRITE_BYTES_PER_SECONDS
-                                                                                            + "#"))
-                                                    .mapToLong(Map.Entry::getValue)
-                                                    .sum())
-                            < totalCount.get(SINK_WRITE_BYTES_PER_SECONDS) * 0.02);
-
+            // Counts are integral; rates retain the fractional values reported by each task.
+            assertTableRate(jobMetricsStr, metricNameList, SOURCE_RECEIVED_QPS);
+            assertTableRate(jobMetricsStr, metricNameList, SINK_WRITE_QPS);
+            assertTableRate(jobMetricsStr, metricNameList, SOURCE_RECEIVED_BYTES_PER_SECONDS);
+            assertTableRate(jobMetricsStr, metricNameList, SINK_WRITE_BYTES_PER_SECONDS);
         } catch (ExecutionException | InterruptedException | JsonProcessingException e) {
             throw new RuntimeException(e);
         } finally {
             seaTunnelClient.close();
         }
+    }
+
+    private static void assertTableRate(JsonNode metrics, List<String> names, String rate) {
+        double total = sumRate(metrics.get(rate));
+        double tableTotal =
+                names.stream()
+                        .filter(name -> name.startsWith(rate + "#"))
+                        .mapToDouble(name -> sumRate(metrics.get(name)))
+                        .sum();
+        Assertions.assertTrue(
+                total == 0 ? tableTotal == 0 : Math.abs(total - tableTotal) < total * 0.02,
+                () -> rate + ": total=" + total + ", per-table sum=" + tableTotal);
+    }
+
+    private static double sumRate(JsonNode samples) {
+        return StreamSupport.stream(samples.spliterator(), false)
+                .mapToDouble(sample -> sample.get("value").asDouble())
+                .sum();
+    }
+
+    @Test
+    public void testFractionalTableRates() throws JsonProcessingException {
+        JsonNode metrics =
+                new ObjectMapper()
+                        .readTree(
+                                "{\"rate\":[{\"value\":19.9867},{\"value\":13.1234}],"
+                                        + "\"rate#first\":[{\"value\":20.0}],"
+                                        + "\"rate#second\":[{\"value\":13.1234}]}");
+        assertTableRate(metrics, Arrays.asList("rate", "rate#first", "rate#second"), "rate");
+        // Omitting the second table must still fail the same 2% comparison.
+        Assertions.assertThrows(
+                AssertionError.class,
+                () -> assertTableRate(metrics, Arrays.asList("rate", "rate#first"), "rate"));
     }
 
     @Test
