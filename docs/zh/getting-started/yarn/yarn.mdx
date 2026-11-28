@@ -1,0 +1,80 @@
+---
+sidebar_position: 1
+---
+
+# YARN 部署
+
+<!--
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to You under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+通过 Hadoop YARN Service 可以运行一个本地模式作业，也可以部署混合或分离的 Zeta 常驻集群。使用本地模式时，作业结束后释放容器。使用常驻集群时，后续作业复用已有的 Zeta 节点。
+
+## 部署模式
+
+| 模式 | YARN Service 组件 | 适用场景 |
+| --- | --- | --- |
+| [本地模式](local-mode.md) | 一个 `local` 容器启动内嵌 Zeta 引擎并运行作业。 | 验证连接器或执行一次性批作业。 |
+| [混合集群](hybrid-cluster-mode.md) | 一个 `hybrid` 组件，每个容器里的 Master 和 Worker 角色共用一个 JVM。 | 规模较小，调度和执行可以共用资源的集群。 |
+| [分离集群](separated-cluster-mode.md) | 独立的 `master` 和 `worker` 组件，每个容器运行一种角色。 | 需要隔离调度与执行资源，或独立扩缩 Worker 的生产集群。 |
+
+## 分离集群拓扑
+
+下图以 `zeta-session` 为例。YARN Service 的 ApplicationMaster（AM）向 ResourceManager 申请容器，再请求相应主机上的 NodeManager 启动 Zeta Master 和 Worker 容器。SeaTunnel CLI 直接向 Zeta Master 提交作业，Master 把任务调度给 Worker。
+
+```mermaid
+flowchart TB
+  client["SeaTunnel CLI"]
+
+  subgraph yarn["YARN cluster"]
+    subgraph management["Container management"]
+      rm["ResourceManager"]
+      am["YARN Service AM"]
+      nm["NodeManagers"]
+    end
+
+    master["Zeta Master JVM"]
+    worker["Zeta Worker JVM"]
+  end
+
+  rm -. "Allocates containers" .-> am
+  am -. "Launch requests" .-> nm
+  nm -.-> master
+  nm -.-> worker
+  client -->|Submit jobs| master
+  master -->|Schedule tasks| worker
+
+  classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+  classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+  classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+  class yarn,management layerBlue;
+  class rm,nm,am layerCyan;
+  class client,master,worker layerPurple;
+  linkStyle default stroke:#5db8e2,stroke-width:2px;
+  linkStyle 0,1,2,3 stroke:#5db8e2,stroke-width:2px,stroke-dasharray:4 3;
+```
+
+## 前置条件
+
+- 准备已启用 HDFS 和 YARN Service 的 Hadoop 集群。示例使用 Hadoop 3.3.6，ResourceManager 需要启用 `yarn.webapp.api-service.enable=true`。提交用户需要能将发行包写入 HDFS，目标队列应有足够资源运行 ApplicationMaster 和所选模式的全部容器。使用 HDFS checkpoint 的作业还需要有权写入对应目录。[Hadoop YARN Service 快速入门](https://hadoop.apache.org/docs/r3.3.6/hadoop-yarn/hadoop-yarn-site/yarn-service/QuickStart.html)
+- 使用混合或分离集群时，为混合节点或 Master 配置客户端和容器都能解析的稳定发现地址，并确保 Zeta 成员之间网络互通。示例使用 YARN Registry DNS。[YARN 服务发现](https://hadoop.apache.org/docs/r3.3.6/hadoop-yarn/hadoop-yarn-site/yarn-service/ServiceDiscovery.html)
+- 在提交机上解压 SeaTunnel 二进制发行包，把 `SEATUNNEL_HOME` 指向解压目录。提交机和容器里都需要能运行 Java 11 或 17。示例使用 SeaTunnel 3.1.0 及 FakeSource、Console 连接器。
+
+## 部署和运维
+
+- [YARN 配置](configuration.md)列出打包前需要修改的发行包配置。
+- [YARN 运维](operations.md)介绍如何检查集群状态、调整 Worker 数量、查看日志和重启服务。

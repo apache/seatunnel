@@ -56,7 +56,7 @@ cd seatunnel-dist
 docker build -f src/main/docker/Dockerfile --build-arg VERSION=3.1.0 -t apache/seatunnel:3.1.0 .
 
 # If you build from dev branch, you should add SNAPSHOT suffix to the version
-docker build -f src/main/docker/Dockerfile --build-arg VERSION=3.1.0-SNAPSHOT -t apache/seatunnel:3.1.0-SNAPSHOT .
+docker build -f src/main/docker/Dockerfile --build-arg VERSION=3.1.1-SNAPSHOT -t apache/seatunnel:3.1.1-SNAPSHOT .
 
 # Check the docker image
 docker images | grep apache/seatunnel

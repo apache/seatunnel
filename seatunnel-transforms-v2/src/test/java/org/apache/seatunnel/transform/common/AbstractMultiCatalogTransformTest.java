@@ -165,6 +165,12 @@ class AbstractMultiCatalogTransformTest {
         Assertions.assertEquals(
                 8769738606872706499L,
                 ObjectStreamClass.lookup(ChainedMapTransform.class).getSerialVersionUID());
+        Assertions.assertEquals(
+                -4681742342014343446L,
+                ObjectStreamClass.lookup(IdentityMapTransform.class).getSerialVersionUID());
+        Assertions.assertEquals(
+                -1251722077743838091L,
+                ObjectStreamClass.lookup(IdentityFlatMapTransform.class).getSerialVersionUID());
     }
 
     @Test

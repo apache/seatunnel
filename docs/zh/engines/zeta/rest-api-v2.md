@@ -85,7 +85,7 @@ seatunnel:
 
 ## API参考
 
-[REST v2 只读接口的 OpenAPI 3.1 规范](@site/docs/engines/zeta/openapi-v2.yaml)目前仅覆盖 `GET /overview` 和 `GET /resource/workers`。下文的其他接口仍有文档，但尚未纳入机器可读规范。该规范与 Servlet 路由注册及响应测试一起维护。使用生成的客户端时，请按实际地址、端口及可选的上下文路径设置基础 URL。是否使用 Basic 认证取决于服务端配置；向非本机发送凭据时请使用 HTTPS。
+[REST v2 只读接口的 OpenAPI 3.1 规范](openapi-v2.yaml)目前仅覆盖 `GET /overview` 和 `GET /resource/workers`。下文的其他接口仍有文档，但尚未纳入机器可读规范。该规范与 Servlet 路由注册及响应测试一起维护。使用生成的客户端时，请按实际地址、端口及可选的上下文路径设置基础 URL。是否使用 Basic 认证取决于服务端配置；向非本机发送凭据时请使用 HTTPS。
 
 ### 获取 Connector 的 OptionRule
 
@@ -222,6 +222,23 @@ seatunnel:
 - `requiredOptions[].ruleType` 可能是 `ABSOLUTELY_REQUIRED`、`EXCLUSIVE`、`BUNDLED` 或 `CONDITIONAL`。
 - `optionRule.conditionRules` 会递归返回嵌套条件规则；当 connector 未定义嵌套规则时，该字段返回空数组。
 - 对于条件规则，会同时返回 `expression` 和 `expressionTree`，便于 Web 做动态表单渲染。
+- 条件必填项和嵌套规则的每个判断条件位于 `expressionTree.condition`，表达式节点通过 `next` 连接到下一项。下面是 `A OR B AND C` 的节选，求值顺序为 `A || (B && C)`。为便于查看，仅列出选项键和连接关系。
+
+  ```json
+  {
+    "expressionTree": {
+      "condition": {"option": {"key": "a"}},
+      "operator": "OR",
+      "next": {
+        "condition": {"option": {"key": "b"}},
+        "operator": "AND",
+        "next": {"condition": {"option": {"key": "c"}}}
+      }
+    }
+  }
+  ```
+
+- 独立的 `valueConstraints[].conditionTree` 由条件节点本身携带 `operator` 和 `next`。CLI 采用相同的优先级。[CLI 元数据导出](../../architecture/configuration-and-option-system.md#导出连接器元数据)
 - `optionRule.valueConstraints` 描述值级别的校验规则，包括数值范围、字符串模式匹配以及跨字段比较等。每个条目同时提供人类可读的 `expression` 字符串和便于程序处理的结构化 `conditionTree`。当连接器未定义值约束时，该数组为空。
 - 在 `conditionTree` 中，`compareOperator` 字段在 `EQUAL` 场景下为 `null`，其他情况下会返回运行时规则暴露的操作符符号，例如 `>=`、`is not blank` 或 `extension`。`compareOption` 字段仅在跨字段比较场景下有值。
 - `conditionOperator` 是稳定的操作符标识，可选值包括 `EQUAL`、`GREATER_OR_EQUAL`、`NOT_BLANK`、`FIELD_LESS_THAN`、`EXTENSION` 等；`conditionOperatorCategory` 是操作符的分类，可选值包括 `NUMERIC`、`STRING`、`COLLECTION`、`EQUALITY`、`EXTENSION` 等。
@@ -246,7 +263,7 @@ seatunnel:
 
 ```json
 {
-    "projectVersion":"3.1.0-SNAPSHOT",
+    "projectVersion":"3.1.1-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
@@ -350,6 +367,7 @@ seatunnel:
     "jobName": "",
     "jobStatus": "",
     "createTime": "",
+    "startTime": "",
     "jobDag": {
       "jobId": "",
       "envOptions": [],
@@ -671,9 +689,9 @@ seatunnel:
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` 字段总会返回.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
-`finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
+`finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCELED
 `diagnostics` 字段在Job运行中且能从Master节点读取到诊断信息时返回。它属于辅助信息，读取失败时该字段会被省略，不会导致请求失败。该字段只在本接口返回，`/running-jobs` 不返回：为列表中的每个Job收集诊断信息会额外增加一次到Master的请求。
 
 `diagnostics` 读取的是 Master 内存中的 Job 状态，因此与 `restoreCount` 一样，它描述的是当前这个 Master 对该 Job 的视图，而不是完整历史。Master 切换后，恢复计数与 `restoreCauses` 会从被恢复的 Job 重新开始，上一个 Master 记录的原因不会延续。
@@ -783,7 +801,11 @@ seatunnel:
     "TableSinkWriteCount": {},
     "TableSinkWriteQPS": {},
     "TableSinkWriteBytes": {},
-    "TableSinkWriteBytesPerSeconds": {}
+    "TableSinkWriteBytesPerSeconds": {},
+    "TableSinkCommittedCount": {},
+    "TableSinkCommittedQPS": {},
+    "TableSinkCommittedBytes": {},
+    "TableSinkCommittedBytesPerSeconds": {}
   },
   "finishTime": "",
   "errorMsg": null,
@@ -795,9 +817,9 @@ seatunnel:
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` 字段总会返回.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
-`finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
+`finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCELED
 
 当我们查询不到这个Job时，返回结果只包含请求的 `jobId`：
 
@@ -840,6 +862,7 @@ seatunnel:
     "jobStatus": "",
     "errorMsg": null,
     "createTime": "",
+    "startTime": "",
     "finishTime": "",
     "jobDag": {
       "jobId": "",
@@ -945,8 +968,8 @@ seatunnel:
 > | jobId                | optional | string | job id                            |
 > | jobName              | optional | string | job name                          |
 > | isStartWithSavePoint | optional | string | if job is started with save point |
-> | restoreMode          | optional | string | 作业恢复的数据来源：`CHECKPOINT` 或 `SAVEPOINT`，需与 `restoreSourceJobId` 搭配使用。详见 [作业恢复与重启](rest-api-job-lifecycle.md#6-作业恢复与重启)。 |
-> | restoreSourceJobId   | optional | string | 设置了 `restoreMode` 时，用于指定需要恢复的作业 ID。若只设置了 `isStartWithSavePoint`（未设置 `restoreMode`），则回退使用 `jobId`。 |
+> | restoreMode          | optional | string | 作业恢复的数据来源：`CHECKPOINT` 或 `SAVEPOINT`。详见 [作业恢复与重启](rest-api-job-lifecycle.md#6-作业恢复与重启)。 |
+> | restoreSourceJobId   | optional | string | 要恢复的作业 ID，使用 `CHECKPOINT` 时必填。使用 `SAVEPOINT` 时，省略此参数则使用 `jobId`。 |
 > | format               | optional | string    | 配置风格,支持json、hocon 和 sql,默认 json   |
 > | variables            | optional | string    | 配置变量，逗号分隔的 `key=value` 列表，语法与命令行的 `-i` 相同，详见[配置变量](#配置变量) |
 
@@ -1142,8 +1165,8 @@ curl -X POST 'http://127.0.0.1:8080/submit-job?format=hocon&variables=region%3De
 > | jobId                | optional | string | job id                            |
 > | jobName              | optional | string | job name                          |
 > | isStartWithSavePoint | optional | string | if job is started with save point |
-> | restoreMode          | optional | string | 作业恢复的数据来源：`CHECKPOINT` 或 `SAVEPOINT`，需与 `restoreSourceJobId` 搭配使用。详见 [作业恢复与重启](rest-api-job-lifecycle.md#6-作业恢复与重启)。 |
-> | restoreSourceJobId   | optional | string | 设置了 `restoreMode` 时，用于指定需要恢复的作业 ID。若只设置了 `isStartWithSavePoint`（未设置 `restoreMode`），则回退使用 `jobId`。 |
+> | restoreMode          | optional | string | 作业恢复的数据来源：`CHECKPOINT` 或 `SAVEPOINT`。详见 [作业恢复与重启](rest-api-job-lifecycle.md#6-作业恢复与重启)。 |
+> | restoreSourceJobId   | optional | string | 要恢复的作业 ID，使用 `CHECKPOINT` 时必填。使用 `SAVEPOINT` 时，省略此参数则使用 `jobId`。 |
 > | variables            | optional | string | 配置变量，逗号分隔的 `key=value` 列表，详见[配置变量](#配置变量) |
 
 #### 请求体
@@ -1923,7 +1946,6 @@ Checkpoint 信息字段：
   }
 ]
 ```
-
 </details>
 
 #### 字段说明
