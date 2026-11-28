@@ -27,7 +27,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -67,6 +69,8 @@ public class FixSlotResourceTest extends AbstractSeaTunnelServerTest<FixSlotReso
                 resourceManager.applyResources(jobId, resourceProfiles, null).get();
         Assertions.assertEquals(slotProfiles.size(), 3);
         resourceManager.releaseResources(jobId, slotProfiles);
+        Assertions.assertEquals(
+                0, ((AbstractResourceManager) resourceManager).fixedSlotReservationCount());
     }
 
     @Test
@@ -89,11 +93,70 @@ public class FixSlotResourceTest extends AbstractSeaTunnelServerTest<FixSlotReso
                         () -> {
                             Assertions.assertEquals(
                                     totalSlots, resourceManager.getUnassignedSlots(null).size());
+                            Assertions.assertEquals(
+                                    0,
+                                    ((AbstractResourceManager) resourceManager)
+                                            .fixedSlotReservationCount());
                         });
         resourceProfiles.remove(0);
         List<SlotProfile> slotProfiles =
                 resourceManager.applyResources(jobId, resourceProfiles, null).get();
         Assertions.assertEquals(slotProfiles.size(), 3);
         resourceManager.releaseResources(jobId, slotProfiles);
+        Assertions.assertEquals(
+                0, ((AbstractResourceManager) resourceManager).fixedSlotReservationCount());
+    }
+
+    @Test
+    public void testConcurrentFixedSlotRequestsLeaveNoReservations() throws Exception {
+        ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
+        await().atMost(20000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    totalSlots, resourceManager.getUnassignedSlots(null).size());
+                        });
+
+        long baseJobId = System.nanoTime();
+        List<Long> jobIds = new ArrayList<>();
+        List<
+                        org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture<
+                                List<SlotProfile>>>
+                requests = new ArrayList<>();
+        for (int i = 0; i < totalSlots; i++) {
+            long jobId = baseJobId + i;
+            jobIds.add(jobId);
+            List<ResourceProfile> resourceProfiles = new ArrayList<>();
+            resourceProfiles.add(new ResourceProfile());
+            requests.add(resourceManager.applyResources(jobId, resourceProfiles, null));
+        }
+
+        List<SlotProfile> assigned = new ArrayList<>();
+        Set<Integer> assignedIds = new HashSet<>();
+        try {
+            for (int i = 0; i < requests.size(); i++) {
+                List<SlotProfile> slots = requests.get(i).get(20, TimeUnit.SECONDS);
+                Assertions.assertEquals(1, slots.size());
+                assigned.add(slots.get(0));
+                Assertions.assertTrue(assignedIds.add(slots.get(0).getSlotID()));
+            }
+            Assertions.assertEquals(totalSlots, assignedIds.size());
+        } finally {
+            for (int i = 0; i < assigned.size(); i++) {
+                List<SlotProfile> owned = new ArrayList<>();
+                owned.add(assigned.get(i));
+                resourceManager.releaseResources(jobIds.get(i), owned);
+            }
+        }
+        await().atMost(20000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    totalSlots, resourceManager.getUnassignedSlots(null).size());
+                            Assertions.assertEquals(
+                                    0,
+                                    ((AbstractResourceManager) resourceManager)
+                                            .fixedSlotReservationCount());
+                        });
     }
 }
