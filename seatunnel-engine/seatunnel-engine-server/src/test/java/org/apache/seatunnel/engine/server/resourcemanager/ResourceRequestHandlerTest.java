@@ -225,6 +225,33 @@ class ResourceRequestHandlerTest {
         return false;
     }
 
+    @Test
+    void anEmptyRequestCompletesInsteadOfHangingForever() throws Exception {
+        // The future is completed only from addSlotToCacheMap(), which runs
+        // once per arriving slot result. With nothing requested it never runs,
+        // so before this the future stayed pending with no error and no log,
+        // and anything joining it blocked indefinitely.
+        Address workerAddress = new Address("localhost", 5801);
+        IndexedRetryResourceManager resourceManager =
+                new IndexedRetryResourceManager(Collections.emptyList());
+
+        CompletableFuture<List<SlotProfile>> request =
+                new ResourceRequestHandler(
+                                104L,
+                                Collections.emptyList(),
+                                workers(workerAddress),
+                                resourceManager,
+                                new RandomStrategy())
+                        .request(Collections.emptyMap());
+
+        assertTrue(request.isDone(), "an empty request must not be left pending");
+        assertEquals(Collections.emptyList(), request.join());
+        assertEquals(
+                0,
+                resourceManager.requestCount.get(),
+                "an empty request must not reach any worker");
+    }
+
     private static ConcurrentMap<Address, WorkerProfile> workers(Address address) {
         return workers(address, slot(address, 1), slot(address, 2));
     }
