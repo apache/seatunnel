@@ -70,6 +70,7 @@ connector-tiktok-ads
 connector-graphql
 connector-hive
 connector-http-base
+connector-http-azure-iot-hub
 connector-mem0
 connector-http-asana
 connector-http-intercom
