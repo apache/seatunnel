@@ -18,10 +18,13 @@
 package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
+import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointEntryConsumer;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.utils.FactoryUtil;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
 import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
@@ -34,8 +37,10 @@ import org.apache.seatunnel.engine.server.utils.CheckpointRestoreUtils;
 
 import lombok.Getter;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -48,9 +53,13 @@ import java.util.stream.Collectors;
  *
  * <p>The service provides the APIs to get the latest checkpoint data of a job.
  */
+@Slf4j
 public class CheckpointService {
     @Getter private CheckpointStorage checkpointStorage;
     private Serializer serializer = new ProtoStuffSerializer();
+
+    /** Dedicated serializer for the type-aware cleanup, which has no service instance at hand. */
+    private static final Serializer CLEANUP_SERIALIZER = new ProtoStuffSerializer();
 
     @SneakyThrows
     public CheckpointService(CheckpointConfig config) {
@@ -135,6 +144,118 @@ public class CheckpointService {
                 .map(Optional::get)
                 .sorted(Comparator.comparingInt(CompletedCheckpoint::getPipelineId))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Deletes the automatic (periodic) checkpoint data of a job while keeping the savepoints that
+     * are stored under the same job id.
+     *
+     * <p>Savepoints share the per-job checkpoint directory with periodic checkpoints, and a
+     * savepoint restore keeps the source job id. A job that was restored from a savepoint therefore
+     * writes its periodic checkpoints next to the savepoint it was started from, so the
+     * terminal-state cleanup must not delete the job directory blindly: a savepoint is
+     * operator-managed recovery state that stays restorable until it is deleted explicitly (see
+     * {@code docs/en/engines/zeta/state-storage-and-recovery.md}).
+     *
+     * <p>The cleanup only ever deletes the entries it positively classified as automatic
+     * checkpoints, one pipeline at a time. It never deletes the job directory as a whole, because a
+     * storage listing is not an inventory of that directory: an entry that cannot be read or
+     * decoded is skipped by {@link CheckpointStorage#forEachCheckpoint(String,
+     * CheckpointEntryConsumer)} while it stays on disk, so a "missing" entry may still be an
+     * operator-managed savepoint and has to survive. Unreadable or otherwise unknown entries are
+     * therefore kept, which can leave a job directory behind that still holds them.
+     *
+     * <p>The checkpoint type is not part of {@link PipelineState}; it is only inside the serialized
+     * {@link CompletedCheckpoint}, so every entry has to be read to classify it. The entries are
+     * visited one at a time and only the ids of the classified entries are retained, so a job that
+     * accumulated a long savepoint history across repeated restores is cleaned without loading its
+     * payloads at once.
+     *
+     * @param checkpointStorage storage that holds the job's checkpoint data
+     * @param jobId job id whose automatic checkpoint data should be deleted
+     */
+    public static void deleteCheckpointDataKeepingSavepoints(
+            CheckpointStorage checkpointStorage, String jobId) {
+        Map<Integer, List<String>> automaticCheckpointIds = new HashMap<>();
+        List<Long> keptSavepointIds = new ArrayList<>();
+        try {
+            checkpointStorage.forEachCheckpoint(
+                    jobId,
+                    pipelineState -> {
+                        CheckpointType checkpointType = readCheckpointType(pipelineState);
+                        if (!checkpointType.isAuto()) {
+                            keptSavepointIds.add(pipelineState.getCheckpointId());
+                            return;
+                        }
+                        automaticCheckpointIds
+                                .computeIfAbsent(
+                                        pipelineState.getPipelineId(), id -> new ArrayList<>())
+                                .add(String.valueOf(pipelineState.getCheckpointId()));
+                    });
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to classify the stored checkpoints of job {}, keeping all checkpoint data: {}",
+                    jobId,
+                    e.getMessage());
+            return;
+        }
+        if (automaticCheckpointIds.isEmpty()) {
+            return;
+        }
+
+        if (!keptSavepointIds.isEmpty()) {
+            log.info(
+                    "Job {} still has savepoints {} in checkpoint storage, deleting only its periodic checkpoints",
+                    jobId,
+                    keptSavepointIds);
+        }
+        for (Map.Entry<Integer, List<String>> entry : automaticCheckpointIds.entrySet()) {
+            try {
+                checkpointStorage.deleteCheckpoint(
+                        jobId, String.valueOf(entry.getKey()), entry.getValue());
+            } catch (Exception e) {
+                // The cleanup is best effort: a periodic checkpoint left behind is harmless, while
+                // aborting the whole cleanup would keep the job's data around indefinitely.
+                log.warn(
+                        "Failed to delete the periodic checkpoints {} of job {} pipeline {}: {}",
+                        entry.getValue(),
+                        jobId,
+                        entry.getKey(),
+                        e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Reads the persisted type of one stored checkpoint.
+     *
+     * @param pipelineState stored checkpoint entry
+     * @return the stored checkpoint type, never null
+     * @throws CheckpointStorageException if the entry cannot be decoded or carries no type, which
+     *     aborts the cleanup without deleting anything
+     */
+    private static CheckpointType readCheckpointType(PipelineState pipelineState)
+            throws CheckpointStorageException {
+        CompletedCheckpoint checkpoint;
+        try {
+            checkpoint =
+                    CLEANUP_SERIALIZER.deserialize(
+                            pipelineState.getStates(), CompletedCheckpoint.class);
+        } catch (IOException e) {
+            throw new CheckpointStorageException(
+                    String.format(
+                            "Failed to deserialize checkpoint %d of pipeline %d",
+                            pipelineState.getCheckpointId(), pipelineState.getPipelineId()),
+                    e);
+        }
+        CheckpointType checkpointType = checkpoint == null ? null : checkpoint.getCheckpointType();
+        if (checkpointType == null) {
+            throw new CheckpointStorageException(
+                    String.format(
+                            "Checkpoint %d of pipeline %d carries no checkpoint type",
+                            pipelineState.getCheckpointId(), pipelineState.getPipelineId()));
+        }
+        return checkpointType;
     }
 
     private CompletedCheckpoint deserializeCheckpoint(PipelineState pipelineState) {

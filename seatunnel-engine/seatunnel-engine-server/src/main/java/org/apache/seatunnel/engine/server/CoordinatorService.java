@@ -1993,10 +1993,8 @@ public class CoordinatorService {
                                 "Job %d has retain-after-job-cancelled enabled, retaining checkpoint data",
                                 jobId));
             } else {
-                seaTunnelServer
-                        .getCheckpointService()
-                        .getCheckpointStorage()
-                        .deleteCheckpoint(jobId + "");
+                CheckpointService.deleteCheckpointDataKeepingSavepoints(
+                        seaTunnelServer.getCheckpointService().getCheckpointStorage(), jobId + "");
             }
         }
         if (seaTunnelServer.getCheckpointMonitorService() != null) {

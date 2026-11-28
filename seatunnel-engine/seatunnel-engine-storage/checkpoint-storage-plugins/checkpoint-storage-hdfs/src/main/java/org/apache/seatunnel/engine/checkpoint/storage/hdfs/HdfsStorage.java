@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractCheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointEntryConsumer;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.AbstractConfiguration;
 import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.FileConfiguration;
@@ -158,6 +159,28 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                     "No checkpoint found for job, job id is: " + jobId);
         }
         return states;
+    }
+
+    @Override
+    public void forEachCheckpoint(String jobId, CheckpointEntryConsumer consumer)
+            throws CheckpointStorageException {
+        String path = getStorageParentDirectory() + jobId;
+        List<String> fileNames = getFileNames(path);
+        // The file names are cheap to keep, the state payloads are not: each payload is read right
+        // before it is handed to the consumer and is dropped afterwards, so a long history is never
+        // materialized as a whole.
+        for (String fileName : fileNames) {
+            PipelineState state;
+            try {
+                state = readPipelineState(fileName, jobId);
+            } catch (CheckpointStorageException e) {
+                // An entry that cannot be read cannot be classified, so it is skipped and the
+                // consumer has no way to delete it.
+                log.error("Failed to read checkpoint data from file: " + fileName, e);
+                continue;
+            }
+            consumer.accept(state);
+        }
     }
 
     @Override

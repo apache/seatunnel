@@ -25,6 +25,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.exception.ExceptionUt
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractCheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointEntryConsumer;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 
 import org.apache.commons.collections4.MapUtils;
@@ -144,6 +145,39 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
                     }
                 });
         return states;
+    }
+
+    @Override
+    public void forEachCheckpoint(String jobId, CheckpointEntryConsumer consumer)
+            throws CheckpointStorageException {
+        File filePath = new File(getStorageParentDirectory() + jobId);
+        if (!filePath.exists()) {
+            return;
+        }
+
+        Collection<File> fileList;
+        try {
+            fileList = FileUtils.listFiles(filePath, FILE_EXTENSIONS, true);
+        } catch (Exception e) {
+            throw new CheckpointStorageException(
+                    "Failed to get all checkpoints for job " + jobId, e);
+        }
+        // The file names are cheap to keep, the state payloads are not: each payload is read and
+        // deserialized right before it is handed to the consumer and is dropped afterwards, so a
+        // long history is never materialized as a whole.
+        for (File file : fileList) {
+            PipelineState state;
+            try {
+                byte[] data = FileUtils.readFileToByteArray(file);
+                state = deserializeCheckPointData(data);
+            } catch (IOException e) {
+                // An entry that cannot be read cannot be classified, so it is skipped and the
+                // consumer has no way to delete it.
+                log.error("Failed to read checkpoint data from file " + file.getAbsolutePath(), e);
+                continue;
+            }
+            consumer.accept(state);
+        }
     }
 
     @Override
