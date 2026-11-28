@@ -184,7 +184,23 @@ one bulk request max try size
 
 ### max_batch_size [int]
 
-batch bulk doc max size
+The maximum number of documents buffered by each sink writer before sending a Bulk API request. The default is `10`. This limit counts documents, not bytes.
+
+For batch imports, set this option explicitly and benchmark increasing batch sizes with representative data. Keep parallelism and index settings fixed when comparing results. For example:
+
+```hocon
+sink {
+  Elasticsearch {
+    hosts = ["http://localhost:9200"]
+    index = "batch-import"
+    max_batch_size = 1000
+  }
+}
+```
+
+`1000` is a starting point for measurement, not a universally optimal size. Larger batches reduce per-request overhead but increase buffered memory and the time low-volume input waits for a full batch. Account for document size and concurrent table writers; a document-count limit does not bound the HTTP payload size. See Elasticsearch's [indexing-speed guidance](https://www.elastic.co/docs/deploy-manage/production-guidance/optimize-performance/indexing-speed) for bulk sizing.
+
+Batch jobs flush pending documents at completion. For low-volume streaming jobs on Zeta, see [Timer flush on Zeta](#timer-flush-on-zeta) to configure `sink.flush.interval` independently of the batch-size threshold.
 
 ### tls_verify_certificate [boolean]
 
