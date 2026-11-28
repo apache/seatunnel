@@ -56,10 +56,19 @@ public class MySqlDialect implements JdbcDataSourceDialect {
     private final MySqlSourceConfig sourceConfig;
     private transient MySqlSchema mySqlSchema;
     private final Map<TableId, CatalogTable> tableMap;
+    private final boolean preferBinaryLogListing;
 
     public MySqlDialect(MySqlSourceConfigFactory configFactory, List<CatalogTable> catalogTables) {
+        this(configFactory, catalogTables, false);
+    }
+
+    public MySqlDialect(
+            MySqlSourceConfigFactory configFactory,
+            List<CatalogTable> catalogTables,
+            boolean preferBinaryLogListing) {
         this.sourceConfig = configFactory.create(0);
         this.tableMap = CatalogTableUtils.convertTables(catalogTables);
+        this.preferBinaryLogListing = preferBinaryLogListing;
     }
 
     @Override
@@ -82,7 +91,8 @@ public class MySqlDialect implements JdbcDataSourceDialect {
 
     @Override
     public JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig) {
-        return MySqlConnectionUtils.createMySqlConnection(sourceConfig.getDbzConfiguration());
+        return MySqlConnectionUtils.createMySqlConnection(
+                sourceConfig.getDbzConfiguration(), preferBinaryLogListing);
     }
 
     @Override

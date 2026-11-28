@@ -77,6 +77,7 @@ list.
   `table-pattern`, and `table-names-config`.
 - Startup modes, checkpoint / restore semantics, and schema evolution behavior are the same as
   `MySQL-CDC`.
+- For `earliest` and `timestamp` startup, the OceanBase Binlog Service must support `SHOW BINARY LOGS` to list binlog files.
 - `startup.mode = "snapshot-only"` is inherited from `MySQL-CDC` with the same option restrictions.
   See [Snapshot-Only Bootstrap](./MySQL-CDC.md#snapshot-only-bootstrap-one-time-backfill).
 
