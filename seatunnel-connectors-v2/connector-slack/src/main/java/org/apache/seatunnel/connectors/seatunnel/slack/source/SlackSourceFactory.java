@@ -43,18 +43,18 @@ public class SlackSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(SlackSourceConfig.TOKEN, SlackSourceConfig.CHANNELS)
+                .required(SlackSourceOptions.TOKEN, SlackSourceOptions.CHANNELS)
                 .optional(
-                        SlackSourceConfig.API_ROOT,
-                        SlackSourceConfig.PAGE_SIZE,
-                        SlackSourceConfig.OLDEST,
-                        SlackSourceConfig.LATEST,
-                        SlackSourceConfig.TIMEOUT,
-                        SlackSourceConfig.RETRIES,
-                        SlackSourceConfig.BACKOFF,
-                        SlackSourceConfig.MAX_DELAY,
-                        SlackSourceConfig.MAX_BYTES,
-                        SlackSourceConfig.MAX_PAGES)
+                        SlackSourceOptions.API_ROOT,
+                        SlackSourceOptions.PAGE_SIZE,
+                        SlackSourceOptions.OLDEST,
+                        SlackSourceOptions.LATEST,
+                        SlackSourceOptions.TIMEOUT,
+                        SlackSourceOptions.RETRIES,
+                        SlackSourceOptions.BACKOFF,
+                        SlackSourceOptions.MAX_DELAY,
+                        SlackSourceOptions.MAX_BYTES,
+                        SlackSourceOptions.MAX_PAGES)
                 .build();
     }
 

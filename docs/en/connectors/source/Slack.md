@@ -15,6 +15,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
+import ChangeLog from '../changelog/connector-slack.md';
+
 # Slack
 
 Read bounded conversation history with Slack's `conversations.history` Web API.
@@ -85,3 +87,7 @@ source {
 }
 sink { Console {} }
 ```
+
+## Changelog
+
+<ChangeLog />

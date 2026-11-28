@@ -15,6 +15,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
+import ChangeLog from '../changelog/connector-slack.md';
+
 # Slack
 
 通过 Slack `conversations.history` Web API 有界读取会话历史消息。
@@ -84,3 +86,7 @@ source {
 }
 sink { Console {} }
 ```
+
+## 变更日志
+
+<ChangeLog />
