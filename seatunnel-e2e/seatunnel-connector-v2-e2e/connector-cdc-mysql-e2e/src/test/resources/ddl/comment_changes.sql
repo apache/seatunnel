@@ -22,7 +22,7 @@
 --   name LONGTEXT NULL
 --   description VARCHAR(512)
 --   weight FLOAT
---   add_column INT NOT NULL DEFAULT 1
+--   add_column_renamed INT NOT NULL DEFAULT 1
 -- ----------------------------------------------------------------------------------------------------------------
 CREATE DATABASE IF NOT EXISTS `shop`;
 use shop;

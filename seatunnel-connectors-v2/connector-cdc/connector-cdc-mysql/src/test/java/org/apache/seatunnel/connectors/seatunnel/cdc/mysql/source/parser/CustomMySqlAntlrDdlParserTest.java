@@ -217,6 +217,54 @@ public class CustomMySqlAntlrDdlParserTest {
         Assertions.assertEquals("VARCHAR(64)", varcharColumn.getSourceType());
     }
 
+    /**
+     * {@code RENAME COLUMN} keeps the column definition, so the event carries only the new name and
+     * the resolver completes the definition from the table. Without the event, the change records
+     * carry a column the schema does not have, and its values are lost.
+     */
+    @Test
+    void testParseAlterTableRenameColumn() {
+        List<AlterTableColumnEvent> events =
+                parseColumnEvents(
+                        "ALTER TABLE products RENAME COLUMN c_name TO c_full_name, "
+                                + "ADD COLUMN c_note VARCHAR(32) NULL");
+        Assertions.assertEquals(2, events.size());
+
+        AlterTableChangeColumnEvent renameEvent = (AlterTableChangeColumnEvent) events.get(0);
+        Assertions.assertEquals("c_name", renameEvent.getOldColumn());
+        Assertions.assertEquals("c_full_name", renameEvent.getColumn().getName());
+        Assertions.assertNull(renameEvent.getColumn().getDataType());
+        Assertions.assertFalse(renameEvent.isFirst());
+        Assertions.assertNull(renameEvent.getAfterColumn());
+
+        Assertions.assertEquals(
+                "c_note", ((AlterTableAddColumnEvent) events.get(1)).getColumn().getName());
+    }
+
+    /**
+     * Column names are case-insensitive in MySQL, and Debezium keeps the name of a column that a
+     * rename changes only in case, so the schema keeps it as well.
+     */
+    @Test
+    void testParseAlterTableRenameColumnOnlyInCaseHasNoEvent() {
+        Assertions.assertTrue(
+                parseColumnEvents("ALTER TABLE products RENAME COLUMN c_name TO C_NAME").isEmpty());
+        Assertions.assertTrue(
+                parseColumnEvents("ALTER TABLE products RENAME COLUMN c_name TO c_name").isEmpty());
+    }
+
+    private static List<AlterTableColumnEvent> parseColumnEvents(String ddl) {
+        MySqlSourceConfigFactory factory = new MySqlSourceConfigFactory();
+        factory.hostname("localhost");
+        factory.username("test");
+        factory.password("test");
+        CustomMySqlAntlrDdlParser parser =
+                new CustomMySqlAntlrDdlParser(factory.create(0).getDbzConnectorConfig());
+        parser.setCurrentDatabase("test_db");
+        parser.parse(ddl, new Tables());
+        return parser.getAndClearParsedColumnEvents();
+    }
+
     @Test
     void testParsePropagatesDdlErrors() {
         CustomMySqlAntlrDdlParser parser = new ParserWithTreeWalkError();
