@@ -686,7 +686,26 @@ Amazon Aurora DSQL 所在的区域。 该参考仅适用于 dialect="dsql"
 - MySQL Server 和 Connector/J 的组合必须支持 Sink 使用的 XA 操作。执行 XA recovery 的账号还可能需要 `XA_RECOVER_ADMIN` 权限，请按所用 MySQL 版本的要求配置。
 - 不要配置 `sink.flush.interval`，XA 事务边界由 checkpoint 控制。
 
+## MySQL 批量写入调优
+
 对于非 XA 的 MySQL 批量任务，可以尝试在 JDBC URL 中加入 `rewriteBatchedStatements=true` 提升吞吐；实际效果应结合驱动版本和业务负载验证。
+
+使用 MySQL Connector/J 时，还应对比客户端预编译与服务端预编译、语句缓存的组合。将参数合并到现有 URL，保留其他必要的连接参数。以下片段放入已有的 JDBC Sink 配置中：
+
+```hocon
+url = "jdbc:mysql://mysql-host:3306/example?rewriteBatchedStatements=true&useServerPrepStmts=true&cachePrepStmts=true&prepStmtCacheSize=4&prepStmtCacheSqlLimit=65536"
+batch_size = 1000
+```
+
+这些值用于开始测量，不是 SeaTunnel 默认值，也不保证服务端预编译一定更快。仍需保留 Sink 必填的驱动、账号、密码、数据库和表配置。
+
+- `useServerPrepStmts` 在受支持时请求服务端预编译；`cachePrepStmts` 开启语句缓存。
+- `prepStmtCacheSize` 限制每个物理连接的缓存条目数。示例的小缓存适合固定 SQL 负载；实际应按表数量和 SQL 形态设置，并考虑连接数和写入并发。
+- `prepStmtCacheSqlLimit` 限制可缓存的 SQL 长度。Connector/J 8.0.33 的默认值为 256。改写后的多行 INSERT 可能超过该限制，因此仅开启缓存未必能复用语句。应按生成 SQL 的长度选择上限，而不是按行数据大小选择。
+
+使用有代表性的行宽和批大小，测量吞吐、内存及服务端预编译语句占用。增大批大小或缓存前，检查包大小限制和服务端的 `max_prepared_stmt_count`。源端也是 MySQL 时，应分别测量 Source 与 Sink 的 URL 调整效果；端到端结果不能单独归因于某一端。该示例不选择事务策略，也不用于 XA 调优。
+
+参阅 Connector/J 的[性能参数](https://dev.mysql.com/doc/connector-j/en/connector-j-connp-props-performance-extensions.html)和[预编译语句参数](https://dev.mysql.com/doc/connector-j/en/connector-j-connp-props-prepared-statements.html)。
 
 ## 驱动参考
 
