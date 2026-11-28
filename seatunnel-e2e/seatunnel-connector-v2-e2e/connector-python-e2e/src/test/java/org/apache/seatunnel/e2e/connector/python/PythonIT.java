@@ -18,13 +18,19 @@
 package org.apache.seatunnel.e2e.connector.python;
 
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
+import org.apache.seatunnel.e2e.common.util.PythonTestImage;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.GenericContainer;
+
+import com.github.dockerjava.api.command.InspectImageResponse;
 
 import java.io.IOException;
 
@@ -42,6 +48,11 @@ public class PythonIT extends SeaTunnelContainer {
                     + "/usr/bin/python,/usr/local/bin/python";
 
     @Override
+    protected String getDockerImage() {
+        return PythonTestImage.withPython(super.getDockerImage());
+    }
+
+    @Override
     protected String[] buildStartCommand() {
         return new String[] {
             "env",
@@ -56,7 +67,7 @@ public class PythonIT extends SeaTunnelContainer {
     @BeforeAll
     public void startUp() throws Exception {
         super.startUp();
-        Container.ExecResult execResult = installPythonIfNecessary();
+        Container.ExecResult execResult = server.execInContainer("python3", "--version");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         copyFileToContainer("/python/emit_rows.py", "/tmp/emit_rows.py");
     }
@@ -77,28 +88,53 @@ public class PythonIT extends SeaTunnelContainer {
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
     }
 
-    /** Installs python3 in the shared runtime container when the base image does not include it. */
-    private Container.ExecResult installPythonIfNecessary()
-            throws IOException, InterruptedException {
-        return server.execInContainer(
-                "bash",
-                "-c",
-                "if command -v python3 >/dev/null 2>&1; then"
-                        + "   python3 --version;"
-                        + " elif command -v apt-get >/dev/null 2>&1; then"
-                        + "   export DEBIAN_FRONTEND=noninteractive;"
-                        + "   apt-get update;"
-                        + "   apt-get install -y --no-install-recommends python3;"
-                        + " elif command -v dnf >/dev/null 2>&1; then"
-                        + "   dnf install -y python3;"
-                        + " elif command -v yum >/dev/null 2>&1; then"
-                        + "   yum install -y python3;"
-                        + " elif command -v apk >/dev/null 2>&1; then"
-                        + "   apk add --no-cache python3;"
-                        + " else"
-                        + "   echo 'Unsupported package manager for installing python3' >&2;"
-                        + "   exit 1;"
-                        + " fi;"
-                        + " python3 --version;");
+    /** Verifies image preparation preserves the engine and needs no runtime mirror access. */
+    @Test
+    public void testPreparedImageWithoutRuntimeNetwork() throws Exception {
+        String sourceImage = super.getDockerImage();
+        String preparedImage = PythonTestImage.withPython(sourceImage);
+        InspectImageResponse source =
+                DockerClientFactory.lazyClient().inspectImageCmd(sourceImage).exec();
+        InspectImageResponse prepared =
+                DockerClientFactory.lazyClient().inspectImageCmd(preparedImage).exec();
+
+        Assertions.assertEquals(source.getArch(), prepared.getArch());
+        Assertions.assertArrayEquals(
+                source.getConfig().getEntrypoint(), prepared.getConfig().getEntrypoint());
+        Assertions.assertArrayEquals(source.getConfig().getEnv(), prepared.getConfig().getEnv());
+        Assertions.assertEquals(
+                source.getConfig().getWorkingDir(), prepared.getConfig().getWorkingDir());
+        Assertions.assertEquals(source.getConfig().getUser(), prepared.getConfig().getUser());
+
+        try (GenericContainer<?> baseline =
+                        new GenericContainer<>(sourceImage)
+                                .withNetworkMode("none")
+                                .withCommand("sleep", "infinity");
+                GenericContainer<?> runtime =
+                        new GenericContainer<>(preparedImage)
+                                .withNetworkMode("none")
+                                .withCommand("sleep", "infinity")) {
+            baseline.start();
+            runtime.start();
+            Container.ExecResult python =
+                    runtime.execInContainer(
+                            "python3",
+                            "-c",
+                            "import json,sys; print(json.dumps([1, 'ok'])); sys.exit(0)");
+            Assertions.assertEquals(0, python.getExitCode(), python.getStderr());
+            Assertions.assertEquals("[1, \"ok\"]", python.getStdout().trim());
+            Container.ExecResult java = runtime.execInContainer("java", "-version");
+            Assertions.assertEquals(0, java.getExitCode(), java.getStderr());
+            Container.ExecResult baselineJava = baseline.execInContainer("java", "-version");
+            Assertions.assertEquals(0, baselineJava.getExitCode(), baselineJava.getStderr());
+            Assertions.assertEquals(baselineJava.getStderr(), java.getStderr());
+            Assertions.assertEquals(
+                    0,
+                    runtime.execInContainer(
+                                    "sh",
+                                    "-c",
+                                    "command -v jps && command -v jstack && command -v jmap")
+                            .getExitCode());
+        }
     }
 }
