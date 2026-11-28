@@ -76,6 +76,7 @@ connector-http-intercom
 connector-http-typeform
 connector-http-mailchimp
 connector-http-amplitude
+connector-http-braze
 connector-http-feishu
 connector-http-gitlab
 connector-http-github
