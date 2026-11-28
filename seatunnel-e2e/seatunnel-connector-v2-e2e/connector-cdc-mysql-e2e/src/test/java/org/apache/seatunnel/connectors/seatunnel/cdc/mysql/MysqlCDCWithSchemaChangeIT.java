@@ -322,6 +322,163 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                 MYSQL_DATABASE, SOURCE_TABLE, "Updated product catalog with sports equipment");
     }
 
+    /**
+     * Exercises binary routing with two replicas across a key rename, name reuse, and savepoint
+     * restore.
+     */
+    @Order(6)
+    @TestTemplate
+    public void testBinaryKeyRoutingAfterSchemaChangeAndRestore(TestContainer container)
+            throws Exception {
+        String source = "shop.binary_routing_source";
+        String sink = "shop.binary_routing_sink";
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS " + source);
+            statement.execute("DROP TABLE IF EXISTS " + sink);
+            statement.execute(
+                    "CREATE TABLE " + source + " (id VARBINARY(16) PRIMARY KEY, value INT)");
+            statement.execute("CREATE TABLE " + sink + " LIKE " + source);
+            statement.execute("INSERT INTO " + source + " VALUES (X'010203', 0), (X'040506', 0)");
+        }
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        String config = "/mysqlcdc_to_mysql_with_binary_key_schema_change.conf";
+        CompletableFuture<?> execution = runBinaryRoutingJob(container, config, jobId, false);
+        Throwable testFailure = null;
+        try {
+            assertBinaryRoutingRows(execution, "id", "value", 0, true);
+            CompletableFuture<?> initialExecution = execution;
+            await().atMost(DEFAULT_TABLE_SYNC_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                if (initialExecution.isCompletedExceptionally()) {
+                                    initialExecution.join();
+                                }
+                                Assertions.assertTrue(
+                                        Arrays.stream(container.getServerLogs().split("\\R"))
+                                                .anyMatch(
+                                                        line ->
+                                                                line.contains(
+                                                                                INCREMENTAL_READ_MARKER)
+                                                                        && line.contains(
+                                                                                "shop.binary_routing_source")));
+                            });
+            try (Connection connection = getJdbcConnection();
+                    Statement statement = connection.createStatement()) {
+                statement.execute(
+                        "ALTER TABLE " + source + " CHANGE COLUMN id uid VARBINARY(16) NOT NULL");
+            }
+            assertBinaryRoutingRows(execution, "uid", "value", 0, true);
+            try (Connection connection = getJdbcConnection();
+                    Statement statement = connection.createStatement()) {
+                // Reuse the old key name as an ordinary column, at a different position.
+                statement.execute("ALTER TABLE " + source + " ADD COLUMN id INT DEFAULT 0 FIRST");
+                for (int value = 1; value <= 32; value++) {
+                    statement.execute(
+                            "UPDATE "
+                                    + source
+                                    + " SET id="
+                                    + value
+                                    + ", value="
+                                    + value
+                                    + " WHERE uid=X'010203'");
+                }
+            }
+            assertBinaryRoutingRows(execution, "uid", "id", 32, true);
+            Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+            execution.get(60, TimeUnit.SECONDS);
+            try (Connection connection = getJdbcConnection();
+                    Statement statement = connection.createStatement()) {
+                for (int value = 33; value <= 64; value++) {
+                    statement.execute(
+                            "UPDATE "
+                                    + source
+                                    + " SET id="
+                                    + value
+                                    + ", value="
+                                    + value
+                                    + " WHERE uid=X'010203'");
+                }
+                statement.execute("DELETE FROM " + source + " WHERE uid=X'040506'");
+                statement.execute("INSERT INTO " + source + " VALUES (64, X'070809', 64)");
+            }
+            execution = runBinaryRoutingJob(container, config, jobId, true);
+            assertBinaryRoutingRows(execution, "uid", "id", 64, false);
+            // Recheck after the savepoint drains every replica, not only at transient convergence.
+            Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+            execution.get(60, TimeUnit.SECONDS);
+            assertBinaryRoutingRows(execution, "uid", "id", 64, false);
+        } catch (Exception | AssertionError failure) {
+            testFailure = failure;
+            throw failure;
+        } finally {
+            try {
+                try {
+                    container.cancelJob(jobId);
+                } finally {
+                    execution.get(60, TimeUnit.SECONDS);
+                }
+            } catch (Exception | AssertionError cleanupFailure) {
+                if (testFailure != null) {
+                    testFailure.addSuppressed(cleanupFailure);
+                } else {
+                    throw cleanupFailure;
+                }
+            }
+        }
+    }
+
+    /** Keeps submit and restore failures observable by the convergence assertions. */
+    private CompletableFuture<?> runBinaryRoutingJob(
+            TestContainer container, String config, String jobId, boolean restore) {
+        return CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        Assertions.assertEquals(
+                                0,
+                                (restore
+                                                ? container.restoreJob(config, jobId)
+                                                : container.executeJob(config, jobId))
+                                        .getExitCode());
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
+    /** Compares the complete sink contents, including the key deleted after the savepoint. */
+    private void assertBinaryRoutingRows(
+            CompletableFuture<?> execution,
+            String key,
+            String projectedValue,
+            int value,
+            boolean originalSecondKey) {
+        await().atMost(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .ignoreExceptionsMatching(
+                        error ->
+                                error.getCause() instanceof SQLException
+                                        && ((SQLException) error.getCause()).getErrorCode() == 1054)
+                .untilAsserted(
+                        () -> {
+                            if (execution.isCompletedExceptionally()) {
+                                execution.join();
+                            }
+                            Assertions.assertEquals(
+                                    Arrays.asList(
+                                            Arrays.asList("010203", value, value),
+                                            originalSecondKey
+                                                    ? Arrays.asList("040506", 0, 0)
+                                                    : Arrays.asList("070809", 64, 64)),
+                                    query(
+                                            "SELECT HEX("
+                                                    + key
+                                                    + "),"
+                                                    + projectedValue
+                                                    + ",value FROM shop.binary_routing_sink ORDER BY "
+                                                    + key));
+                        });
+    }
+
     /** Verifies field binding after a live position shift and subsequent checkpoint restoration. */
     @Order(5)
     @TestTemplate

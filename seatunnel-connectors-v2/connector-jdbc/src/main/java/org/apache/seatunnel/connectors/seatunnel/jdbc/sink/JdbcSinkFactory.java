@@ -119,8 +119,13 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
         }
         map.put(JdbcSinkOptions.DATABASE.key(), catalogTable.getTableId().getDatabaseName());
         PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
-        if (CollectionUtils.isEmpty(config.get(JdbcSinkOptions.PRIMARY_KEYS))) {
-            if (primaryKey != null && !CollectionUtils.isEmpty(primaryKey.getColumnNames())) {
+        List<String> configuredPrimaryKeys = config.get(JdbcSinkOptions.PRIMARY_KEYS);
+        boolean inferredPrimaryKey =
+                CollectionUtils.isEmpty(configuredPrimaryKeys)
+                        && primaryKey != null
+                        && !CollectionUtils.isEmpty(primaryKey.getColumnNames());
+        if (CollectionUtils.isEmpty(configuredPrimaryKeys)) {
+            if (inferredPrimaryKey) {
                 map.put(
                         JdbcSinkOptions.PRIMARY_KEYS.key(),
                         String.join(",", primaryKey.getColumnNames()));
@@ -146,7 +151,7 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
             PrimaryKey configPk =
                     PrimaryKey.of(
                             catalogTable.getTablePath().getTableName() + "_config_pk",
-                            config.get(JdbcSinkOptions.PRIMARY_KEYS));
+                            configuredPrimaryKeys);
             TableSchema tableSchema = catalogTable.getTableSchema();
             catalogTable =
                     CatalogTable.of(
@@ -164,6 +169,9 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
         config = ReadonlyConfig.fromMap(new HashMap<>(map));
         final ReadonlyConfig options = config;
         JdbcSinkConfig sinkConfig = JdbcSinkConfig.of(config);
+        if (!sinkConfig.isExactlyOnce()) {
+            sinkConfig.setPrimaryKeyFromSchema(inferredPrimaryKey);
+        }
         FieldIdeEnum fieldIdeEnum = config.get(JdbcSinkOptions.FIELD_IDE);
         catalogTable.getOptions().putAll(sinkTableOptions);
         catalogTable

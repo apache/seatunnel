@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
@@ -74,7 +75,7 @@ public class JdbcOutputFormatBuilder {
 
         final String database = jdbcSinkConfig.getDatabase();
         final String table = jdbcSinkConfig.getTable();
-        final List<String> primaryKeys = jdbcSinkConfig.getPrimaryKeys();
+        final List<String> primaryKeys = resolvePrimaryKeys();
         validateOracleInsertMode(dialect, jdbcSinkConfig, primaryKeys);
         if (jdbcSinkConfig.isUseCopyStatement()) {
             statementExecutorFactory =
@@ -121,6 +122,17 @@ public class JdbcOutputFormatBuilder {
                 jdbcSinkConfig.getJdbcConnectionConfig(),
                 statementExecutorFactory,
                 commitOnFlush);
+    }
+
+    private List<String> resolvePrimaryKeys() {
+        PrimaryKey schemaKey = tableSchema.getPrimaryKey();
+        if (Boolean.TRUE.equals(jdbcSinkConfig.getPrimaryKeyFromSchema())
+                && schemaKey != null
+                && schemaKey.getColumnNames() != null
+                && !schemaKey.getColumnNames().isEmpty()) {
+            return schemaKey.getColumnNames();
+        }
+        return jdbcSinkConfig.getPrimaryKeys();
     }
 
     private static JdbcBatchStatementExecutor<SeaTunnelRow> createSimpleBufferedExecutor(
