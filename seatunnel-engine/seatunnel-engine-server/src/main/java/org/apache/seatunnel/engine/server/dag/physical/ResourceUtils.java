@@ -64,7 +64,15 @@ public class ResourceUtils {
 
         // set it first, avoid can't get it when get resource not enough exception and need release
         // applied resource
-        subPlan.getJobMaster().setOwnedSlotProfiles(subPlan.getPipelineLocation(), slotProfiles);
+        if (!subPlan.getJobMaster()
+                .setOwnedSlotProfiles(subPlan.getPipelineLocation(), slotProfiles)) {
+            // The pre-apply already persisted this ownership before the pipeline was scheduled, so
+            // scheduling can still continue; only the redundant write is unconfirmed here.
+            LOGGER.warning(
+                    "Pipeline "
+                            + subPlan.getPipelineLocation()
+                            + " slot ownership was not confirmed by a read back");
+        }
 
         if (futures.size() != slotProfiles.size()) {
             throw new NoEnoughResourceException();
