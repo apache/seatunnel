@@ -41,7 +41,7 @@ master is started. A new application can restore from a durable checkpoint.
 
 :::note
 Not in this release: HA master failover, worker replacement or autoscaling, arbitrary Pod templates,
-affinity/PriorityClass, Kerberos and REST/HTTPS. A failed application can be resumed from its last
+affinity/PriorityClass, Kerberos and HTTPS. A failed application can be resumed from its last
 durable checkpoint with `application.restore-job-id`.
 :::
 

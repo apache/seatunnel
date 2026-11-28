@@ -39,6 +39,7 @@ import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 
 import com.hazelcast.config.JoinConfig;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -46,6 +47,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -61,11 +63,13 @@ import java.util.UUID;
  * runtime file or Secret, its permissions and its platform-specific fields. This utility neither
  * owns resources nor changes the existing seatunnel.yaml/Hazelcast configuration loading.
  *
- * <p>After that existing configuration has been loaded, {@link #configure(SeaTunnelConfig, String,
- * String, int)} and {@link #configureCheckpointRetention(SeaTunnelConfig)} apply application-mode
- * settings before member creation. They mutate only caller-owned configuration and never start
- * members, allocate workers or close runtime resources.
+ * <p>After that existing configuration has been loaded, {@link #configureMaster(SeaTunnelConfig,
+ * String, ApplicationSpecification)}, {@link #configure(SeaTunnelConfig, String, String, int)} and
+ * {@link #configureCheckpointRetention(SeaTunnelConfig)} apply application-mode settings before
+ * member creation. They mutate only caller-owned configuration and never start members, allocate
+ * workers or close runtime resources.
  */
+@Slf4j
 public final class SeatunnelApplicationConfig {
     private static final String FORMAT_VERSION = "V1";
     private static final String VERSION_KEY = "format.version";
@@ -172,6 +176,7 @@ public final class SeatunnelApplicationConfig {
                 config.get(ApplicationOptions.MASTER_MEMORY_MB),
                 config.get(ApplicationOptions.MASTER_CPU_CORES),
                 config.get(ApplicationOptions.MASTER_PORT),
+                config.get(ApplicationOptions.MASTER_HTTP_PORT),
                 config.get(ApplicationOptions.STARTUP_TIMEOUT_MILLIS));
     }
 
@@ -214,6 +219,11 @@ public final class SeatunnelApplicationConfig {
         properties.setProperty(
                 ApplicationOptions.MASTER_PORT.key(),
                 Integer.toString(specification.getMasterPort()));
+        if (specification.getMasterHttpPort() != null) {
+            properties.setProperty(
+                    ApplicationOptions.MASTER_HTTP_PORT.key(),
+                    Integer.toString(specification.getMasterHttpPort()));
+        }
         properties.setProperty(
                 ApplicationOptions.STARTUP_TIMEOUT_MILLIS.key(),
                 Long.toString(specification.getStartupTimeoutMillis()));
@@ -348,5 +358,71 @@ public final class SeatunnelApplicationConfig {
         storage.setStoragePluginConfig(options);
         checkpoint.setStorage(storage);
         config.getEngineConfig().setCheckpointConfig(checkpoint);
+    }
+
+    /**
+     * Configures an application master from its resolved cluster identity and specification.
+     *
+     * <p>Applies shared master membership, checkpoint retention, master HTTP settings and the fixed
+     * Hazelcast listening port before member startup.
+     *
+     * @param config exclusively owned application master configuration to update
+     * @param clusterName nonempty identity shared only by this application's members
+     * @param specification resolved application settings for the master
+     * @throws IllegalArgumentException if {@code clusterName} is empty
+     * @throws NullPointerException if {@code config}, {@code specification} or native checkpoint
+     *     settings are null
+     */
+    public static void configureMaster(
+            SeaTunnelConfig config, String clusterName, ApplicationSpecification specification) {
+        Objects.requireNonNull(config, "config");
+        Objects.requireNonNull(specification, "specification");
+        HttpConfig previousHttp = config.getEngineConfig().getHttpConfig();
+        configure(config, clusterName, null, specification.getWorkerSpecification().getSlots());
+        configureCheckpointRetention(config);
+        configureMasterHttp(config, previousHttp, specification);
+        config.getHazelcastConfig()
+                .getNetworkConfig()
+                .setPort(specification.getMasterPort())
+                .setPortAutoIncrement(false);
+    }
+
+    private static void configureMasterHttp(
+            SeaTunnelConfig config, HttpConfig previous, ApplicationSpecification specification) {
+        HttpConfig http = new HttpConfig();
+        if (previous != null) {
+            http.setPort(previous.getPort());
+            http.setHttpsPort(previous.getHttpsPort());
+            http.setKeyStorePath(previous.getKeyStorePath());
+            http.setKeyStorePassword(previous.getKeyStorePassword());
+            http.setKeyManagerPassword(previous.getKeyManagerPassword());
+            http.setTrustStorePath(previous.getTrustStorePath());
+            http.setTrustStorePassword(previous.getTrustStorePassword());
+            http.setContextPath(previous.getContextPath());
+            http.setEnableDynamicPort(previous.isEnableDynamicPort());
+            http.setPortRange(previous.getPortRange());
+            http.setEnableBasicAuth(previous.isEnableBasicAuth());
+            http.setBasicAuthUsername(previous.getBasicAuthUsername());
+            http.setBasicAuthPassword(previous.getBasicAuthPassword());
+            http.setUploadMaxFileSizeMb(previous.getUploadMaxFileSizeMb());
+            http.setUploadMaxRequestSizeMb(previous.getUploadMaxRequestSizeMb());
+            http.setLogResponseMaxSizeMb(previous.getLogResponseMaxSizeMb());
+        }
+        Integer masterHttpPort = specification.getMasterHttpPort();
+        boolean enabled = masterHttpPort != null;
+        http.setEnabled(enabled);
+        http.setEnableHttps(false);
+        if (enabled) {
+            http.setPort(masterHttpPort);
+            http.setEnableDynamicPort(false);
+            if (!http.isEnableBasicAuth()) {
+                log.warn(
+                        "Application master HTTP is enabled on port {} without basic authentication; "
+                                + "enable seatunnel.engine.http.enable-basic-auth in seatunnel.yaml "
+                                + "and restrict Pod access if exposing this port.",
+                        masterHttpPort);
+            }
+        }
+        config.getEngineConfig().setHttpConfig(http);
     }
 }

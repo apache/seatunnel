@@ -29,6 +29,8 @@ import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1Secret;
 import io.kubernetes.client.openapi.models.V1Service;
+import okhttp3.Request;
+import okhttp3.Response;
 
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
@@ -132,6 +134,9 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                         application.getClusterId(),
                         service.getSpec().getSelector().get(APPLICATION_LABEL));
                 assertEquals("master", service.getSpec().getSelector().get(ROLE_LABEL));
+                assertFalse(
+                        service.getSpec().getPorts().stream()
+                                .anyMatch(port -> "http".equals(port.getName())));
                 assertTrue(
                         master.getSpec()
                                 .getContainers()
@@ -336,5 +341,73 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
             assertNotNull(core.readNamespacedSecret(REFERENCE_SECRET, namespace, null));
             assertNotNull(core.readNamespacedConfigMap(RUNTIME_CONFIG_MAP, namespace, null));
         }
+    }
+
+    @Test
+    void publishesMasterHttpServicePortWhenConfigured() throws Exception {
+        try (KubernetesApplicationClient application = deployApplication("configuration-http")) {
+            try {
+                awaitWorkersRunning(application, 1);
+                V1Pod master = masterPod(application);
+                V1Service service =
+                        core.readNamespacedService(application.getClusterId(), namespace, null);
+                assertTrue(
+                        service.getSpec().getPorts().stream()
+                                .anyMatch(
+                                        port ->
+                                                "http".equals(port.getName())
+                                                        && Integer.valueOf(18080)
+                                                                .equals(port.getPort())
+                                                        && Integer.valueOf(18080)
+                                                                .equals(
+                                                                        port.getTargetPort()
+                                                                                .getIntValue())));
+                assertOverviewAvailable(
+                        application,
+                        "/api/v1/namespaces/"
+                                + namespace
+                                + "/services/http:"
+                                + application.getClusterId()
+                                + ":18080/proxy/overview");
+                assertOverviewAvailable(
+                        application,
+                        "/api/v1/namespaces/"
+                                + namespace
+                                + "/pods/"
+                                + master.getMetadata().getName()
+                                + ":18080/proxy/overview");
+            } finally {
+                cancelAndAwait(application);
+            }
+        }
+    }
+
+    private static void assertOverviewAvailable(
+            KubernetesApplicationClient application, String path) {
+        withPodDiagnostics(
+                application,
+                () ->
+                        Awaitility.await()
+                                .atMost(120, TimeUnit.SECONDS)
+                                .pollInterval(2, TimeUnit.SECONDS)
+                                .untilAsserted(
+                                        () -> {
+                                            Request request =
+                                                    new Request.Builder()
+                                                            .url(apiClient.getBasePath() + path)
+                                                            .build();
+                                            try (Response response =
+                                                    apiClient
+                                                            .getHttpClient()
+                                                            .newCall(request)
+                                                            .execute()) {
+                                                assertEquals(200, response.code());
+                                                assertNotNull(response.body());
+                                                assertTrue(
+                                                        response.peekBody(Long.MAX_VALUE)
+                                                                .string()
+                                                                .contains("projectVersion"));
+                                            }
+                                        }));
     }
 }

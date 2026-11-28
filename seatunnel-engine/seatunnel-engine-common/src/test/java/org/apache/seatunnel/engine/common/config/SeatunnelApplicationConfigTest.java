@@ -21,6 +21,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
+import org.apache.seatunnel.engine.common.config.server.HttpConfig;
+import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 
 import org.junit.jupiter.api.Test;
@@ -205,5 +207,107 @@ class SeatunnelApplicationConfigTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> SeatunnelApplicationConfig.configure(config, "app", "", 1));
+    }
+
+    @Test
+    void configuresMasterWithoutMutatingDefaultsWhileWorkerDisablesHttp() {
+        Map<String, String> enabledOptions = new HashMap<>();
+        enabledOptions.put("application.master.port", "5901");
+        enabledOptions.put("application.worker.slots", "4");
+        enabledOptions.put("application.master.http-port", "18080");
+        ApplicationSpecification enabledSpec =
+                SeatunnelApplicationConfig.parse("source {}", enabledOptions);
+
+        SeaTunnelConfig freshMaster = new SeaTunnelConfig();
+        SeatunnelApplicationConfig.configureMaster(freshMaster, "unique-application", enabledSpec);
+        assertEquals("unique-application", freshMaster.getHazelcastConfig().getClusterName());
+        assertEquals(
+                EngineConfig.ClusterRole.MASTER, freshMaster.getEngineConfig().getClusterRole());
+        assertEquals(4, freshMaster.getEngineConfig().getSlotServiceConfig().getSlotNum());
+        assertTrue(freshMaster.getEngineConfig().getCheckpointConfig().isRetainAfterJobCancelled());
+        assertEquals(5901, freshMaster.getHazelcastConfig().getNetworkConfig().getPort());
+        assertFalse(freshMaster.getHazelcastConfig().getNetworkConfig().isPortAutoIncrement());
+        assertTrue(freshMaster.getEngineConfig().getHttpConfig().isEnabled());
+        assertEquals(18080, freshMaster.getEngineConfig().getHttpConfig().getPort());
+        assertFalse(freshMaster.getEngineConfig().getHttpConfig().isEnableDynamicPort());
+        assertFalse(ServerConfigOptions.MasterServerConfigOptions.HTTP.defaultValue().isEnabled());
+        assertEquals(
+                8080, ServerConfigOptions.MasterServerConfigOptions.HTTP.defaultValue().getPort());
+
+        SeaTunnelConfig yamlMaster = new SeaTunnelConfig();
+        HttpConfig yamlHttp = new HttpConfig();
+        yamlHttp.setEnabled(false);
+        yamlHttp.setPort(8080);
+        yamlHttp.setEnableDynamicPort(true);
+        yamlHttp.setPortRange(50);
+        yamlHttp.setContextPath("/st");
+        yamlHttp.setEnableHttps(true);
+        yamlHttp.setHttpsPort(8443);
+        yamlHttp.setKeyStorePath("/tmp/ks");
+        yamlHttp.setKeyStorePassword("ksp");
+        yamlHttp.setKeyManagerPassword("kmp");
+        yamlHttp.setTrustStorePath("/tmp/ts");
+        yamlHttp.setTrustStorePassword("tsp");
+        yamlHttp.setEnableBasicAuth(true);
+        yamlHttp.setBasicAuthUsername("admin");
+        yamlHttp.setBasicAuthPassword("secret");
+        yamlHttp.setUploadMaxFileSizeMb(20);
+        yamlHttp.setUploadMaxRequestSizeMb(30);
+        yamlHttp.setLogResponseMaxSizeMb(128);
+        yamlMaster.getEngineConfig().setHttpConfig(yamlHttp);
+
+        SeatunnelApplicationConfig.configureMaster(yamlMaster, "unique-application", enabledSpec);
+        HttpConfig configuredMasterHttp = yamlMaster.getEngineConfig().getHttpConfig();
+        assertTrue(configuredMasterHttp.isEnabled());
+        assertEquals(18080, configuredMasterHttp.getPort());
+        assertFalse(configuredMasterHttp.isEnableDynamicPort());
+        assertEquals(50, configuredMasterHttp.getPortRange());
+        assertEquals("/st", configuredMasterHttp.getContextPath());
+        assertFalse(configuredMasterHttp.isEnableHttps());
+        assertEquals(8443, configuredMasterHttp.getHttpsPort());
+        assertEquals("/tmp/ks", configuredMasterHttp.getKeyStorePath());
+        assertEquals("ksp", configuredMasterHttp.getKeyStorePassword());
+        assertEquals("kmp", configuredMasterHttp.getKeyManagerPassword());
+        assertEquals("/tmp/ts", configuredMasterHttp.getTrustStorePath());
+        assertEquals("tsp", configuredMasterHttp.getTrustStorePassword());
+        assertTrue(configuredMasterHttp.isEnableBasicAuth());
+        assertEquals("admin", configuredMasterHttp.getBasicAuthUsername());
+        assertEquals("secret", configuredMasterHttp.getBasicAuthPassword());
+        assertEquals(20, configuredMasterHttp.getUploadMaxFileSizeMb());
+        assertEquals(30, configuredMasterHttp.getUploadMaxRequestSizeMb());
+        assertEquals(128, configuredMasterHttp.getLogResponseMaxSizeMb());
+
+        ApplicationSpecification disabledSpec =
+                SeatunnelApplicationConfig.parse("source {}", new HashMap<>());
+        SeaTunnelConfig disabledMaster = new SeaTunnelConfig();
+        HttpConfig enabledInYaml = new HttpConfig();
+        enabledInYaml.setEnabled(true);
+        enabledInYaml.setEnableHttps(true);
+        enabledInYaml.setHttpsPort(8443);
+        disabledMaster.getEngineConfig().setHttpConfig(enabledInYaml);
+        SeatunnelApplicationConfig.configureMaster(
+                disabledMaster, "unique-application", disabledSpec);
+        assertFalse(disabledMaster.getEngineConfig().getHttpConfig().isEnabled());
+        assertFalse(disabledMaster.getEngineConfig().getHttpConfig().isEnableHttps());
+        assertEquals(8443, disabledMaster.getEngineConfig().getHttpConfig().getHttpsPort());
+
+        SeaTunnelConfig directMaster = new SeaTunnelConfig();
+        HttpConfig directMasterHttp = new HttpConfig();
+        directMasterHttp.setEnabled(true);
+        directMasterHttp.setEnableHttps(true);
+        directMaster.getEngineConfig().setHttpConfig(directMasterHttp);
+        SeatunnelApplicationConfig.configure(directMaster, "unique-application", null, 2);
+        assertFalse(directMaster.getEngineConfig().getHttpConfig().isEnabled());
+        assertFalse(directMaster.getEngineConfig().getHttpConfig().isEnableHttps());
+
+        SeaTunnelConfig worker = new SeaTunnelConfig();
+        HttpConfig workerHttp = new HttpConfig();
+        workerHttp.setEnabled(true);
+        workerHttp.setEnableHttps(true);
+        workerHttp.setPort(18080);
+        worker.getEngineConfig().setHttpConfig(workerHttp);
+        SeatunnelApplicationConfig.configure(worker, "unique-application", "master:5801", 3);
+        assertFalse(worker.getEngineConfig().getHttpConfig().isEnabled());
+        assertFalse(worker.getEngineConfig().getHttpConfig().isEnableHttps());
     }
 }

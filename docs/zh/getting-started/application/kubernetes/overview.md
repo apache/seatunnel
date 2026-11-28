@@ -41,7 +41,7 @@ Master 或任意 Worker 丢失都会使当前 Job 失败。系统不会自动补
 
 :::note
 本版本不支持：Master 高可用切换、Worker 自动补建或弹性伸缩、任意 Pod template、
-affinity/PriorityClass、Kerberos、REST/HTTPS。失败的 application 可用 `application.restore-job-id`
+affinity/PriorityClass、Kerberos 和 HTTPS。失败的 application 可用 `application.restore-job-id`
 从最近的持久化 checkpoint 恢复。
 :::
 
