@@ -129,11 +129,21 @@ public class HudiRecordWriter implements Serializable {
     }
 
     public synchronized void flush() {
+        checkFlushException();
+        try {
+            flushBufferedRecords();
+        } catch (RuntimeException e) {
+            // A failed/interrupted write may already have committed. Teardown must not replay it.
+            flushException = e;
+            throw e;
+        }
+    }
+
+    private void flushBufferedRecords() {
         if (batchCount == 0) {
             log.debug("No data needs to be refreshed, waiting for incoming data.");
             return;
         }
-        checkFlushException();
         Boolean preChangeFlag = null;
         Set<Map.Entry<HoodieKey, Pair<Boolean, HoodieRecord<HoodieAvroPayload>>>> entries =
                 buffer.entrySet();
@@ -165,6 +175,14 @@ public class HudiRecordWriter implements Serializable {
     }
 
     private void executeWrite() {
+        clientProvider.execute(
+                () -> {
+                    executeWriteUnderIdentity();
+                    return null;
+                });
+    }
+
+    private void executeWriteUnderIdentity() {
         HoodieJavaWriteClient<HoodieAvroPayload> writeClient = clientProvider.getOrCreateClient();
         String writeInstantTime = writeClient.startCommit();
         // write records
@@ -187,8 +205,13 @@ public class HudiRecordWriter implements Serializable {
     }
 
     private void executeDelete() {
-        HoodieJavaWriteClient<HoodieAvroPayload> writeClient = clientProvider.getOrCreateClient();
-        writeClient.delete(deleteRecordKeys, writeClient.startCommit());
+        clientProvider.execute(
+                () -> {
+                    HoodieJavaWriteClient<HoodieAvroPayload> writeClient =
+                            clientProvider.getOrCreateClient();
+                    writeClient.delete(deleteRecordKeys, writeClient.startCommit());
+                    return null;
+                });
         deleteRecordKeys.clear();
     }
 

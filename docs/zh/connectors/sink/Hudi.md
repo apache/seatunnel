@@ -35,6 +35,9 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 |----------------------------|--------|----------|------------------------------|---------------------------------------------------------------------------------|
 | table_dfs_path             | string | 是        | -                            | Hudi 表数据和元数据的根路径。 |
 | conf_files_path            | string | 否        | -                            | HDFS 客户端配置文件的本地路径，多个路径用分号分隔。 |
+| kerberos_principal         | string | 否        | -                            | Kerberos 身份，须与 kerberos_keytab_path 一起设置。 |
+| kerberos_keytab_path       | string | 否        | -                            | catalog 和各 writer 进程可读取的本地 keytab 路径。 |
+| krb5_path                  | string | 否        | -                            | 可选的本地 Kerberos 配置文件，会修改 JVM 全局配置。 |
 | table_list                 | Array  | 否        | -                            | 多表作业中每张表的配置。 |
 | schema_save_mode           | enum   | 否        | CREATE_SCHEMA_WHEN_NOT_EXIST | 作业启动前如何处理目标 schema。 |
 | data_save_mode             | enum   | 否        | APPEND_DATA                  | 作业启动前如何处理已存在的表数据。 |
@@ -66,6 +69,43 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 注意：写入单表时，可以把 `table_list` 中的表配置项平铺到外层。多表作业中，表级配置需放在各自的 `table_list` 条目内；`table_dfs_path`、`conf_files_path`、`schema_save_mode` 和 `data_save_mode` 保持在 sink 层级。
 
 `record_key_fields` 在 `UPSERT` 模式下必填（启动时校验），在 `BULK_INSERT` 模式下也必填（当前未校验——缺少该配置会在写入时抛出 `NullPointerException`，而不是配置期错误）。对于 CDC 输入，上游记录必须包含 `record_key_fields` 引用的字段；仅当需要 Hudi CDC 变更日志时才设置 `cdc_enabled = true`。
+
+### Kerberos 认证
+
+在 sink 层同时设置非空的 `kerberos_principal` 和 `kerberos_keytab_path`，
+多表作业也使用此层级。两者均未设置时保持原有认证行为；只设置其中一项或设置空白值会报错。
+JDBC 风格的 `use.kerberos`、`kerberos.principal`、`kerberos.principal.file`
+不是 Hudi 配置项。
+
+登录和票据续期失败会报告为认证错误。Catalog 操作保留缺库、缺表、对象已存在等
+异常类型；其他认证后的 I/O 错误保留操作及异常类别，不保留可能含有凭据的原始消息或原因链。
+每个 catalog/write-client provider 独立持有身份及延迟创建的线程池。关闭前必须等待所有
+操作结束。等待线程被中断时，provider 会等已经接收的操作结束后再报告中断；关闭时也会先等待操作和客户端清理完成，再释放文件系统和身份。失败或中断的 writer 批次不会在关闭时重试。
+这些保证不会撤销已经生效的提交，取消也可能需要等待底层文件系统操作返回。请为部署配置合理的 HDFS 和网络超时；线程中断本身不是强制 I/O 截止时间。
+
+`conf_files_path` 加载的配置必须包含 `hadoop.security.authentication=kerberos`
+以及目标 HDFS 配置。加载 XML 本身不会登录；连接器会通过 keytab 登录，无需在 worker
+启动前额外执行 keytab 登录。执行保存模式/catalog 初始化的进程及每个 writer worker
+都必须能读取 keytab 和 XML 文件。不要将 keytab 内容写入作业配置。
+
+```hocon
+kerberos_principal = "seatunnel@EXAMPLE.COM"
+kerberos_keytab_path = "/etc/security/keytabs/seatunnel.keytab"
+krb5_path = "/etc/krb5.conf"
+conf_files_path = "/etc/hadoop/core-site.xml;/etc/hadoop/hdfs-site.xml"
+```
+
+每个 catalog 和普通/缓存写入客户端分别持有登录返回的 UGI，文件系统及客户端初始化、
+写入、删除、自动提交和清理均使用该身份，操作前检查票据续期。认证后的 Java 引擎并行流
+使用隔离的身份线程池，避免进入已初始化的公共线程池后丢失身份。连接器不会替换 Hadoop
+全局登录用户。Hadoop 安全模式初始化和 `java.security.krb5.conf` 仍是 JVM 全局配置，
+共享 worker 的作业应使用兼容的 Hadoop 安全及 realm 配置。
+
+无凭据测试覆盖身份传递和错误/清理路径，不代表已验证真实 KDC 登录或票据过期。
+部署验证时，应在未预登录的进程中对开启 Kerberos 的 HDFS 分别执行 INSERT、
+UPSERT/删除 CDC 作业，再覆盖多表模式、保存模式的 catalog 建表和作业关闭。
+长时间运行流作业以验证票据续期，并确认并发的另一身份不受影响；还应检查 keytab
+缺失/不可读及 KDC 不可达时的失败行为，确保日志不泄露凭据。
 
 ### table_name [string]
 

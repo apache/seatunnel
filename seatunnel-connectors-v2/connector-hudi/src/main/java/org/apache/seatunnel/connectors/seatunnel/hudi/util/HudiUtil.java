@@ -140,6 +140,18 @@ public class HudiUtil {
 
     public static HoodieJavaWriteClient<HoodieAvroPayload> createHoodieJavaWriteClient(
             HudiSinkConfig hudiSinkConfig, SeaTunnelRowType seaTunnelRowType, String tableName) {
+        return createHoodieJavaWriteClient(
+                hudiSinkConfig,
+                seaTunnelRowType,
+                tableName,
+                getConfiguration(hudiSinkConfig.getConfFilesPath()));
+    }
+
+    public static HoodieJavaWriteClient<HoodieAvroPayload> createHoodieJavaWriteClient(
+            HudiSinkConfig hudiSinkConfig,
+            SeaTunnelRowType seaTunnelRowType,
+            String tableName,
+            Configuration hadoopConf) {
         List<HudiTableConfig> tableList = hudiSinkConfig.getTableList();
         Optional<HudiTableConfig> hudiTableConfig =
                 tableList.stream()
@@ -152,8 +164,6 @@ public class HudiUtil {
                             + tableName
                             + " is not found in the table list of hudi sink config.");
         }
-        Configuration hadoopConf = getConfiguration(hudiSinkConfig.getConfFilesPath());
-
         HudiTableConfig hudiTable = hudiTableConfig.get();
         HoodieWriteConfig.Builder writeConfigBuilder = HoodieWriteConfig.newBuilder();
         // build index config

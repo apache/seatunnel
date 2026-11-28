@@ -39,6 +39,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.seatunnel.e2e.common.container.AbstractTestContainer.HOST_VOLUME_MOUNT_PATH;
@@ -55,6 +57,29 @@ public class HudiIT extends TestSuiteBase {
     private static final String DEFAULT_DATABASE = "default";
     private static final String TABLE_NAME = "st_test";
     private static final String TABLE_PATH = HOST_VOLUME_MOUNT_PATH + "/hudi/";
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {TestContainerId.SPARK_2_4},
+            type = {EngineType.FLINK},
+            disabledReason = "FLINK does not support the local Hudi catalog.")
+    public void testRejectKerberosCredentialsWithoutSecurityConfiguration(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult result =
+                container.executeJob("/hudi/fake_to_hudi_invalid_kerberos.conf");
+        String output = result.getStdout() + result.getStderr();
+        Assertions.assertNotEquals(0, result.getExitCode(), output);
+        Assertions.assertTrue(output.contains("hadoop.security.authentication=kerberos"), output);
+        Assertions.assertFalse(
+                Files.exists(
+                        Paths.get(
+                                HOST_VOLUME_MOUNT_PATH,
+                                "hudi_kerberos_negative",
+                                "default",
+                                "kerberos_negative",
+                                ".hoodie")),
+                "Rejected authentication must not leave a Hudi table or commit timeline");
+    }
 
     @TestTemplate
     @DisabledOnContainer(

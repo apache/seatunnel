@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
 import lombok.Builder;
 import lombok.Data;
+import lombok.ToString;
 
 import java.io.Serializable;
 import java.util.List;
@@ -40,6 +41,12 @@ public class HudiSinkConfig implements Serializable {
 
     private String confFilesPath;
 
+    @ToString.Exclude private String kerberosPrincipal;
+
+    @ToString.Exclude private String kerberosKeytabPath;
+
+    @ToString.Exclude private String krb5Path;
+
     private SchemaSaveMode schemaSaveMode;
 
     private DataSaveMode dataSaveMode;
@@ -53,6 +60,11 @@ public class HudiSinkConfig implements Serializable {
 
         builder.tableDfsPath(config.get(HudiSinkOptions.TABLE_DFS_PATH));
         builder.confFilesPath(config.get(HudiSinkOptions.CONF_FILES_PATH));
+        builder.kerberosPrincipal(
+                config.getOptional(HudiSinkOptions.KERBEROS_PRINCIPAL).orElse(null));
+        builder.kerberosKeytabPath(
+                config.getOptional(HudiSinkOptions.KERBEROS_KEYTAB_PATH).orElse(null));
+        builder.krb5Path(config.getOptional(HudiSinkOptions.KRB5_PATH).orElse(null));
         builder.tableList(HudiTableConfig.of(config));
 
         builder.schemaSaveMode(

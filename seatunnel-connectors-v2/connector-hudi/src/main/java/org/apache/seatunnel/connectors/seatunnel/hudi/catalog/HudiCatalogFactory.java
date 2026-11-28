@@ -37,7 +37,13 @@ public class HudiCatalogFactory implements CatalogFactory {
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
         Configuration hadoopConf = getConfiguration(options.get(HudiSinkOptions.CONF_FILES_PATH));
         String tableDfsPath = options.get(HudiSinkOptions.TABLE_DFS_PATH);
-        return new HudiCatalog(catalogName, hadoopConf, tableDfsPath);
+        return new HudiCatalog(
+                catalogName,
+                hadoopConf,
+                tableDfsPath,
+                options.getOptional(HudiSinkOptions.KERBEROS_PRINCIPAL).orElse(null),
+                options.getOptional(HudiSinkOptions.KERBEROS_KEYTAB_PATH).orElse(null),
+                options.getOptional(HudiSinkOptions.KRB5_PATH).orElse(null));
     }
 
     @Override
@@ -49,7 +55,11 @@ public class HudiCatalogFactory implements CatalogFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(HudiSinkOptions.TABLE_DFS_PATH)
-                .optional(HudiSinkOptions.CONF_FILES_PATH)
+                .optional(
+                        HudiSinkOptions.CONF_FILES_PATH,
+                        HudiSinkOptions.KERBEROS_PRINCIPAL,
+                        HudiSinkOptions.KERBEROS_KEYTAB_PATH,
+                        HudiSinkOptions.KRB5_PATH)
                 .build();
     }
 }
