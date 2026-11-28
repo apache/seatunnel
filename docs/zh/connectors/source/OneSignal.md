@@ -15,7 +15,7 @@ OneSignal 源连接器用于从 OneSignal 的 REST API 读取数据。它基于 
 - [x] [批](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [ ] [并行性](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义split](../../introduction/concepts/connector-v2-features.md)
 
@@ -35,12 +35,12 @@ OneSignal 源连接器用于从 OneSignal 的 REST API 读取数据。它基于 
 | json_field                  | Config  | 否  | -     | 字段级 JSONPath 映射，与 `schema` 配合使用。                                                                |
 | content_field               | String  | 否  | -     | 在 `schema` 解析之前先通过 JSONPath 抽取一段 JSON，例如 `$.players[*]` 可展开列表响应。                                  |
 | pageing                     | Config  | 否  | -     | HTTP 分页配置，继承自 HTTP 源连接器。对 OneSignal 当前不生效：连接器创建的读取器不带分页能力，任务每次请求只读取单次响应。                                  |
-| poll_interval_millis        | int     | 否  | -     | 流式任务下两次请求之间的间隔（毫秒）。批模式下连接器读取一次后即结束。                                                            |
-| retry                       | int     | 否  | -     | HTTP 请求返回 `IOException` 时的最大重试次数。                                                              |
-| retry_backoff_multiplier_ms | int     | 否  | 100   | HTTP 请求失败时的重试退避倍数（毫秒）。                                                                          |
-| retry_backoff_max_ms        | int     | 否  | 10000 | HTTP 请求失败时的最大重试退避时间（毫秒）。                                                                        |
-| enable_multi_lines          | boolean | 否  | false | 是否启用多行模式，将响应体中按换行分隔的多个 JSON 对象视为独立记录。                                                            |
-| json_filed_missed_return_null | boolean | 否 | false | 配置的 JSON 字段缺失时是否返回 `null`，否则报错。                                                                 |
+| poll_interval_millis        | Int     | 否  | -     | 流式任务下两次请求之间的间隔（毫秒）。批模式下连接器读取一次后即结束。                                                            |
+| retry                       | Int     | 否  | -     | HTTP 请求返回 `IOException` 时的最大重试次数。                                                              |
+| retry_backoff_multiplier_ms | Int     | 否  | 100   | HTTP 请求失败时的重试退避倍数（毫秒）。                                                                          |
+| retry_backoff_max_ms        | Int     | 否  | 10000 | HTTP 请求失败时的最大重试退避时间（毫秒）。                                                                        |
+| enable_multi_lines          | Boolean | 否  | false | 是否启用多行模式，将响应体中按换行分隔的多个 JSON 对象视为独立记录。                                                            |
+| json_filed_missed_return_null | Boolean | 否 | false | 配置的 JSON 字段缺失时是否返回 `null`，否则报错。                                                                 |
 | common-options              | config  | 否  | -     | 源插件通用参数，详见 [源通用选项](../common-options/source-common-options.md)。                                       |
 
 ## 使用提示
@@ -125,6 +125,10 @@ source {
   }
 }
 ```
+
+> 注意：HTTP source 的 `pageing` 选项每次请求只会把页码加 1，无法表达步长。OneSignal 的 `offset`
+是记录偏移量而不是页码——与 `pageing` 组合会请求到相互重叠的窗口（offset 0、1、2……），因此上面的示例
+改为单次请求。
 
 ### 通过 JSONPath 抽取字段
 

@@ -19,7 +19,7 @@ more.
 | prompt                     | string | yes                                   |               |
 | inference_columns          | list   | no                                    |               |
 | model                      | string | yes                                   |               |
-| api_key                    | string | yes      |             |
+| api_key                    | string | conditional (required for OPENAI, DOUBAO, MICROSOFT) |             |
 | api_path                   | string | no                                    |               |
 | custom_config              | map    | no                                    |               |
 | custom_response_parse      | string | no                                    |               |
@@ -30,6 +30,8 @@ more.
 
 The model provider to use. The available options are:
 OPENAI, DOUBAO, DEEPSEEK, KIMIAI, MICROSOFT, ZHIPU, CUSTOM
+
+> Note: QIANFAN is accepted by the option enum but the LLM transform does not implement it and fails at initialization; it is only supported by the embedding transform.
 
 > tips: If you use Microsoft, please make sure api_path cannot be empty
 ### output_data_type

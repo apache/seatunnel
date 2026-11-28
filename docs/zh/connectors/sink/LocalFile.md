@@ -90,7 +90,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | encoding                              | string  | 否    | "UTF-8"                                    | 仅在 file_format_type 为 json,text,csv,xml 时使用                    |
 | schema_save_mode                      | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方式                                                       |
 | data_save_mode                        | string  | 否    | APPEND_DATA                                | 现有数据处理方式                                                       |
-| merge_update_event                    | boolean | 否    | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json.      |
+| merge_update_event                    | boolean | 否    | false                                      | 仅当 file_format_type 为 canal_json、debezium_json 或 maxwell_json 时使用。设为 true 时，UPDATE_AFTER 和 UPDATE_BEFORE 事件会合并为 UPDATE 事件数据 |
 | schema_evolution_enabled              | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
 
 ### path [string]
@@ -152,6 +152,8 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
 基于选定字段进行数据分区。
 
+分区字段的值为 `NULL` 时，会以字面量 `null` 写入分区目录（例如 `c_null=null`），而不是作为缺失值处理。
+
 ### partition_dir_expression [string]
 
 仅在 `have_partition` 为 `true` 时使用。
@@ -191,8 +193,10 @@ import ChangeLog from '../changelog/connector-file-local.md';
 - txt: `lzo` `none`
 - json: `lzo` `none`
 - csv: `lzo` `none`
-- orc: `lzo` `snappy` `lz4` `zlib` `none`
+- orc: `lzo` `snappy` `lz4` `zlib` `zstd` `none`
 - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
+
+ORC 支持 `compress_codec = "zstd"`。共享文件连接器的 ORC 依赖由 1.5.6 升级为 1.8.7，ZSTD 输出会实际采用 ZSTD 压缩。下游读取器必须支持 ORC ZSTD；保留 ORC 文件版本 0.12 并不能让旧读取器支持该压缩格式。启用前请先验证或升级下游读取器，或继续使用双方均支持的 `snappy`、`zlib` 等压缩格式。默认值仍为 `none`。
 
 提示：excel 类型不支持任何压缩格式
 
@@ -212,7 +216,7 @@ Sink 插件的常见参数，请参阅 [Sink 常见选项](../common-options/sin
 
 工作簿的表名。
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 当文件格式为 CSV 时，CSV 的字符串引号模式。
 

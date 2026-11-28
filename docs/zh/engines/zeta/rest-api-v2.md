@@ -85,6 +85,8 @@ seatunnel:
 
 ## API参考
 
+[REST v2 只读接口的 OpenAPI 3.1 规范](openapi-v2.yaml)目前仅覆盖 `GET /overview` 和 `GET /resource/workers`。下文的其他接口仍有文档，但尚未纳入机器可读规范。该规范与 Servlet 路由注册及响应测试一起维护。使用生成的客户端时，请按实际地址、端口及可选的上下文路径设置基础 URL。是否使用 Basic 认证取决于服务端配置；向非本机发送凭据时请使用 HTTPS。
+
 ### 获取 Connector 的 OptionRule
 
 <details>
@@ -220,6 +222,23 @@ seatunnel:
 - `requiredOptions[].ruleType` 可能是 `ABSOLUTELY_REQUIRED`、`EXCLUSIVE`、`BUNDLED` 或 `CONDITIONAL`。
 - `optionRule.conditionRules` 会递归返回嵌套条件规则；当 connector 未定义嵌套规则时，该字段返回空数组。
 - 对于条件规则，会同时返回 `expression` 和 `expressionTree`，便于 Web 做动态表单渲染。
+- 条件必填项和嵌套规则的每个判断条件位于 `expressionTree.condition`，表达式节点通过 `next` 连接到下一项。下面是 `A OR B AND C` 的节选，求值顺序为 `A || (B && C)`。为便于查看，仅列出选项键和连接关系。
+
+  ```json
+  {
+    "expressionTree": {
+      "condition": {"option": {"key": "a"}},
+      "operator": "OR",
+      "next": {
+        "condition": {"option": {"key": "b"}},
+        "operator": "AND",
+        "next": {"condition": {"option": {"key": "c"}}}
+      }
+    }
+  }
+  ```
+
+- 独立的 `valueConstraints[].conditionTree` 由条件节点本身携带 `operator` 和 `next`。CLI 采用相同的优先级。[CLI 元数据导出](../../architecture/configuration-and-option-system.md#导出连接器元数据)
 - `optionRule.valueConstraints` 描述值级别的校验规则，包括数值范围、字符串模式匹配以及跨字段比较等。每个条目同时提供人类可读的 `expression` 字符串和便于程序处理的结构化 `conditionTree`。当连接器未定义值约束时，该数组为空。
 - 在 `conditionTree` 中，`compareOperator` 字段在 `EQUAL` 场景下为 `null`，其他情况下会返回运行时规则暴露的操作符符号，例如 `>=`、`is not blank` 或 `extension`。`compareOption` 字段仅在跨字段比较场景下有值。
 - `conditionOperator` 是稳定的操作符标识，可选值包括 `EQUAL`、`GREATER_OR_EQUAL`、`NOT_BLANK`、`FIELD_LESS_THAN`、`EXTENSION` 等；`conditionOperatorCategory` 是操作符的分类，可选值包括 `NUMERIC`、`STRING`、`COLLECTION`、`EQUALITY`、`EXTENSION` 等。
@@ -244,7 +263,7 @@ seatunnel:
 
 ```json
 {
-    "projectVersion":"3.1.0-SNAPSHOT",
+    "projectVersion":"3.1.1-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
@@ -258,7 +277,7 @@ seatunnel:
 ```
 
 **注意:**
-- 当你使用`dynamic-slot`时, 返回结果中的`totalSlot`和`unassignedSlot`将始终为0. 设置为固定的slot值后, 将正确返回集群中总共的slot数量以及未分配的slot数量.
+- 当你使用`dynamic-slot`时, 返回结果中的`unassignedSlot`将始终为0, 因为动态slot是按需创建的, 不会预先注册; `totalSlot`反映的是当前已被任务占用的slot数量. 设置`dynamic-slot: false`使用固定slot后, 将正确返回集群中总共的slot数量以及未分配的slot数量.
 - 当添加标签过滤后, `workers`, `totalSlot`, `unassignedSlot`将返回满足条件的节点的相关指标. 注意`runningJobs`等job相关指标为集群级别结果, 无法根据标签进行过滤.
 
 </details>
@@ -348,6 +367,7 @@ seatunnel:
     "jobName": "",
     "jobStatus": "",
     "createTime": "",
+    "startTime": "",
     "jobDag": {
       "jobId": "",
       "envOptions": [],
@@ -651,6 +671,10 @@ seatunnel:
         "pipelineStatus": "RUNNING",
         "restoreCount": 7,
         "maxRestoreCount": 100,
+        "restoreCauses": [
+          "restore 6: org.apache.seatunnel.common.exception.SeaTunnelRuntimeException: ErrorCode:[JDBC-05] ... Connection refused",
+          "restore 7: org.apache.seatunnel.common.exception.SeaTunnelRuntimeException: ErrorCode:[JDBC-05] ... Connection refused"
+        ],
         "stateTimestamps": {
           "INITIALIZING": 1755000000000,
           "CREATED": 1755000000200,
@@ -665,10 +689,12 @@ seatunnel:
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` 字段总会返回.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
-`finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
+`finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCELED
 `diagnostics` 字段在Job运行中且能从Master节点读取到诊断信息时返回。它属于辅助信息，读取失败时该字段会被省略，不会导致请求失败。该字段只在本接口返回，`/running-jobs` 不返回：为列表中的每个Job收集诊断信息会额外增加一次到Master的请求。
+
+`diagnostics` 读取的是 Master 内存中的 Job 状态，因此与 `restoreCount` 一样，它描述的是当前这个 Master 对该 Job 的视图，而不是完整历史。Master 切换后，恢复计数与 `restoreCauses` 会从被恢复的 Job 重新开始，上一个 Master 记录的原因不会延续。
 
 #### 指标字段说明
 
@@ -701,6 +727,7 @@ seatunnel:
 | pipelines[].pipelineStatus | Pipeline 当前状态 |
 | pipelines[].restoreCount | 自 Job 提交以来该 Pipeline 被恢复（重启）的次数。若 `jobStatus` 一直是 `RUNNING` 而该值不断增长，说明处于崩溃重启循环中 |
 | pipelines[].maxRestoreCount | 该 Pipeline 的恢复次数上限，来自 `job.retry.times` env 配置 |
+| pipelines[].restoreCauses | 该 Pipeline 此前每一次运行结束的原因，按时间从旧到新，每次恢复一条。引擎只保留当前这次尝试的错误，因此若没有该字段，仅凭 `restoreCount` 只能发现崩溃重启循环、无法知道原因。每条都会截断，且只保留最近 16 次恢复。未记录到错误的那次恢复也会列出，因为「因未知原因重启」与「因 Sink 拒绝连接而重启」是两种不同的状态 |
 | pipelines[].stateTimestamps | Pipeline 进入各状态的时间戳（毫秒）。发生恢复后，新一轮的时间戳会覆盖上一轮 |
 | totalPipelineRestoreCount | Job 下所有 Pipeline 的 `restoreCount` 之和 |
 
@@ -774,7 +801,11 @@ seatunnel:
     "TableSinkWriteCount": {},
     "TableSinkWriteQPS": {},
     "TableSinkWriteBytes": {},
-    "TableSinkWriteBytesPerSeconds": {}
+    "TableSinkWriteBytesPerSeconds": {},
+    "TableSinkCommittedCount": {},
+    "TableSinkCommittedQPS": {},
+    "TableSinkCommittedBytes": {},
+    "TableSinkCommittedBytesPerSeconds": {}
   },
   "finishTime": "",
   "errorMsg": null,
@@ -786,9 +817,9 @@ seatunnel:
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` 字段总会返回.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
-`finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
+`finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCELED
 
 当我们查询不到这个Job时，返回结果只包含请求的 `jobId`：
 
@@ -831,6 +862,7 @@ seatunnel:
     "jobStatus": "",
     "errorMsg": null,
     "createTime": "",
+    "startTime": "",
     "finishTime": "",
     "jobDag": {
       "jobId": "",
@@ -936,8 +968,8 @@ seatunnel:
 > | jobId                | optional | string | job id                            |
 > | jobName              | optional | string | job name                          |
 > | isStartWithSavePoint | optional | string | if job is started with save point |
-> | restoreMode          | optional | string | 作业恢复的数据来源：`CHECKPOINT` 或 `SAVEPOINT`，需与 `restoreSourceJobId` 搭配使用。详见 [作业恢复与重启](rest-api-job-lifecycle.md#6-作业恢复与重启)。 |
-> | restoreSourceJobId   | optional | string | 设置了 `restoreMode` 时，用于指定需要恢复的作业 ID。若只设置了 `isStartWithSavePoint`（未设置 `restoreMode`），则回退使用 `jobId`。 |
+> | restoreMode          | optional | string | 作业恢复的数据来源：`CHECKPOINT` 或 `SAVEPOINT`。详见 [作业恢复与重启](rest-api-job-lifecycle.md#6-作业恢复与重启)。 |
+> | restoreSourceJobId   | optional | string | 要恢复的作业 ID，使用 `CHECKPOINT` 时必填。使用 `SAVEPOINT` 时，省略此参数则使用 `jobId`。 |
 > | format               | optional | string    | 配置风格,支持json、hocon 和 sql,默认 json   |
 
 **注意:** REST API 不支持 dry-run 功能。该功能仅通过 CLI 提供。
@@ -945,6 +977,8 @@ seatunnel:
 #### 请求体
 
 你可以选择用json、hocon或者sql的方式来传递请求体。
+JSON 请求中，每个键都会按 SeaTunnel 配置路径表达式解析：`a->b` 会生成嵌套配置，而 `job.mode` 中的点号不是路径分隔符。无法解析为路径表达式的键（例如正则字段名 `^t_nova_.*$`，或包含 `$`、`:`、`${...}` 等保留字符的键）会作为字面键保留，而不会导致请求失败；能够解析的键仍遵循原有语义：引号会被去除，未加引号的首尾空白会被裁剪。批量提交也遵循同一规则。
+HOCON 请求体会先由 HOCON 解析器解析，因此包含保留字符的键必须在请求体中加引号：应写 `"$systemId" = "string"`，而不是 `$systemId = "string"`。HOCON 中的引号不会覆盖解密时的路径语义。路径解析器拒绝的键会保持为字面键；`a->b` 等合法表达式仍按路径解析。
 Json请求示例：
 ```json
 {
@@ -1072,8 +1106,8 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 > | jobId                | optional | string | job id                            |
 > | jobName              | optional | string | job name                          |
 > | isStartWithSavePoint | optional | string | if job is started with save point |
-> | restoreMode          | optional | string | 作业恢复的数据来源：`CHECKPOINT` 或 `SAVEPOINT`，需与 `restoreSourceJobId` 搭配使用。详见 [作业恢复与重启](rest-api-job-lifecycle.md#6-作业恢复与重启)。 |
-> | restoreSourceJobId   | optional | string | 设置了 `restoreMode` 时，用于指定需要恢复的作业 ID。若只设置了 `isStartWithSavePoint`（未设置 `restoreMode`），则回退使用 `jobId`。 |
+> | restoreMode          | optional | string | 作业恢复的数据来源：`CHECKPOINT` 或 `SAVEPOINT`。详见 [作业恢复与重启](rest-api-job-lifecycle.md#6-作业恢复与重启)。 |
+> | restoreSourceJobId   | optional | string | 要恢复的作业 ID，使用 `CHECKPOINT` 时必填。使用 `SAVEPOINT` 时，省略此参数则使用 `jobId`。 |
 
 #### 请求体
 上传文件key的名称是config_file，支持以下格式：
@@ -1848,7 +1882,6 @@ Checkpoint 信息字段：
   }
 ]
 ```
-
 </details>
 
 #### 字段说明

@@ -17,8 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 
 public class PostgresDialectTest {
 
@@ -53,5 +63,28 @@ public class PostgresDialectTest {
         Assertions.assertEquals(
                 doNothingSql,
                 "INSERT INTO \"seatunnel\".\"role\" (\"id\", \"type\", \"role_name\", \"description\", \"create_time\", \"update_time\") VALUES (:id, :type, :role_name, :description, :create_time, :update_time) ON CONFLICT (\"id\", \"type\", \"role_name\", \"description\", \"create_time\", \"update_time\") DO NOTHING");
+    }
+
+    @Test
+    void testApproximateRowCntStatementCoversPartitionedTables() throws SQLException {
+        PostgresDialect dialect = new PostgresDialect();
+        JdbcSourceTable table =
+                JdbcSourceTable.builder().tablePath(TablePath.of("test.abc")).build();
+
+        Connection connection = Mockito.mock(Connection.class);
+        Statement statement = Mockito.mock(Statement.class);
+        ResultSet resultSet = Mockito.mock(ResultSet.class);
+        Mockito.when(connection.createStatement()).thenReturn(statement);
+        Mockito.when(statement.executeQuery(Mockito.anyString())).thenReturn(resultSet);
+        Mockito.when(resultSet.next()).thenReturn(true);
+        Mockito.when(resultSet.getLong(1)).thenReturn(42L);
+
+        Assertions.assertEquals(42L, dialect.approximateRowCntStatement(connection, table));
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        Mockito.verify(statement).executeQuery(sqlCaptor.capture());
+        Assertions.assertTrue(
+                sqlCaptor.getValue().contains("relkind IN ('r', 'p')"),
+                "The row count query must include partitioned tables: " + sqlCaptor.getValue());
     }
 }

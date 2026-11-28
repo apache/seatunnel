@@ -44,6 +44,10 @@ import ChangeLog from '../changelog/connector-typesense.md';
 
 Typesense 的访问地址，格式为 `host:port`，例如：`["typesense-01:8108"]`。配置多个节点时，每个 Writer 只持有一个客户端，不会把写入请求在节点之间负载均衡。
 
+### protocol [string]
+
+连接 Typesense 使用的协议。默认值为 `http`，Typesense Cloud 请使用 `https`。
+
 ### collection [string]
 
 要写入的 collection 名，例如：`seatunnel`。在多表作业中，所有表都会路由到同一个 collection；如果不同表要写入不同目标，请为每个目标 collection 单独配置一个 sink 块。
@@ -103,7 +107,11 @@ Typesense collection 创建时会使用上游 SeaTunnel 表结构。如果希望
 
 :::tip
 
-连接器使用 Typesense 的批量导入接口。`UPDATE` 和 `DELETE` 行类型不会被解释为 CDC 操作 —— 每条上游记录都会按生成的文档 `id` 被 upsert 到目标 collection。如果希望重复作业行为类似 upsert 而不是追加，可以把 `data_save_mode` 设为 `DROP_DATA`，并配置稳定的 `primary_keys`。
+连接器会按 CDC 行类型处理数据：`INSERT` 和 `UPDATE_AFTER` 记录会通过 Typesense 的批量导入接口按生成的文档 `id` upsert 到目标 collection，`UPDATE_BEFORE` 记录会被跳过，`DELETE` 记录会删除对应生成的 `id` 的文档。请配置 `primary_keys`，保证文档 `id` 在 CDC 事件间保持稳定。
+
+写入器会立即发送删除请求，先到达的 upsert 可能仍在批次中等待刷新。
+当 `max_batch_size > 1` 时，缓冲的 upsert 可能在同一 ID 被删除后重新创建该文档。
+将 `max_batch_size` 设置为 `1` 可保持同一个 sink 写入器内的事件顺序。
 
 :::
 

@@ -28,7 +28,7 @@ kinds. It buffers up to 64 points per writer before issuing an upsert batch.
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [x] [multimodal](../../introduction/concepts/connector-v2-features.md)
 
 ## Options

@@ -26,8 +26,7 @@ PostgreSQL CDC 连接器允许从 PostgreSQL 数据库读取快照数据和增�
 连接器在表发现阶段会按完整的 `catalog.schema.table` 标识去重，这些重复行会被忽略，任务可正常启动。
 
 当类型名未命中缓存且多个 schema 中存在同名类型时，未限定 schema 的类型名会解析为源连接的
-`search_path` 中可见的类型。此改动不影响已缓存的类型名，也不会将源类型的 schema 传递到下游的
-`ADD COLUMN` 语句。
+`search_path` 中可见的类型。此改动不影响已缓存的类型名。
 
 ## 支持的数据源信息
 
@@ -95,7 +94,7 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 
 |                      名称                   | 类型       | 必需 | 默认  | 描述                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 |-------------------------------------------|----------|------|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                       | String   | 是   | -        | JDBC 连接的 URL。参考案例：`jdbc:postgresql://localhost:5432/postgres_cdc?loggerLevel=OFF`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| url                                       | String   | 是   | -        | JDBC 连接的 URL。该值不能为空或仅包含空白字符。参考案例：`jdbc:postgresql://localhost:5432/postgres_cdc?loggerLevel=OFF`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | username                                  | String   | 是   | -        | 连接到数据库服务器时使用的数据库名称。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | password                                  | String   | 是   | -        | 连接到数据库服务器时使用的密码。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | database-names                            | List     | 否   | -        | 需要监控的数据库名称。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -107,9 +106,10 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | stop.mode                                 | Enum     | 否   | NEVER    | PostgreSQL CDC 消费者的可选停止模式。唯一有效的枚举值是 `never`：一旦进入增量阶段，数据源会持续读取 WAL 变更，不会自行停止。                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | snapshot.split.size                       | Integer  | 否   | 8096     | 表快照的拆分大小（行数），捕获的表在读取表快照时被拆分成多个拆分。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | snapshot.fetch.size                       | Integer  | 否   | 1024     | 读取表快照时每次轮询的最大获取大小。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| incremental.parallelism                   | Integer  | 否   | 1        | 增量（WAL）阶段并行读取器的数量。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | slot.name                                 | String   | 否   | seatunnel | PostgreSQL 逻辑解码槽名称。同一个 PostgreSQL 实例上如果有多个 CDC 任务，请为每个任务配置不同的 `slot.name`。                                                                                                                                                                                                                                                                                                                                                      |
 | decoding.plugin.name                      | String   | 否   | pgoutput | 安装在服务器上的 Postgres 逻辑解码插件的名称，支持的值有 decoderbufs、wal2json、wal2json_rds、wal2json_streaming、wal2json_rds_streaming 和 pgoutput。                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| server-time-zone                          | String   | 否   | -        | 数据库服务器中的会话时区。如果未设置，则使用 ZoneId.systemDefault() 来确定服务器时区。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| server-time-zone                          | String   | 否   | JVM 系统时区 | 数据库服务器中的会话时区。如果未设置，则使用 ZoneId.systemDefault() 来确定服务器时区。                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | connect.timeout.ms                        | Long     | 否   | 30000    | 连接器在尝试连接到数据库服务器后应等待的最大时间，以防超时。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | connect.max-retries                       | Integer  | 否   | 3        | 连接器应重试建立数据库服务器连接的最大重试次数。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | connection.pool.size                      | Integer  | 否   | 20       | JDBC 连接池大小。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -139,7 +139,7 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 
 env {
   # You can set engine configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
   checkpoint.interval = 5000
   read_limit.bytes_per_second=7000000
@@ -186,6 +186,15 @@ sink {
 PostgreSQL 不会把原始 `ALTER TABLE` SQL 文本写入逻辑复制流。使用 `pgoutput` 时，SeaTunnel 会从
 RELATION 消息中检测变化后的表结构，在后续行事件之前发出 `ADD COLUMN` 事件，并更新下游表结构。
 因此，执行 DDL 后该表必须再发生一条行变更，连接器才能感知 Schema 变化。
+
+新增列的类型为用户自定义的枚举、范围或多范围（multirange）类型时，类型名采用 PostgreSQL 在 DDL
+中的写法，即 `format_type(oid, NULL)` 的结果：需要加引号的名称保留引号（`"JobStatus"`、`"order"`），
+所在 schema 不在源连接 `search_path` 中的类型会带上 schema（`inv.mood`）。PostgreSQL Sink 会在
+`ALTER TABLE ... ADD` 中使用这个名称，因此 Sink 数据库中必须已存在该类型：名称带 schema 时须位于
+同名 schema 下，否则须能通过 Sink 连接的 `search_path` 找到。写入枚举值时，请在 Sink 的 `url` 中
+添加 `stringtype=unspecified`。默认情况下 Debezium 不会输出用户自定义范围类型列的值，因此该列会
+被添加，但值保持为 NULL。如果无法从 `pg_type` 读取列类型名，或某列的类型已不存在，作业会以错误 `POSTGRES-05`
+失败。复合类型、域（domain）类型以及用户自定义类型的数组仍使用不带引号和 schema 的类型名。
 
 如果 RELATION 消息包含 `ADD COLUMN` 之外的行 Schema 变更，作业会在处理新 Schema 的数据行之前
 失败。恢复同一 Checkpoint 时仍会再次遇到该变更；只有升级到支持该变更的连接器，或完成受控的
@@ -290,6 +299,8 @@ sink {
 
 `snapshot-only` 模式下，connector 完全跳过 WAL 流式读取；如果快照读取需要独立的复制槽，请配置 `slot.name`。
 
+`snapshot-only` 任务从 checkpoint 或 savepoint 恢复时，只读取 checkpoint 中记录的表：checkpoint 之后新建或新加入 `table-names` 的表不会被读取；如果 checkpoint 中仍有未读快照数据的某张表已不在配置中或已不存在，恢复会失败，报错中会列出这些表。只有数据库名、schema 名和表名（包括大小写）完全相同时，checkpoint 中的表才与配置的表匹配。恢复时在 `snapshot-only` 与其他启动模式之间切换同样会被拒绝。需要修改读取的表或启动模式时，请提交新作业。
+
 ### 读取没有主键的表
 
 根据源表能够提供的保证来选择合适的路径：
@@ -323,15 +334,20 @@ source {
 
 ## CDC 元数据字段
 
-PostgreSQL CDC 会提供以下元数据字段，可配合 `Metadata` 转换使用：
+PostgreSQL CDC 会提供以下元数据字段，可配合 `Metadata` 转换使用。
+
+字段名称区分大小写，必须与下表完全一致（例如写成 `Database` 而不是 `database`），否则作业会报“找不到元数据字段”的错误：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| database | STRING | 源数据库名称。 |
-| table | STRING | 源表名称。 |
-| rowKind | STRING | 变更类型，例如 insert、update 或 delete。 |
-| ts_ms | LONG | 源事件时间，单位为毫秒。 |
-| delay | LONG | 事件时间和处理时间之间的延迟，单位为毫秒。 |
+| Database | STRING | 源数据库名称。 |
+| Table | STRING | 源表名称。 |
+| RowKind | STRING | 变更类型，输出为 RowKind 短代码：`+I`（插入）、`-U`（更新前）、`+U`（更新后）、`-D`（删除）。 |
+| EventTime | LONG | 连接器读取并处理该事件的时间，单位为毫秒。 |
+| Delay | LONG | 源事件时间与连接器读取时间之间的延迟，单位为毫秒。 |
+| SourceTimestamp | LONG | 变更在源数据库中的提交时间（`source.ts_ms`），单位为毫秒。 |
+
+连接器的元数据 schema 中也声明了 `BinlogFile`、`BinlogPos`、`BinlogRow` 和 `Gtid`，可以通过 `Metadata` 转换引用，但这些字段只有 MySQL-CDC 会填充；在 PostgreSQL CDC 中它们的值始终为 `null`。
 
 示例：
 
@@ -364,7 +380,7 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO replication_user;
 
 ### 支持哪些逻辑解码插件？
 
-SeaTunnel PostgreSQL CDC 支持 `pgoutput`（PostgreSQL 10 起内置）、`wal2json` 和 `decoderbufs`，默认使用 `pgoutput`。通过 `decoding.plugin.name` 参数指定插件。
+`decoding.plugin.name` 支持 `pgoutput`（默认，PostgreSQL 10 起内置）、`decoderbufs`、`wal2json`、`wal2json_rds`、`wal2json_streaming` 和 `wal2json_rds_streaming`。注意 Schema 演进（`schema-changes.enabled`）要求使用 `pgoutput`。
 
 ### SeaTunnel 能从 PostgreSQL 备库读取 CDC 数据吗？
 
@@ -408,6 +424,15 @@ PostgreSQL 13 及以上版本会在某些情况下使复制槽失效，例如复
 ### PostgreSQL CDC 为什么会滞后？
 
 滞后可能由逻辑解码插件处理慢或 WAL sender 负载过高引起。可通过监控 `pg_replication_slots` 中的 `confirmed_flush_lsn` 漂移情况来排查。确保 CDC 任务持续消费事件，并保持 SeaTunnel 与 PostgreSQL 之间的网络低延迟。
+
+### PostgreSQL CDC 能在 Spark 引擎上运行吗？
+
+可以，但这一用法没有端到端测试覆盖。无论 `BATCH` 还是 `STREAMING` 作业，Spark 引擎都在一个 Spark task 中运行 CDC 数据源，这个 task 同时包含分片枚举器和所有 reader。Spark 不会为该数据源做 checkpoint，因此：
+
+- 作业无法从 checkpoint 恢复，重启的作业会按 `startup.mode` 重新开始。
+- SeaTunnel 不会向复制槽确认已处理的 LSN，因此复制槽的 `restart_lsn` 不会前移，只要复制槽存在，PostgreSQL 就会保留从该位置起的全部 WAL。请关注 WAL 占用，并在作业停止后推进或删除该复制槽。
+- 只在 checkpoint 或批次写满时才写出的 sink 可能会暂时攒住数据，例如使用默认 `batch_size` 的 JDBC sink。
+- 不支持通过 Spark 微批流式读取（`readStream`）该数据源。
 
 ## 另请参阅
 

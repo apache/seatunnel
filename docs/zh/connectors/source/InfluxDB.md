@@ -20,7 +20,7 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持用户自定义切分](../../introduction/concepts/connector-v2-features.md)
@@ -56,7 +56,7 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 | partition_num      | int    | 否  | 0     | 查询切分数量。`0` 表示不切分，直接执行原始 `sql`。                                              |
 | split_column       | string | 否  | -     | 用于并行切分的整数列。                                                                    |
 | where              | string | 否  | -     | 预留的 source 配置项。当前切分逻辑直接从 `sql` 中读取小写 `where` 关键字。                              |
-| epoch              | string | 否  | n     | 返回的时间精度，例如：`H`、`m`、`s`、`MS`、`u`、`n`。                                     |
+| epoch              | string | 否  | n     | 返回的时间精度，必须使用小写：`h`、`m`、`s`、`ms`、`u`、`n`。                                     |
 | connect_timeout_ms | long   | 否  | 15000 | 连接 InfluxDB 的超时时间（毫秒）。                                                         |
 | query_timeout_sec  | int    | 否  | 3     | 查询 InfluxDB 的超时时间（秒）。                                                          |
 | common-options     | config | 否  | -     | Source 插件通用参数，详见 [Source 通用选项](../common-options/source-common-options.md)。 |
@@ -163,9 +163,15 @@ split 2: select * from test where ($split_column >= 6 and $split_column < 11) an
 
 :::caution 保留参数
 
-当前的切分逻辑会直接从 `sql` 参数中读取小写的 `where` 关键字。设置 `where` 参数对生成的切分查询
-没有任何效果——请把过滤条件直接写进 `sql` 中，例如 `select * from test where age > 0`。切分解析器
-对 `where` 关键字区分大小写。
+单表模式（根级 `sql` 参数）：设置 `where` 参数对生成的切分查询没有任何效果——请把过滤条件直接
+写进 `sql` 中，例如 `select * from test where age > 0`。该切分解析器对 `where` 关键字区分大小写。
+
+`tables_configs` 多表模式：在表条目中设置 `where` 会在构建阶段直接抛出 `OptionValidationException`
+（`InfluxDBSourceFactory` 会拒绝该配置）；该切分解析器对 `where` 关键字不区分大小写。
+
+`tables_configs` 多表模式：在表条目中配置 `where` 会在构建阶段直接抛出
+`OptionValidationException`（`InfluxDBSourceFactory` 会拒绝该配置）；该模式下的切分解析器对
+`where` 关键字不区分大小写。
 
 该参数保留在参数列表中，只是因为校验规则（`InfluxDBSourceFactory.optionRule()`）为了向后兼容仍然
 引用了它；运行时的切分查询生成器不会读取该参数。
@@ -174,7 +180,7 @@ split 2: select * from test where ($split_column >= 6 and $split_column < 11) an
 
 ### epoch [string]
 
-InfluxDB 返回的时间精度。可选值：`H`、`m`、`s`、`MS`、`u`、`n`，默认值为 `n`。
+InfluxDB 返回的时间精度。该值会原样传递给 InfluxDB HTTP API，必须使用小写：`h`、`m`、`s`、`ms`、`u`、`n`，默认值为 `n`。
 
 ### query_timeout_sec [int]
 

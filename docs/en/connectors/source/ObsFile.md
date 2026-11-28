@@ -34,6 +34,8 @@ import ChangeLog from '../changelog/connector-file-obs.md';
   - [x] orc
   - [x] json
   - [x] excel
+  - [x] xml
+  - [x] binary
   - [x] markdown
   - [x] pdf
 
@@ -88,12 +90,12 @@ It only supports hadoop version **2.9.X+**.
 | compress_codec | string | no | none | Which compress codec the files used. |
 | archive_compress_codec | string | no | none | Which archive compress codec the files used. Supported: `none` `zip` `tar` `tar.gz` `gz`. |
 | encoding | string | no | UTF-8 | File encoding, only used when `file_format_type` is `json`, `text`, `csv`, or `xml`. |
-| null_format | string | no | - | Only used when file_format_type is text. null_format to define which strings can be represented as null. e.g: `\N` |
+| null_format | string | no | - | Used when `file_format_type` is `text` or `csv`. Defines which field value represents null. For CSV with a configured `schema.columns[].defaultValue`, a matching `null_format` value or a column absent from the file header uses that default. An empty CSV field still produces null unless it matches `null_format`; columns without a default keep their existing behavior. CSV defaults are converted to the column type when the reader is created. A default that cannot be converted fails the job even if no field needs it. DATE and TIMESTAMP defaults may use a different supported format from the file data. e.g. `\N` |
 | binary_chunk_size | int | no | 1024 | Only used when file_format_type is binary. The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory. |
 | binary_complete_file_mode | boolean | no | false | Only used when file_format_type is binary. Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false. |
 | file_filter_pattern | string | no | - | Filter pattern, which used for filtering files. |
 | common-options             |         | no       | -                   | [Tips](#common_options)                                                                                                                                                                                                         |
-| sheet_name                 | string  | no       | -                   | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                |
+| sheet_name                 | string  | no       | -                   | The sheet of the workbook to read, only used when file_format is excel.                                                                                                                |
 | excel_engine               | string  | no       | POI                 | Only used when `file_format` is excel. Supported engines are `POI` and `EasyExcel`.                                                                                                                                                                |
 | poi_excel_max_file_size    | long    | no       | 52428800            | Only used when `file_format` is excel and `excel_engine` is POI. The maximum Excel file size in bytes that the POI engine can read (default 50 MB).                                                                                                |
 | file_filter_modified_start | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`. |
@@ -102,6 +104,25 @@ It only supports hadoop version **2.9.X+**.
 | escape_char                | string  | no       | -                   | A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.                                                          |
 | recursive_file_scan        | boolean | no       | true                | Whether to scan subdirectories recursively. If `false`, subdirectories will be ignored.                                                                                              |
 | sort_files_by_modification_time | boolean | no       | false               | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file.                                                                                                               |
+| enable_file_split          | boolean | no       | false               | Turn on the file splitting function. When `file_format_type` does not support splitting or compression is enabled, the connector falls back to non-splitting mode.                                                                                    |
+| file_split_size            | long    | no       | 134217728           | File split size in bytes when `enable_file_split=true`. Must be greater than 0. For text-like formats, split ends are aligned to the next `row_delimiter`. Default is 128 MB.                                                                          |
+| excel_use_header_line      | boolean | no       | false               | Use the first Excel row as column headers for name-based mapping. Only used when `file_format_type` is `excel`.                                                                       |
+| markdown_rag_metadata_enabled | boolean | no     | false               | Append RAG-oriented metadata columns when reading markdown files. Only valid when `file_format_type` is `markdown`.                                                                   |
+| pdf_rag_metadata_enabled   | boolean | no       | false               | Append RAG-oriented metadata columns when reading PDF files. Only valid when `file_format_type` is `pdf`.                                                                             |
+| discovery_mode             | string  | no       | once                | File discovery mode. Supported values: `once` (default), `continuous`. Continuous mode periodically scans the path and currently requires `sync_mode=update` and `file_format_type=binary`.                                                            |
+| scan_interval              | string  | no       | 10S                 | Polling interval used when `discovery_mode=continuous`. Shorthand values such as `10S` and ISO-8601 values such as `PT10S` are supported.                                             |
+| start_mode                 | string  | no       | earliest            | Initial scan behavior for continuous discovery. `earliest` processes existing files; `latest` processes only later additions or changes.                                              |
+| sync_mode                  | string  | no       | full                | File sync mode. `update` compares source objects with `target_path` and reads only new or changed objects. Update mode currently supports binary format only.                          |
+| target_path                | string  | no       | -                   | Required when `sync_mode=update`. Target base path used for comparison and normally the same as the sink `path`.                                                                      |
+| target_hadoop_conf         | map     | no       | -                   | Optional Hadoop configuration for the target filesystem when `sync_mode=update`.                                                                                                     |
+| update_strategy            | string  | no       | distcp              | Comparison strategy used by update mode. Supported values are `distcp` and `strict`.                                                                                                 |
+| compare_mode               | string  | no       | len_mtime           | Comparison mode used by update mode. Supported values are `len_mtime` and `checksum`; checksum requires `update_strategy=strict`.                                                     |
+| update_compare_parallelism | int     | no       | 8                   | Maximum parallelism for target metadata lookups. Valid range is `1-64`.                                                                                                              |
+| update_compare_bulk_threshold | int  | no       | 0                   | Positive values switch comparison to a directory listing when that many candidates share a target parent. `0` disables automatic bulk listing.                                        |
+| post_sync_action           | string  | no       | none                | Optional action after a continuously discovered object is checkpointed. Supported values are `none`, `delete`, and `backup`.                                                          |
+| backup_path                | string  | no       | -                   | Required when `post_sync_action=backup`. Backup destination must not overlap with the source `path`.                                                                                  |
+| retention_max_age          | string  | no       | -                   | Optional maximum age for SeaTunnel backup objects under `backup_path`.                                                                                                               |
+| retention_check_interval   | string  | no       | 1H                  | Retention scan interval when backup retention is configured.                                                                                                                         |
 
 ### Tips
 
@@ -425,27 +446,9 @@ schema {
 
 ```
 
-### Reading with Temporary Security Credentials (OBS STS)
+### Temporary Security Credentials (OBS STS)
 
-For production jobs that need scoped, short-lived access, generate temporary AK/SK via [OBS STS](https://support.huaweicloud.com/intl/en-us/api-obs/obs_04_0081.html) and pass them through `hadoop_obs_properties`. The temporary credentials can carry a fine-grained custom policy that limits access to a specific bucket prefix.
-
-```hocon
-source {
-  ObsFile {
-    path = "/staging/prefix"
-    bucket = "obs://target-bucket"
-    endpoint = "obs.ap-southeast-1.myhuaweicloud.com"
-    hadoop_obs_properties = {
-      "fs.obs.access.key"    = "<temp-access-key>"
-      "fs.obs.secret.key"    = "<temp-secret-key>"
-      "fs.obs.session.token" = "<temp-security-token>"
-    }
-    file_format_type = "parquet"
-  }
-}
-```
-
-The provider jar must be on the runtime classpath of every node (`${SEATUNNEL_HOME}/lib`). Avoid long-lived AK/SK in job files; prefer STS-issued temporary credentials or an ECS Agency when running inside Huawei Cloud.
+This connector cannot currently use OBS STS temporary credentials. It only maps `access_key`, `access_secret`, and `endpoint` into the Hadoop OBS configuration, and there is no pass-through for the session token that OBS STS credentials always carry (`ObsConf.buildWithReadonlyConfig` installs only those three keys), so token-bound temporary credentials fail at connection time. Carrying a security token or a credential provider would require a separate, tested connector change. Configure a long-lived AK/SK with a least-privilege policy scoped to the target bucket prefix through the standard options instead, and avoid committing long-lived AK/SK to job files in shared environments.
 
 ## Changelog
 
