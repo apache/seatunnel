@@ -261,6 +261,12 @@ mailchimp:
               - '!seatunnel-e2e/seatunnel-connector-v2-e2e/connector-!(mailchimp)-e2e/**'
 
 http:
+  - changed-files:
+      - any-glob-to-any-file:
+          - seatunnel-connectors-v2/connector-slack/**
+          - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/java/org/apache/seatunnel/e2e/connector/http/SlackSourceIT.java
+          - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/slack_*.conf
+          - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/slack_*.py
   - all:
       - changed-files:
           - any-glob-to-any-file:
