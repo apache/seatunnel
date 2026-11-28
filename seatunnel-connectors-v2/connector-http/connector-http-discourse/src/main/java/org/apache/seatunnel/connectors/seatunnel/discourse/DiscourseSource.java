@@ -95,6 +95,37 @@ public class DiscourseSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         table = createTable(resource);
     }
 
+    @Override
+    public String getPluginName() {
+        return PLUGIN_NAME;
+    }
+
+    @Override
+    public Boundedness getBoundedness() {
+        return Boundedness.BOUNDED;
+    }
+
+    /*
+     * Rejects streaming jobs because a single metadata response is a bounded batch, not a feed.
+     */
+    @Override
+    public void setJobContext(JobContext context) {
+        if (context.getJobMode() != JobMode.BATCH) {
+            throw new IllegalArgumentException("Discourse source supports BATCH mode only");
+        }
+    }
+
+    @Override
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(table);
+    }
+
+    @Override
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext context) {
+        return new DiscourseSourceReader(
+                endpoint, apiKey, apiUsername, resource, includeSubcategories, table, context);
+    }
+
     /*
      * Rejects empty or non-visible-ASCII credential headers without echoing their values.
      */
@@ -165,36 +196,5 @@ public class DiscourseSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     private static PhysicalColumn column(String name, BasicType<?> type, boolean nullable) {
         return PhysicalColumn.of(name, type, 0, nullable, null, null);
-    }
-
-    @Override
-    public String getPluginName() {
-        return PLUGIN_NAME;
-    }
-
-    @Override
-    public Boundedness getBoundedness() {
-        return Boundedness.BOUNDED;
-    }
-
-    /*
-     * Rejects streaming jobs because a single metadata response is a bounded batch, not a feed.
-     */
-    @Override
-    public void setJobContext(JobContext context) {
-        if (context.getJobMode() != JobMode.BATCH) {
-            throw new IllegalArgumentException("Discourse source supports BATCH mode only");
-        }
-    }
-
-    @Override
-    public List<CatalogTable> getProducedCatalogTables() {
-        return Collections.singletonList(table);
-    }
-
-    @Override
-    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext context) {
-        return new DiscourseSourceReader(
-                endpoint, apiKey, apiUsername, resource, includeSubcategories, table, context);
     }
 }
