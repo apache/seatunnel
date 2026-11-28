@@ -52,6 +52,7 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.cluster.Address;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.map.IMap;
 import lombok.extern.slf4j.Slf4j;
@@ -59,15 +60,18 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 
 /**
  * Multi-node failover coverage for the lifecycle of jobs that cannot be dispatched immediately.
@@ -85,6 +89,9 @@ import java.util.logging.Level;
  *       handoff and is dispatched once the cluster grows enough capacity for it.
  *   <li>{@code testPendingJobScheduledAfterRunningJobCanceled} - a pending job is dispatched after
  *       the running job occupying its slots is canceled.
+ *   <li>{@code testHolderFailureOnWorkerLossReleasesFixedSlotsSoQueuedJobRuns} - a pending job is
+ *       dispatched after the running job that occupied its slots loses one member, cannot restore,
+ *       and therefore has to release the slot it still owns on the surviving member.
  *   <li>{@code testPendingJobNotDuplicatedAcrossRepeatedMasterFailover} - repeated master handoffs
  *       never revive a stale schedule generation, so the job is dispatched exactly once.
  *   <li>{@code testTerminalJobCleanupSkipsWorkerWaitAfterMasterSwitch} - cleanup of a terminal job
@@ -104,6 +111,50 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
      */
     private static final String TWO_SLOT_STREAMING_JOB_CONFIG_FILE =
             "stream_fakesource_to_console_minimal.conf";
+
+    /**
+     * STREAMING holder with {@code job.retry.times = 0} and an unbounded fake source. {@code
+     * FakeSource} is unbounded in STREAMING mode, so it reads its splits once and then idles
+     * forever: the holder can never reach FINISHED on its own and the member loss is always
+     * injected while the job is still RUNNING and still owns its fixed slots. {@code
+     * job.retry.times = 0} makes the member loss terminal instead of triggering a restore, which is
+     * the path that has to hand back the slots the holder still owns on the surviving worker.
+     */
+    private static final String STREAMING_NO_RETRY_HOLDER_JOB_CONFIG_FILE =
+            "cluster_streaming_fake_to_localfile_no_retry_holder_template.conf";
+
+    /**
+     * Short bounded batch job used by {@link
+     * #testHolderFailureOnWorkerLossReleasesFixedSlotsSoQueuedJobRuns()} as the job that is queued
+     * behind the holder and must be dispatched once the failed holder releases the surviving
+     * worker's fixed slot.
+     */
+    private static final String QUEUED_AFTER_FAILED_HOLDER_JOB_CONFIG_FILE =
+            "cluster_batch_fake_to_localfile_queued_after_failed_holder_template.conf";
+
+    /**
+     * Tiny holder input. The holder is held open by its streaming source's unboundedness, not by
+     * input volume or read pacing, so the fixture stays cheap and the failure-injection point does
+     * not depend on how fast the runner is.
+     */
+    private static final long STREAMING_NO_RETRY_HOLDER_ROW_NUM_PER_PARALLELISM = 10L;
+
+    /** Two reader/writer task groups, on top of the enumerator and committer groups. */
+    private static final int STREAMING_NO_RETRY_HOLDER_PARALLELISM = 2;
+
+    /**
+     * Fixed slots per worker. Every job owns one slot per task group, and both fixtures are a
+     * FakeSource-&gt;LocalFile pipeline: a split-enumerator group, one reader/writer group per
+     * parallelism, and one aggregated-committer group for the transactional file sink. With three
+     * slots per worker and two workers (six slots), the parallelism-2 holder takes four slots and
+     * leaves two, which is not enough for the three-slot queued job; after the holder's member is
+     * lost, the surviving worker's three slots are exactly enough for the queued job, so the queued
+     * job can run only after the failed holder releases them.
+     */
+    private static final int WORKER_SLOT_NUM = 3;
+
+    /** Exact number of rows the queued job must commit once it is finally dispatched. */
+    private static final long QUEUED_AFTER_FAILED_HOLDER_ROW_NUM = 200L;
 
     /**
      * Number of rapid kill-and-replace rounds used by {@link
@@ -315,6 +366,189 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             if (workerNode != null) {
                 workerNode.shutdown();
             }
+        }
+    }
+
+    /**
+     * End-to-end coverage for the resource side of the member-loss failure path: a job that loses
+     * one cluster member, cannot restore, and therefore ends {@code FAILED} must release the fixed
+     * slots it still owns on the <i>surviving</i> member, and the WAIT queue must then dispatch the
+     * next job.
+     *
+     * <p>Contract under test:
+     *
+     * <ol>
+     *   <li>The holder is a STREAMING no-retry FakeSource job whose source stays open forever, so
+     *       it cannot finish on its own and is guaranteed to be RUNNING when the worker is killed.
+     *       It takes four of the six fixed slots (one per task group, spread over both workers),
+     *       which leaves fewer free slots than the three the second batch job needs, so that job is
+     *       queued as {@code PENDING} in the master's pending queue and owns no slot.
+     *   <li>One worker is shut down while the holder is still RUNNING and still owns slots on both
+     *       workers. Only the holder's task group on that worker fails on the spot; the task groups
+     *       on the surviving worker are still deployed and still own their slots. With {@code
+     *       job.retry.times = 0} the holder must reach {@code FAILED}, which requires the master to
+     *       stop those surviving task groups and release their slots.
+     *   <li>The queued job must be scheduled afterwards without any further trigger and finish with
+     *       exactly its configured row count, and the failed holder must not come back.
+     * </ol>
+     *
+     * <p>Why this boundary has real regression risk: the failed member's own slot bookkeeping
+     * disappears together with the member, so the slots the pipeline still owns on the surviving
+     * worker can only be returned by the master's failure handling for task groups it did not stop
+     * itself. Fixed slots are inelastic, so a missed release strands every queued job forever, and
+     * the leak is silent: the holder is already {@code FAILED}, so nothing looks broken until a
+     * second job waits for that exact slot.
+     *
+     * <p>Existing coverage does not reach it: {@code
+     * ClusterFailureNoRestoreIT#testBatchJobWithoutCheckpointAndRetryConvergesAfterWorkerShutdown}
+     * tears a worker down under the same no-retry batch job but never submits a second job, so it
+     * cannot observe whether the surviving worker's slot was returned; {@link
+     * #testPendingJobScheduledAfterRunningJobCanceled()} frees capacity by cancelling the holder,
+     * which closes every task group through the normal local stop flow; {@link
+     * #testSavepointStopReleasesFixedSlotsSoQueuedJobRuns()} frees it through the savepoint stop
+     * path; and {@code SeaTunnelSlotIT#testSlotReleasedAfterNotEnoughResourceFailure} releases
+     * before any task group was deployed.
+     */
+    @Test
+    public void testHolderFailureOnWorkerLossReleasesFixedSlotsSoQueuedJobRuns() throws Exception {
+        String testCaseName = "testHolderFailureOnWorkerLossReleasesFixedSlotsSoQueuedJobRuns";
+        String testClusterName = "SplitClusterPendingJobLifecycleFailoverIT_" + testCaseName;
+        HazelcastInstanceImpl masterNode = null;
+        HazelcastInstanceImpl survivingWorker = null;
+        HazelcastInstanceImpl doomedWorker = null;
+        SeaTunnelClient engineClient = null;
+        ClientJobProxy holderJob = null;
+        ClientJobProxy queuedJob = null;
+
+        SeaTunnelConfig masterNodeConfig = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig survivingWorkerConfig = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig doomedWorkerConfig = getSeaTunnelConfig(testClusterName);
+        configurePendingLifecycleTest(masterNodeConfig);
+        configurePendingLifecycleTest(survivingWorkerConfig);
+        configurePendingLifecycleTest(doomedWorkerConfig);
+        // Three fixed slots per worker: the parallelism-2 holder (four task groups) leaves only two
+        // free slots, so the three-slot queued job is genuinely capacity-blocked until the holder
+        // fails and releases the slots it still owns on the surviving worker.
+        for (SeaTunnelConfig seaTunnelConfig :
+                new SeaTunnelConfig[] {
+                    masterNodeConfig, survivingWorkerConfig, doomedWorkerConfig
+                }) {
+            seaTunnelConfig.getEngineConfig().getSlotServiceConfig().setSlotNum(WORKER_SLOT_NUM);
+        }
+
+        ImmutablePair<String, String> holderResources =
+                createTemplatedTestResources(
+                        STREAMING_NO_RETRY_HOLDER_JOB_CONFIG_FILE,
+                        "holder_failure_slot_holder",
+                        JobMode.STREAMING,
+                        STREAMING_NO_RETRY_HOLDER_ROW_NUM_PER_PARALLELISM,
+                        STREAMING_NO_RETRY_HOLDER_PARALLELISM);
+        ImmutablePair<String, String> queuedResources =
+                createTemplatedBatchTestResources(
+                        QUEUED_AFTER_FAILED_HOLDER_JOB_CONFIG_FILE,
+                        "holder_failure_slot_queued",
+                        QUEUED_AFTER_FAILED_HOLDER_ROW_NUM,
+                        1);
+
+        try {
+            masterNode = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNodeConfig);
+            survivingWorker =
+                    SeaTunnelServerStarter.createWorkerHazelcastInstance(survivingWorkerConfig);
+            doomedWorker = SeaTunnelServerStarter.createWorkerHazelcastInstance(doomedWorkerConfig);
+
+            HazelcastInstanceImpl finalMasterNode = masterNode;
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            3, finalMasterNode.getCluster().getMembers().size()));
+
+            Common.setDeployMode(DeployMode.CLUSTER);
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+
+            HazelcastInstanceImpl activeMaster = waitAndFindActiveMaster(masterNode, null);
+            assertPendingQueueState(activeMaster, null, 0);
+
+            holderJob =
+                    submitJob(
+                            engineClient,
+                            masterNodeConfig,
+                            "holder_failure_slot_holder",
+                            holderResources.getRight());
+            long holderJobId = holderJob.getJobId();
+            assertJobStatusWithTimeout(holderJob, JobStatus.RUNNING, 120);
+            assertFixedSlotOwnership(activeMaster, holderJobId, true);
+
+            // The queued job needs three slots on a single worker, but the holder owns four of the
+            // six fixed slots, so neither worker has three free: the queued job must be parked in
+            // the pending queue and must not hold a slot while it waits.
+            queuedJob =
+                    submitJob(
+                            engineClient,
+                            masterNodeConfig,
+                            "holder_failure_slot_queued",
+                            queuedResources.getRight());
+            long queuedJobId = queuedJob.getJobId();
+            assertJobStatusWithTimeout(queuedJob, JobStatus.PENDING, 120);
+            assertPendingQueueContainsJob(activeMaster, queuedJobId, 1);
+            assertFixedSlotOwnership(activeMaster, queuedJobId, false);
+
+            // Inject the member loss only while the holder is demonstrably still live and still
+            // owns slots on both workers. The holder's source is unbounded (STREAMING), so it can
+            // never finish by itself here; these bounded checks make the precondition explicit
+            // instead of relying on row volume or read pacing.
+            assertJobStatusWithTimeout(holderJob, JobStatus.RUNNING, 30);
+            assertFixedSlotOwnershipOnEveryWorker(
+                    activeMaster, holderJobId, survivingWorker, doomedWorker);
+
+            // Kill one worker. The holder's task groups there fail immediately, but the task groups
+            // on the surviving worker keep running and keep their slots until the master fails and
+            // releases the whole pipeline.
+            log.info(
+                    "Shutting down one worker while holder job {} still owns fixed slots on the"
+                            + " surviving worker",
+                    holderJobId);
+            doomedWorker.shutdown();
+            doomedWorker = null;
+
+            assertJobStatusWithTimeout(holderJob, JobStatus.FAILED, 120);
+            // Core regression assertion: the slot the failed holder still owned on the surviving
+            // worker must be gone from the master's fixed-slot ownership map.
+            assertFixedSlotOwnership(activeMaster, holderJobId, false);
+
+            // Nothing else can free a slot from here on: the dead worker's slots are gone with the
+            // member and the survivor's three slots were owned by the failed holder. The queued job
+            // therefore runs only if that release actually happened.
+            assertJobStatusWithTimeout(queuedJob, JobStatus.FINISHED, 180);
+            assertPendingQueueNotContainsJob(activeMaster, queuedJobId);
+            Assertions.assertEquals(
+                    Long.valueOf(QUEUED_AFTER_FAILED_HOLDER_ROW_NUM),
+                    FileUtils.getFileLineNumberFromDir(queuedResources.getLeft()),
+                    "The dispatched queued job must commit exactly its configured row count; a"
+                            + " partial run means it was started on a slot the failed holder still"
+                            + " considered its own");
+            assertFixedSlotOwnership(activeMaster, queuedJobId, false);
+
+            // A released slot must not resurrect the failed job.
+            assertJobStatusWithTimeout(holderJob, JobStatus.FAILED, 30);
+        } finally {
+            if (engineClient != null) {
+                engineClient.close();
+            }
+            if (doomedWorker != null) {
+                doomedWorker.shutdown();
+            }
+            if (survivingWorker != null) {
+                survivingWorker.shutdown();
+            }
+            if (masterNode != null) {
+                masterNode.shutdown();
+            }
+            FileUtils.deleteFile(holderResources.getLeft());
+            FileUtils.deleteFile(queuedResources.getLeft());
         }
     }
 
@@ -1366,9 +1600,42 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
      */
     private static ImmutablePair<String, String> createBatchTestResources(
             String testCaseName, long rowNumber, int parallelism) throws IOException {
+        return createTemplatedBatchTestResources(
+                "cluster_batch_fake_to_localfile_template.conf",
+                testCaseName,
+                rowNumber,
+                parallelism);
+    }
+
+    /**
+     * Renders a bounded batch job from an arbitrary template that exposes the dynamic test
+     * parameters ({@code dynamic_test_case_name}, {@code dynamic_job_mode}, {@code
+     * dynamic_test_row_num_per_parallelism}, {@code dynamic_test_parallelism}) and returns the pair
+     * of (sink output directory, generated job config file path).
+     */
+    private static ImmutablePair<String, String> createTemplatedBatchTestResources(
+            String template, String testCaseName, long rowNumber, int parallelism)
+            throws IOException {
+        return createTemplatedTestResources(
+                template, testCaseName, JobMode.BATCH, rowNumber, parallelism);
+    }
+
+    /**
+     * Renders a job in the requested {@link JobMode} from an arbitrary template that exposes the
+     * dynamic test parameters ({@code dynamic_test_case_name}, {@code dynamic_job_mode}, {@code
+     * dynamic_test_row_num_per_parallelism}, {@code dynamic_test_parallelism}) and returns the pair
+     * of (sink output directory, generated job config file path).
+     *
+     * <p>Unlike {@link #createTemplatedBatchTestResources(String, String, long, int)} this lets the
+     * caller choose the job mode, which the streaming holder of {@link
+     * #testHolderFailureOnWorkerLossReleasesFixedSlotsSoQueuedJobRuns()} needs.
+     */
+    private static ImmutablePair<String, String> createTemplatedTestResources(
+            String template, String testCaseName, JobMode jobMode, long rowNumber, int parallelism)
+            throws IOException {
         Map<String, String> valueMap = new HashMap<>();
         valueMap.put("dynamic_test_case_name", testCaseName);
-        valueMap.put("dynamic_job_mode", JobMode.BATCH.toString());
+        valueMap.put("dynamic_job_mode", jobMode.toString());
         valueMap.put("dynamic_test_row_num_per_parallelism", String.valueOf(rowNumber));
         valueMap.put("dynamic_test_parallelism", String.valueOf(parallelism));
 
@@ -1383,8 +1650,7 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
                         + File.separator
                         + testCaseName
                         + ".conf";
-        TestUtils.createTestConfigFileFromTemplate(
-                "cluster_batch_fake_to_localfile_template.conf", valueMap, targetConfigFilePath);
+        TestUtils.createTestConfigFileFromTemplate(template, valueMap, targetConfigFilePath);
         return new ImmutablePair<>(targetDir, targetConfigFilePath);
     }
 
@@ -1548,5 +1814,55 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
                                         ownedSlotProfilesIMap.keySet().stream()
                                                 .anyMatch(location -> location.getJobId() == jobId),
                                         "Job " + jobId + " slot ownership should be " + expected));
+    }
+
+    /**
+     * Asserts that the master's fixed-slot ownership map records owned slots for the given job on
+     * every one of the given workers.
+     *
+     * <p>This is the liveness precondition of the member-loss regression: the holder must really
+     * span the member that is about to be shut down <i>and</i> the member that survives, otherwise
+     * the failure would not leave a slot to release on a live worker and the test would pass
+     * without exercising the path under test. Asserted with {@link Awaitility} because deployment
+     * of the last task groups and the ownership map write are not atomic with the job turning
+     * {@code RUNNING}.
+     */
+    private static void assertFixedSlotOwnershipOnEveryWorker(
+            HazelcastInstanceImpl masterNode, long jobId, HazelcastInstanceImpl... workers) {
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
+                masterNode
+                        .node
+                        .getNodeEngine()
+                        .getHazelcastInstance()
+                        .getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+        Set<Address> expectedWorkers =
+                Arrays.stream(workers)
+                        .map(worker -> worker.getCluster().getLocalMember().getAddress())
+                        .collect(Collectors.toSet());
+        Assertions.assertEquals(
+                workers.length,
+                expectedWorkers.size(),
+                "The expected workers must be distinct cluster members");
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Set<Address> owningWorkers =
+                                    ownedSlotProfilesIMap.entrySet().stream()
+                                            .filter(entry -> entry.getKey().getJobId() == jobId)
+                                            .flatMap(
+                                                    entry ->
+                                                            entry.getValue().values().stream()
+                                                                    .map(SlotProfile::getWorker))
+                                            .collect(Collectors.toSet());
+                            Assertions.assertTrue(
+                                    owningWorkers.containsAll(expectedWorkers),
+                                    "Job "
+                                            + jobId
+                                            + " must own fixed slots on workers "
+                                            + expectedWorkers
+                                            + " before a failure is injected, but owns slots on "
+                                            + owningWorkers);
+                        });
     }
 }
