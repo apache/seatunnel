@@ -265,6 +265,9 @@ http:
       - changed-files:
           - any-glob-to-any-file:
               - seatunnel-connectors-v2/connector-http/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/java/org/apache/seatunnel/e2e/connector/http/FeishuSourceIT.java
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/feishu_source_*.conf
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/feishu_source_*.py
               - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-paypal-e2e/**
               - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-woocommerce-e2e/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(http)/**'
