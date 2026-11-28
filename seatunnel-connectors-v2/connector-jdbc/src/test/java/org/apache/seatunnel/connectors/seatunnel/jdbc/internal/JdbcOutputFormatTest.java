@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
@@ -25,6 +26,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatc
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -33,6 +36,7 @@ import java.io.ObjectOutputStream;
 import java.lang.reflect.Field;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.stream.Stream;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -93,6 +97,10 @@ public class JdbcOutputFormatTest {
 
         Assertions.assertTrue(ex.getMessage().contains("Failed to clear JDBC batch"));
         Assertions.assertEquals(1, getBatchCount(outputFormat));
+        Assertions.assertThrows(JdbcConnectorException.class, outputFormat::flush);
+        Assertions.assertEquals(0, executor.executeBatchCount);
+        Assertions.assertThrows(JdbcConnectorException.class, outputFormat::close);
+        Assertions.assertEquals(0, executor.executeBatchCount);
     }
 
     @Test
@@ -135,6 +143,68 @@ public class JdbcOutputFormatTest {
         Assertions.assertThrows(
                 JdbcConnectorException.class, () -> outputFormat.writeRecord("row-1"));
         Assertions.assertEquals(1, executor.executeBatchCount);
+    }
+
+    @Test
+    public void testCloseDoesNotFlushAgainAfterFlushFailure() throws Exception {
+        JdbcConnectionProvider connectionProvider = mock(JdbcConnectionProvider.class);
+        Connection connection = mock(Connection.class);
+        FailingBatchExecutor executor = new FailingBatchExecutor();
+        JdbcConnectionConfig config =
+                JdbcConnectionConfig.builder().batchSize(1).maxRetries(0).build();
+
+        when(connectionProvider.getOrEstablishConnection()).thenReturn(connection);
+        when(connectionProvider.getConnection()).thenReturn(connection);
+
+        JdbcOutputFormat<String, FailingBatchExecutor> outputFormat =
+                new JdbcOutputFormat<>(connectionProvider, config, () -> executor);
+        outputFormat.open();
+
+        Assertions.assertThrows(
+                JdbcConnectorException.class, () -> outputFormat.writeRecord("row-1"));
+        Assertions.assertEquals(1, executor.executeBatchCount);
+
+        Assertions.assertThrows(JdbcConnectorException.class, outputFormat::flush);
+        Assertions.assertEquals(1, executor.executeBatchCount);
+
+        Assertions.assertThrows(JdbcConnectorException.class, outputFormat::close);
+        Assertions.assertEquals(1, executor.executeBatchCount);
+    }
+
+    @ParameterizedTest
+    @MethodSource("runtimeFlushFailures")
+    public void testCloseDoesNotFlushAgainAfterRuntimeFlushFailure(RuntimeException failure)
+            throws Exception {
+        JdbcConnectionProvider connectionProvider = mock(JdbcConnectionProvider.class);
+        Connection connection = mock(Connection.class);
+        RuntimeFailingBatchExecutor executor = new RuntimeFailingBatchExecutor(failure);
+        JdbcConnectionConfig config =
+                JdbcConnectionConfig.builder().batchSize(1).maxRetries(0).build();
+
+        when(connectionProvider.getOrEstablishConnection()).thenReturn(connection);
+        when(connectionProvider.getConnection()).thenReturn(connection);
+
+        JdbcOutputFormat<String, RuntimeFailingBatchExecutor> outputFormat =
+                new JdbcOutputFormat<>(connectionProvider, config, () -> executor);
+        outputFormat.open();
+
+        Assertions.assertThrows(
+                JdbcConnectorException.class, () -> outputFormat.writeRecord("row-1"));
+        Assertions.assertEquals(1, executor.executeBatchCount);
+
+        Assertions.assertThrows(JdbcConnectorException.class, outputFormat::flush);
+        Assertions.assertEquals(1, executor.executeBatchCount);
+
+        Assertions.assertThrows(JdbcConnectorException.class, outputFormat::close);
+        Assertions.assertEquals(1, executor.executeBatchCount);
+        org.mockito.Mockito.verify(connectionProvider).closeConnection();
+    }
+
+    private static Stream<RuntimeException> runtimeFlushFailures() {
+        return Stream.of(
+                new JdbcConnectorException(
+                        CommonErrorCodeDeprecated.SQL_OPERATION_FAILED, "flush failed"),
+                new IllegalStateException("flush failed"));
     }
 
     @Test
@@ -266,6 +336,40 @@ public class JdbcOutputFormatTest {
         public void executeBatch() throws SQLException {
             executeBatchCount++;
             throw new SQLException("data too long", "22001");
+        }
+    }
+
+    /**
+     * Records SQL batch attempts to detect replay during failure cleanup.
+     *
+     * <p>The retained counter must remain unchanged when a failed writer is closed.
+     */
+    private static class FailingBatchExecutor extends CountingExecutor {
+
+        @Override
+        public void executeBatch() throws SQLException {
+            executeBatchCount++;
+            throw new SQLException("flush failed");
+        }
+    }
+
+    /**
+     * Records unchecked failures to detect replay during writer close.
+     *
+     * <p>Both connector exceptions and plain runtime exceptions must retain the failure latch.
+     */
+    private static class RuntimeFailingBatchExecutor extends CountingExecutor {
+
+        private final RuntimeException failure;
+
+        private RuntimeFailingBatchExecutor(RuntimeException failure) {
+            this.failure = failure;
+        }
+
+        @Override
+        public void executeBatch() throws SQLException {
+            executeBatchCount++;
+            throw failure;
         }
     }
 }
