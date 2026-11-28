@@ -17,23 +17,24 @@
 
 package org.apache.seatunnel.translation.flink.schema;
 
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-
+import org.apache.seatunnel.api.source.SupportSchemaChangeBehavior;
 import org.apache.seatunnel.api.source.SupportSchemaEvolution;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.SchemaChangeBehavior;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
+import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
-import org.apache.seatunnel.api.table.schema.exception.SchemaCoordinationException;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.flink.schema.coordinator.LocalSchemaCoordinator;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.state.BroadcastState;
@@ -41,6 +42,7 @@ import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.state.MapStateDescriptor;
 import org.apache.flink.api.common.state.OperatorStateStore;
+import org.apache.flink.runtime.execution.SuppressRestartsException;
 import org.apache.flink.runtime.state.StateInitializationContext;
 import org.apache.flink.runtime.state.StateSnapshotContext;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
@@ -57,7 +59,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Proxy;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -68,6 +72,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -77,27 +82,21 @@ public class SchemaOperatorTest {
     void testRestoreSchemaEventIsAlwaysSupported() throws Exception {
         CatalogTable restoredTable = createRestoredTable("table");
 
-        OperatorTestContext context =
-                createOperator(new OperatorStateStoreStub(), false, Collections.emptyList());
-        context.operator.processElement(
-                new StreamRecord<>(
-                        createSchemaRow(new RestoreTableSchemaEvent(restoredTable)), 1L));
+        for (SchemaChangeBehavior behavior : SchemaChangeBehavior.values()) {
+            OperatorTestContext context = createOperator(Collections.emptyList(), behavior, false);
+            context.operator.processElement(
+                    new StreamRecord<>(
+                            createSchemaRow(new RestoreTableSchemaEvent(restoredTable)), 1L));
 
-        assertTrue(getBooleanField(context.operator, "schemaChangePending"));
-        assertEquals(1, getPendingQueue(context.operator).size());
+            assertTrue(getBooleanField(context.operator, "schemaChangePending"));
+            assertEquals(1, getPendingQueue(context.operator).size());
+        }
     }
 
     @Test
     void testRestoreSchemaEventsWithSameTimestampAreBothProcessed() throws Exception {
-        LocalSchemaCoordinator coordinator = Mockito.mock(LocalSchemaCoordinator.class);
-        Mockito.when(
-                        coordinator.requestSchemaChange(
-                                Mockito.any(), Mockito.anyLong(), Mockito.anyLong()))
-                .thenReturn(true);
-
         OperatorTestContext context =
-                createOperator(new OperatorStateStoreStub(), false, Collections.emptyList());
-        setField(context.operator, "coordinator", coordinator);
+                createOperator(new OperatorStateStoreStub(), Collections.emptyList(), false, true);
 
         RestoreTableSchemaEvent firstEvent =
                 new RestoreTableSchemaEvent(createRestoredTable("first_table"));
@@ -121,22 +120,11 @@ public class SchemaOperatorTest {
         assertSchemaBroadcast(context.output.records.get(1), secondEvent);
         assertTrue(getPendingQueue(context.operator).isEmpty());
         assertFalse(getBooleanField(context.operator, "schemaChangePending"));
-        Mockito.verify(coordinator)
-                .requestSchemaChange(firstEvent.tableIdentifier(), sharedTimestamp, 300_000L);
-        Mockito.verify(coordinator)
-                .requestSchemaChange(secondEvent.tableIdentifier(), sharedTimestamp, 300_000L);
     }
 
     @Test
     void testWaitRoundBeforeReleasingBufferedRecords() throws Exception {
-        LocalSchemaCoordinator coordinator = Mockito.mock(LocalSchemaCoordinator.class);
-        Mockito.when(
-                        coordinator.requestSchemaChange(
-                                Mockito.any(), Mockito.anyLong(), Mockito.anyLong()))
-                .thenReturn(true);
-
         OperatorTestContext context = createOperator(false);
-        setField(context.operator, "coordinator", coordinator);
 
         AlterTableAddColumnEvent event = createSchemaChangeEvent();
         SeaTunnelRow row = createDataRow("row-after-schema");
@@ -149,22 +137,20 @@ public class SchemaOperatorTest {
         assertTrue(context.output.records.isEmpty());
         assertEquals(10L, getLongField(context.operator, "firstSeenCheckpointId"));
         assertEquals(2, getPendingQueue(context.operator).size());
-        Mockito.verifyNoInteractions(coordinator);
 
         context.operator.notifyCheckpointComplete(11L);
 
         assertEquals(2, context.output.records.size());
         assertSchemaBroadcast(context.output.records.get(0), event);
         assertEquals(row, context.output.records.get(1).getValue());
+        assertSchemaDependency(row);
         assertFalse(getBooleanField(context.operator, "schemaChangePending"));
         assertEquals(-1L, getLongField(context.operator, "firstSeenCheckpointId"));
         assertTrue(getPendingQueue(context.operator).isEmpty());
-        Mockito.verify(coordinator)
-                .requestSchemaChange(event.tableIdentifier(), event.getCreatedTime(), 300_000L);
     }
 
     @Test
-    void testSnapshotRestoreWithPendingSchemaChange() throws Exception {
+    void testRestoreReestablishesCheckpointFenceForPendingSchemaChange() throws Exception {
         OperatorStateStoreStub stateStore = new OperatorStateStoreStub();
         OperatorTestContext originalContext = createOperator(stateStore, false);
 
@@ -176,63 +162,126 @@ public class SchemaOperatorTest {
         originalContext.operator.notifyCheckpointComplete(20L);
         originalContext.operator.snapshotState(snapshotContext(20L));
 
-        LocalSchemaCoordinator restoredCoordinator = Mockito.mock(LocalSchemaCoordinator.class);
-        Mockito.when(
-                        restoredCoordinator.requestSchemaChange(
-                                Mockito.any(), Mockito.anyLong(), Mockito.anyLong()))
-                .thenReturn(true);
-
         OperatorTestContext restoredContext = createOperator(stateStore, true);
-        setField(restoredContext.operator, "coordinator", restoredCoordinator);
 
-        assertEquals(20L, getLongField(restoredContext.operator, "firstSeenCheckpointId"));
+        assertEquals(-1L, getLongField(restoredContext.operator, "firstSeenCheckpointId"));
         assertEquals(2, getPendingQueue(restoredContext.operator).size());
         assertTrue(getBooleanField(restoredContext.operator, "schemaChangePending"));
 
         restoredContext.operator.notifyCheckpointComplete(21L);
 
+        assertTrue(restoredContext.output.records.isEmpty());
+        assertEquals(21L, getLongField(restoredContext.operator, "firstSeenCheckpointId"));
+        assertEquals(2, getPendingQueue(restoredContext.operator).size());
+
+        restoredContext.operator.notifyCheckpointComplete(22L);
+
         assertEquals(2, restoredContext.output.records.size());
         assertSchemaBroadcast(restoredContext.output.records.get(0), event);
         assertEquals(row, restoredContext.output.records.get(1).getValue());
+        assertSchemaDependency(row);
         assertTrue(getPendingQueue(restoredContext.operator).isEmpty());
         assertFalse(getBooleanField(restoredContext.operator, "schemaChangePending"));
-        Mockito.verify(restoredCoordinator)
-                .requestSchemaChange(event.tableIdentifier(), event.getCreatedTime(), 300_000L);
     }
 
     @Test
-    void testCoordinationFailureKeepsBufferedRecordsBlocked() throws Exception {
-        LocalSchemaCoordinator coordinator = Mockito.mock(LocalSchemaCoordinator.class);
+    void testReleasedRowsCarrySchemaDependency() throws Exception {
         AlterTableAddColumnEvent event = createSchemaChangeEvent();
-        Mockito.when(
-                        coordinator.requestSchemaChange(
-                                Mockito.any(), Mockito.anyLong(), Mockito.anyLong()))
-                .thenThrow(
-                        SchemaCoordinationException.timeout(
-                                event.tableIdentifier(),
-                                "job-under-test",
-                                1L,
-                                new RuntimeException("timeout")));
-
         OperatorTestContext context = createOperator(false);
-        setField(context.operator, "coordinator", coordinator);
 
-        SeaTunnelRow row = createDataRow("must-stay-buffered");
+        SeaTunnelRow row = createDataRow("dependent-row");
         context.operator.processElement(new StreamRecord<>(createSchemaRow(event), 300L));
         context.operator.processElement(new StreamRecord<>(row, 301L));
         context.operator.notifyCheckpointComplete(30L);
+        context.operator.notifyCheckpointComplete(31L);
 
-        assertThrows(
-                SchemaEvolutionException.class,
-                () -> context.operator.notifyCheckpointComplete(31L));
-
-        assertEquals(1, context.output.records.size());
+        assertEquals(2, context.output.records.size());
         assertSchemaBroadcast(context.output.records.get(0), event);
+        assertSchemaDependency(context.output.records.get(1).getValue());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+        assertTrue(getPendingQueue(context.operator).isEmpty());
+    }
+
+    @Test
+    void testMultipleQueuedSchemaChangesAreAppliedAcrossCheckpointRounds() throws Exception {
+        OperatorTestContext context = createOperator(false);
+
+        AlterTableAddColumnEvent firstEvent =
+                createSchemaChangeEvent(
+                        TableIdentifier.of("catalog", "database", "first_table"),
+                        "first_added_col",
+                        100L);
+        AlterTableAddColumnEvent secondEvent =
+                createSchemaChangeEvent(
+                        TableIdentifier.of("catalog", "database", "second_table"),
+                        "second_added_col",
+                        200L);
+        SeaTunnelRow rowBetween = createDataRow("row-between-ddls");
+        SeaTunnelRow rowAfter = createDataRow("row-after-ddls");
+
+        context.operator.processElement(new StreamRecord<>(createSchemaRow(firstEvent), 500L));
+        context.operator.processElement(new StreamRecord<>(rowBetween, 501L));
+        context.operator.processElement(new StreamRecord<>(createSchemaRow(secondEvent), 502L));
+        context.operator.processElement(new StreamRecord<>(rowAfter, 503L));
+
+        context.operator.notifyCheckpointComplete(50L);
+        context.operator.notifyCheckpointComplete(51L);
+
+        assertEquals(2, context.output.records.size());
+        assertSchemaBroadcast(context.output.records.get(0), firstEvent);
+        assertEquals(rowBetween, context.output.records.get(1).getValue());
+        assertSchemaDependency(rowBetween);
         assertTrue(getBooleanField(context.operator, "schemaChangePending"));
-        assertEquals(30L, getLongField(context.operator, "firstSeenCheckpointId"));
-        Queue<SchemaOperator.BufferedRecord> pendingQueue = getPendingQueue(context.operator);
-        assertEquals(2, pendingQueue.size());
-        assertTrue(pendingQueue.peek().isSchemaChange);
+        assertEquals(-1L, getLongField(context.operator, "firstSeenCheckpointId"));
+        assertEquals(2, getPendingQueue(context.operator).size());
+
+        context.operator.notifyCheckpointComplete(52L);
+        assertEquals(2, context.output.records.size());
+        assertEquals(52L, getLongField(context.operator, "firstSeenCheckpointId"));
+
+        context.operator.notifyCheckpointComplete(53L);
+
+        assertEquals(4, context.output.records.size());
+        assertSchemaBroadcast(context.output.records.get(2), secondEvent);
+        assertEquals(rowAfter, context.output.records.get(3).getValue());
+        assertSchemaDependency(rowAfter);
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+        assertTrue(getPendingQueue(context.operator).isEmpty());
+    }
+
+    @Test
+    void testLowerEpochForDifferentTableIsProcessedIndependently() throws Exception {
+        OperatorTestContext context = createOperator(false);
+
+        AlterTableAddColumnEvent newerEvent =
+                createSchemaChangeEvent(
+                        TableIdentifier.of("catalog", "database", "first_table"),
+                        "newer_col",
+                        200L);
+        AlterTableAddColumnEvent olderEventForOtherTable =
+                createSchemaChangeEvent(
+                        TableIdentifier.of("catalog", "database", "second_table"),
+                        "older_col",
+                        100L);
+        SeaTunnelRow rowAfter = createDataRow("row-after-skipped-ddl");
+
+        context.operator.processElement(new StreamRecord<>(createSchemaRow(newerEvent), 600L));
+        context.operator.processElement(
+                new StreamRecord<>(createSchemaRow(olderEventForOtherTable), 601L));
+        context.operator.processElement(new StreamRecord<>(rowAfter, 602L));
+
+        context.operator.notifyCheckpointComplete(60L);
+        context.operator.notifyCheckpointComplete(61L);
+        context.operator.notifyCheckpointComplete(62L);
+        context.operator.notifyCheckpointComplete(63L);
+
+        assertEquals(3, context.output.records.size());
+        assertSchemaBroadcast(context.output.records.get(0), newerEvent);
+        assertSchemaBroadcast(context.output.records.get(1), olderEventForOtherTable);
+        assertEquals(rowAfter, context.output.records.get(2).getValue());
+        assertSchemaDependency(rowAfter);
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+        assertTrue(getPendingQueue(context.operator).isEmpty());
     }
 
     @Test
@@ -257,6 +306,328 @@ public class SchemaOperatorTest {
         assertEquals(row, context.output.records.get(1).getValue());
     }
 
+    @Test
+    void testCreatedTimeDoesNotDiscardAValidSchemaChange() throws Exception {
+        OperatorTestContext context = createOperator(false);
+        TableIdentifier table = TableIdentifier.of("catalog", "database", "table");
+        AlterTableAddColumnEvent newerEvent = createSchemaChangeEvent(table, "newer_col", 200L);
+        AlterTableAddColumnEvent olderEvent = createSchemaChangeEvent(table, "older_col", 100L);
+
+        context.operator.processElement(new StreamRecord<>(createSchemaRow(newerEvent)));
+        context.operator.processElement(new StreamRecord<>(createSchemaRow(olderEvent)));
+        context.operator.notifyCheckpointComplete(64L);
+        context.operator.notifyCheckpointComplete(65L);
+        context.operator.notifyCheckpointComplete(66L);
+        context.operator.notifyCheckpointComplete(67L);
+
+        assertEquals(2, context.output.records.size());
+        assertSchemaBroadcast(context.output.records.get(0), newerEvent);
+        assertSchemaBroadcast(context.output.records.get(1), olderEvent);
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+        assertTrue(getPendingQueue(context.operator).isEmpty());
+    }
+
+    @Test
+    void testRestoreDoesNotUseCreatedTimeAsSchemaEventIdentity() throws Exception {
+        OperatorStateStoreStub stateStore = new OperatorStateStoreStub();
+        OperatorTestContext originalContext = createOperator(stateStore, false);
+        TableIdentifier firstTable = TableIdentifier.of("catalog", "database", "first_table");
+        TableIdentifier secondTable = TableIdentifier.of("catalog", "database", "second_table");
+        AlterTableAddColumnEvent appliedEvent =
+                createSchemaChangeEvent(firstTable, "newer_col", 200L);
+
+        originalContext.operator.processElement(new StreamRecord<>(createSchemaRow(appliedEvent)));
+        originalContext.operator.notifyCheckpointComplete(68L);
+        originalContext.operator.notifyCheckpointComplete(69L);
+        originalContext.operator.snapshotState(snapshotContext(69L));
+        addStateValue(
+                stateStore,
+                "lastProcessedEventTimeByTable",
+                SchemaOperator.TableEventTimeEntry.class,
+                new SchemaOperator.TableEventTimeEntry(firstTable, 999L));
+
+        OperatorTestContext restoredContext = createOperator(stateStore, true);
+        AlterTableAddColumnEvent olderSameTable =
+                createSchemaChangeEvent(firstTable, "older_col", 100L);
+        AlterTableAddColumnEvent olderOtherTable =
+                createSchemaChangeEvent(secondTable, "other_col", 100L);
+        restoredContext.operator.processElement(
+                new StreamRecord<>(createSchemaRow(olderSameTable)));
+        restoredContext.operator.processElement(
+                new StreamRecord<>(createSchemaRow(olderOtherTable)));
+        restoredContext.operator.notifyCheckpointComplete(70L);
+        restoredContext.operator.notifyCheckpointComplete(71L);
+        restoredContext.operator.notifyCheckpointComplete(72L);
+        restoredContext.operator.notifyCheckpointComplete(73L);
+
+        assertEquals(2, restoredContext.output.records.size());
+        assertSchemaBroadcast(restoredContext.output.records.get(0), olderSameTable);
+        assertSchemaBroadcast(restoredContext.output.records.get(1), olderOtherTable);
+        assertFalse(getBooleanField(restoredContext.operator, "schemaChangePending"));
+    }
+
+    @Test
+    void testLegacyCreatedTimeAndAtomicProtocolStatesAreRegistered() throws Exception {
+        OperatorStateStoreStub stateStore = new OperatorStateStoreStub();
+
+        createOperator(stateStore, false);
+
+        assertFalse(stateStore.getRegisteredStateNames().contains("localSchemaState"));
+        assertTrue(stateStore.getRegisteredStateNames().contains("lastProcessedEventTimeByTable"));
+        assertTrue(stateStore.getRegisteredStateNames().contains("schemaEvolutionProtocolState"));
+    }
+
+    @Test
+    void testScaleDownRestoreKeepsActiveProtocolStateAtomic() throws Exception {
+        OperatorStateStoreStub stateStore = new OperatorStateStoreStub();
+        AlterTableAddColumnEvent pendingEvent = createSchemaChangeEvent();
+        SeaTunnelRow pendingRow = createDataRow("pending-row");
+        String lastEmittedSchemaChangeId =
+                SchemaEvolutionControlMessage.schemaChangeId("active-producer", 7L);
+
+        addStateValue(
+                stateStore,
+                "schemaEvolutionProtocolState",
+                SchemaOperator.SchemaEvolutionProtocolState.class,
+                new SchemaOperator.SchemaEvolutionProtocolState(
+                        false, Collections.emptyList(), -1L, "inactive-producer", 0L, null));
+        addStateValue(
+                stateStore,
+                "schemaEvolutionProtocolState",
+                SchemaOperator.SchemaEvolutionProtocolState.class,
+                new SchemaOperator.SchemaEvolutionProtocolState(
+                        true,
+                        Arrays.asList(
+                                new SchemaOperator.BufferedRecordEntry(
+                                        true, null, 0L, pendingEvent),
+                                new SchemaOperator.BufferedRecordEntry(
+                                        false, pendingRow, 123L, null)),
+                        20L,
+                        "active-producer",
+                        7L,
+                        lastEmittedSchemaChangeId));
+
+        // Poison the independently redistributed legacy fields. A restore from the new state must
+        // ignore these values rather than construct a producer/queue tuple that never existed.
+        addStateValue(stateStore, "schemaChangePending", Boolean.class, false);
+        addStateValue(
+                stateStore,
+                "schemaChangeProducerId",
+                String.class,
+                SchemaEvolutionControlMessage.schemaChangeId("wrong-producer", 99L));
+        addStateValue(stateStore, "schemaChangeSequence", Long.class, 99L);
+
+        OperatorTestContext restoredContext = createOperator(stateStore, true);
+
+        assertTrue(getBooleanField(restoredContext.operator, "schemaChangePending"));
+        assertEquals(-1L, getLongField(restoredContext.operator, "firstSeenCheckpointId"));
+        assertEquals(7L, getLongField(restoredContext.operator, "schemaChangeSequence"));
+        assertEquals(
+                "active-producer", getField(restoredContext.operator, "schemaChangeProducerId"));
+        assertEquals(
+                lastEmittedSchemaChangeId,
+                getField(restoredContext.operator, "lastEmittedSchemaChangeId"));
+        assertEquals(2, getPendingQueue(restoredContext.operator).size());
+
+        restoredContext.operator.notifyCheckpointComplete(21L);
+        restoredContext.operator.notifyCheckpointComplete(22L);
+
+        assertEquals(2, restoredContext.output.records.size());
+        String restoredSchemaChangeId =
+                SchemaEvolutionControlMessage.schemaChangeId(
+                        restoredContext.output.records.get(0).getValue());
+        assertEquals(
+                "active-producer",
+                SchemaEvolutionControlMessage.schemaChangeProducerId(restoredSchemaChangeId));
+        assertEquals(
+                8L, SchemaEvolutionControlMessage.schemaChangeSequence(restoredSchemaChangeId));
+        assertEquals(
+                restoredSchemaChangeId,
+                SchemaEvolutionControlMessage.requiredSchemaChangeId(
+                        restoredContext.output.records.get(1).getValue()));
+    }
+
+    @Test
+    void testLegacyScaleDownRestoreSelectsPairedActiveProducerState() throws Exception {
+        OperatorStateStoreStub stateStore = new OperatorStateStoreStub();
+        AlterTableAddColumnEvent pendingEvent = createSchemaChangeEvent();
+        String activeSchemaChangeId =
+                SchemaEvolutionControlMessage.schemaChangeId("active-producer", 7L);
+
+        addStateValue(stateStore, "schemaChangePending", Boolean.class, false);
+        addStateValue(stateStore, "schemaChangePending", Boolean.class, true);
+        addStateValue(stateStore, "firstSeenCheckpointId", Long.class, -1L);
+        addStateValue(stateStore, "firstSeenCheckpointId", Long.class, 20L);
+        addStateValue(
+                stateStore,
+                "schemaChangeProducerId",
+                String.class,
+                SchemaEvolutionControlMessage.schemaChangeId("inactive-producer", 0L));
+        addStateValue(stateStore, "schemaChangeProducerId", String.class, activeSchemaChangeId);
+        addStateValue(stateStore, "schemaChangeSequence", Long.class, 0L);
+        addStateValue(stateStore, "schemaChangeSequence", Long.class, 7L);
+        addStateValue(stateStore, "lastEmittedSchemaChangeId", String.class, activeSchemaChangeId);
+        addStateValue(
+                stateStore,
+                "bufferedRecords",
+                SchemaOperator.BufferedRecordEntry.class,
+                new SchemaOperator.BufferedRecordEntry(true, null, 0L, pendingEvent));
+
+        OperatorTestContext restoredContext = createOperator(stateStore, true);
+
+        assertTrue(getBooleanField(restoredContext.operator, "schemaChangePending"));
+        assertEquals(-1L, getLongField(restoredContext.operator, "firstSeenCheckpointId"));
+        assertEquals(7L, getLongField(restoredContext.operator, "schemaChangeSequence"));
+        assertEquals(
+                "active-producer", getField(restoredContext.operator, "schemaChangeProducerId"));
+        assertEquals(
+                activeSchemaChangeId,
+                getField(restoredContext.operator, "lastEmittedSchemaChangeId"));
+        assertEquals(1, getPendingQueue(restoredContext.operator).size());
+    }
+
+    @Test
+    void testEvolveBehaviorDropsUnsupportedCommentEvent() throws Exception {
+        OperatorTestContext context =
+                createOperator(
+                        Collections.singletonList(SchemaChangeType.ADD_COLUMN),
+                        SchemaChangeBehavior.EVOLVE,
+                        false);
+        AlterTableCommentEvent event =
+                AlterTableCommentEvent.of(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        "old comment",
+                        "new comment");
+        SeaTunnelRow row = createDataRow("row-after-unsupported-comment");
+
+        context.operator.processElement(new StreamRecord<>(createSchemaRow(event), 450L));
+        context.operator.processElement(new StreamRecord<>(row, 451L));
+
+        assertEquals(1, context.output.records.size());
+        assertEquals(row, context.output.records.get(0).getValue());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+    }
+
+    @Test
+    void testStrictBehaviorFailsWhenSchemaChangeDetected() throws Exception {
+        OperatorTestContext context =
+                createOperator(
+                        Collections.singletonList(SchemaChangeType.ADD_COLUMN),
+                        SchemaChangeBehavior.STRICT,
+                        false);
+
+        SuppressRestartsException error =
+                assertThrows(
+                        SuppressRestartsException.class,
+                        () ->
+                                context.operator.processElement(
+                                        new StreamRecord<>(
+                                                createSchemaRow(createSchemaChangeEvent()))));
+        assertTrue(error.getCause() instanceof SchemaEvolutionException);
+        assertTrue(context.output.records.isEmpty());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+    }
+
+    @Test
+    void testEvolveBehaviorFailsForUnsupportedSchemaChange() throws Exception {
+        OperatorTestContext context =
+                createOperator(
+                        Collections.singletonList(SchemaChangeType.DROP_COLUMN),
+                        SchemaChangeBehavior.EVOLVE,
+                        false);
+
+        assertThrows(
+                SuppressRestartsException.class,
+                () ->
+                        context.operator.processElement(
+                                new StreamRecord<>(createSchemaRow(createSchemaChangeEvent()))));
+        assertTrue(context.output.records.isEmpty());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+    }
+
+    @Test
+    void testIgnoreBehaviorDropsSafeCommentSchemaChange() throws Exception {
+        OperatorTestContext context =
+                createOperator(
+                        Collections.singletonList(SchemaChangeType.ALTER_TABLE_COMMENT),
+                        SchemaChangeBehavior.IGNORE,
+                        false);
+        AlterTableCommentEvent event =
+                AlterTableCommentEvent.of(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        "old comment",
+                        "new comment");
+        SeaTunnelRow row = createDataRow("row-after-ignored-comment");
+
+        context.operator.processElement(new StreamRecord<>(createSchemaRow(event), 500L));
+        context.operator.processElement(new StreamRecord<>(row, 501L));
+        AlterTableColumnsEvent columnComment =
+                new AlterTableColumnsEvent(
+                        event.tableIdentifier(),
+                        Collections.singletonList(
+                                AlterColumnCommentEvent.of(
+                                        event.tableIdentifier(), "name", "old", "new")));
+        context.operator.processElement(new StreamRecord<>(createSchemaRow(columnComment), 502L));
+        context.operator.processElement(new StreamRecord<>(row, 503L));
+
+        assertEquals(2, context.output.records.size());
+        assertEquals(row, context.output.records.get(0).getValue());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+    }
+
+    /**
+     * Regression test for the composite {@link AlterTableColumnsEvent} capability check.
+     *
+     * <p>When a sink only advertises {@link SchemaChangeType#ADD_COLUMN}, a composite DDL event
+     * containing both ADD and DROP sub-events must be rejected at the {@link SchemaOperator} policy
+     * gate. Before the fix, the OR-based check in {@code SchemaChangePolicy.isSupported()} returned
+     * {@code true} as long as any one capability matched, allowing mixed DDL to pass the gate and
+     * fail later inside the sink writer.
+     */
+    @Test
+    void testEvolveBehaviorFailsMixedCompositeEventAgainstPartiallySupportedSink()
+            throws Exception {
+        OperatorTestContext context =
+                createOperator(
+                        Collections.singletonList(SchemaChangeType.ADD_COLUMN),
+                        SchemaChangeBehavior.EVOLVE,
+                        false);
+
+        TableIdentifier tableId = TableIdentifier.of("catalog", "database", "table");
+        AlterTableColumnsEvent mixedEvent = new AlterTableColumnsEvent(tableId);
+        mixedEvent.addEvent(
+                AlterTableAddColumnEvent.add(
+                        tableId,
+                        PhysicalColumn.of(
+                                "new_col", BasicType.STRING_TYPE, 64L, true, null, null)));
+        mixedEvent.addEvent(new AlterTableDropColumnEvent(tableId, "old_col"));
+
+        assertThrows(
+                SuppressRestartsException.class,
+                () ->
+                        context.operator.processElement(
+                                new StreamRecord<>(createSchemaRow(mixedEvent))));
+        assertTrue(context.output.records.isEmpty());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+    }
+
+    @Test
+    void testIgnoreBehaviorFailsForUnsafeSchemaChange() throws Exception {
+        OperatorTestContext context =
+                createOperator(
+                        Collections.singletonList(SchemaChangeType.ADD_COLUMN),
+                        SchemaChangeBehavior.IGNORE,
+                        false);
+
+        assertThrows(
+                SuppressRestartsException.class,
+                () ->
+                        context.operator.processElement(
+                                new StreamRecord<>(createSchemaRow(createSchemaChangeEvent()))));
+        assertTrue(context.output.records.isEmpty());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+    }
+
     /**
      * Verifies that {@link SchemaOperator#handleFallbackTimerOnTaskThread()} correctly respects the
      * checkpoint-completion safety fence even when called from a stall-detection timer.
@@ -270,15 +641,8 @@ public class SchemaOperatorTest {
      * only the handler logic, not the scheduling mechanism.
      */
     @Test
-    void testFallbackTimerRespectsCheckpointSafetyFence() throws Exception {
-        LocalSchemaCoordinator coordinator = Mockito.mock(LocalSchemaCoordinator.class);
-        Mockito.when(
-                        coordinator.requestSchemaChange(
-                                Mockito.any(), Mockito.anyLong(), Mockito.anyLong()))
-                .thenReturn(true);
-
+    void testFallbackTimerFailsExactlyOnceJobWhenSecondCheckpointStalls() throws Exception {
         OperatorTestContext context = createOperator(false);
-        setField(context.operator, "coordinator", coordinator);
 
         AlterTableAddColumnEvent event = createSchemaChangeEvent();
         SeaTunnelRow row = createDataRow("row-released-after-fallback");
@@ -295,7 +659,6 @@ public class SchemaOperatorTest {
         assertTrue(getBooleanField(context.operator, "schemaChangePending"));
         assertEquals(2, getPendingQueue(context.operator).size());
         assertEquals(-1L, getLongField(context.operator, "firstSeenCheckpointId"));
-        Mockito.verifyNoInteractions(coordinator);
 
         // Complete the first post-DDL checkpoint — sets firstSeenCheckpointId, not yet safe to
         // apply (need one additional round, so notifyCheckpointComplete stops here).
@@ -304,7 +667,6 @@ public class SchemaOperatorTest {
         assertTrue(context.output.records.isEmpty());
         assertEquals(40L, getLongField(context.operator, "firstSeenCheckpointId"));
         assertTrue(getBooleanField(context.operator, "schemaChangePending"));
-        Mockito.verifyNoInteractions(coordinator);
 
         // Simulate checkpoint stall: move lastCheckpointCompletedMs into the past beyond
         // CHECKPOINT_STALL_TIMEOUT_MS (15 s). This mirrors the Flink 1.13 behaviour where
@@ -314,17 +676,111 @@ public class SchemaOperatorTest {
                 "lastCheckpointCompletedMs",
                 System.currentTimeMillis() - 20_000L);
 
-        // Simulate timer firing again. firstSeenCheckpointId >= 0 and checkpoint has stalled,
-        // so the safety fence is satisfied — the DDL can now be applied.
+        SchemaEvolutionException exception =
+                assertThrows(
+                        SchemaEvolutionException.class,
+                        () ->
+                                invokeNoArgMethod(
+                                        context.operator, "handleFallbackTimerOnTaskThread"));
+
+        assertTrue(exception.getMessage().contains("second completed checkpoint"));
+        assertTrue(context.output.records.isEmpty());
+        assertTrue(getBooleanField(context.operator, "schemaChangePending"));
+        assertEquals(2, getPendingQueue(context.operator).size());
+    }
+
+    @Test
+    void testFallbackTimerCanReleaseAtLeastOnceJob() throws Exception {
+        OperatorTestContext context = createOperator(new OperatorStateStoreStub(), false, false);
+        AlterTableAddColumnEvent event = createSchemaChangeEvent();
+        SeaTunnelRow row = createDataRow("row-released-after-fallback");
+
+        context.operator.processElement(new StreamRecord<>(createSchemaRow(event), 410L));
+        context.operator.processElement(new StreamRecord<>(row, 411L));
+        context.operator.notifyCheckpointComplete(41L);
+        setField(
+                context.operator,
+                "lastCheckpointCompletedMs",
+                System.currentTimeMillis() - 20_000L);
+
         invokeNoArgMethod(context.operator, "handleFallbackTimerOnTaskThread");
 
         assertEquals(2, context.output.records.size());
         assertSchemaBroadcast(context.output.records.get(0), event);
         assertEquals(row, context.output.records.get(1).getValue());
+        assertSchemaDependency(row);
         assertFalse(getBooleanField(context.operator, "schemaChangePending"));
         assertTrue(getPendingQueue(context.operator).isEmpty());
-        Mockito.verify(coordinator)
-                .requestSchemaChange(event.tableIdentifier(), event.getCreatedTime(), 300_000L);
+    }
+
+    @Test
+    void testRestoredOperatorTagsRowsWithLastEmittedSchemaChange() throws Exception {
+        OperatorStateStoreStub stateStore = new OperatorStateStoreStub();
+        OperatorTestContext originalContext = createOperator(stateStore, false);
+        AlterTableAddColumnEvent event = createSchemaChangeEvent();
+
+        originalContext.operator.processElement(new StreamRecord<>(createSchemaRow(event), 700L));
+        originalContext.operator.notifyCheckpointComplete(70L);
+        originalContext.operator.notifyCheckpointComplete(71L);
+        String emittedSchemaChangeId =
+                SchemaEvolutionControlMessage.schemaChangeId(
+                        originalContext.output.records.get(0).getValue());
+        originalContext.operator.snapshotState(snapshotContext(72L));
+
+        OperatorTestContext restoredContext = createOperator(stateStore, true);
+        SeaTunnelRow restoredRow = createDataRow("row-after-restore");
+        restoredContext.operator.processElement(new StreamRecord<>(restoredRow, 701L));
+
+        assertEquals(1, restoredContext.output.records.size());
+        assertSchemaDependency(restoredContext.output.records.get(0).getValue());
+        assertEquals(
+                emittedSchemaChangeId,
+                SchemaEvolutionControlMessage.requiredSchemaChangeId(restoredRow));
+    }
+
+    @Test
+    void testPendingBufferHasByteLimit() throws Exception {
+        OperatorTestContext context = createOperator(false);
+        context.operator.processElement(
+                new StreamRecord<>(createSchemaRow(createSchemaChangeEvent()), 800L));
+        setField(context.operator, "pendingBytes", 64L * 1024 * 1024);
+
+        SchemaEvolutionException exception =
+                assertThrows(
+                        SchemaEvolutionException.class,
+                        () ->
+                                context.operator.processElement(
+                                        new StreamRecord<>(createDataRow("overflow"), 801L)));
+
+        assertTrue(exception.getMessage().contains("Pending schema buffer overflow"));
+        assertEquals(1, getPendingQueue(context.operator).size());
+    }
+
+    @Test
+    void testPendingBufferLimitAlsoCoversSchemaEvents() throws Exception {
+        OperatorTestContext context = createOperator(false);
+        context.operator.processElement(
+                new StreamRecord<>(createSchemaRow(createSchemaChangeEvent()), 900L));
+        setField(context.operator, "pendingBytes", 64L * 1024 * 1024);
+
+        SchemaEvolutionException exception =
+                assertThrows(
+                        SchemaEvolutionException.class,
+                        () ->
+                                context.operator.processElement(
+                                        new StreamRecord<>(
+                                                createSchemaRow(
+                                                        createSchemaChangeEvent(
+                                                                TableIdentifier.of(
+                                                                        "catalog",
+                                                                        "database",
+                                                                        "second_table"),
+                                                                "second_col",
+                                                                System.currentTimeMillis() + 1)),
+                                                901L)));
+
+        assertTrue(exception.getMessage().contains("Pending schema buffer overflow"));
+        assertEquals(1, getPendingQueue(context.operator).size());
     }
 
     private static OperatorTestContext createOperator(boolean restored) throws Exception {
@@ -334,27 +790,53 @@ public class SchemaOperatorTest {
     private static OperatorTestContext createOperator(
             OperatorStateStoreStub stateStore, boolean restored) throws Exception {
         return createOperator(
-                stateStore, restored, Collections.singletonList(SchemaChangeType.ADD_COLUMN));
+                stateStore, Collections.singletonList(SchemaChangeType.ADD_COLUMN), restored, true);
     }
 
     private static OperatorTestContext createOperator(
             List<SchemaChangeType> supportedTypes, boolean restored) throws Exception {
-        return createOperator(new OperatorStateStoreStub(), restored, supportedTypes);
+        return createOperator(new OperatorStateStoreStub(), supportedTypes, restored, true);
+    }
+
+    private static OperatorTestContext createOperator(
+            OperatorStateStoreStub stateStore, boolean restored, boolean exactlyOnceMode)
+            throws Exception {
+        return createOperator(
+                stateStore,
+                Collections.singletonList(SchemaChangeType.ADD_COLUMN),
+                restored,
+                exactlyOnceMode);
     }
 
     private static OperatorTestContext createOperator(
             OperatorStateStoreStub stateStore,
+            List<SchemaChangeType> supportedTypes,
             boolean restored,
-            List<SchemaChangeType> supportedTypes)
+            boolean exactlyOnceMode)
             throws Exception {
-        SupportSchemaEvolution source = Mockito.mock(SupportSchemaEvolution.class);
-        Mockito.when(source.supports()).thenReturn(supportedTypes);
+        return createOperator(
+                stateStore, supportedTypes, SchemaChangeBehavior.EVOLVE, restored, exactlyOnceMode);
+    }
 
-        SchemaOperator operator =
-                new SchemaOperator(
-                        "bootstrap-job-id",
-                        source,
-                        ConfigFactory.parseString("schema-changes.enabled = true"));
+    private static OperatorTestContext createOperator(
+            List<SchemaChangeType> supportedTypes, SchemaChangeBehavior behavior, boolean restored)
+            throws Exception {
+        return createOperator(
+                new OperatorStateStoreStub(), supportedTypes, behavior, restored, true);
+    }
+
+    private static OperatorTestContext createOperator(
+            OperatorStateStoreStub stateStore,
+            List<SchemaChangeType> supportedTypes,
+            SchemaChangeBehavior behavior,
+            boolean restored,
+            boolean exactlyOnceMode)
+            throws Exception {
+        SupportSchemaEvolutionSource source = Mockito.mock(SupportSchemaEvolutionSource.class);
+        Mockito.when(source.supports()).thenReturn(supportedTypes);
+        Mockito.when(source.getSchemaChangeBehavior()).thenReturn(behavior);
+
+        SchemaOperator operator = createSchemaOperator(source, exactlyOnceMode);
 
         CollectingOutput output = new CollectingOutput();
         setField(operator, AbstractStreamOperator.class, "output", output);
@@ -381,16 +863,69 @@ public class SchemaOperatorTest {
         return runtimeContext;
     }
 
+    private static SchemaOperator createSchemaOperator(
+            SupportSchemaEvolution source, boolean exactlyOnceMode) throws Exception {
+        Class<?> configClass =
+                Class.forName("org.apache.seatunnel.shade.com.typesafe.config.Config");
+        Object config =
+                Proxy.newProxyInstance(
+                        configClass.getClassLoader(),
+                        new Class<?>[] {configClass},
+                        (proxy, method, args) -> {
+                            if ("hasPath".equals(method.getName())
+                                    || "getBoolean".equals(method.getName())) {
+                                return true;
+                            }
+                            return null;
+                        });
+        return (SchemaOperator)
+                SchemaOperator.class
+                        .getConstructor(
+                                String.class,
+                                SupportSchemaEvolution.class,
+                                configClass,
+                                boolean.class)
+                        .newInstance("bootstrap-job-id", source, config, exactlyOnceMode);
+    }
+
     private static StateSnapshotContext snapshotContext(long checkpointId) throws Exception {
         StateSnapshotContext snapshotContext = Mockito.mock(StateSnapshotContext.class);
         Mockito.when(snapshotContext.getCheckpointId()).thenReturn(checkpointId);
         return snapshotContext;
     }
 
+    private static <T> void addStateValue(
+            OperatorStateStoreStub stateStore, String stateName, Class<T> type, T value)
+            throws Exception {
+        stateStore.getListState(new ListStateDescriptor<>(stateName, type)).add(value);
+    }
+
     private static AlterTableAddColumnEvent createSchemaChangeEvent() {
-        return AlterTableAddColumnEvent.add(
+        return createSchemaChangeEvent(
                 TableIdentifier.of("catalog", "database", "table"),
-                PhysicalColumn.of("added_col", BasicType.STRING_TYPE, 64L, true, null, null));
+                "added_col",
+                System.currentTimeMillis());
+    }
+
+    private static AlterTableAddColumnEvent createSchemaChangeEvent(
+            TableIdentifier tableIdentifier, String columnName, long createdTime) {
+        AlterTableAddColumnEvent event =
+                AlterTableAddColumnEvent.add(
+                        tableIdentifier,
+                        PhysicalColumn.of(
+                                columnName, BasicType.STRING_TYPE, 64L, true, null, null));
+        setCreatedTime(event, createdTime);
+        return event;
+    }
+
+    private static void setCreatedTime(AlterTableAddColumnEvent event, long createdTime) {
+        try {
+            Field field = findField(event.getClass(), "createdTime");
+            field.setAccessible(true);
+            field.setLong(event, createdTime);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Unable to set deterministic schema event epoch", e);
+        }
     }
 
     private static CatalogTable createRestoredTable(String tableName) {
@@ -417,16 +952,28 @@ public class SchemaOperatorTest {
 
     private static SeaTunnelRow createDataRow(String value) {
         SeaTunnelRow row = new SeaTunnelRow(1);
-        row.setTableId("catalog.database.table");
+        row.setTableId("database.table");
         row.setField(0, value);
         return row;
     }
 
     private static void assertSchemaBroadcast(
             StreamRecord<SeaTunnelRow> record, SchemaChangeEvent event) {
-        Object broadcastEvent = record.getValue().getOptions().get("schema_change_broadcast");
+        Object broadcastEvent =
+                record.getValue()
+                        .getOptions()
+                        .get(SchemaEvolutionControlMessage.SCHEMA_CHANGE_BROADCAST);
         assertInstanceOf(event.getClass(), broadcastEvent);
         assertEquals(event, broadcastEvent);
+        String schemaChangeId = SchemaEvolutionControlMessage.schemaChangeId(record.getValue());
+        assertNotNull(SchemaEvolutionControlMessage.schemaChangeProducerId(schemaChangeId));
+        assertTrue(SchemaEvolutionControlMessage.schemaChangeSequence(schemaChangeId) > 0);
+    }
+
+    private static void assertSchemaDependency(SeaTunnelRow row) {
+        String requiredSchemaChangeId = SchemaEvolutionControlMessage.requiredSchemaChangeId(row);
+        assertNotNull(SchemaEvolutionControlMessage.schemaChangeProducerId(requiredSchemaChangeId));
+        assertTrue(SchemaEvolutionControlMessage.schemaChangeSequence(requiredSchemaChangeId) > 0);
     }
 
     @SuppressWarnings("unchecked")
@@ -465,7 +1012,14 @@ public class SchemaOperatorTest {
     private static Object invokeNoArgMethod(Object target, String methodName) throws Exception {
         java.lang.reflect.Method method = target.getClass().getDeclaredMethod(methodName);
         method.setAccessible(true);
-        return method.invoke(target);
+        try {
+            return method.invoke(target);
+        } catch (java.lang.reflect.InvocationTargetException e) {
+            if (e.getCause() instanceof Exception) {
+                throw (Exception) e.getCause();
+            }
+            throw e;
+        }
     }
 
     private static Field findField(Class<?> type, String fieldName) throws NoSuchFieldException {
@@ -489,6 +1043,9 @@ public class SchemaOperatorTest {
             this.output = output;
         }
     }
+
+    private interface SupportSchemaEvolutionSource
+            extends SupportSchemaEvolution, SupportSchemaChangeBehavior {}
 
     private static final class CollectingOutput implements Output<StreamRecord<SeaTunnelRow>> {
         private final List<StreamRecord<SeaTunnelRow>> records = new ArrayList<>();

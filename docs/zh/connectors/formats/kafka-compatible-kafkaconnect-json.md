@@ -2,6 +2,14 @@
 
 Seatunnel 的 Kafka 连接器支持解析通过 Kafka Connect Source 抽取的数据，特别是从 Kafka Connect JDBC 和 Kafka Connect Debezium 抽取的数据
 
+# 格式选项
+
+| 选项                             | 默认值    | 是否需要 | 描述                                    |
+|--------------------------------|--------|------|------------------------------------------|
+| format                         | (none) | 是    | 指定要使用的格式，这里应该是 `compatible_kafka_connect_json`。 |
+| key_converter_schema_enabled   | true   | 否    | Kafka Connect key converter 生成的 JSON 载荷是否携带 schema。 |
+| value_converter_schema_enabled | true   | 否    | Kafka Connect value converter 生成的 JSON 载荷是否携带 schema。 |
+
 ## 限制
 
 更新消息必须包含完整行数据；仅包含变更字段的部分更新暂不支持。

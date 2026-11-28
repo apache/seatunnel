@@ -57,16 +57,19 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 SeaTunnel 自动生成插入语句时，会使用 `PARSE_JSON` 包装 JSON 字段，使其 JSON 结构存入 Snowflake `VARIANT`。Snowflake 不允许在 `VALUES` 子句中使用 `PARSE_JSON`，因此当 Schema 包含 JSON 字段时，SeaTunnel 会生成 `INSERT INTO ... SELECT` 形式的语句。使用自定义 `query` 时，SeaTunnel 无法改写该语句，需要自行用 `PARSE_JSON(?)` 包装每个 JSON 占位符，并使用 `INSERT INTO ... SELECT` 形式，例如 `INSERT INTO t (id, payload) SELECT ?, PARSE_JSON(?)`。该检查只判断 query 中是否出现 `PARSE_JSON`，不会校验每个 JSON 占位符是否都已包装。如果 Sink Schema 包含 JSON 字段且自定义 `query` 中没有出现 `PARSE_JSON`，Sink 会在创建时（作业提交阶段）失败并在报错信息中列出 JSON 字段，而不是把转义后的字符串写入 `VARIANT` 列。
 
+当 Sink 自动建表时，`p > 38` 的 SeaTunnel `DECIMAL(p, s)` 列会被收缩为精度 38，小数位按超出量同步缩减。SeaTunnel `BYTES` 列会建为 Snowflake `GEOMETRY`。
+
 ## 选项
 
 | 名称                          |  类型   | 是否必填 | 默认值 | 描述                                                                                                                                                                                |
 |-------------------------------|---------|----------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                           | String  | 是       | -       | JDBC 连接 URL，例如 `jdbc:snowflake://<account_name>.snowflakecomputing.com`。                                                                                                       |
 | driver                        | String  | 是       | -       | JDBC 驱动类名，Snowflake 使用 `net.snowflake.client.jdbc.SnowflakeDriver`。                                                                                                          |
+| generate_sink_sql             | Boolean | 否       | false   | 根据 `database`、`table` 和 `primary_keys` 自动生成写入 SQL，而不是使用自定义 `query`。为 `true` 时 `database` 变为必填；请不要设置 `query`，以便使用自动生成的 SQL——非空的 `query` 仍然优先生效。                                          |
 | username                      | String  | 否       | -       | Snowflake 账户用户名。                                                                                                                                                              |
 | password                      | String  | 否       | -       | Snowflake 账户密码。                                                                                                                                                                |
 | query                         | String  | 否       | -       | 写入上游数据的 SQL。优先级高于 `database`/`table` 自动生成的 SQL；设置后会关闭基于目录的优化（无法自动生成 upsert）。                                                              |
-| database                      | String  | 否       | -       | 数据库名。`generate_sink_sql = true` 时与 `table` 一起用于生成 `INSERT`/upsert SQL；与 `query` 互斥，同时设置时 `query` 优先生。                          |
+| database | String | `generate_sink_sql = true` 时必填 | - | 目标数据库。生成写入 SQL 时与 `table` 一起使用。 |
 | table                         | String  | 否       | -       | 目标表名。与 `database` 一起配合 `generate_sink_sql` 生成写入语句。                                                                                                                  |
 | primary_keys                  | Array   | 否       | -       | 主键列。`generate_sink_sql = true` 且 `enable_upsert = true` 时用于构建 upsert（insert-or-update）语句。                                                                             |
 | connection_check_timeout_sec  | Int     | 否       | 30      | 连接校验超时时间（秒）。                                                                                                                                                            |

@@ -66,7 +66,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | TIME(s)                                                                                     | TIME(s)                                                                                                                                         |
 | DATETIME(s)                                                                                 | TIMESTAMP(s)                                                                                                                                    |
 | TIMESTAMP(s)                                                                                | TIMESTAMP_TZ(s)                                                                                                                                  |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)<br/>GEOMETRY | BYTES                                                                                                                                           |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINARY<br/>BIT(n)<br/>GEOMETRY | BYTES                                                                                                                                           |
 
 ## 数据源参数
 
@@ -78,7 +78,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | password                                   | String     | 否    | -     | 连接实例密码。                                                                                                                                                                                                                |
 | query                                      | String     | 否    | -     | 查询语句。当未配置 `table_path` 和 `table_list` 时必填。                                                                                                                                                                       |
 | connection_check_timeout_sec               | Int        | 否    | 30    | 验证数据库连接所使用的操作完成的等待时间（秒）。                                                                                                                                                                                               |
-| partition_column                           | String     | 否    | -     | 用于并行度分区的列名，仅支持数字类型，仅支持数字类型的主键，并且只能配置一列。                                                                                                                                                                                |
+| partition_column                           | String     | 否    | -     | 用于并行读取的数据拆分列。只能配置一列，且必须是 [并行读取器](#并行读取器) 中列出的 **支持的拆分数据类型** 之一（字符串、数字或日期）。                                                                                                                                                                |
 | partition_lower_bound                      | String     | 否    | -     | 扫描时 `partition_column` 的最小值，如果未设置，`SeaTunnel` 将查询数据库以获取最小值。                                                                                                                                                            |
 | partition_upper_bound                      | String     | 否    | -     | 扫描时 `partition_column` 的最大值，如果未设置，`SeaTunnel` 将查询数据库以获取最大值。                                                                                                                                                            |
 | partition_num                              | Int        | 否    | 10    | 分区数量，仅支持正整数。<br/>默认值为 10。                                                                                                                                                                                            |
@@ -91,7 +91,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | split.size                                 | Int        | 否    | 8096  | 表的分割大小（行数），当读取表时，捕获的表会被分割成多个分片。                                                                                                                                                                                        |
 | split.even-distribution.factor.lower-bound | Double     | 否    | 0.05  | 分片键分布因子的下限。该因子用于判断表数据的分布是否均匀。如果计算得到的分布因子大于或等于该下限（即，(MAX(id) - MIN(id) + 1) / 行数），则会对表的分片进行优化，以确保数据的均匀分布。反之，如果分布因子较低，则表数据将被视为分布不均匀。如果估算的分片数量超过 `sample-sharding.threshold` 所指定的值，则会采用基于采样的分片策略。默认值为 0.05。               |
 | split.even-distribution.factor.upper-bound | Double     | 否    | 100   | 分片键分布因子的上限。该因子用于判断表数据的分布是否均匀。如果计算得到的分布因子小于或等于该上限（即，(MAX(id) - MIN(id) + 1) / 行数），则会对表的分片进行优化，以确保数据的均匀分布。反之，如果分布因子较大，则表数据将被视为分布不均匀，并且如果估算的分片数量超过 `sample-sharding.threshold` 所指定的值，则会采用基于采样的分片策略。默认值为 100.0。            |
-| split.sample-sharding.threshold            | Int        | 否    | 1000  | 此配置指定了触发样本分片策略的估算分片数阈值。当分布因子超出由 `chunk-key.even-distribution.factor.upper-bound` 和 `chunk-key.even-distribution.factor.lower-bound` 指定的范围，并且估算的分片数量（计算方法为大致行数 / 分片大小）超过此阈值时，将使用样本分片策略。此配置有助于更高效地处理大型数据集。默认值为 1000 个分片。 |
+| split.sample-sharding.threshold            | Int        | 否    | 1000  | 此配置指定了触发样本分片策略的估算分片数阈值。当分布因子超出由 `split.even-distribution.factor.upper-bound` 和 `split.even-distribution.factor.lower-bound` 指定的范围，并且估算的分片数量（计算方法为大致行数 / 分片大小）超过此阈值时，将使用样本分片策略。此配置有助于更高效地处理大型数据集。默认值为 1000 个分片。 |
 | split.allow-sampling                       | Boolean    | 否    | true  | 是否允许对分布不均匀的分片键使用采样分片策略。设置为 `false` 时，SeaTunnel 会退回到迭代式不均匀分片。                                                                                                            |
 | use_select_count                           | Boolean    | 否    | false | 是否使用 `select count(*)` 在分片前估算表行数。                                                                                                                                                                                        |
 | skip_analyze                               | Boolean    | 否    | false | 是否跳过分片前的表行数分析。                                                                                                                                                                                                       |
@@ -151,7 +151,7 @@ JDBC 源连接器支持从表中并行读取数据。SeaTunnel 将使用特定�
 
 #### split.sample-sharding.threshold
 
-此配置指定了触发采样分片策略的估算分片数量阈值。当分布因子超出 `chunk-key.even-distribution.factor.upper-bound` 和 `chunk-key.even-distribution.factor.lower-bound` 指定的范围，并且估算的分片数量（按大致行数除以分片大小计算）超过该阈值时，将使用采样分片策略。这有助于更高效地处理大数据集。默认值为 1000 个分片。
+此配置指定了触发采样分片策略的估算分片数量阈值。当分布因子超出 `split.even-distribution.factor.upper-bound` 和 `split.even-distribution.factor.lower-bound` 指定的范围，并且估算的分片数量（按大致行数除以分片大小计算）超过该阈值时，将使用采样分片策略。这有助于更高效地处理大数据集。默认值为 1000 个分片。
 
 #### split.inverse-sampling.rate
 

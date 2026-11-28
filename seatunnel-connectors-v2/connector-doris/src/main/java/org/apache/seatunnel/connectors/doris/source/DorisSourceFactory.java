@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.doris.catalog.DorisCatalog;
 import org.apache.seatunnel.connectors.doris.catalog.DorisCatalogFactory;
+import org.apache.seatunnel.connectors.doris.config.DorisSinkOptions;
 import org.apache.seatunnel.connectors.doris.config.DorisSourceConfig;
 import org.apache.seatunnel.connectors.doris.config.DorisSourceOptions;
 import org.apache.seatunnel.connectors.doris.config.DorisTableConfig;
@@ -76,6 +77,7 @@ public class DorisSourceFactory implements TableSourceFactory {
                 .optional(DorisSourceOptions.DORIS_BATCH_SIZE)
                 .optional(DorisSourceOptions.DORIS_EXEC_MEM_LIMIT)
                 .optional(DorisSourceOptions.HANDLE_JSON_AS_STRING)
+                .optional(DorisSinkOptions.CASE_SENSITIVE)
                 .build();
     }
 

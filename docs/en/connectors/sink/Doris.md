@@ -48,7 +48,7 @@ The internal implementation of Doris sink connector is cached and imported by st
 | query-port                     | int     | No       | 9030                         | `Doris` Fenodes query_port                                                                                                                                                                                                                                                             |
 | username                       | String  | Yes      | -                            | `Doris` user username                                                                                                                                                                                                                                                                  |
 | password                       | String  | Yes      | -                            | `Doris` user password                                                                                                                                                                                                                                                                  |
-| database                       | String  | No       | -                            | The database name of `Doris` table, use `${database_name}` to represent the upstream table name. When omitted, the upstream table's database name is used                                                                                                                              |
+| database                       | String  | No       | -                            | The database name of `Doris` table, use `${database_name}` to represent the upstream database name. When omitted, the upstream table's database name is used                                                                                                                              |
 | table                          | String  | No       | -                            | The table name of `Doris` table,  use `${table_name}` to represent the upstream table name. When omitted, the upstream table's name is used                                                                                                                                             |
 | table.identifier               | String  | No       | -                            | Deprecated table identifier. Please use `database` and `table` instead.                                                                                                                                                                                                                 |
 | sink.label-prefix              | String  | Yes      | -                            | The label prefix used by stream load imports. In the 2pc scenario, global uniqueness is required to ensure the EOS semantics of SeaTunnel.                                                                                                                                             |
@@ -69,7 +69,7 @@ The internal implementation of Doris sink connector is cached and imported by st
 | custom_sql                     | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                                           |
 | default-database               | String  | no       | information_schema           | The database used by the Doris catalog when it opens the JDBC connection (`query-port`) for save mode operations such as creating tables.                                                                                                                             |
 | multi_table_sink_replica       | int     | no       | 1                            | The number of sink writer replicas per table in a multi-table job. Must be at least 1.                                                                                                                                                                               |
-| doris.config                   | map     | yes      | -                            | Stream Load data description parameters passed to Doris. The most common keys are `format` (`json` or `csv`), `read_json_by_line` (`true`/`false`), `column_separator`, `row_delimiter`, and `partitions`. See the Doris Stream Load documentation for the full key set.               |
+| doris.config                   | map     | yes      | -                            | Stream Load data description parameters passed to Doris. The most common keys are `format` (`json` or `csv`), `read_json_by_line` (`true`/`false`), `column_separator`, `line_delimiter`, and `partitions`. See the Doris Stream Load documentation for the full key set.               |
 
 ## Redirect Behavior
 
@@ -230,6 +230,10 @@ sink {
     sink.label-prefix = "timer-flush"
     sink.enable-2pc = false
     doris.batch.size = 10000
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
   }
 }
 ```
@@ -681,18 +685,19 @@ sink {
     table = "mytable"
     sink.enable-2pc = "true"
     sink.label-prefix = "unique-job-label"
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
   }
 }
 ```
 
-The `sink.label-prefix` must be unique per job to avoid label conflicts when retrying or restarting.
+The `sink.label-prefix` must be unique per job to avoid label conflicts when retrying or restarting. Sub-writers of one job are disambiguated automatically by the connector.
 
 ### Why do I get a "Label already exists" error?
 
-Doris uses Stream Load labels to detect and reject duplicate submissions. If a job is restarted with 2PC enabled, the same label prefix may be reused. To resolve:
-
-- Include a timestamp or unique token in `sink.label-prefix` to ensure uniqueness across restarts.
-- Abort uncommitted transactions in Doris before restarting: `CANCEL LOAD WHERE LABEL LIKE 'your-prefix%'`.
+Doris uses Stream Load labels to detect and reject duplicate submissions. The connector appends a stable per-source-table discriminator to every sub-writer's label, and non-2PC labels also include a timestamp and a process-wide sequence. This keeps the sub-writers of a multi-table job distinct and lets a restarted writer abort its own pre-committed transactions. Labels are limited to 128 characters by Doris, so keep `sink.label-prefix` and the database/table names reasonably short. If a conflict still occurs, abort uncommitted transactions in Doris before restarting: `CANCEL LOAD WHERE LABEL LIKE 'your-prefix%'`.
 
 ### Does Doris Sink support DELETE propagation from CDC sources?
 
@@ -702,7 +707,8 @@ Yes. Set `sink.enable-delete = "true"` to propagate DELETE operations from CDC s
 
 See the case-sensitivity example above for the exact behavior. By default (`case_sensitive = true`)
 the connector preserves the original case of `database` and `table`. Set `case_sensitive = false`
-to fold both names to lowercase before they reach Doris. If upstream field names still do not
+to fold the table and column names to lowercase before they reach Doris (the `database` name
+keeps its original case). If upstream field names still do not
 match the Doris schema, normalize them at the source stage (e.g. with a `Rename` transform) or
 align the target schema explicitly rather than relying on undocumented options.
 

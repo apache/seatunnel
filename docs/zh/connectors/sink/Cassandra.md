@@ -86,7 +86,7 @@ sink 会把数据写入已经存在的 Cassandra 表。如果不配置 `fields`�
 
 当上游数据中有不需要写入 Cassandra 的额外字段时，可以使用该选项只选择目标字段。
 
-### batch_size [number]
+### batch_size [int]
 
 通过 [Cassandra-Java-Driver](https://github.com/datastax/java-driver) 每次写入的行数,
 默认值 `5000`.
@@ -107,7 +107,7 @@ Sink 插件通用参数，详情请参考 [Sink 常用选项](../common-options/
 
 - 任务启动前，目标 keyspace 和表必须已经存在。
 - `fields` 适合上游数据有额外字段、只想写入其中一部分字段的场景；它不是建表配置。
-- `async_write = true`（默认）下每行都会作为独立的异步语句发送，`batch_size` 只控制 flush 频率；`async_write = false` 时，行才会按 `batch_type` 聚合成一个批次，每次 flush 最多包含 `batch_size` 条。
+- `async_write = true`（默认）下每行都会作为独立的异步语句发送，`batch_size` 只控制 flush 频率；`async_write = false` 时，行才会按 `batch_type` 聚合成一个批次。由于先追加行、再检查大小阈值，实际每次 flush 发送的批次包含 `batch_size + 1` 条。
 - 连接器底层使用 Cassandra Java Driver；认证相关参数与 Driver 保持一致。注意：`consistency_level` 当前
   仅被接受、不会应用到写入语句；如需调整写入一致性级别，请调整集群/客户端的 Driver 默认配置。
 - `batch_type = "UNLOGGED"` 是常见默认值；当正确性优先于吞吐时使用 `LOGGED`，counter 表使用 `COUNTER`。

@@ -5,7 +5,7 @@
 从 https://github.com/apache/seatunnel/issues/1608 我们添加了 Connector V2 特性。
 Connector V2 是基于SeaTunnel Connector API接口定义的连接器。不像Connector V1， V2 支持如下特性：
 
-* **多引擎支持** SeaTunnel Connector API 是引擎独立的API。基于这个API开发的连接器可以在多个引擎上运行。目前支持Flink和Spark引擎，后续我们会支持其它的引擎。
+* **多引擎支持** SeaTunnel Connector API 是引擎独立的API。基于这个API开发的连接器可以在多个引擎上运行。目前支持 SeaTunnel Engine（Zeta）、Flink 和 Spark 引擎。
 * **多引擎版本支持** 通过翻译层将连接器与引擎解耦，解决了大多数连接器需要修改代码才能支持新版本底层引擎的问题。
 * **流批一体** Connector V2 可以支持批处理和流处理。我们不需要为批和流分别开发连接器。
 * **多路复用JDBC/Log连接。** Connector V2支持JDBC资源复用和共享数据库日志解析。

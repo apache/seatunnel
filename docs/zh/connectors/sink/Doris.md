@@ -69,7 +69,7 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 | custom_sql                     | String  | no       | -                            | 当data_save_mode选择CUSTOM_PROCESSING时，需要填写CUSTOM_SQL参数。 该参数通常填写一条可以执行的SQL。 SQL将在同步任务之前执行。                                                               |
 | default-database               | String  | no       | information_schema           | Doris catalog 在执行建表等 save mode 操作时，通过 `query-port` 建立 JDBC 连接所使用的数据库。                                                                                   |
 | multi_table_sink_replica       | int     | no       | 1                            | 多表写入作业中每张表使用的写入器副本数，最小为 1。                                                                                                                                  |
-| doris.config                   | map     | yes      | -                            | 传递给 Doris Stream Load 的数据描述参数。常用参数包括 `format`、`read_json_by_line`、`column_separator`、`row_delimiter` 和 `partitions`。                                                   |
+| doris.config                   | map     | yes      | -                            | 传递给 Doris Stream Load 的数据描述参数。常用参数包括 `format`、`read_json_by_line`、`column_separator`、`line_delimiter` 和 `partitions`。                                                   |
 
 ## Redirect 行为说明
 
@@ -227,6 +227,10 @@ sink {
     sink.label-prefix = "timer-flush"
     sink.enable-2pc = false
     doris.batch.size = 10000
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
   }
 }
 ```
@@ -677,18 +681,19 @@ sink {
     table = "mytable"
     sink.enable-2pc = "true"
     sink.label-prefix = "unique-job-label"
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
   }
 }
 ```
 
-`sink.label-prefix` 必须全局唯一，以避免重试或重启时出现 label 冲突。
+`sink.label-prefix` 必须全局唯一，以避免重试或重启时出现 label 冲突；同一作业的多个 sub-writer 由连接器自动区分。
 
 ### 为什么出现"Label already exists"错误？
 
-Doris 通过 Stream Load label 去重，防止重复提交。开启 2PC 后重启任务，可能复用相同的 label 前缀导致冲突。解决方法：
-
-- 在 `sink.label-prefix` 中加入时间戳或唯一标识，确保每次重启后 label 唯一。
-- 重启前在 Doris 中中止未提交的事务：`CANCEL LOAD WHERE LABEL LIKE 'your-prefix%'`。
+Doris 通过 Stream Load label 去重，防止重复提交。连接器会为每个 sub-writer 追加一个基于源表的稳定区分段，非 2PC label 还会包含时间戳和进程内的序号。这样多表作业的各 sub-writer 不会冲突，重启后的 writer 也能中止自己遗留的 pre-committed 事务。Doris 的 label 最长 128 个字符，请尽量保持 `sink.label-prefix` 和库表名简短。如果仍然发生冲突，可以在重启前中止未提交的事务：`CANCEL LOAD WHERE LABEL LIKE 'your-prefix%'`。
 
 ### Doris Sink 是否支持 CDC 的 DELETE 传播？
 
@@ -696,8 +701,10 @@ Doris 通过 Stream Load label 去重，防止重复提交。开启 2PC 后重�
 
 ### Doris 列名是否区分大小写？
 
-请以上面的大小写敏感示例为准。如果上游字段名与 Doris 目标 schema 仍然对不上，应该在 sink 之前先
-做字段规范化，或直接调整目标 schema，而不是依赖并不存在的 `column_mapping` 选项。
+具体行为请以上面的大小写敏感示例为准。默认情况下（`case_sensitive = true`），连接器会保留
+`database` 和 `table` 的原始大小写；设置 `case_sensitive = false` 时，两者会在到达 Doris 之前
+统一转换为小写。如果上游字段名仍然与 Doris 目标 schema 对不上，应在 sink 之前（例如使用
+`Rename` 转换）做字段规范化，或显式调整目标 schema，而不要依赖未经文档支持的选项。
 
 ### Doris Stream Load 使用什么数据格式？
 

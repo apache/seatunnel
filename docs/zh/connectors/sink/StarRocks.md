@@ -52,7 +52,7 @@ StarRocks数据接收器内部实现采用了缓存，通过stream load将数据
 | save_mode_create_template   | string  | 否    | 参见表下方的说明                     | 自动建表模板，详见表下方说明                                                                                                      |
 | starrocks.config            | map     | 否    | -                            | Stream Load `data_desc` 参数                                                                                           |
 | http_socket_timeout_ms      | int     | 否    | 180000                       | HTTP socket 超时时间，默认为 3 分钟                                                                                           |
-| label_state_timeout_ms      | long    | 否    | 180000                       | 当 Stream Load 返回非终态结果（`Publish Timeout`、`Label Already Exists`、复用 label 的失败）时，接收器轮询 `get_load_state` 以确认事务状态的总时长，超时后刷新失败并由作业从 checkpoint 重放。默认 3 分钟，应小于作业的 checkpoint 超时时间。 |
+| label_state_timeout_ms      | long    | 否    | 180000                       | 当 Stream Load 返回非终态结果（`Publish Timeout`、`Label Already Exists`、复用 label 的失败）时，接收器轮询 `get_load_state` 以确认事务状态的总时长，超时后刷新失败并由作业从 checkpoint 重放。默认 3 分钟，应小于作业的 checkpoint 超时时间。非正值不会被拒绝，而是回退为内置默认值 180000 毫秒。 |
 | schema_save_mode            | Enum    | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | 同步任务启动前，针对目标端已存在的表结构选择不同处理方式                                                                                       |
 | data_save_mode              | Enum    | 否    | APPEND_DATA                  | 同步任务启动前，针对目标端已存在的数据选择不同处理方式                                                                                         |
 | table_options               | Map     | 否    | -                            | SaveMode 自动建表时合并进 CREATE TABLE PROPERTIES 的 Sink 专属表属性，详见表下方说明                                                      |
@@ -233,7 +233,7 @@ sink {
 
 #### 支持导入的数据格式
 
-StarRocks数据接收器支持的格式有CSV和JSON格式。
+StarRocks数据接收器支持的格式有CSV和JSON格式。默认导入格式为 JSON，由 `starrocks.config.format` 选项（`CSV` 或 `JSON`）控制；选择 CSV 时，需设置 `starrocks.config.column_separator`（以及 Stream Load 的行分隔符属性）以匹配数据布局。
 
 StarRocks 原生 `JSON` 列必须使用 JSON Stream Load，需设置 `starrocks.config.format = "JSON"`；CSV Stream Load 不支持 JSON 格式的列。Sink 在创建时就会检查这一点：如果上游 Schema 包含 `JSON` 列且 Stream Load 格式为 CSV（默认值），作业会在提交时失败并在报错信息中列出 JSON 列，而不是等到第一次 Stream Load 才失败。请改用 JSON 格式，或在上游把字段转换为 `STRING`（例如在 Calcite Transform 中使用 `CAST(field AS VARCHAR)`）。
 
@@ -307,8 +307,6 @@ sink {
     password = "secret"
     database = "test"
     table = "e2e_table_sink"
-    ...
-    
     // 支持upsert/delete事件的同步（需要将选项参数enable_upsert_delete设置为true），仅支持表引擎为主键模型
     enable_upsert_delete = true
   }
@@ -609,7 +607,7 @@ StarRocks 列名默认不区分大小写。请确认上游字段名与目标 Sta
 - `nodeUrls`：StarRocks FE 节点的 HTTP 地址，用于 Stream Load 数据写入。
 - `base-url`：指向 StarRocks FE 节点的 JDBC URL，用于建表、查询 schema 等 DDL 操作。
 
-开启自动建表时两者均需配置。
+两者均为必填项。
 
 ## 变更日志
 
