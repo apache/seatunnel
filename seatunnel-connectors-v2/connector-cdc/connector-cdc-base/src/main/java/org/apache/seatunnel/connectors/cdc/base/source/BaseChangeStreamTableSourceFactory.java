@@ -29,12 +29,18 @@ import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventFilter;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
+import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -68,37 +74,83 @@ public abstract class BaseChangeStreamTableSourceFactory implements ChangeStream
     protected <SplitT extends SourceSplit, StateT extends Serializable>
             List<CatalogTable> getRestoreTableStruct(
                     ChangeStreamTableSourceState<StateT, SplitT> state) {
+        if (state == null || state.getSplits() == null) {
+            log.info("Restore source using checkpoint tables is empty");
+            return Collections.emptyList();
+        }
         List<IncrementalSplit> incrementalSplits =
                 state.getSplits().stream()
+                        .filter(Objects::nonNull)
                         .flatMap(List::stream)
-                        .filter(e -> e != null)
-                        .map(e -> SourceSplitBase.class.cast(e))
-                        .filter(e -> e.isIncrementalSplit())
-                        .map(e -> e.asIncrementalSplit())
+                        .filter(Objects::nonNull)
+                        .map(SourceSplitBase.class::cast)
+                        .filter(SourceSplitBase::isIncrementalSplit)
+                        .map(SourceSplitBase::asIncrementalSplit)
                         .collect(Collectors.toList());
-        if (incrementalSplits.size() > 1) {
-            throw new UnsupportedOperationException(
-                    "Multiple incremental splits are not supported");
+        if (incrementalSplits.isEmpty()) {
+            log.info("Restore source using checkpoint tables is empty");
+            return Collections.emptyList();
+        }
+        if (incrementalSplits.size() == 1) {
+            List<CatalogTable> singleSplitTables =
+                    extractCheckpointTables(incrementalSplits.get(0));
+            if (!singleSplitTables.isEmpty()) {
+                log.info("Restore source using checkpoint tables: {}", singleSplitTables);
+                return singleSplitTables;
+            }
+            log.info("Restore source using checkpoint tables is empty");
+            return Collections.emptyList();
         }
 
-        if (incrementalSplits.size() == 1) {
-            IncrementalSplit incrementalSplit = incrementalSplits.get(0);
-            if (incrementalSplit.getCheckpointTables() != null) {
-                List<CatalogTable> checkpointTableStruct = incrementalSplit.getCheckpointTables();
-                log.info("Restore source using checkpoint tables: {}", checkpointTableStruct);
-                return checkpointTableStruct;
+        // When incremental.parallelism > 1, each parallel reader checkpoints an IncrementalSplit
+        // carrying its view of checkpointTables. Merge them by TablePath, preferring the table
+        // schema from the split that actually owns the table.
+        Map<TablePath, CatalogTable> mergedTables = new LinkedHashMap<>();
+        Set<TablePath> ownedTablePaths = new HashSet<>();
+        for (IncrementalSplit incrementalSplit : incrementalSplits) {
+            List<CatalogTable> splitTables = extractCheckpointTables(incrementalSplit);
+            if (splitTables.isEmpty()) {
+                continue;
             }
-            if (incrementalSplit.getCheckpointDataType() != null) {
-                // TODO: Waiting for remove of compatible logic
-                List<CatalogTable> checkpointDataTypeStruct =
-                        CatalogTableUtil.convertDataTypeToCatalogTables(
-                                incrementalSplit.getCheckpointDataType(), "default.default");
-                log.info("Restore source using checkpoint tables: {}", checkpointDataTypeStruct);
-                return checkpointDataTypeStruct;
+            Set<TableId> splitOwnedTables =
+                    incrementalSplit.getTableIds() == null
+                            ? Collections.emptySet()
+                            : new HashSet<>(incrementalSplit.getTableIds());
+            for (CatalogTable table : splitTables) {
+                TablePath tablePath = table.getTablePath();
+                TableId tableId =
+                        new TableId(
+                                table.getTableId().getDatabaseName(),
+                                table.getTableId().getSchemaName(),
+                                table.getTableId().getTableName());
+                if (splitOwnedTables.contains(tableId)) {
+                    mergedTables.put(tablePath, table);
+                    ownedTablePaths.add(tablePath);
+                } else if (!ownedTablePaths.contains(tablePath)) {
+                    mergedTables.putIfAbsent(tablePath, table);
+                }
             }
+        }
+        if (!mergedTables.isEmpty()) {
+            List<CatalogTable> checkpointTableStruct = new ArrayList<>(mergedTables.values());
+            log.info("Restore source using checkpoint tables: {}", checkpointTableStruct);
+            return checkpointTableStruct;
         }
 
         log.info("Restore source using checkpoint tables is empty");
+        return Collections.emptyList();
+    }
+
+    private List<CatalogTable> extractCheckpointTables(IncrementalSplit incrementalSplit) {
+        if (incrementalSplit.getCheckpointTables() != null
+                && !incrementalSplit.getCheckpointTables().isEmpty()) {
+            return incrementalSplit.getCheckpointTables();
+        }
+        if (incrementalSplit.getCheckpointDataType() != null) {
+            // TODO: Waiting for remove of compatible logic
+            return CatalogTableUtil.convertDataTypeToCatalogTables(
+                    incrementalSplit.getCheckpointDataType(), "default.default");
+        }
         return Collections.emptyList();
     }
 

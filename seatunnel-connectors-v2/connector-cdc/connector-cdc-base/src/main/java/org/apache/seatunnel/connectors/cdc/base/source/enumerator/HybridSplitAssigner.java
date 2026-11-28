@@ -117,6 +117,27 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
     }
 
     @Override
+    public void onSplitAssigning(SourceSplitBase split) {
+        if (split.isIncrementalSplit()) {
+            incrementalSplitAssigner.onSplitAssigning(split);
+        }
+    }
+
+    @Override
+    public void onSplitAssigned(SourceSplitBase split) {
+        if (split.isIncrementalSplit()) {
+            incrementalSplitAssigner.onSplitAssigned(split);
+        }
+    }
+
+    @Override
+    public void onSplitAssignFailed(SourceSplitBase split) {
+        if (split.isIncrementalSplit()) {
+            incrementalSplitAssigner.onSplitAssignFailed(split);
+        }
+    }
+
+    @Override
     public boolean waitingForCompletedSplits() {
         return snapshotSplitAssigner.waitingForCompletedSplits()
                 || incrementalSplitAssigner.waitingForAssignedSplits();

@@ -18,16 +18,26 @@
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator.state;
 
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import io.debezium.relational.TableId;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 
 class IncrementalPhaseStateTest {
 
@@ -59,6 +69,144 @@ class IncrementalPhaseStateTest {
 
         Assertions.assertEquals(startupOffset, restored.getStartupOffset());
         Assertions.assertNull(restored.getStopOffset());
+    }
+
+    @Test
+    void shouldPreserveRemainingSplitsThroughJavaSerializationRoundTrip() throws Exception {
+        Offset startupOffset = new TestOffset("startup", 1L);
+        Offset stopOffset = new TestOffset("stop", 2L);
+        IncrementalSplit remainingSplit =
+                new IncrementalSplit(
+                        "incremental-split-1",
+                        Collections.singletonList(TableId.parse("database.schema.table")),
+                        startupOffset,
+                        stopOffset,
+                        Collections.emptyList());
+        IncrementalPhaseState state =
+                new IncrementalPhaseState(
+                        startupOffset, stopOffset, true, Collections.singletonList(remainingSplit));
+
+        IncrementalPhaseState restored = roundTrip(state);
+
+        Assertions.assertTrue(restored.isSplitAssigned());
+        Assertions.assertEquals(1, restored.getRemainingSplits().size());
+        Assertions.assertEquals(
+                remainingSplit.splitId(), restored.getRemainingSplits().get(0).splitId());
+        Assertions.assertEquals(
+                remainingSplit.getTableIds(), restored.getRemainingSplits().get(0).getTableIds());
+    }
+
+    @Test
+    void shouldPreserveAssignedTablesThroughJavaSerializationRoundTrip() throws Exception {
+        Offset startupOffset = new TestOffset("startup", 1L);
+        Offset stopOffset = new TestOffset("stop", 2L);
+        Set<TableId> assignedTables =
+                new LinkedHashSet<>(
+                        Arrays.asList(
+                                TableId.parse("database.schema.table1"),
+                                TableId.parse("database.schema.table2")));
+        IncrementalPhaseState state =
+                new IncrementalPhaseState(
+                        startupOffset, stopOffset, true, Collections.emptyList(), assignedTables);
+
+        IncrementalPhaseState restored = roundTrip(state);
+
+        Assertions.assertTrue(restored.isSplitAssigned());
+        Assertions.assertTrue(restored.isAssignedTablesCheckpointed());
+        Assertions.assertEquals(assignedTables, restored.getAssignedTables());
+        Assertions.assertNotNull(restored.getRemainingSplits());
+        Assertions.assertTrue(restored.getRemainingSplits().isEmpty());
+    }
+
+    @Test
+    void shouldNormalizeMissingFieldsWhenDeserializingLegacyStream() throws Exception {
+        Offset startupOffset = new TestOffset("startup", 1L);
+        Offset stopOffset = new TestOffset("stop", 2L);
+        LegacyIncrementalPhaseState legacy =
+                new LegacyIncrementalPhaseState(startupOffset, stopOffset, true);
+
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        try (ObjectOutputStream output = new ObjectOutputStream(buffer)) {
+            output.writeObject(legacy);
+        }
+
+        byte[] legacyBytes =
+                rewriteClassName(
+                        buffer.toByteArray(),
+                        LegacyIncrementalPhaseState.class.getName(),
+                        IncrementalPhaseState.class.getName());
+        IncrementalPhaseState restored;
+        try (ObjectInputStream input =
+                new ObjectInputStream(new ByteArrayInputStream(legacyBytes))) {
+            restored = (IncrementalPhaseState) input.readObject();
+        }
+
+        Assertions.assertEquals(startupOffset, restored.getStartupOffset());
+        Assertions.assertEquals(stopOffset, restored.getStopOffset());
+        Assertions.assertTrue(restored.isSplitAssigned());
+        Assertions.assertNotNull(restored.getRemainingSplits());
+        Assertions.assertTrue(restored.getRemainingSplits().isEmpty());
+        Assertions.assertNotNull(restored.getAssignedTables());
+        Assertions.assertTrue(restored.getAssignedTables().isEmpty());
+        Assertions.assertFalse(restored.isAssignedTablesCheckpointed());
+    }
+
+    private static byte[] rewriteClassName(byte[] serialized, String fromName, String toName)
+            throws Exception {
+        byte[] fromToken = encodeUtfToken(fromName);
+        byte[] toToken = encodeUtfToken(toName);
+        int matchIndex = indexOf(serialized, fromToken);
+        Assertions.assertTrue(matchIndex >= 0, "Class descriptor name not found in stream");
+        ByteArrayOutputStream rewritten = new ByteArrayOutputStream(serialized.length);
+        rewritten.write(serialized, 0, matchIndex);
+        rewritten.write(toToken);
+        rewritten.write(
+                serialized,
+                matchIndex + fromToken.length,
+                serialized.length - matchIndex - fromToken.length);
+        return rewritten.toByteArray();
+    }
+
+    private static byte[] encodeUtfToken(String value) throws Exception {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try (DataOutputStream data = new DataOutputStream(out)) {
+            byte[] utfBytes = value.getBytes(StandardCharsets.UTF_8);
+            data.writeShort(utfBytes.length);
+            data.write(utfBytes);
+        }
+        return out.toByteArray();
+    }
+
+    private static int indexOf(byte[] haystack, byte[] needle) {
+        outer:
+        for (int i = 0; i <= haystack.length - needle.length; i++) {
+            for (int j = 0; j < needle.length; j++) {
+                if (haystack[i + j] != needle[j]) {
+                    continue outer;
+                }
+            }
+            return i;
+        }
+        return -1;
+    }
+
+    /**
+     * Serialized representation of {@link IncrementalPhaseState} before {@code remainingSplits} and
+     * {@code assignedTables} were added.
+     */
+    private static class LegacyIncrementalPhaseState implements Serializable {
+        private static final long serialVersionUID = -6809026812298443356L;
+
+        private final Offset startupOffset;
+        private final Offset stopOffset;
+        private final boolean splitAssigned;
+
+        LegacyIncrementalPhaseState(
+                Offset startupOffset, Offset stopOffset, boolean splitAssigned) {
+            this.startupOffset = startupOffset;
+            this.stopOffset = stopOffset;
+            this.splitAssigned = splitAssigned;
+        }
     }
 
     private static IncrementalPhaseState roundTrip(IncrementalPhaseState state) throws Exception {

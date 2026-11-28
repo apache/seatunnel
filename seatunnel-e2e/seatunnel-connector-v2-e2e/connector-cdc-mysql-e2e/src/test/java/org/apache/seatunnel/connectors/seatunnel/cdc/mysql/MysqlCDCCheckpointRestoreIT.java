@@ -67,6 +67,18 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
     private static final String SOURCE_TABLE = "mysql_cdc_e2e_source_table_no_primary_key";
     private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table_checkpoint_restore";
     private static final String CONF_FILE = "/mysqlcdc_to_mysql_with_checkpoint_restore.conf";
+    private static final String INC_PAR_SINK_DATABASE = "mysql_cdc_inc_par_sink";
+    private static final String INC_PAR_UNDELIVERED_CONF =
+            "/mysqlcdc_to_mysql_with_incremental_parallelism_undelivered.conf";
+    private static final String INC_PAR_RESTORE_ADD_TABLE_CONF =
+            "/mysqlcdc_to_mysql_with_incremental_parallelism_restore_add_table.conf";
+    private static final String[] INC_PAR_INITIAL_TABLES = {
+        "inc_par_src_1", "inc_par_src_2", "inc_par_src_3", "inc_par_src_4"
+    };
+    private static final String INC_PAR_ADDED_TABLE = "inc_par_src_5";
+    private static final String[] INC_PAR_ALL_TABLES = {
+        "inc_par_src_1", "inc_par_src_2", "inc_par_src_3", "inc_par_src_4", INC_PAR_ADDED_TABLE
+    };
 
     private static final String SOURCE_SQL_TEMPLATE =
             "select id, cast(f_binary as char) as f_binary, cast(f_blob as char) as f_blob, cast(f_long_varbinary as char) as f_long_varbinary,"
@@ -330,6 +342,162 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
         container.stopJob(String.valueOf(restoreJobId));
         awaitJobStatus(container, restoreJobId, "CANCELED");
         Assertions.assertEquals(0, restoreFuture.get().getExitCode());
+    }
+
+    /**
+     * Verifies savepoint/restore with {@code incremental.parallelism > 1} and multiple tables per
+     * split: first savepointing right after snapshot completion when one generated incremental
+     * split is still undelivered in the enumerator state ({@code parallelism = 1} vs {@code
+     * incremental.parallelism = 2}), then restoring at {@code parallelism = 2} with an added table
+     * and verifying post-restore changes arrive for all existing and added tables.
+     */
+    @TestTemplate
+    public void testMysqlCdcIncrementalParallelismRestoreWithUndeliveredSplitAndAddedTable(
+            TestContainer container) throws Exception {
+        prepareIncrementalParallelismTables();
+        for (String table : INC_PAR_INITIAL_TABLES) {
+            insertSimpleRows(MYSQL_DATABASE, table, 1, 2);
+        }
+
+        long jobId = JobIdGenerator.newJobId();
+        CompletableFuture<Container.ExecResult> initialJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        INC_PAR_UNDELIVERED_CONF, String.valueOf(jobId));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        // Wait until all 4 tables' snapshots land in the sink and two checkpoints complete so the
+        // snapshot phase has transitioned into incremental mode with 1 split delivered to reader 0
+        // and the second generated incremental split queued undelivered in IncrementalPhaseState.
+        awaitSimpleTablesConsistent(INC_PAR_INITIAL_TABLES);
+        long snapshotCheckpointCount = container.getCompletedCheckpointCount(String.valueOf(jobId));
+        awaitCompletedCheckpointCountAtLeast(container, jobId, snapshotCheckpointCount + 2);
+
+        Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
+        awaitJobStatus(container, jobId, "SAVEPOINT_DONE");
+        Assertions.assertEquals(0, initialJobFuture.get().getExitCode());
+
+        // Changes while stopped cover both the returned split's tables and the undelivered
+        // remaining split's tables, plus initial snapshot data for the newly added 5th table.
+        for (String table : INC_PAR_INITIAL_TABLES) {
+            insertSimpleRows(MYSQL_DATABASE, table, 10, 11);
+        }
+        insertSimpleRows(MYSQL_DATABASE, INC_PAR_ADDED_TABLE, 1, 2);
+
+        CompletableFuture<Container.ExecResult> restoredWithAddedTableFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.restoreJob(
+                                        INC_PAR_RESTORE_ADD_TABLE_CONF, String.valueOf(jobId));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        awaitJobStatus(container, jobId, "RUNNING");
+        awaitSimpleTablesConsistent(INC_PAR_ALL_TABLES);
+
+        // Post-restore incremental writes across all 5 tables (including the newly added table)
+        // must be delivered across both parallel incremental readers.
+        for (String table : INC_PAR_ALL_TABLES) {
+            insertSimpleRows(MYSQL_DATABASE, table, 20, 21);
+        }
+        awaitSimpleTablesConsistent(INC_PAR_ALL_TABLES);
+
+        // Second savepoint/restore with both incremental readers active (multiple tables per
+        // split) to verify multi-split addSplitsBack and reassignment.
+        Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
+        awaitJobStatus(container, jobId, "SAVEPOINT_DONE");
+        Assertions.assertEquals(0, restoredWithAddedTableFuture.get().getExitCode());
+
+        CompletableFuture<Container.ExecResult> secondRestoreFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.restoreJob(
+                                        INC_PAR_RESTORE_ADD_TABLE_CONF, String.valueOf(jobId));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        awaitJobStatus(container, jobId, "RUNNING");
+        for (String table : INC_PAR_ALL_TABLES) {
+            insertSimpleRows(MYSQL_DATABASE, table, 30, 31);
+        }
+        awaitSimpleTablesConsistent(INC_PAR_ALL_TABLES);
+
+        container.stopJob(String.valueOf(jobId));
+        awaitJobStatus(container, jobId, "CANCELED");
+        Assertions.assertEquals(0, secondRestoreFuture.get().getExitCode());
+    }
+
+    private void prepareIncrementalParallelismTables() {
+        executeSql("CREATE DATABASE IF NOT EXISTS " + INC_PAR_SINK_DATABASE);
+        for (String table : INC_PAR_ALL_TABLES) {
+            executeSql("DROP TABLE IF EXISTS " + MYSQL_DATABASE + "." + table);
+            executeSql(
+                    "CREATE TABLE "
+                            + MYSQL_DATABASE
+                            + "."
+                            + table
+                            + " (id INT NOT NULL PRIMARY KEY, val VARCHAR(64))");
+            executeSql("DROP TABLE IF EXISTS " + INC_PAR_SINK_DATABASE + "." + table);
+            executeSql(
+                    "CREATE TABLE "
+                            + INC_PAR_SINK_DATABASE
+                            + "."
+                            + table
+                            + " (id INT NOT NULL PRIMARY KEY, val VARCHAR(64))");
+        }
+    }
+
+    private void insertSimpleRows(String database, String tableName, int... ids) {
+        for (int id : ids) {
+            executeSql(
+                    "INSERT INTO "
+                            + database
+                            + "."
+                            + tableName
+                            + " (id, val) VALUES ("
+                            + id
+                            + ", 'row-"
+                            + tableName
+                            + "-"
+                            + id
+                            + "')");
+        }
+    }
+
+    private void awaitSimpleTablesConsistent(String... tableNames) {
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            for (String tableName : tableNames) {
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                "SELECT id, val FROM "
+                                                        + MYSQL_DATABASE
+                                                        + "."
+                                                        + tableName
+                                                        + " ORDER BY id"),
+                                        query(
+                                                "SELECT id, val FROM "
+                                                        + INC_PAR_SINK_DATABASE
+                                                        + "."
+                                                        + tableName
+                                                        + " ORDER BY id"),
+                                        tableName);
+                            }
+                        });
     }
 
     private Connection getJdbcConnection() throws SQLException {

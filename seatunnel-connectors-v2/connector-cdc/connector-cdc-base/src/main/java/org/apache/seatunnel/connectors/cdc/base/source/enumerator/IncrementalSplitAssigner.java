@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
@@ -41,19 +42,30 @@ import io.debezium.relational.TableId;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
-/** Assigner for incremental split. */
+/**
+ * Assigner for incremental split.
+ *
+ * <p><b>Thread safety:</b> Mutable state in this assigner (such as {@code remainingSplits}, {@code
+ * inFlightSplits}, {@code assignedSplits}, {@code assignedTables}, and {@code
+ * pendingReturnedTables}) is not internally synchronized and must be guarded by the enumerator
+ * {@code context} monitor.
+ */
 public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAssigner {
 
     private static final Logger LOG = LoggerFactory.getLogger(IncrementalSplitAssigner.class);
@@ -84,11 +96,33 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
 
     private final List<IncrementalSplit> remainingSplits = new ArrayList<>();
 
+    /**
+     * Incremental splits returned by {@link #getNext()} whose {@code context.assignSplit(...)}
+     * handoff has not yet completed. Included in {@link #snapshotState(long)} so a checkpoint taken
+     * while delivery is in transit cannot drop the split.
+     */
+    private final Map<String, IncrementalSplit> inFlightSplits = new LinkedHashMap<>();
+
     private final Map<String, IncrementalSplit> assignedSplits = new HashMap<>();
+
+    /**
+     * Captured tables already covered by an incremental split (either assigned to a reader or
+     * queued in {@link #remainingSplits}). Persisted in {@link IncrementalPhaseState} so tables
+     * added across a restore are discovered without duplicating splits still held by readers.
+     */
+    private final Set<TableId> assignedTables = new LinkedHashSet<>();
+
+    /**
+     * Tables returned via {@link #addSplits(Collection)} after initial split generation that still
+     * need incremental splits created for them.
+     */
+    private final Set<TableId> pendingReturnedTables = new LinkedHashSet<>();
 
     private boolean startWithSnapshotMinimumOffset = true;
     private List<CatalogTable> checkpointTables;
+    private final Set<TablePath> ownedCheckpointTablePaths = new HashSet<>();
     private Map<TableId, byte[]> historyTableChanges;
+    private final Set<TableId> ownedHistoryTableIds = new HashSet<>();
 
     /**
      * The startup offset resolved on fresh enumerator creation and reused after checkpoint restore.
@@ -131,6 +165,28 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
         this.startupOffset = checkpointState == null ? null : checkpointState.getStartupOffset();
         this.resolvedStopOffset = checkpointState == null ? null : checkpointState.getStopOffset();
         this.splitAssigned = checkpointState != null && checkpointState.isSplitAssigned();
+        if (checkpointState != null) {
+            Set<TableId> capturedTables = context.getCapturedTables();
+            for (IncrementalSplit split : checkpointState.getRemainingSplits()) {
+                IncrementalSplit pruned = filterSplitTables(split, capturedTables::contains);
+                if (pruned != null) {
+                    this.remainingSplits.add(pruned);
+                }
+            }
+            if (checkpointState.isAssignedTablesCheckpointed()) {
+                checkpointState.getAssignedTables().stream()
+                        .filter(capturedTables::contains)
+                        .forEach(this.assignedTables::add);
+                this.remainingSplits.forEach(
+                        split -> this.assignedTables.addAll(split.getTableIds()));
+            } else if (this.splitAssigned) {
+                // Legacy checkpoint written before assignedTables existed: assume currently
+                // captured tables are already covered so readers keeping splits locally (e.g.
+                // Flink) do not receive duplicate splits. Hybrid restores derive legacy
+                // assignedTables from SnapshotPhaseState in IncrementalSource.restore().
+                this.assignedTables.addAll(capturedTables);
+            }
+        }
     }
 
     @Override
@@ -138,32 +194,101 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
 
     @Override
     public Optional<SourceSplitBase> getNext() {
+        if (splitAssigned) {
+            Set<TableId> tablesToCreate = getPendingTablesToAssign();
+            if (!tablesToCreate.isEmpty()) {
+                List<IncrementalSplit> createdSplits =
+                        createIncrementalSplitsForTables(
+                                tablesToCreate,
+                                startWithSnapshotMinimumOffset,
+                                collectUsedSplitIds(remainingSplits),
+                                computeTargetSplitParallelism(remainingSplits));
+                pendingReturnedTables.clear();
+                assignedTables.addAll(tablesToCreate);
+                remainingSplits.addAll(createdSplits);
+            }
+        }
         if (!remainingSplits.isEmpty()) {
             // return remaining splits firstly
             Iterator<IncrementalSplit> iterator = remainingSplits.iterator();
             IncrementalSplit split = iterator.next();
             iterator.remove();
             assignedSplits.put(split.splitId(), split);
+            assignedTables.addAll(split.getTableIds());
             return Optional.of(split);
         }
         if (splitAssigned) {
             return Optional.empty();
         }
+        pendingReturnedTables.clear();
         List<IncrementalSplit> incrementalSplits =
                 createIncrementalSplits(startWithSnapshotMinimumOffset);
+        incrementalSplits.forEach(split -> assignedTables.addAll(split.getTableIds()));
         remainingSplits.addAll(incrementalSplits);
         splitAssigned = true;
         return getNext();
     }
 
+    @Override
+    public void onSplitAssigning(SourceSplitBase split) {
+        if (split.isIncrementalSplit()) {
+            inFlightSplits.put(split.splitId(), split.asIncrementalSplit());
+        }
+    }
+
+    @Override
+    public void onSplitAssigned(SourceSplitBase split) {
+        if (split.isIncrementalSplit()) {
+            inFlightSplits.remove(split.splitId());
+        }
+    }
+
+    @Override
+    public void onSplitAssignFailed(SourceSplitBase split) {
+        if (split.isIncrementalSplit()) {
+            IncrementalSplit incrementalSplit = inFlightSplits.remove(split.splitId());
+            if (incrementalSplit != null) {
+                assignedSplits.remove(incrementalSplit.splitId());
+                remainingSplits.add(0, incrementalSplit);
+            }
+        }
+    }
+
     /** Indicates there is no more splits available in this assigner. */
     public boolean noMoreSplits() {
-        return (splitAssigned || getRemainingTables().isEmpty()) && remainingSplits.isEmpty();
+        if (!remainingSplits.isEmpty()) {
+            return false;
+        }
+        if (splitAssigned) {
+            return getPendingTablesToAssign().isEmpty();
+        }
+        return getRemainingTables().isEmpty();
+    }
+
+    private Set<TableId> getPendingTablesToAssign() {
+        Set<TableId> tables = new LinkedHashSet<>(pendingReturnedTables);
+        tables.addAll(getUncoveredTables());
+        return tables;
+    }
+
+    private Set<TableId> getUncoveredTables() {
+        Set<TableId> uncoveredTables = new LinkedHashSet<>(context.getCapturedTables());
+        uncoveredTables.removeAll(assignedTables);
+        assignedSplits
+                .values()
+                .forEach(split -> split.getTableIds().forEach(uncoveredTables::remove));
+        inFlightSplits
+                .values()
+                .forEach(split -> split.getTableIds().forEach(uncoveredTables::remove));
+        remainingSplits.forEach(split -> split.getTableIds().forEach(uncoveredTables::remove));
+        return uncoveredTables;
     }
 
     private Set<TableId> getRemainingTables() {
-        Set<TableId> allTables = new HashSet<>(context.getCapturedTables());
+        Set<TableId> allTables = new LinkedHashSet<>(context.getCapturedTables());
         assignedSplits.values().forEach(split -> split.getTableIds().forEach(allTables::remove));
+        inFlightSplits.values().forEach(split -> split.getTableIds().forEach(allTables::remove));
+        remainingSplits.forEach(split -> split.getTableIds().forEach(allTables::remove));
         return allTables;
     }
 
@@ -182,14 +307,16 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
 
     @Override
     public void addSplits(Collection<SourceSplitBase> splits) {
-        if (!splits.isEmpty()) {
-            this.splitAssigned = false;
+        if (splits.isEmpty()) {
+            return;
         }
+        Set<TableId> returnedTables = new LinkedHashSet<>();
         // we don't store the split, but will re-create incremental split later
         splits.stream()
                 .map(SourceSplitBase::asIncrementalSplit)
                 .forEach(
                         incrementalSplit -> {
+                            assignedSplits.remove(incrementalSplit.splitId());
                             Offset startupOffset = incrementalSplit.getStartupOffset();
                             List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos =
                                     incrementalSplit.getCompletedSnapshotSplitInfos();
@@ -206,6 +333,8 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                                 if (!context.getCapturedTables().contains(tableId)) {
                                     continue;
                                 }
+                                returnedTables.add(tableId);
+                                pendingReturnedTables.add(tableId);
                                 tableWatermarks.put(tableId, startupOffset);
                                 tableStartupOffsets.put(
                                         tableId,
@@ -233,9 +362,41 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                                     && incrementalSplit.getStopOffset() != null) {
                                 resolvedStopOffset = incrementalSplit.getStopOffset();
                             }
-                            checkpointTables = incrementalSplit.getCheckpointTables();
-                            historyTableChanges = incrementalSplit.getHistoryTableChanges();
+                            Set<TableId> splitOwnedTables =
+                                    incrementalSplit.getTableIds() == null
+                                            ? Collections.emptySet()
+                                            : new HashSet<>(incrementalSplit.getTableIds());
+                            if (incrementalSplit.getCheckpointTables() != null) {
+                                mergeCheckpointTables(
+                                        incrementalSplit.getCheckpointTables(), splitOwnedTables);
+                            }
+                            if (incrementalSplit.getHistoryTableChanges() != null
+                                    && !incrementalSplit.getHistoryTableChanges().isEmpty()) {
+                                if (historyTableChanges == null) {
+                                    historyTableChanges = new HashMap<>();
+                                }
+                                incrementalSplit
+                                        .getHistoryTableChanges()
+                                        .forEach(
+                                                (tableId, change) -> {
+                                                    if (!context.getCapturedTables()
+                                                            .contains(tableId)) {
+                                                        return;
+                                                    }
+                                                    if (splitOwnedTables.contains(tableId)) {
+                                                        historyTableChanges.put(tableId, change);
+                                                        ownedHistoryTableIds.add(tableId);
+                                                    } else if (!ownedHistoryTableIds.contains(
+                                                            tableId)) {
+                                                        historyTableChanges.putIfAbsent(
+                                                                tableId, change);
+                                                    }
+                                                });
+                            }
                         });
+        if (!returnedTables.isEmpty()) {
+            pruneReturnedTablesFromRemainingSplits(returnedTables);
+        }
         if (!tableWatermarks.isEmpty()) {
             this.startWithSnapshotMinimumOffset = false;
         }
@@ -243,7 +404,27 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
 
     @Override
     public IncrementalPhaseState snapshotState(long checkpointId) {
-        return new IncrementalPhaseState(startupOffset, resolvedStopOffset, splitAssigned);
+        List<IncrementalSplit> checkpointRemainingSplits =
+                new ArrayList<>(inFlightSplits.size() + remainingSplits.size());
+        checkpointRemainingSplits.addAll(inFlightSplits.values());
+        checkpointRemainingSplits.addAll(remainingSplits);
+        if (splitAssigned && !pendingReturnedTables.isEmpty()) {
+            checkpointRemainingSplits.addAll(
+                    createIncrementalSplitsForTables(
+                            new LinkedHashSet<>(pendingReturnedTables),
+                            startWithSnapshotMinimumOffset,
+                            collectUsedSplitIds(checkpointRemainingSplits),
+                            computeTargetSplitParallelism(checkpointRemainingSplits)));
+        }
+        Set<TableId> checkpointAssignedTables = new LinkedHashSet<>(assignedTables);
+        checkpointRemainingSplits.forEach(
+                split -> checkpointAssignedTables.addAll(split.getTableIds()));
+        return new IncrementalPhaseState(
+                startupOffset,
+                resolvedStopOffset,
+                splitAssigned,
+                checkpointRemainingSplits,
+                checkpointAssignedTables);
     }
 
     @Override
@@ -254,12 +435,53 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
     // ------------------------------------------------------------------------------------------
 
     public List<IncrementalSplit> createIncrementalSplits(boolean startWithSnapshotMinimumOffset) {
-        Set<TableId> allTables = new HashSet<>(context.getCapturedTables());
-        assignedSplits.values().forEach(split -> split.getTableIds().forEach(allTables::remove));
-        List<TableId>[] capturedTables = new List[incrementalParallelism];
+        return createIncrementalSplitsForTables(
+                getRemainingTables(),
+                startWithSnapshotMinimumOffset,
+                collectUsedSplitIds(remainingSplits),
+                incrementalParallelism);
+    }
+
+    private int computeTargetSplitParallelism(Collection<IncrementalSplit> queuedSplits) {
+        int occupiedSlots = queuedSplits.size();
+        for (String assignedSplitId : assignedSplits.keySet()) {
+            if (!inFlightSplits.containsKey(assignedSplitId)) {
+                occupiedSlots++;
+            }
+        }
+        Set<TableId> stillHeldTables = new HashSet<>(assignedTables);
+        queuedSplits.forEach(split -> split.getTableIds().forEach(stillHeldTables::remove));
+        assignedSplits
+                .values()
+                .forEach(split -> split.getTableIds().forEach(stillHeldTables::remove));
+        inFlightSplits
+                .values()
+                .forEach(split -> split.getTableIds().forEach(stillHeldTables::remove));
+        stillHeldTables.removeAll(pendingReturnedTables);
+        int estimatedRestoredReaderSplits = 0;
+        if (!stillHeldTables.isEmpty() && !assignedTables.isEmpty()) {
+            int proportional =
+                    (int)
+                            Math.ceil(
+                                    (double) stillHeldTables.size()
+                                            * incrementalParallelism
+                                            / assignedTables.size());
+            estimatedRestoredReaderSplits =
+                    Math.min(stillHeldTables.size(), Math.max(1, proportional));
+        }
+        return Math.max(1, incrementalParallelism - occupiedSlots - estimatedRestoredReaderSplits);
+    }
+
+    private List<IncrementalSplit> createIncrementalSplitsForTables(
+            Set<TableId> tables,
+            boolean startWithSnapshotMinimumOffset,
+            Set<String> usedSplitIds,
+            int targetParallelism) {
+        int bucketCount = Math.max(1, targetParallelism);
+        List<TableId>[] capturedTables = new List[bucketCount];
         int i = 0;
-        for (TableId tableId : allTables) {
-            int index = i % incrementalParallelism;
+        for (TableId tableId : tables) {
+            int index = i % bucketCount;
             if (capturedTables[index] == null) {
                 capturedTables[index] = new ArrayList<>();
             }
@@ -275,10 +497,111 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                 i++;
                 continue;
             }
+            int splitIndex = allocateSplitIndex(i++, usedSplitIds);
             incrementalSplits.add(
-                    createIncrementalSplit(capturedTable, i++, startWithSnapshotMinimumOffset));
+                    createIncrementalSplit(
+                            capturedTable, splitIndex, startWithSnapshotMinimumOffset));
         }
         return incrementalSplits;
+    }
+
+    private Set<String> collectUsedSplitIds(Collection<IncrementalSplit> queuedSplits) {
+        Set<String> usedSplitIds = new HashSet<>(assignedSplits.keySet());
+        usedSplitIds.addAll(inFlightSplits.keySet());
+        queuedSplits.forEach(split -> usedSplitIds.add(split.splitId()));
+        return usedSplitIds;
+    }
+
+    private int allocateSplitIndex(int preferredIndex, Set<String> usedSplitIds) {
+        int candidate = preferredIndex;
+        while (!usedSplitIds.add(String.format(INCREMENTAL_SPLIT_ID, candidate))) {
+            candidate++;
+        }
+        return candidate;
+    }
+
+    private void mergeCheckpointTables(
+            List<CatalogTable> splitCheckpointTables, Set<TableId> splitOwnedTables) {
+        if (checkpointTables == null) {
+            checkpointTables = new ArrayList<>();
+        }
+        if (splitCheckpointTables.isEmpty()) {
+            return;
+        }
+        Map<TablePath, CatalogTable> merged = new LinkedHashMap<>();
+        for (CatalogTable existing : checkpointTables) {
+            merged.put(existing.getTablePath(), existing);
+        }
+        for (CatalogTable table : splitCheckpointTables) {
+            TablePath tablePath = table.getTablePath();
+            TableId tableId =
+                    new TableId(
+                            table.getTableId().getDatabaseName(),
+                            table.getTableId().getSchemaName(),
+                            table.getTableId().getTableName());
+            if (splitOwnedTables.contains(tableId)) {
+                merged.put(tablePath, table);
+                ownedCheckpointTablePaths.add(tablePath);
+            } else if (!ownedCheckpointTablePaths.contains(tablePath)) {
+                merged.putIfAbsent(tablePath, table);
+            }
+        }
+        checkpointTables = new ArrayList<>(merged.values());
+    }
+
+    private void pruneReturnedTablesFromRemainingSplits(Set<TableId> returnedTables) {
+        List<IncrementalSplit> updatedRemaining = new ArrayList<>(remainingSplits.size());
+        for (IncrementalSplit split : remainingSplits) {
+            IncrementalSplit pruned =
+                    filterSplitTables(split, tableId -> !returnedTables.contains(tableId));
+            if (pruned != null) {
+                updatedRemaining.add(pruned);
+            }
+        }
+        remainingSplits.clear();
+        remainingSplits.addAll(updatedRemaining);
+    }
+
+    private static IncrementalSplit filterSplitTables(
+            IncrementalSplit split, Predicate<TableId> keepTable) {
+        List<TableId> originalTables = split.getTableIds();
+        if (originalTables == null || originalTables.isEmpty()) {
+            return null;
+        }
+        List<TableId> keptTables =
+                originalTables.stream().filter(keepTable).collect(Collectors.toList());
+        if (keptTables.size() == originalTables.size()) {
+            return split;
+        }
+        if (keptTables.isEmpty()) {
+            return null;
+        }
+        Set<TableId> keptTableSet = new HashSet<>(keptTables);
+        List<CompletedSnapshotSplitInfo> keptCompletedSnapshotSplitInfos =
+                split.getCompletedSnapshotSplitInfos() == null
+                        ? new ArrayList<>()
+                        : split.getCompletedSnapshotSplitInfos().stream()
+                                .filter(info -> keptTableSet.contains(info.getTableId()))
+                                .collect(Collectors.toList());
+        Map<TableId, byte[]> keptHistoryTableChanges =
+                split.getHistoryTableChanges() == null
+                        ? null
+                        : split.getHistoryTableChanges().entrySet().stream()
+                                .filter(entry -> keptTableSet.contains(entry.getKey()))
+                                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        Map<TableId, Offset> keptTableStartupOffsets =
+                split.getTableStartupOffsets().entrySet().stream()
+                        .filter(entry -> keptTableSet.contains(entry.getKey()))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        return new IncrementalSplit(
+                split.splitId(),
+                keptTables,
+                split.getStartupOffset(),
+                split.getStopOffset(),
+                keptCompletedSnapshotSplitInfos,
+                split.getCheckpointTables(),
+                keptHistoryTableChanges,
+                keptTableStartupOffsets);
     }
 
     private IncrementalSplit createIncrementalSplit(
@@ -296,7 +619,8 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
         Offset minOffset = null;
         for (SnapshotSplit split : assignedSnapshotSplit) {
             SnapshotSplitWatermark splitWatermark = splitCompletedOffsets.get(split.splitId());
-            if (startWithSnapshotMinimumOffset) {
+            if (startWithSnapshotMinimumOffset
+                    || !tableWatermarks.containsKey(split.getTableId())) {
                 // find the min offset of change log
                 Offset splitOffset =
                         sourceConfig.isExactlyOnce()
@@ -372,6 +696,12 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                 resolvedStopOffset != null
                         ? resolvedStopOffset
                         : sourceConfig.getStopConfig().getStopOffset(offsetFactory);
+        Map<TableId, byte[]> splitHistoryTableChanges =
+                historyTableChanges == null
+                        ? null
+                        : historyTableChanges.entrySet().stream()
+                                .filter(entry -> capturedTables.contains(entry.getKey()))
+                                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         return new IncrementalSplit(
                 String.format(INCREMENTAL_SPLIT_ID, index),
                 capturedTables,
@@ -379,7 +709,7 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                 incrementalSplitStopOffset,
                 completedSnapshotSplitInfos,
                 checkpointTables,
-                historyTableChanges,
+                splitHistoryTableChanges,
                 splitTableStartupOffsets);
     }
 
@@ -396,7 +726,7 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
     }
 
     public boolean completedSnapshotPhase(List<TableId> tableIds) {
-        checkArgument(splitAssigned && noMoreSplits());
+        checkArgument(splitAssigned);
 
         for (String splitKey : new ArrayList<>(context.getAssignedSnapshotSplit().keySet())) {
             SnapshotSplit assignedSplit = context.getAssignedSnapshotSplit().get(splitKey);
