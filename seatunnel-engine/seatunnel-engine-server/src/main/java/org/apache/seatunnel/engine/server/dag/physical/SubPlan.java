@@ -56,6 +56,16 @@ import java.util.concurrent.atomic.AtomicReference;
 @Slf4j
 public class SubPlan {
 
+    /**
+     * Bounded number of admission attempts of one restore. The first attempt is the normal one; the
+     * remaining two only have to survive a transient ownership-write failure, because a rejected
+     * round keeps its slots allocated to this job and a longer wait would hold the pipeline for a
+     * storage outage that the job-level retry handles better.
+     */
+    private static final int RESTORE_ADMISSION_ATTEMPT = 3;
+
+    private static final long RESTORE_ADMISSION_RETRY_SLEEP_MS = 1000L;
+
     /** The max num pipeline can restore. */
     private final int pipelineMaxRestoreNum;
 
@@ -638,6 +648,39 @@ public class SubPlan {
         }
     }
 
+    /**
+     * Applies the resources a restoring pipeline needs and reports whether the replacement
+     * allocation was admitted.
+     *
+     * <p>The JobMaster confirms the ownership of the new slots before it admits a round, and it
+     * keeps the slots of a rejected round allocated to this job so a later attempt can reuse them.
+     * Retrying here rides out a transient ownership-write failure with those retained slots instead
+     * of starting another allocation round, and a job that is cancelled while waiting stops the
+     * retries immediately because {@link #checkNeedRestore(PipelineStatus)} consults the job's
+     * restore intent.
+     *
+     * @return true when the replacement allocation is admitted with confirmed ownership
+     */
+    private boolean applyRestoreResources() {
+        for (int attempt = 1; attempt <= RESTORE_ADMISSION_ATTEMPT; attempt++) {
+            if (jobMaster.preApplyResources(this)) {
+                return true;
+            }
+            if (!isRunning || !checkNeedRestore(getPipelineState())) {
+                return false;
+            }
+            if (attempt < RESTORE_ADMISSION_ATTEMPT) {
+                try {
+                    Thread.sleep(RESTORE_ADMISSION_RETRY_SLEEP_MS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+            }
+        }
+        return false;
+    }
+
     /** restore the pipeline when pipeline failed or canceled by error. */
     public void restorePipeline() {
         try {
@@ -879,7 +922,25 @@ public class SubPlan {
             case CANCELED:
                 if (checkNeedRestore(state) && prepareRestorePipeline()) {
                     jobMaster.releasePipelineResource(this);
-                    jobMaster.preApplyResources(this);
+                    // The previous allocation is released by now, so the restore must be admitted
+                    // on the replacement one. A rejected round keeps its replacement slots
+                    // allocated to this job and reports that the ownership of those slots is not
+                    // confirmed; deploying anyway would run the pipeline on the identities that
+                    // were just released and could later overwrite the retained mapping with them.
+                    if (!applyRestoreResources()) {
+                        log.error(
+                                "Could not apply the resources needed to restore pipeline {}, its retained slots stay owned by job {} until it retries or ends",
+                                pipelineFullName,
+                                pipelineLocation.getJobId());
+                        subPlanDone(getPipelineState());
+                        stopSubPlanStateProcess();
+                        pipelineFuture.complete(
+                                new PipelineExecutionState(
+                                        pipelineId,
+                                        getPipelineState(),
+                                        errorByPhysicalVertex.get()));
+                        return;
+                    }
                     restorePipeline();
                     return;
                 }

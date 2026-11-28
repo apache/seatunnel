@@ -265,6 +265,32 @@ public class JobMasterMasterFailoverResourceTest
                                                                 slotProfile),
                                                         "a retained slot must stay allocated after a failed round"));
                     });
+
+            // The reuse of the previous master's profiles must not hide them from the terminal
+            // cleanup: a pending job that is cancelled or rejected never deploys a pipeline, so
+            // this drain is the only release left for the capacity the job inherited.
+            restored.cancelJob();
+            Assertions.assertEquals(JobStatus.CANCELED, restored.getPhysicalPlan().getJobStatus());
+            // The ownership map of this scenario rejects writes by construction, so the record of
+            // the inherited allocation cannot be rewritten here; the release of the slots is what
+            // the terminal cleanup owes the cluster.
+            retainedOwnership
+                    .values()
+                    .forEach(
+                            slotProfiles ->
+                                    slotProfiles
+                                            .values()
+                                            .forEach(
+                                                    slotProfile ->
+                                                            Assertions.assertFalse(
+                                                                    resourceManager.slotActiveCheck(
+                                                                            slotProfile),
+                                                                    "a cancelled pending job must release the slots it reused")));
+            // Once the unrelated job returns its own slots, a whole fixed pool is available again,
+            // which is what the terminal cleanup of the cancelled job had to make possible.
+            resourceManager.releaseResources(jobId + 1, blockerSlots).join();
+            blockerSlots.clear();
+            occupyAllFixedSlots(resourceManager, jobId + 1);
         } finally {
             resourceManager.releaseResources(jobId + 1, blockerSlots).join();
             releasePersistedSlots(resourceManager, original, jobId);
@@ -367,6 +393,127 @@ public class JobMasterMasterFailoverResourceTest
     }
 
     /**
+     * A failed admission round must leave the allocations it keeps in the distributed ownership
+     * record, so a successor master can adopt them instead of stranding the capacity.
+     *
+     * <p>The failed write of the round proves neither that the slot is free nor that the record is
+     * absent, so the round keeps both the slots and their record. Keeping them only in this
+     * instance's ledger would lose the only handle on live fixed slots as soon as this master dies,
+     * which is exactly the window that makes repeated failures exhaust a fixed cluster. The write
+     * is retried with a bounded budget: a transient outage of the map is survived here, and a
+     * successor can then reuse the same allocation.
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void testFailedAdmissionRecordsRetainedSlotsForSuccessorMaster() throws Exception {
+        long jobId = instance.getFlakeIdGenerator("master-failover-retained-record").newId();
+        ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
+        Data jobImmutableInformationData = createJobImmutableInformationData(jobId);
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> realOwnershipMap =
+                nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
+        // The first write of the round is lost, every later one is accepted, which is how a
+        // transient ownership-map outage looks to the master that allocated the slots.
+        AtomicBoolean firstWriteFailed = new AtomicBoolean(false);
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> transientlyFailingMap =
+                Mockito.mock(IMap.class);
+        Mockito.when(transientlyFailingMap.get(Mockito.any()))
+                .thenAnswer(
+                        invocation ->
+                                realOwnershipMap.get((PipelineLocation) invocation.getArgument(0)));
+        Mockito.when(transientlyFailingMap.put(Mockito.any(), Mockito.any()))
+                .thenAnswer(
+                        invocation -> {
+                            if (!firstWriteFailed.getAndSet(true)) {
+                                throw new HazelcastException(
+                                        "owned slot profiles IMap is unavailable");
+                            }
+                            return realOwnershipMap.put(
+                                    invocation.getArgument(0), invocation.getArgument(1));
+                        });
+
+        JobMaster jobMaster =
+                newJobMaster(jobId, jobImmutableInformationData, transientlyFailingMap);
+        jobMaster.init(System.currentTimeMillis(), false);
+        try {
+            Assertions.assertFalse(
+                    jobMaster.preApplyResources(),
+                    "a round whose ownership write is lost must not admit the job");
+            Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> recordedOwnership =
+                    readPersistedSlots(realOwnershipMap, jobMaster);
+            Assertions.assertFalse(
+                    recordedOwnership.isEmpty(),
+                    "the retained allocation must be recorded so a successor master can adopt it");
+            List<SlotProfile> retainedSlots = new ArrayList<>();
+            recordedOwnership.values().forEach(profiles -> retainedSlots.addAll(profiles.values()));
+            Assertions.assertEquals(
+                    jobSlotCount(jobMaster),
+                    retainedSlots.size(),
+                    "every retained slot of the round must be recorded");
+
+            // A successor master restores the same job on the same capacity.
+            List<SlotProfile> blockerSlots = occupyRemainingSlots(resourceManager, jobId + 1);
+            JobMaster successor = newJobMaster(jobId, jobImmutableInformationData);
+            successor.init(System.currentTimeMillis(), true);
+            try {
+                Assertions.assertTrue(
+                        successor.preApplyResources(),
+                        "a successor master must adopt the recorded allocation instead of asking for new slots");
+                retainedSlots.forEach(
+                        slotProfile ->
+                                Assertions.assertTrue(
+                                        resourceManager.slotActiveCheck(slotProfile),
+                                        "the adopted allocation must stay allocated to the job"));
+            } finally {
+                successor.cancelJob();
+                resourceManager.releaseResources(jobId + 1, blockerSlots).join();
+            }
+        } finally {
+            jobMaster.cancelJob();
+            releasePersistedSlots(resourceManager, jobMaster, jobId);
+        }
+    }
+
+    /**
+     * A terminal release that cannot reach its worker must be retried, because no later production
+     * caller releases the slots of a finished job.
+     *
+     * <p>{@code cleanJob} is the only caller of the terminal drain and it runs once, so a transient
+     * release outage used to leave the capacity of a finished job held for good: a later cancel of
+     * the same job only sees an end state and returns. The job keeps the ledger entry and the
+     * ownership record as evidence until a retry confirms the release.
+     */
+    @Test
+    void testTerminalReleaseRetryReturnsRetainedSlots() throws Exception {
+        long jobId = instance.getFlakeIdGenerator("master-failover-release-retry").newId();
+        long probeJobId = jobId + 1;
+        ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
+        ResourceManager releaseFailingResourceManager = Mockito.spy(resourceManager);
+        Mockito.doThrow(new HazelcastException("worker is not reachable"))
+                .doCallRealMethod()
+                .when(releaseFailingResourceManager)
+                .releaseResources(Mockito.anyLong(), Mockito.anyList());
+
+        JobMaster jobMaster =
+                preparePendingJobWithRetainedAdmissionSlots(jobId, releaseFailingResourceManager);
+        try {
+            occupyFreeFixedSlots(resourceManager, probeJobId, jobSlotCount(jobMaster));
+
+            jobMaster.cancelJob();
+
+            Assertions.assertEquals(JobStatus.CANCELED, jobMaster.getPhysicalPlan().getJobStatus());
+            // The first drain fails, so the job must keep its evidence and retry in the background.
+            awaitAllFixedSlotsReturned(resourceManager, probeJobId);
+            assertNoOwnershipRecord(
+                    nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap"), jobMaster);
+            occupyAllFixedSlots(resourceManager, probeJobId);
+        } finally {
+            jobMaster.cancelJob();
+            Mockito.reset(releaseFailingResourceManager);
+            releasePersistedSlots(resourceManager, jobMaster, jobId);
+        }
+    }
+
+    /**
      * A pending job cancelled after a failed admission must release the slots that admission
      * retained.
      *
@@ -427,6 +574,17 @@ public class JobMasterMasterFailoverResourceTest
      */
     @SuppressWarnings("unchecked")
     private JobMaster preparePendingJobWithRetainedAdmissionSlots(long jobId) throws Exception {
+        return preparePendingJobWithRetainedAdmissionSlots(
+                jobId, server.getCoordinatorService().getResourceManager());
+    }
+
+    /**
+     * Builds the same pending job with retained admission slots on an explicit resource manager,
+     * which lets a test observe the terminal cleanup of those slots.
+     */
+    @SuppressWarnings("unchecked")
+    private JobMaster preparePendingJobWithRetainedAdmissionSlots(
+            long jobId, ResourceManager resourceManager) throws Exception {
         Data jobImmutableInformationData =
                 createJobImmutableInformationData(
                         jobId, "stream_two_pipelines_savepoint_partial_failure.conf");
@@ -447,7 +605,11 @@ public class JobMasterMasterFailoverResourceTest
                 .when(unavailableOwnershipMap)
                 .put(Mockito.any(), Mockito.any());
         JobMaster jobMaster =
-                newJobMaster(jobId, jobImmutableInformationData, unavailableOwnershipMap);
+                newJobMaster(
+                        jobId,
+                        jobImmutableInformationData,
+                        unavailableOwnershipMap,
+                        resourceManager);
         jobMaster.init(System.currentTimeMillis(), false);
         Assertions.assertFalse(
                 jobMaster.preApplyResources(),
@@ -758,6 +920,18 @@ public class JobMasterMasterFailoverResourceTest
             long jobId,
             Data jobImmutableInformationData,
             IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap) {
+        return newJobMaster(
+                jobId,
+                jobImmutableInformationData,
+                ownedSlotProfilesIMap,
+                server.getCoordinatorService().getResourceManager());
+    }
+
+    private JobMaster newJobMaster(
+            long jobId,
+            Data jobImmutableInformationData,
+            IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap,
+            ResourceManager resourceManager) {
         IMap<Object, Object> runningJobStateIMap =
                 nodeEngine.getHazelcastInstance().getMap("runningJobState");
         IMap<Object, Long[]> runningJobStateTimestampsIMap =
@@ -768,7 +942,7 @@ public class JobMasterMasterFailoverResourceTest
                 jobImmutableInformationData,
                 nodeEngine,
                 ForkJoinPool.commonPool(),
-                server.getCoordinatorService().getResourceManager(),
+                resourceManager,
                 server.getCoordinatorService().getJobHistoryService(),
                 runningJobStateIMap,
                 runningJobStateTimestampsIMap,
@@ -909,6 +1083,37 @@ public class JobMasterMasterFailoverResourceTest
             }
         }
         throw new AssertionError("Expected fixed-slot allocation to be exhausted");
+    }
+
+    /**
+     * Waits until the background cleanup of a terminal job returned every fixed slot, which is how
+     * a retried release becomes observable: the pool is only fully allocatable again once the
+     * retained slots are back.
+     */
+    private void awaitAllFixedSlotsReturned(ResourceManager resourceManager, long jobId)
+            throws Exception {
+        long deadline = System.currentTimeMillis() + 20000L;
+        while (true) {
+            List<SlotProfile> probeSlots = new ArrayList<>();
+            try {
+                for (int index = 0; index < SLOT_NUM; index++) {
+                    probeSlots.add(
+                            resourceManager
+                                    .applyResource(jobId, new ResourceProfile(), null)
+                                    .get());
+                }
+                return;
+            } catch (ExecutionException exception) {
+                if (!(exception.getCause() instanceof NoEnoughResourceException)
+                        || System.currentTimeMillis() > deadline) {
+                    throw new AssertionError(
+                            "the retried terminal cleanup must return every fixed slot", exception);
+                }
+            } finally {
+                resourceManager.releaseResources(jobId, probeSlots).join();
+            }
+            Thread.sleep(200L);
+        }
     }
 
     private void releasePersistedSlots(

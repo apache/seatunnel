@@ -116,6 +116,8 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -135,6 +137,25 @@ public class JobMaster {
     private static final int OWNED_SLOT_PROFILES_CONFIRM_RETRY_TIME = 3;
 
     private static final long OWNED_SLOT_PROFILES_CONFIRM_RETRY_SLEEP_MS = 100L;
+
+    /**
+     * Bounded number of attempts used to record the allocations a failed admission round retains.
+     * The record of the round already failed once, so these attempts only have to survive a
+     * transient outage of the ownership map; an unreachable map keeps the local ledger instead of
+     * blocking the job thread.
+     */
+    private static final int RETAINED_SLOT_OWNERSHIP_PERSIST_ATTEMPT = 3;
+
+    private static final long RETAINED_SLOT_OWNERSHIP_PERSIST_RETRY_SLEEP_MS = 200L;
+
+    /**
+     * Bounded number of times a terminal release of admission-owned slots is re-run. A finished job
+     * has no later cancel that would trigger another drain, so without this chain a transient
+     * release outage would hold the capacity of a finished job forever.
+     */
+    private static final int ADMISSION_SLOT_CLEANUP_RETRY_TIME = 10;
+
+    private static final long ADMISSION_SLOT_CLEANUP_RETRY_DELAY_MS = 2000L;
 
     private final Object metricsLock = new Object();
 
@@ -674,7 +695,7 @@ public class JobMaster {
             // would hand a slot in use to another job, so every pipeline of this round keeps its
             // record and its slots. The attempt ledger lets the next admission of this master reuse
             // them, and the terminal cleanup of this job releases them when it never retries.
-            retainFailedAdmissionSlots(preAppliedSlotProfiles, reusedSlotProfiles, attemptSequence);
+            retainFailedAdmissionSlots(preAppliedSlotProfiles, attemptSequence);
             return false;
         }
 
@@ -783,45 +804,37 @@ public class JobMaster {
      * ledger makes the allocations reusable for the next admission of this master, and {@link
      * #drainAdmissionOwnedSlots} releases them if the job reaches a terminal state instead.
      *
-     * <p>Slots already retained from the previous master are skipped, because the failover path
-     * keeps resolving those through the persisted ownership record.
+     * <p>The round keeps every profile it used, including the ones it reused from the previous
+     * master. A reused profile is not re-recorded by this round, so its persisted ownership record
+     * is the only trace of the allocation; skipping it here would let a cancelled or rejected
+     * pending job keep a slot that no cleanup owns, because the terminal drain is the only release
+     * path left for a job that never deployed.
+     *
+     * <p>Keeping the allocations in this instance's ledger is not enough on its own: the ledger
+     * does not survive the death of the master. The retained allocations are therefore also written
+     * back to the distributed ownership record with a bounded retry budget, so a successor master
+     * can adopt the same allocations instead of stranding the capacity when this instance dies
+     * before the job retries or ends.
      *
      * @param profilesByPipeline profiles of the pre-apply round that failed to persist
-     * @param retainedSlotProfiles slots retained from the previous master
      * @param attemptSequence sequence of the attempt that kept the slots
      */
     private void retainFailedAdmissionSlots(
             Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> profilesByPipeline,
-            Set<SlotProfile> retainedSlotProfiles,
             long attemptSequence) {
-        Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> acquiredProfilesByPipeline =
-                new HashMap<>();
-        profilesByPipeline.forEach(
-                (pipelineLocation, profiles) ->
-                        profiles.forEach(
-                                (taskGroupLocation, slotProfile) -> {
-                                    if (retainedSlotProfiles.contains(slotProfile)) {
-                                        return;
-                                    }
-                                    acquiredProfilesByPipeline
-                                            .computeIfAbsent(
-                                                    pipelineLocation, key -> new HashMap<>())
-                                            .put(taskGroupLocation, slotProfile);
-                                }));
-
         synchronized (admissionSlotCleanupLock) {
             if (admissionSlotsDrained) {
                 // The job ended while this round was still allocating, so no later attempt of this
-                // master will reuse the slots: release what this round acquired instead of keeping
-                // it for a job that is already terminal.
+                // master will reuse the slots: release what this round holds instead of keeping it
+                // for a job that is already terminal.
                 LOGGER.info(
                         String.format(
-                                "Job %d ended while a pre-apply round was running, releasing the slots it acquired",
+                                "Job %d ended while a pre-apply round was running, releasing the slots it holds",
                                 jobImmutableInformation.getJobId()));
-                releaseAdmissionOwnedSlots(acquiredProfilesByPipeline);
+                releaseAdmissionOwnedSlots(profilesByPipeline);
                 return;
             }
-            acquiredProfilesByPipeline.forEach(
+            profilesByPipeline.forEach(
                     (pipelineLocation, profiles) ->
                             profiles.forEach(
                                     (taskGroupLocation, slotProfile) ->
@@ -830,6 +843,71 @@ public class JobMaster {
                                                     new AttemptOwnedSlotProfile(
                                                             attemptSequence, slotProfile))));
         }
+        persistRetainedSlotOwnership(profilesByPipeline);
+    }
+
+    /**
+     * Writes the allocations retained by a failed admission round back to the distributed ownership
+     * record so a successor master can adopt them.
+     *
+     * <p>The write of this round failed, but the failure may be transient and the retained
+     * allocations are alive on their workers. A successor master can only reuse or release them
+     * through this record, so a bounded retry here is what keeps the capacity recoverable after the
+     * master that allocated it dies. When the record still rejects the write, the local ledger and
+     * the live allocations are kept as evidence: releasing them on that path would hand a slot that
+     * a successor may already have adopted to another job.
+     *
+     * @param profilesByPipeline retained allocations, keyed by pipeline
+     */
+    private void persistRetainedSlotOwnership(
+            Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> profilesByPipeline) {
+        List<PipelineLocation> unrecordedPipelines = new ArrayList<>();
+        profilesByPipeline.forEach(
+                (pipelineLocation, slotProfiles) -> {
+                    if (!persistRetainedPipelineOwnership(pipelineLocation, slotProfiles)) {
+                        unrecordedPipelines.add(pipelineLocation);
+                    }
+                });
+        if (!unrecordedPipelines.isEmpty()) {
+            LOGGER.warning(
+                    String.format(
+                            "Could not record the retained allocations of pipelines %s of job %d after %d attempts: a successor master cannot adopt these slots until the ownership map accepts a write",
+                            unrecordedPipelines,
+                            jobImmutableInformation.getJobId(),
+                            RETAINED_SLOT_OWNERSHIP_PERSIST_ATTEMPT));
+        }
+    }
+
+    /**
+     * Records the retained allocation of one pipeline in the distributed ownership map.
+     *
+     * @param pipelineLocation pipeline whose retained allocation is recorded
+     * @param slotProfiles retained profile per task group of the pipeline
+     * @return true when the record was written and read back unchanged
+     */
+    private boolean persistRetainedPipelineOwnership(
+            PipelineLocation pipelineLocation, Map<TaskGroupLocation, SlotProfile> slotProfiles) {
+        for (int attempt = 1; attempt <= RETAINED_SLOT_OWNERSHIP_PERSIST_ATTEMPT; attempt++) {
+            try {
+                if (setOwnedSlotProfiles(pipelineLocation, slotProfiles)) {
+                    return true;
+                }
+            } catch (Exception e) {
+                LOGGER.fine(
+                        String.format(
+                                "Attempt %d to record the retained allocation of pipeline %s failed: %s",
+                                attempt, pipelineLocation, ExceptionUtils.getMessage(e)));
+            }
+            if (attempt < RETAINED_SLOT_OWNERSHIP_PERSIST_ATTEMPT) {
+                try {
+                    Thread.sleep(RETAINED_SLOT_OWNERSHIP_PERSIST_RETRY_SLEEP_MS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -885,22 +963,26 @@ public class JobMaster {
      * nothing may be released here in that case. A profile is forgotten only after its worker
      * reports it inactive; an unconfirmed release keeps both the ledger entry and the ownership
      * record as evidence instead of dropping the last handle on the allocation.
+     *
+     * @return true when the job holds no retained admission slot any more, either because every
+     *     profile was released and forgotten or because nothing is left to release; false when a
+     *     release could not be confirmed and the job still owns capacity
      */
-    private void drainAdmissionOwnedSlots() {
+    private boolean drainAdmissionOwnedSlots() {
         synchronized (admissionSlotCleanupLock) {
             if (admissionSlotsDrained) {
-                return;
+                return true;
             }
             if (attemptOwnedSlotProfiles.isEmpty()) {
                 admissionSlotsDrained = true;
-                return;
+                return true;
             }
             if (!isRunning) {
                 LOGGER.info(
                         String.format(
                                 "Job %d was interrupted before its retained admission slots could be released, keeping them for the successor master",
                                 jobImmutableInformation.getJobId()));
-                return;
+                return false;
             }
             Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> profilesByPipeline =
                     new HashMap<>();
@@ -914,7 +996,68 @@ public class JobMaster {
                                             key -> new HashMap<>())
                                     .put(taskGroupLocation, retained.getSlotProfile()));
             admissionSlotsDrained = releaseAdmissionOwnedSlots(profilesByPipeline);
+            return admissionSlotsDrained;
         }
+    }
+
+    /**
+     * Re-runs the terminal release of the admission-owned slots of a job whose release could not be
+     * confirmed.
+     *
+     * <p>{@link #cleanJob()} is the only production caller of the drain and it runs once, so a
+     * transient release outage would otherwise leave the capacity of a finished job held for good:
+     * a later cancel of the same job only sees an end state and returns. This chain keeps the
+     * ledger entry and the ownership record as evidence until a release is confirmed, and stops
+     * after a bounded number of attempts instead of retrying an unreachable worker forever.
+     *
+     * @param attempt number of this retry, starting at one
+     */
+    private void scheduleAdmissionSlotCleanupRetry(int attempt) {
+        ScheduledExecutorService cleanupScheduler =
+                seaTunnelServer == null ? null : seaTunnelServer.getMonitorService();
+        if (cleanupScheduler == null) {
+            LOGGER.warning(
+                    String.format(
+                            "No scheduler is available to retry the retained admission slot release of job %d, keeping %d slot(s) retained",
+                            jobImmutableInformation.getJobId(), attemptOwnedSlotProfiles.size()));
+            return;
+        }
+        cleanupScheduler.schedule(
+                () -> {
+                    try {
+                        if (drainAdmissionOwnedSlots()) {
+                            LOGGER.info(
+                                    String.format(
+                                            "Retained admission slots of job %d were released by retry %d",
+                                            jobImmutableInformation.getJobId(), attempt));
+                            return;
+                        }
+                    } catch (Exception e) {
+                        LOGGER.warning(
+                                String.format(
+                                        "Retry %d to release the retained admission slots of job %d failed: %s",
+                                        attempt,
+                                        jobImmutableInformation.getJobId(),
+                                        ExceptionUtils.getMessage(e)));
+                    }
+                    if (!isRunning) {
+                        LOGGER.info(
+                                String.format(
+                                        "Job %d no longer runs on this master, leaving the retained admission slots to the successor",
+                                        jobImmutableInformation.getJobId()));
+                        return;
+                    }
+                    if (attempt >= ADMISSION_SLOT_CLEANUP_RETRY_TIME) {
+                        LOGGER.warning(
+                                String.format(
+                                        "Giving up after %d attempts to release the retained admission slots of job %d; the ownership record keeps them for a later cleanup",
+                                        attempt, jobImmutableInformation.getJobId()));
+                        return;
+                    }
+                    scheduleAdmissionSlotCleanupRetry(attempt + 1);
+                },
+                ADMISSION_SLOT_CLEANUP_RETRY_DELAY_MS,
+                TimeUnit.MILLISECONDS);
     }
 
     /**
@@ -1504,8 +1647,12 @@ public class JobMaster {
     public void cleanJob() {
         // A job cancelled or rejected before it ever ran completes its physical plan directly, so
         // the pipeline teardown that normally returns slots never runs for the slots retained by
-        // failed admission attempts. Release them here instead of only dropping the ledger.
-        drainAdmissionOwnedSlots();
+        // failed admission attempts. Release them here instead of only dropping the ledger, and
+        // keep retrying in the background when the release cannot be confirmed: this is the last
+        // cleanup owner of the job.
+        if (!drainAdmissionOwnedSlots() && isRunning) {
+            scheduleAdmissionSlotCleanupRetry(1);
+        }
         checkpointManager.clearCheckpointIfNeed(physicalPlan.getJobStatus());
         jobHistoryService.storeJobInfo(jobImmutableInformation.getJobId(), getJobDAGInfo());
         jobHistoryService.storeFinishedJobState(this);
