@@ -4,23 +4,27 @@ import ChangeLog from '../changelog/connector-iotdb-v2.md';
 
 > IoTDBv2 sink connector
 
-## Support Those Engines
+## Description
+
+Used to write data to IoTDB 2.x. The connector name in job configuration is `IoTDBv2`.
+
+The connector supports both the IoTDB tree model (`sql_dialect = "tree"`, default) and the table model (`sql_dialect = "table"`). Each input row becomes a device record in the tree model or a table row in the table model.
+
+## Supported Engines
 
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-## Description
-
-Used to write data to IoTDB 2.x. The connector name in job configuration is `IoTDBv2`.
-
 ## Key Features
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
-    > IoTDB supports the `exactly-once` feature through idempotent writing. If multiple data have the same `key` and `timestamp`, the latest one will overwrite the previous one.
+    > The sink relies on idempotent writes to the same `(device, timestamp)` in the tree model or the same primary key in the table model. For replay to use the same key, configure `key_timestamp` with a stable, non-null input timestamp. An omitted `key_timestamp` or a null value uses the current processing time, so replay can write a separate record.
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
-  
+
 ## Supported DataSource Info
 
 | Datasource | Supported Versions |      Url       |
@@ -65,11 +69,13 @@ The mapping below applies to the default tree model (`sql_dialect = "tree"`). In
 | zone_id                     | String  | No       | -                    | java.time.ZoneId in IoTDB client                                                                                                                                                                                                                                                                                                                                           |
 | enable_rpc_compression      | Boolean | No       | -                    | Enable rpc compression in IoTDB client, only valid in IoTDB-tree                                                                                                                                                                                                                                                                                                           |
 | connection_timeout_in_ms    | Integer | No       | -                    | The maximum time (in ms) to wait when connecting to IoTDB                                                                                                                                                                                                                                                                                                                  |
-| common-options              |         | no       | -                    | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                                                                                                                                                 |
+| common-options              |         | No       | -                    | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                                                                                                                                                 |
 
 For the tree model, `key_device` is used as the IoTDB device path, and `key_measurement_fields` controls which fields become measurements. If `key_measurement_fields` is not set, all fields except `key_device` and `key_timestamp` are written as measurements.
 
 For the table model, `storage_group` is the database, `key_device` is the target table name field, `key_tag_fields` are TAG columns, `key_attribute_fields` are ATTRIBUTE columns, and `key_measurement_fields` are FIELD columns. If `key_measurement_fields` is not set, all fields except the table name, time, TAG, and ATTRIBUTE fields are written as FIELD columns.
+
+A failed flush gets zero retries by default. Set `max_retries` to specify the retry count. Before retry `i`, the writer waits `min(retry_backoff_multiplier_ms * i, max_retry_backoff_ms)` milliseconds, with `i` starting at zero. Each omitted backoff option uses `0`. Set both backoff options to positive values to add a delay before later retries.
 
 ## Examples
 
@@ -140,7 +146,7 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
 +------------------------+------------------------+--------------+-----------+--------------+---------+----------+----------+-----------+------+-----------+--------+---------+
 |2023-09-01T00:00:00.001Z|root.test_group.device_a|          36.1|        100| 1664035200001|     abc1|      true|         1|          1|     1| 2147483648|     1.0|      1.0| 
 |2023-09-01T00:00:00.001Z|root.test_group.device_b|          36.2|        101| 1664035200001|     abc2|     false|         2|          2|     2| 2147483649|     2.0|      2.0|
-|2023-09-01T00:00:00.001Z|root.test_group.device_c|          36.3|        102| 1664035200001|     abc2|     false|         3|          3|     3| 2147483649|     3.0|      3.0|
+|2023-09-01T00:00:00.001Z|root.test_group.device_c|          36.3|        102| 1664035200001|     abc3|     false|         3|          3|     3| 2147483649|     3.0|      3.0|
 +------------------------+------------------------+--------------+-----------+--------------+---------+---------+-----------+-----------+------+-----------+--------+---------+
 ```
 
@@ -172,7 +178,7 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
 +------------------------+------------------------+--------------+-----------+--------------+---------+----------+----------+-----------+------+-----------+--------+---------+
 |2022-09-25T00:00:00.001Z|root.test_group.device_a|          36.1|        100| 1664035200001|     abc1|      true|         1|          1|     1| 2147483648|     1.0|      1.0| 
 |2022-09-25T00:00:00.001Z|root.test_group.device_b|          36.2|        101| 1664035200001|     abc2|     false|         2|          2|     2| 2147483649|     2.0|      2.0|
-|2022-09-25T00:00:00.001Z|root.test_group.device_c|          36.3|        102| 1664035200001|     abc2|     false|         3|          3|     3| 2147483649|     3.0|      3.0|
+|2022-09-25T00:00:00.001Z|root.test_group.device_c|          36.3|        102| 1664035200001|     abc3|     false|         3|          3|     3| 2147483649|     3.0|      3.0|
 +------------------------+------------------------+--------------+-----------+--------------+---------+---------+-----------+-----------+------+-----------+--------+---------+
 ```
 
@@ -209,7 +215,7 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
 +------------------------+------------------------+--------------+-----------+
 ```
 
-### Example 2： Write data into IoTDB-table
+### Example 2: Write data into IoTDB-table
 
 ```hocon
 env {
