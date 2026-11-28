@@ -168,6 +168,10 @@ tags into the **Worker Tags** panel above the table, edit one `key=value` tag pe
 is rejected unless the Web UI is served by the member being updated. Remote workers are shown for
 inspection only; open the target node's own Web UI address to change its tags.
 
+Updating replaces the entire tag map. Refresh before editing: changes made by another operator
+since selecting the worker may be overwritten. Tags are visible through the system-monitoring API,
+so use only non-secret scheduling metadata.
+
 **Limitation:** if the Web UI is reached through a load balancer or reverse proxy that fronts
 several masters, only the member that happens to serve the request is editable, and tag updates for
 every other member are rejected. Reach the target member directly when editing tags.

@@ -17,13 +17,20 @@
 
 package org.apache.seatunnel.engine.server.rest.service;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.RestoreMode;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.rest.RestConstant;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Verifies the restore-source guard used by the REST submit path: a restore is refused while the
@@ -88,5 +95,52 @@ public class JobInfoServiceRestoreGuardTest {
                                 JobInfoService.rejectRestoreFromActiveSourceJob(
                                         RestoreMode.SAVEPOINT, SOURCE_JOB_ID, JobStatus.RUNNING));
         Assertions.assertTrue(error.getMessage().contains("savepoint state"), error.getMessage());
+    }
+
+    @Test
+    public void testInvalidRestoreModeHasActionableError() {
+        Map<String, String> params = new HashMap<>();
+        params.put(RestConstant.RESTORE_MODE, "unknown");
+
+        IllegalArgumentException error =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> new JobInfoService(null).submitJob(params, (Config) null));
+        Assertions.assertEquals(
+                "restoreMode must be one of NONE, SAVEPOINT, CHECKPOINT.", error.getMessage());
+    }
+
+    @Test
+    public void testInvalidJobIdIsRejectedBeforeSubmission() {
+        Map<String, String> params = new HashMap<>();
+        params.put(RestConstant.JOB_ID, "not-a-job");
+
+        IllegalArgumentException error =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> new JobInfoService(null).submitJob(params, (Config) null));
+        Assertions.assertEquals("jobId must be a numeric job id.", error.getMessage());
+    }
+
+    @Test
+    public void testSourceStatusLookupFailureIsRetryableAndDoesNotLeakDetails() {
+        Map<String, String> params = new HashMap<>();
+        params.put(RestConstant.RESTORE_MODE, "CHECKPOINT");
+        params.put(RestConstant.RESTORE_SOURCE_JOB_ID, Long.toString(SOURCE_JOB_ID));
+        JobInfoService service =
+                new JobInfoService(null) {
+                    @Override
+                    protected SeaTunnelServer getSeaTunnelServer(boolean shouldBeMaster) {
+                        throw new IllegalStateException("internal cluster detail");
+                    }
+                };
+
+        IllegalStateException error =
+                Assertions.assertThrows(
+                        IllegalStateException.class,
+                        () -> service.submitJob(params, (Config) null));
+        Assertions.assertTrue(error.getMessage().contains("retry"), error.getMessage());
+        Assertions.assertFalse(error.getMessage().contains("internal cluster detail"));
+        Assertions.assertEquals("internal cluster detail", error.getCause().getMessage());
     }
 }

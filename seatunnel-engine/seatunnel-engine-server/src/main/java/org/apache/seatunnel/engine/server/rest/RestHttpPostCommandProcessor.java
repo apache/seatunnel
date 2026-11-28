@@ -39,7 +39,6 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_STOP
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_STOP_JOBS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SUBMIT_JOB;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SUBMIT_JOBS;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_UPDATE_LOCAL_MEMBER_TAGS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_UPDATE_TAGS;
 
 @Slf4j
@@ -87,8 +86,6 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                 handleStopJob(httpPostCommand);
             } else if (uri.startsWith(CONTEXT_PATH + REST_URL_ENCRYPT_CONFIG)) {
                 handleEncrypt(httpPostCommand);
-            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_UPDATE_LOCAL_MEMBER_TAGS)) {
-                handleUpdateLocalMemberTags(httpPostCommand);
             } else if (uri.startsWith(CONTEXT_PATH + REST_URL_UPDATE_TAGS)) {
                 handleUpdateTags(httpPostCommand);
             } else {
@@ -134,12 +131,6 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
     private void handleUpdateTags(HttpPostCommand httpPostCommand) {
         this.prepareResponse(
                 httpPostCommand, updateTagsService.updateTags(httpPostCommand.getData()));
-    }
-
-    private void handleUpdateLocalMemberTags(HttpPostCommand httpPostCommand) {
-        this.prepareResponse(
-                httpPostCommand,
-                updateTagsService.updateLocalMemberTags(httpPostCommand.getData()));
     }
 
     @Override

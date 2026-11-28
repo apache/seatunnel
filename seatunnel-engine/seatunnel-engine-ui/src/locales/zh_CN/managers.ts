@@ -66,7 +66,7 @@ export default {
     workerRequired: '请先选择一个 Worker。',
     confirm: '确认',
     cancelConfirm: '关闭',
-    updateConfirmMessage: '确认更新该 Worker 的 Tags？',
+    updateConfirmMessage: '确认整体替换该 Worker 的 Tags？选择节点后其他人所做的修改会被覆盖。',
     clearConfirmMessage: '确认清空该 Worker 的全部 Tags？'
   }
 }

@@ -917,6 +917,9 @@ starting beyond the end of the result set also returns `400`, while a page start
 ```json
 [
   {
+    "uuid":"4f1c8c53-8d9f-4f5c-b9cc-278f3bbd2d2a",
+    "localMember":true,
+    "tags":{"node":"worker-1"},
     "processors":"8",
     "physical.memory.total":"16.0G",
     "physical.memory.free":"16.3M",
@@ -966,7 +969,7 @@ starting beyond the end of the result set also returns `400`, while a page start
 ]
 ```
 
-Each member is asked in parallel and awaited against one shared deadline (`seatunnel.engine.health-metrics-timeout-seconds`, default `3` seconds). A member that does not answer in time is reported as `{"host": "10.0.0.1", "port": 5801, "error": "timeout"}`; members whose request dispatch or response fails are reported with the corresponding `error` marker.
+Each member is asked in parallel and awaited against one shared deadline (`seatunnel.engine.health-metrics-timeout-seconds`, default `3` seconds). Every known member entry includes `uuid`, `localMember`, and its current string-valued `tags`, including entries with an `error` marker. A timeout entry also includes `host`, `port`, and `error: "timeout"`; dispatch and response failures carry the corresponding `error` marker. Tags are visible to anyone who can read this endpoint, including the member listener when enabled. Use tags only for non-secret scheduling metadata; never put credentials or tokens in them.
 
 
 </details>
@@ -1172,6 +1175,10 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 > | jobId                | optional     | string  | job id                                |
 > | jobName              | optional     | string  | job name                              |
 > | isStartWithSavePoint | optional     | string  | if the job is started with save point |
+> | restoreMode          | optional     | string  | `NONE`, `SAVEPOINT`, or `CHECKPOINT`   |
+> | restoreSourceJobId   | conditional  | string  | numeric source job ID; required for `CHECKPOINT`, or use `jobId` for `SAVEPOINT` |
+
+The server preflights job IDs, restore parameters and source status, dry-run and legacy savepoint requirements, and config decryption for the whole batch before submitting any job. A failure in this preflight leaves all jobs unsubmitted. Submission itself is not transactional: a later config or runtime failure may leave earlier jobs running. A source-status lookup failure returns `500` with a retry message; an active restore source returns `400`.
 
 #### Request Body
 
@@ -1436,6 +1443,8 @@ For more information about customize encryption, please refer to the documentati
 ##### Body
 `/update-tags` keeps the legacy flat `Map` contract: every top-level key is a tag name and every value is that tag's value. String values are recommended; for compatibility, the server converts non-string values to strings (and null to an empty string) rather than rejecting them. Nested objects are converted using Java's map representation, not retained as objects. No key is reserved, so a key literally named `uuid` or `tags` is stored as an ordinary tag instead of being read as a target member or a nested tag map. The request always applies to the REST node that serves it; to target a specific node, send the request to that node's own REST address.
 
+The legacy endpoint also remains available on the Hazelcast member REST listener, which does not inherit Jetty Basic Auth or mutual TLS. Restrict member-port access to trusted clients. Tag updates replace the entire map; concurrent edits may be overwritten.
+
 ```json
 {
   "tag1": "dev_1",
@@ -1496,7 +1505,7 @@ This is the endpoint the Web UI Workers page uses. It is additive: `/update-tags
 
 #### Authentication
 
-`/update-local-member-tags` is registered on the same servlet context as every other REST endpoint, so it is protected by the same basic authentication and mutual TLS configuration. No separate credentials or settings apply.
+`/update-local-member-tags` is available only on the Jetty HTTP listener and uses its configured Basic Auth and mutual TLS settings. It is not available on the Hazelcast member REST listener. The legacy `/update-tags` route remains available there; restrict member-port access to trusted clients.
 
 #### Body
 
@@ -1504,6 +1513,8 @@ This is the endpoint the Web UI Workers page uses. It is additive: `/update-tags
 |--------|----------|--------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `uuid` | yes      | string | Member UUID of the node that must serve this request. Read it from `/system-monitoring-information`, whose entries carry `uuid` and `localMember` for every cluster member. |
 | `tags` | yes      | object | Tag name to string value map that replaces the node's current tags. An empty object clears all tags. Non-string values are rejected.                                        |
+
+This is a whole-map, last-write-wins replacement. Re-read the member's current tags before editing; another writer's changes since that read may be overwritten.
 
 ```json
 {
@@ -2158,7 +2169,7 @@ There is no dedicated `pause`, `resume` or `delete` endpoint. Use the existing j
 | Resume a paused job                     | Call [`/submit-job`](#submit-a-job) again with `restoreMode=SAVEPOINT`, `restoreSourceJobId=<stopped-job-id>`, and the same job config. The job restores from its latest savepoint for that source job. The legacy `isStartWithSavePoint: true` with the same `jobId` remains supported. |
 | Delete a job                            | There is no delete endpoint. Stop the job with [`/stop-job`](#stop-a-job) if it is still running. Once a job reaches a finished state, its record is removed automatically after `history-job-expire-minutes` (default 1440 minutes) elapses -- see [History Job Expiry Configuration](separated-cluster-deployment.md#44-history-job-expiry-configuration). |
 
-**Note:** `restoreMode` requires `restoreSourceJobId`. `isStartWithSavePoint: true` remains a legacy
+**Note:** `CHECKPOINT` requires `restoreSourceJobId`; `SAVEPOINT` may use `jobId` when `restoreSourceJobId` is omitted. `isStartWithSavePoint: true` remains a legacy
 shortcut and requires `jobId` to be provided in the request; submitting without a `jobId` in that
 case fails with `Please provide jobId when start with save point.`
 

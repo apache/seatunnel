@@ -67,7 +67,8 @@ export default {
     workerRequired: 'Please select a worker first.',
     confirm: 'Confirm',
     cancelConfirm: 'Dismiss',
-    updateConfirmMessage: 'Update tags for this worker?',
+    updateConfirmMessage:
+      'Replace all tags for this worker? Changes made since you selected it will be overwritten.',
     clearConfirmMessage: 'Clear all tags for this worker?'
   }
 }

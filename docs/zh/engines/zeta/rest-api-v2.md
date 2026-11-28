@@ -900,6 +900,9 @@ seatunnel:
 ```json
 [
   {
+    "uuid":"4f1c8c53-8d9f-4f5c-b9cc-278f3bbd2d2a",
+    "localMember":true,
+    "tags":{"node":"worker-1"},
     "processors":"8",
     "physical.memory.total":"16.0G",
     "physical.memory.free":"16.3M",
@@ -949,7 +952,7 @@ seatunnel:
 ]
 ```
 
-每个成员的请求会被并行发出，并共享一个统一截止时间（`seatunnel.engine.health-metrics-timeout-seconds`，默认 `3` 秒）。在截止时间内未应答的成员会以 `{"host": "10.0.0.1", "port": 5801, "error": "timeout"}` 的形式返回；请求分发或响应失败时也会带有对应的 `error` 标记。
+每个成员的请求会被并行发出，并共享一个统一截止时间（`seatunnel.engine.health-metrics-timeout-seconds`，默认 `3` 秒）。每个已知成员的条目均包含 `uuid`、`localMember` 和当前的字符串型 `tags`，包括带 `error` 的条目。超时条目还包含 `host`、`port` 和 `error: "timeout"`；分发或响应失败也会带有对应的 `error` 标记。任何能读取该接口的人（包括启用成员 REST 监听时能访问该端口的人）都能看到 tags。tags 只能用于非敏感的调度元数据，不能存放凭据或令牌。
 
 
 </details>
@@ -1155,6 +1158,10 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 > | jobId                | optional | string | job id                            |
 > | jobName              | optional | string | job name                          |
 > | isStartWithSavePoint | optional | string | if job is started with save point |
+> | restoreMode          | 可选       | string | `NONE`、`SAVEPOINT` 或 `CHECKPOINT` |
+> | restoreSourceJobId   | 条件必填     | string | 数字型来源作业 ID；`CHECKPOINT` 时必填，`SAVEPOINT` 可使用 `jobId` |
+
+服务端会在提交任何作业前，预检整个批次的作业 ID、恢复参数及来源状态、dry-run 与旧版 savepoint 要求，并解密配置。这一预检失败时不会提交作业。但提交阶段不是事务：后续作业的配置或运行时故障可能导致前面的作业已运行。来源作业状态查询失败时返回带重试提示的 `500`；来源作业仍在运行时返回 `400`。
 
 
 
@@ -1423,6 +1430,8 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 ##### 请求体
 `/update-tags` 保留旧版扁平 `Map` 契约：每个顶层 key 都是 tag 名，对应的 value 就是该 tag 的值。建议使用字符串值；为保持兼容，服务端会把非字符串值转换为字符串（null 转为空字符串），不会拒绝。嵌套对象会转换为 Java map 的字符串表示形式，不会作为对象保存。该接口不保留任何特殊 key，因此名为 `uuid` 或 `tags` 的 key 也只会作为普通 tag 存储，不会被解释为目标成员或嵌套的 tag map。请求始终作用于响应该请求的 REST 节点；如需更新指定节点，请把请求发送到该节点自己的 REST 地址。
 
+旧版接口仍可通过 Hazelcast 成员 REST 监听端口访问，该端口不继承 Jetty 的 Basic Auth 或双向 TLS；必须把成员端口限制在可信客户端范围内。tag 更新会整体替换现有映射，并发修改可能被覆盖。
+
 ```json
 {
   "tag1": "dev_1",
@@ -1483,7 +1492,7 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 
 #### 认证
 
-`/update-local-member-tags` 与其他所有 REST 接口注册在同一个 servlet context 上，因此受相同的 basic 认证和双向 TLS 配置保护，不需要额外的凭据或配置。
+`/update-local-member-tags` 只在 Jetty HTTP 监听端口开放，受该端口配置的 Basic Auth 和双向 TLS 保护；Hazelcast 成员 REST 端口不提供此接口。旧版 `/update-tags` 仍可通过成员端口访问，因此必须限制该端口只允许可信客户端访问。
 
 #### 请求体
 
@@ -1491,6 +1500,8 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 |--------|----|------|-------------------------------------------------------------------------------------------------------------|
 | `uuid` | 是  | 字符串  | 必须响应本次请求的节点的成员 UUID。可从 `/system-monitoring-information` 获取，其返回的每个集群成员都带有 `uuid` 和 `localMember` 字段。 |
 | `tags` | 是  | 对象   | tag 名到字符串值的映射，会整体替换该节点当前的 tags。空对象表示清空全部 tags；非字符串值会被拒绝。                                      |
+
+这是整个映射的后写覆盖操作。编辑前请重新读取当前 tags；读取后其他人的修改可能会被覆盖。
 
 ```json
 {
@@ -2135,7 +2146,7 @@ Checkpoint 信息字段：
 | 恢复一个已暂停的作业               | 再次调用 [`/submit-job`](#提交作业)，设置 `restoreMode=SAVEPOINT`、`restoreSourceJobId=<stopped-job-id>` 并传入相同的作业配置。作业会基于该来源作业最近一次的 savepoint 恢复。仍支持使用相同 `jobId` 加 `isStartWithSavePoint: true` 的旧契约。                                |
 | 删除一个作业                   | 没有专门的删除接口。如果作业仍在运行，先通过 [`/stop-job`](#停止作业) 停止它；作业进入结束状态后，其记录会在 `history-job-expire-minutes`（默认 1440 分钟）到期后自动清理，参见[历史作业过期配置](separated-cluster-deployment.md#44-历史作业过期配置)。 |
 
-**注意：** 设置 `restoreMode` 时必须提供 `restoreSourceJobId`。`isStartWithSavePoint: true` 仍是旧的快捷方式，必须提供 `jobId`；不提供 `jobId` 会导致请求失败，报错信息为
+**注意：** `CHECKPOINT` 必须提供 `restoreSourceJobId`；`SAVEPOINT` 省略此参数时可使用 `jobId`。`isStartWithSavePoint: true` 仍是旧的快捷方式，必须提供 `jobId`；不提供 `jobId` 会导致请求失败，报错信息为
 `Please provide jobId when start with save point.`
 
 **恢复保护：** 当来源作业尚未进入结束状态（`FINISHED`、`FAILED`、`CANCELED` 或 `SAVEPOINT_DONE`）时，带 `restoreMode` 的提交会以 HTTP `400` 被拒绝，例如

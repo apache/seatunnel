@@ -54,6 +54,8 @@ import org.junit.jupiter.api.TestInstance;
 import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.json.Json;
+import com.hazelcast.internal.json.JsonArray;
+import com.hazelcast.internal.json.JsonObject;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -302,6 +304,23 @@ public class RestApiSubmitJobStartWithSavePointTest {
                     refused.body.contains(
                             "restoreSourceJobId=" + sourceJobId + " is still RUNNING"),
                     () -> "responseBody=" + refused.body);
+
+            for (String savepointParams :
+                    new String[] {
+                        "restoreMode=SAVEPOINT&jobId=" + sourceJobId,
+                        "isStartWithSavePoint=true&jobId=" + sourceJobId
+                    }) {
+                HttpResponse savepointRefused =
+                        postJson(
+                                base + "/submit-job?format=json&" + savepointParams,
+                                getRequestBody());
+                Assertions.assertEquals(
+                        400, savepointRefused.code, () -> "responseBody=" + savepointRefused.body);
+                Assertions.assertTrue(
+                        savepointRefused.body.contains(
+                                "restoreSourceJobId=" + sourceJobId + " is still RUNNING"),
+                        () -> "responseBody=" + savepointRefused.body);
+            }
         } finally {
             postJson(base + "/stop-job", "{\"jobId\": " + sourceJobId + "}");
         }
@@ -330,6 +349,61 @@ public class RestApiSubmitJobStartWithSavePointTest {
             Assertions.assertTrue(
                     afterCancel.body.contains("No checkpoint found"),
                     () -> "responseBody=" + afterCancel.body);
+        }
+    }
+
+    @Test
+    public void testBatchPreflightsRestoreBeforeSubmittingAnyJob() throws Exception {
+        String base = "http://localhost:" + workerRestPort;
+        HttpResponse submit =
+                postJson(
+                        base + "/submit-job?format=json&jobName=batch_restore_source",
+                        getStreamingRequestBody());
+        Assertions.assertEquals(200, submit.code, () -> "responseBody=" + submit.body);
+        long sourceJobId =
+                Long.parseLong(Json.parse(submit.body).asObject().getString("jobId", ""));
+        long firstJobId = Math.abs(System.nanoTime());
+        try {
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .until(
+                            () ->
+                                    masterServer.getCoordinatorService().getJobStatus(sourceJobId)
+                                            == JobStatus.RUNNING);
+
+            JsonObject first = Json.parse(getStreamingRequestBody()).asObject();
+            first.add(
+                    "params",
+                    new JsonObject()
+                            .add("jobId", Long.toString(firstJobId))
+                            .add("jobName", "batch_first"));
+            JsonObject second = Json.parse(getRequestBody()).asObject();
+            second.add(
+                    "params",
+                    new JsonObject()
+                            .add("restoreMode", "CHECKPOINT")
+                            .add("restoreSourceJobId", Long.toString(sourceJobId)));
+
+            HttpResponse refused =
+                    postJson(
+                            base + "/submit-jobs",
+                            new JsonArray().add(first).add(second).toString());
+            Assertions.assertEquals(400, refused.code, () -> "responseBody=" + refused.body);
+            Assertions.assertTrue(
+                    refused.body.contains(
+                            "restoreSourceJobId=" + sourceJobId + " is still RUNNING"),
+                    () -> "responseBody=" + refused.body);
+            Assertions.assertEquals(
+                    JobStatus.UNKNOWABLE,
+                    masterServer.getCoordinatorService().getJobStatus(firstJobId),
+                    "a rejected batch must not submit its earlier jobs");
+        } finally {
+            postJson(base + "/stop-job", "{\"jobId\": " + sourceJobId + "}");
+            if (masterServer.getCoordinatorService().getJobStatus(firstJobId)
+                    != JobStatus.UNKNOWABLE) {
+                postJson(base + "/stop-job", "{\"jobId\": " + firstJobId + "}");
+            }
         }
     }
 

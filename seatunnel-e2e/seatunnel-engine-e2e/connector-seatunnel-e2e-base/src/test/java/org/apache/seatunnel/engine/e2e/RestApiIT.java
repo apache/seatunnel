@@ -80,6 +80,7 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 
 @Slf4j
@@ -1090,8 +1091,8 @@ public class RestApiIT {
 
     /**
      * The target-validated tag endpoint only mutates the member serving the request: a foreign UUID
-     * is rejected without side effects, the serving member's UUID applies the tags on both the
-     * Jetty and the legacy Hazelcast REST port, and an empty map clears them.
+     * is rejected without side effects, the serving member's UUID applies the tags only on the
+     * Jetty port, and an empty map clears them.
      */
     @Test
     public void testUpdateLocalMemberTagsOnlyMutatesTheServingMember() {
@@ -1168,23 +1169,18 @@ public class RestApiIT {
         given().body(tagRequest(localUuid, "{\"zone\": \"legacy-port\"}"))
                 .post(hazelcastBase + RestConstant.REST_URL_UPDATE_LOCAL_MEMBER_TAGS)
                 .then()
-                .statusCode(200)
-                .body("message", equalTo("update node tags done."));
-        given().get(jettyBase + RestConstant.REST_URL_OVERVIEW + "?zone=legacy-port")
-                .then()
-                .statusCode(200)
-                .body("workers", equalTo("1"));
+                .statusCode(not(equalTo(200)));
         given().get(jettyBase + RestConstant.REST_URL_OVERVIEW + "?zone=prod")
                 .then()
                 .statusCode(200)
-                .body("workers", equalTo("0"));
+                .body("workers", equalTo("1"));
 
         given().body(tagRequest(localUuid, "{}"))
                 .post(jettyBase + RestConstant.REST_URL_UPDATE_LOCAL_MEMBER_TAGS)
                 .then()
                 .statusCode(200)
                 .body("message", equalTo("update node tags done."));
-        given().get(jettyBase + RestConstant.REST_URL_OVERVIEW + "?zone=legacy-port")
+        given().get(jettyBase + RestConstant.REST_URL_OVERVIEW + "?zone=prod")
                 .then()
                 .statusCode(200)
                 .body("workers", equalTo("0"));

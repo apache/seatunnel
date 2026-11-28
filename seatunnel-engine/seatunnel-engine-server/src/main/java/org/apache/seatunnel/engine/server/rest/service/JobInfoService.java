@@ -449,16 +449,7 @@ public class JobInfoService extends BaseService {
     }
 
     public JsonObject submitJob(Map<String, String> requestParams, byte[] requestBody) {
-
-        if (requestParams.containsKey(RestConstant.DRY_RUN)
-                && requestParams.get(RestConstant.DRY_RUN) != null) {
-            throw new IllegalArgumentException("Dry-run is only supported via CLI");
-        }
-        if (Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT))
-                && StringUtils.isBlank(requestParams.get(RestConstant.JOB_ID))) {
-            throw new IllegalArgumentException("Please provide jobId when start with save point.");
-        }
-        validateCheckpointRestoreRequest(requestParams);
+        validateSubmitRequestParams(requestParams);
         Config config;
         ConfigFormat configFormat = ConfigFormat.fromString(requestParams.get(CONFIG_FORMAT));
 
@@ -483,6 +474,12 @@ public class JobInfoService extends BaseService {
     }
 
     public JsonObject submitJob(Map<String, String> requestParams, Config config) {
+        validateSubmitRequestParams(requestParams);
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
+        return submitJobInternal(config, requestParams, seaTunnelServer, nodeEngine.getNode());
+    }
+
+    private void validateSubmitRequestParams(Map<String, String> requestParams) {
         if (requestParams.containsKey(RestConstant.DRY_RUN)
                 && requestParams.get(RestConstant.DRY_RUN) != null) {
             throw new IllegalArgumentException("Dry-run is only supported via CLI");
@@ -491,40 +488,51 @@ public class JobInfoService extends BaseService {
                 && StringUtils.isBlank(requestParams.get(RestConstant.JOB_ID))) {
             throw new IllegalArgumentException("Please provide jobId when start with save point.");
         }
+        for (String idKey :
+                new String[] {RestConstant.JOB_ID, RestConstant.RESTORE_SOURCE_JOB_ID}) {
+            String value = requestParams.get(idKey);
+            if (StringUtils.isNotBlank(value)) {
+                try {
+                    Long.parseLong(value);
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException(idKey + " must be a numeric job id.", e);
+                }
+            }
+        }
         validateCheckpointRestoreRequest(requestParams);
-        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
-        return submitJobInternal(config, requestParams, seaTunnelServer, nodeEngine.getNode());
     }
 
     public JsonArray submitJobs(byte[] requestBody) {
         List<Tuple2<Map<String, String>, Config>> configTuples =
                 RestUtil.buildConfigList(requestHandle(requestBody));
 
-        return configTuples.stream()
+        List<Tuple2<Map<String, String>, Config>> validatedJobs =
+                configTuples.stream()
+                        .map(
+                                tuple -> {
+                                    String urlParams = mapToUrlParams(tuple._1);
+                                    Map<String, String> requestParams = new HashMap<>();
+                                    RestUtil.buildRequestParams(requestParams, urlParams);
+                                    validateSubmitRequestParams(requestParams);
+                                    return new Tuple2<>(
+                                            requestParams,
+                                            ConfigShadeUtils.decryptConfig(tuple._2));
+                                })
+                        .collect(Collectors.toList());
+
+        return validatedJobs.stream()
                 .map(
                         tuple -> {
-                            String urlParams = mapToUrlParams(tuple._1);
-                            Map<String, String> requestParams = new HashMap<>();
-                            RestUtil.buildRequestParams(requestParams, urlParams);
-                            if (requestParams.containsKey(RestConstant.DRY_RUN)
-                                    && requestParams.get(RestConstant.DRY_RUN) != null) {
-                                throw new IllegalArgumentException(
-                                        "Dry-run is only supported via CLI");
-                            }
-                            validateCheckpointRestoreRequest(requestParams);
                             SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
-                            Config decryptConfig = ConfigShadeUtils.decryptConfig(tuple._2);
                             return submitJobInternal(
-                                    decryptConfig,
-                                    requestParams,
-                                    seaTunnelServer,
-                                    nodeEngine.getNode());
+                                    tuple._2, tuple._1, seaTunnelServer, nodeEngine.getNode());
                         })
                 .collect(JsonArray::new, JsonArray::add, JsonArray::add);
     }
 
     /**
-     * Validates the explicit restore parameters before parsing the submitted job configuration.
+     * Validates explicit and legacy restore parameters before parsing the submitted job
+     * configuration.
      *
      * <p>A blank source ID is equivalent to an omitted source ID. Rejecting it here prevents the
      * restore path from issuing a lookup for a null source after configuration parsing begins. The
@@ -535,14 +543,27 @@ public class JobInfoService extends BaseService {
      */
     private void validateCheckpointRestoreRequest(Map<String, String> requestParams) {
         String restoreModeValue = requestParams.get(RestConstant.RESTORE_MODE);
-        RestoreMode restoreMode =
-                restoreModeValue == null || restoreModeValue.trim().isEmpty()
-                        ? RestoreMode.NONE
-                        : RestoreMode.valueOf(restoreModeValue.trim().toUpperCase(Locale.ROOT));
+        RestoreMode restoreMode;
+        try {
+            restoreMode =
+                    restoreModeValue == null || restoreModeValue.trim().isEmpty()
+                            ? (Boolean.parseBoolean(
+                                            requestParams.get(
+                                                    RestConstant.IS_START_WITH_SAVE_POINT))
+                                    ? RestoreMode.SAVEPOINT
+                                    : RestoreMode.NONE)
+                            : RestoreMode.valueOf(restoreModeValue.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "restoreMode must be one of NONE, SAVEPOINT, CHECKPOINT.", e);
+        }
         if (!restoreMode.isRestore()) {
             return;
         }
         String restoreSourceJobIdValue = requestParams.get(RestConstant.RESTORE_SOURCE_JOB_ID);
+        if (restoreMode == RestoreMode.SAVEPOINT && StringUtils.isBlank(restoreSourceJobIdValue)) {
+            restoreSourceJobIdValue = requestParams.get(RestConstant.JOB_ID);
+        }
         if (restoreSourceJobIdValue == null || restoreSourceJobIdValue.trim().isEmpty()) {
             throw new IllegalArgumentException(
                     "restoreSourceJobId is required when restoreMode=" + restoreMode);
@@ -557,8 +578,17 @@ public class JobInfoService extends BaseService {
                     "restoreSourceJobId must be a numeric job id, got: " + restoreSourceJobIdValue,
                     e);
         }
-        rejectRestoreFromActiveSourceJob(
-                restoreMode, restoreSourceJobId, getRestoreSourceJobStatus(restoreSourceJobId));
+        JobStatus sourceJobStatus;
+        try {
+            sourceJobStatus = getRestoreSourceJobStatus(restoreSourceJobId);
+        } catch (RuntimeException e) {
+            throw new IllegalStateException(
+                    "Unable to verify restoreSourceJobId="
+                            + restoreSourceJobId
+                            + " status; retry when the cluster is healthy.",
+                    e);
+        }
+        rejectRestoreFromActiveSourceJob(restoreMode, restoreSourceJobId, sourceJobStatus);
     }
 
     /**
