@@ -17,17 +17,51 @@
 
 package org.apache.seatunnel.core.starter.spark;
 
+import org.apache.seatunnel.common.config.Common;
+
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class SparkStarterTest {
+
+    @TempDir Path tempDir;
+
+    @Test
+    void preserveDefaultPluginTarballWithoutDirectory() throws IOException {
+        for (String directory : new String[] {null, "", "  "}) {
+            assertEquals(Common.pluginTarball(), SparkStarter.getPluginTarball(directory));
+        }
+    }
+
+    @Test
+    void resolvePluginTarballInExistingDirectory() throws IOException {
+        assertEquals(
+                tempDir.toAbsolutePath().resolve("plugins.tar.gz"),
+                SparkStarter.getPluginTarball(tempDir.toString()));
+    }
+
+    @Test
+    void rejectMissingOrNonDirectoryPluginTarballLocations() throws IOException {
+        Path missing = tempDir.resolve("missing");
+        Path file = Files.createFile(tempDir.resolve("file"));
+        for (Path path : new Path[] {missing, file}) {
+            Assertions.assertThrows(
+                    IOException.class, () -> SparkStarter.getPluginTarball(path.toString()));
+        }
+        Assertions.assertFalse(Files.exists(missing));
+    }
 
     @Test
     public void testGetSparkConf() throws URISyntaxException, FileNotFoundException {

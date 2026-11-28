@@ -316,6 +316,28 @@ public class SparkStarter implements Starter {
         }
     }
 
+    /** Resolves the optional submission-specific staging directory without changing the default. */
+    static Path getPluginTarball(String directory) throws IOException {
+        if (StringUtils.isBlank(directory)) {
+            return Common.pluginTarball();
+        }
+        Path path = Paths.get(directory).toAbsolutePath();
+        if (!Files.isDirectory(path)) {
+            throw new IOException("Plugin tarball directory does not exist: " + path);
+        }
+        // Resolve symlinks before comparing: the archive must not be part of its own input.
+        Path plugins = Common.pluginRootDir();
+        Path archive = path.toRealPath().resolve("plugins.tar.gz");
+        if (Files.exists(plugins)
+                && (archive.startsWith(plugins.toRealPath())
+                        || (Files.exists(archive)
+                                && archive.toRealPath().startsWith(plugins.toRealPath())))) {
+            throw new IOException(
+                    "Plugin tarball must be outside the plugins directory: " + archive);
+        }
+        return path.resolve("plugins.tar.gz");
+    }
+
     /** a Starter for building spark-submit commands with cluster mode options */
     private static class ClusterModeSparkStarter extends SparkStarter {
 
@@ -327,7 +349,7 @@ public class SparkStarter implements Starter {
         public List<String> buildCommands() throws IOException {
             Common.setDeployMode(commandArgs.getDeployMode());
             Common.setStarter(true);
-            Path pluginTarball = Common.pluginTarball();
+            Path pluginTarball = getPluginTarball(System.getenv("SEATUNNEL_PLUGIN_TARBALL_DIR"));
             CompressionUtils.tarGzip(Common.pluginRootDir(), pluginTarball);
             this.files.add(pluginTarball);
             this.files.add(Paths.get(commandArgs.getConfigFile()));
