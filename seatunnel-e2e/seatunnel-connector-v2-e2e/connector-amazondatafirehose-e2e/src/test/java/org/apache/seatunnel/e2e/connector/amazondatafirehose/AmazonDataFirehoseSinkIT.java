@@ -147,6 +147,51 @@ class AmazonDataFirehoseSinkIT extends TestSuiteBase implements TestResource {
     @DisabledOnContainer(
             value = {},
             type = {EngineType.FLINK, EngineType.SPARK})
+    void preservesDistinctLongJsonMemberNamesAcrossBatches(TestContainer container)
+            throws Exception {
+        reset();
+        char[] characters = new char[4096];
+        Arrays.fill(characters, 'a');
+        String prefix = new String(characters);
+        ArrayNode records = rows();
+        ArrayNode expected = JSON.createArrayNode();
+        // Modest compatibility data: this verifies exact opaque bytes, not heap/cache-size bounds.
+        for (int i = 0; i < 8; i++) {
+            String payload =
+                    "{ \""
+                            + prefix
+                            + i
+                            + "雪\" : { \"index\": "
+                            + i
+                            + ", \"value\": 1.0000000000000000001, \"text\": \"\\u96ea\" } }";
+            records.add(row("INSERT", payload));
+            expected.add(data(payload + "\n"));
+        }
+        succeeds(run(container, options().put("batch_size", 3), "string", records));
+        JsonNode captured = state();
+        Assertions.assertEquals(3, captured.path("requests").size());
+        assertBatch(
+                captured,
+                0,
+                false,
+                expected.get(0).asText(),
+                expected.get(1).asText(),
+                expected.get(2).asText());
+        assertBatch(
+                captured,
+                1,
+                false,
+                expected.get(3).asText(),
+                expected.get(4).asText(),
+                expected.get(5).asText());
+        assertBatch(captured, 2, false, expected.get(6).asText(), expected.get(7).asText());
+        Assertions.assertEquals(expected, captured.path("accepted"));
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK})
     void serializesTypedRowsToJsonAndDelimitedRecords(TestContainer container) throws Exception {
         reset();
         ObjectNode schema = JSON.createObjectNode().put("name", "string").put("score", "int");

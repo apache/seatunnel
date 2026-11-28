@@ -45,8 +45,12 @@ final class AmazonDataFirehoseSinkWriter extends AbstractSinkWriter<SeaTunnelRow
     static final int REQUEST_MAX_BYTES = 4 * 1024 * 1024;
     // Covers the JSON object, the maximum-length stream name, and the records array delimiters.
     private static final int REQUEST_OVERHEAD_BYTES = 128;
+    // Opaque keys can be long within each bounded record. Shared symbol tables must not retain
+    // their aggregate bytes across records after acknowledged batches have already been released.
     private static final JsonFactory JSON =
             JsonFactory.builder()
+                    .disable(JsonFactory.Feature.CANONICALIZE_FIELD_NAMES)
+                    .disable(JsonFactory.Feature.INTERN_FIELD_NAMES)
                     .streamReadConstraints(
                             StreamReadConstraints.builder().maxNestingDepth(64).build())
                     .build()
