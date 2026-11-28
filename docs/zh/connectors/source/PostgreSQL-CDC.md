@@ -26,8 +26,7 @@ PostgreSQL CDC 连接器允许从 PostgreSQL 数据库读取快照数据和增�
 连接器在表发现阶段会按完整的 `catalog.schema.table` 标识去重，这些重复行会被忽略，任务可正常启动。
 
 当类型名未命中缓存且多个 schema 中存在同名类型时，未限定 schema 的类型名会解析为源连接的
-`search_path` 中可见的类型。此改动不影响已缓存的类型名，也不会将源类型的 schema 传递到下游的
-`ADD COLUMN` 语句。
+`search_path` 中可见的类型。此改动不影响已缓存的类型名。
 
 ## 支持的数据源信息
 
@@ -95,7 +94,7 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 
 |                      名称                   | 类型       | 必需 | 默认  | 描述                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 |-------------------------------------------|----------|------|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                       | String   | 是   | -        | JDBC 连接的 URL。参考案例：`jdbc:postgresql://localhost:5432/postgres_cdc?loggerLevel=OFF`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| url                                       | String   | 是   | -        | JDBC 连接的 URL。该值不能为空或仅包含空白字符。参考案例：`jdbc:postgresql://localhost:5432/postgres_cdc?loggerLevel=OFF`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | username                                  | String   | 是   | -        | 连接到数据库服务器时使用的数据库名称。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | password                                  | String   | 是   | -        | 连接到数据库服务器时使用的密码。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | database-names                            | List     | 否   | -        | 需要监控的数据库名称。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -187,6 +186,15 @@ sink {
 PostgreSQL 不会把原始 `ALTER TABLE` SQL 文本写入逻辑复制流。使用 `pgoutput` 时，SeaTunnel 会从
 RELATION 消息中检测变化后的表结构，在后续行事件之前发出 `ADD COLUMN` 事件，并更新下游表结构。
 因此，执行 DDL 后该表必须再发生一条行变更，连接器才能感知 Schema 变化。
+
+新增列的类型为用户自定义的枚举、范围或多范围（multirange）类型时，类型名采用 PostgreSQL 在 DDL
+中的写法，即 `format_type(oid, NULL)` 的结果：需要加引号的名称保留引号（`"JobStatus"`、`"order"`），
+所在 schema 不在源连接 `search_path` 中的类型会带上 schema（`inv.mood`）。PostgreSQL Sink 会在
+`ALTER TABLE ... ADD` 中使用这个名称，因此 Sink 数据库中必须已存在该类型：名称带 schema 时须位于
+同名 schema 下，否则须能通过 Sink 连接的 `search_path` 找到。写入枚举值时，请在 Sink 的 `url` 中
+添加 `stringtype=unspecified`。默认情况下 Debezium 不会输出用户自定义范围类型列的值，因此该列会
+被添加，但值保持为 NULL。如果无法从 `pg_type` 读取列类型名，或某列的类型已不存在，作业会以错误 `POSTGRES-05`
+失败。复合类型、域（domain）类型以及用户自定义类型的数组仍使用不带引号和 schema 的类型名。
 
 如果 RELATION 消息包含 `ADD COLUMN` 之外的行 Schema 变更，作业会在处理新 Schema 的数据行之前
 失败。恢复同一 Checkpoint 时仍会再次遇到该变更；只有升级到支持该变更的连接器，或完成受控的
@@ -326,15 +334,20 @@ source {
 
 ## CDC 元数据字段
 
-PostgreSQL CDC 会提供以下元数据字段，可配合 `Metadata` 转换使用：
+PostgreSQL CDC 会提供以下元数据字段，可配合 `Metadata` 转换使用。
+
+字段名称区分大小写，必须与下表完全一致（例如写成 `Database` 而不是 `database`），否则作业会报“找不到元数据字段”的错误：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| database | STRING | 源数据库名称。 |
-| table | STRING | 源表名称。 |
-| rowKind | STRING | 变更类型，例如 insert、update 或 delete。 |
-| ts_ms | LONG | 源事件时间，单位为毫秒。 |
-| delay | LONG | 事件时间和处理时间之间的延迟，单位为毫秒。 |
+| Database | STRING | 源数据库名称。 |
+| Table | STRING | 源表名称。 |
+| RowKind | STRING | 变更类型，输出为 RowKind 短代码：`+I`（插入）、`-U`（更新前）、`+U`（更新后）、`-D`（删除）。 |
+| EventTime | LONG | 连接器读取并处理该事件的时间，单位为毫秒。 |
+| Delay | LONG | 源事件时间与连接器读取时间之间的延迟，单位为毫秒。 |
+| SourceTimestamp | LONG | 变更在源数据库中的提交时间（`source.ts_ms`），单位为毫秒。 |
+
+连接器的元数据 schema 中也声明了 `BinlogFile`、`BinlogPos`、`BinlogRow` 和 `Gtid`，可以通过 `Metadata` 转换引用，但这些字段只有 MySQL-CDC 会填充；在 PostgreSQL CDC 中它们的值始终为 `null`。
 
 示例：
 

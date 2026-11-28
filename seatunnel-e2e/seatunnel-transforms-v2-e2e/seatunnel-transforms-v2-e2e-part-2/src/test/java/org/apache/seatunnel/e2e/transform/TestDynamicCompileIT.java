@@ -73,10 +73,10 @@ public class TestDynamicCompileIT extends TestSuiteBase implements TestResource 
                                                                                         "Can not get config file of mockServer"))
                                                                 .getPath())
                                                 .getAbsolutePath()),
-                                TMP_DIR + "/mockserver-config.json")
+                                TMP_DIR + "/llm_transform/mockserver-config.json")
                         .withEnv(
                                 "MOCKSERVER_INITIALIZATION_JSON_PATH",
-                                TMP_DIR + "/mockserver-config.json")
+                                TMP_DIR + "/llm_transform/mockserver-config.json")
                         .withEnv("MOCKSERVER_LOG_LEVEL", "WARN")
                         .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
                         .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));

@@ -86,7 +86,7 @@ public class JdbcDb2UpsertIT extends JdbcDb2IT {
 
     @Override
     JdbcCase getJdbcCase() {
-        jdbcCase = super.getJdbcCase();
+        JdbcCase jdbcCase = super.getJdbcCase();
         jdbcCase.setSinkCreateSql(CREATE_SQL_SINK);
         jdbcCase.setConfigFile(CONFIG_FILE);
         jdbcCase.setAdditionalSqlOnSink(CREATE_TRIGGER_SQL);
