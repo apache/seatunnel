@@ -503,6 +503,67 @@ class ConfluenceIT extends TestSuiteBase {
     }
 
     /**
+     * One decoded page must yield to checkpoints between throttled rows. Completed savepoint
+     * recovery joins the observed original prefix and restored tail exactly once, in provider
+     * order.
+     */
+    @Test
+    void checkpointsThrottledDecodedRowsAndRestoresTheSavepointTail() throws Exception {
+        String config = "/confluence_throttled_to_console.conf";
+        List<String> payloads = new ArrayList<>();
+        List<String> expected = new ArrayList<>();
+        for (int i = 0; i < 32; i++) {
+            String id = "throttled-" + i;
+            String value = "{\"id\":\"" + id + "\"}";
+            payloads.add(value);
+            expected.add("pages, " + id + ", , " + value);
+        }
+        ConfluenceFixture.Scenario script =
+                new ConfluenceFixture.Scenario(
+                        (i, exchange) -> json(exchange, results(String.join(",", payloads))));
+        String job = nextJob();
+        String[] arguments = variables("pages", 32, 120000, 4, 16777216, 10000, 0, "storage");
+        begin(script);
+        Future<Container.ExecResult> original =
+                commands.submit(() -> engine.executeJob(config, job, arguments));
+        try {
+            Awaitility.await().atMost(45, TimeUnit.SECONDS).until(() -> !rows().isEmpty());
+            long baseline = engine.getCompletedCheckpointCount(job);
+            // Two later completions exclude a checkpoint already injected before the first row.
+            Awaitility.await()
+                    .atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(
+                                        engine.getCompletedCheckpointCount(job) >= baseline + 2);
+                                Assertions.assertTrue(rows().size() < 16);
+                                Assertions.assertEquals(
+                                        Collections.singletonList(
+                                                PAGE.replace("limit=2", "limit=32")),
+                                        script.requests());
+                            });
+            success(engine.savepointJob(job));
+            assertJobStatus(job, "SAVEPOINT_DONE");
+            success(original.get(40, TimeUnit.SECONDS));
+            List<String> joined = new ArrayList<>(rows());
+            Assertions.assertTrue(!joined.isEmpty() && joined.size() < expected.size());
+            Assertions.assertEquals(expected.subList(0, joined.size()), joined);
+            Assertions.assertEquals(
+                    Collections.singletonList(PAGE.replace("limit=2", "limit=32")),
+                    script.requests());
+            markLogs();
+            success(engine.restoreJob(config, job, arguments));
+            assertJobStatus(job, "FINISHED");
+            joined.addAll(rows());
+            Assertions.assertEquals(expected, joined);
+            Assertions.assertEquals(2, script.requests().size());
+            Assertions.assertEquals(script.requests().get(0), script.requests().get(1));
+        } finally {
+            cancelIfRunning(job, original);
+        }
+    }
+
+    /**
      * Stops within a decoded page and checks either exact remaining output or changed-prefix
      * rejection.
      */

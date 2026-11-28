@@ -42,7 +42,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @see SourceReader
  */
 final class ConfluenceReader implements SourceReader<SeaTunnelRow, ConfluenceSplit> {
-    private static final int ROWS_PER_POLL = 16;
+    // Return to the engine checkpoint handoff after every accepted row.
+    private static final int ROWS_PER_POLL = 1;
     private final ConfluenceConfig config;
     private final Context context;
     private final AtomicBoolean cancelled = new AtomicBoolean();
@@ -88,8 +89,8 @@ final class ConfluenceReader implements SourceReader<SeaTunnelRow, ConfluenceSpl
     public void open() {}
 
     /**
-     * Yields while remote work is pending and commits at most one small batch under checkpoint
-     * lock.
+     * Yields while remote work is pending and accepts at most one row under the checkpoint lock
+     * before returning to the engine checkpoint handoff.
      */
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
