@@ -18,8 +18,16 @@
 package org.apache.seatunnel.connectors.doris.rest;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.doris.config.DorisSourceConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
+import org.apache.seatunnel.connectors.doris.source.DorisSourceTable;
 
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -41,11 +49,15 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class RestServiceTest {
 
@@ -133,6 +145,40 @@ public class RestServiceTest {
         assertReadTimeoutFailsFast(request);
     }
 
+    @Test
+    void quotesReadFieldsThatAreDorisKeywords() {
+        // Column names taken from the doris.read.field value reported in issue 13369. Doris FE
+        // rejected the unquoted "From" column with a parse error, so every projected column must
+        // be wrapped in backticks.
+        DorisSourceTable table =
+                sourceTable(Arrays.asList("Date", "Version", "From", "desc", "to", "system"), null);
+
+        Assertions.assertEquals(
+                "select `Date`,`Version`,`From`,`desc`,`to`,`system` from `test`.`test`",
+                RestService.buildQuerySql(table, "test", "test"));
+    }
+
+    @Test
+    void escapesBackticksInsideReadFields() {
+        // A backtick inside a quoted Doris identifier is written as two backticks, the same rule
+        // DorisCatalogUtil already applies to partition names.
+        DorisSourceTable table = sourceTable(Collections.singletonList("a`b"), null);
+
+        Assertions.assertEquals(
+                "select `a``b` from `db`.`tbl`", RestService.buildQuerySql(table, "db", "tbl"));
+    }
+
+    @Test
+    void keepsStarProjectionAndFilterQueryWhenSchemaIsEmpty() {
+        // An empty schema keeps the original "select *" projection, and the user filter query is
+        // appended unchanged.
+        DorisSourceTable table = sourceTable(Collections.emptyList(), "`from` > 1");
+
+        Assertions.assertEquals(
+                "select * from `db`.`tbl` where `from` > 1",
+                RestService.buildQuerySql(table, "db", "tbl"));
+    }
+
     private String queryPlanUrl() {
         return "http://127.0.0.1:" + server.getAddress().getPort() + QUERY_PLAN_PATH;
     }
@@ -154,5 +200,32 @@ public class RestServiceTest {
                 "request should fail before the server's delayed response but took "
                         + elapsedMs
                         + "ms");
+    }
+
+    private static DorisSourceTable sourceTable(List<String> columnNames, String filterQuery) {
+        List<Column> columns =
+                columnNames.stream()
+                        .map(
+                                name ->
+                                        PhysicalColumn.of(
+                                                name,
+                                                BasicType.STRING_TYPE,
+                                                (Long) null,
+                                                true,
+                                                null,
+                                                null))
+                        .collect(Collectors.toList());
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("doris", "db", "tbl"),
+                        TableSchema.builder().columns(columns).build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "");
+        return DorisSourceTable.builder()
+                .tablePath(TablePath.of("db", "tbl"))
+                .catalogTable(catalogTable)
+                .filterQuery(filterQuery)
+                .build();
     }
 }

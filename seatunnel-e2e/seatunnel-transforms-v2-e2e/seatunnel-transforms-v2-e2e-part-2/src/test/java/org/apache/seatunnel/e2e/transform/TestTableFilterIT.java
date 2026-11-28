@@ -35,7 +35,8 @@ public class TestTableFilterIT extends TestSuiteBase {
     @TestTemplate
     public void testFilterMultiTable(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/table_filter_multi_table.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/table_filter/table_filter_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -47,7 +48,8 @@ public class TestTableFilterIT extends TestSuiteBase {
     public void testFilterMultiTableWithExcludeMode(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/table_filter_multi_table_with_exclude_mode.conf");
+                container.executeJob(
+                        "/table_filter/table_filter_multi_table_with_exclude_mode.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
