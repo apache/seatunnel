@@ -94,6 +94,7 @@ connector-http-shopify
 connector-http-splunk
 connector-http-wechat
 connector-http-airtable
+connector-http-campaign-monitor
 connector-http-zendesk
 connector-http-posthog
 connector-http-zendesk
