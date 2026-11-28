@@ -43,6 +43,7 @@ public class PaimonSourceSplit implements SourceSplit {
 
     @Override
     public String splitId() {
-        return split.toString();
+        // The underlying split string is not a stable reader-assignment key across JVMs.
+        return id;
     }
 }

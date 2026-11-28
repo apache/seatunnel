@@ -5,6 +5,16 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Paimon source: stable split identifiers
+
+Paimon source now uses its generated split ID instead of the underlying Paimon split string
+for reader assignment. This fixes missing and duplicate split assignments when Spark readers
+independently enumerate the same fixed snapshot in different JVMs. Configuration options and
+serialized split fields are unchanged, but split IDs and hashed reader ownership change.
+Do not mix old and new connector artifacts within one job. Finish bounded jobs before upgrading;
+validate checkpoint/savepoint recovery and rescaling separately before upgrading stateful jobs.
+This change still requires independently enumerated plans to have a consistent split order.
+
 ### HBase sink: DELETE rows remove mapped data
 
 `DELETE` rows now remove all cell versions up to the mutation timestamp in the column families
