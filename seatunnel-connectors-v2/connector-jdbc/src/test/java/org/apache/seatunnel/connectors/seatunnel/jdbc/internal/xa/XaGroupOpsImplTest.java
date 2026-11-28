@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa;
 
+import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
+import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 
@@ -27,10 +30,14 @@ import javax.transaction.xa.XAException;
 import javax.transaction.xa.Xid;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Tests grouped XA commit failure propagation and retry accounting.
@@ -111,6 +118,61 @@ class XaGroupOpsImplTest {
                                         3));
 
         Assertions.assertTrue(exception.getMessage().contains("reached max number"));
+    }
+
+    @Test
+    void testRecoveryDoesNotRollbackSiblingWriterWithSameSubtask() {
+        JobContext job = new JobContext(1L);
+        SinkWriter.Context context = new DefaultSinkWriterContext(0, 1);
+        XidGenerator owner = XidGenerator.semanticXidGenerator();
+        XidGenerator sibling = XidGenerator.semanticXidGenerator();
+        owner.open();
+        sibling.open();
+        Xid checkpoint = owner.generateXid(job, context, 10);
+        Xid orphan = owner.generateXid(job, context, 11);
+        Xid siblingPrepared = sibling.generateXid(job, context, 12);
+        XaFacade facade = mock(XaFacade.class);
+        when(facade.recover()).thenReturn(Arrays.asList(checkpoint, orphan, siblingPrepared));
+
+        new XaGroupOpsImpl(facade).recoverAndRollback(job, context, owner, checkpoint);
+
+        verify(facade).rollback(orphan);
+        verify(facade, never()).rollback(checkpoint);
+        verify(facade, never()).rollback(siblingPrepared);
+    }
+
+    @Test
+    void testRollbackFailureRecoveryDoesNotRollbackSiblingWriter() {
+        JobContext job = new JobContext(1L);
+        SinkWriter.Context context = new DefaultSinkWriterContext(0, 1);
+        XidGenerator owner = XidGenerator.semanticXidGenerator();
+        XidGenerator sibling = XidGenerator.semanticXidGenerator();
+        owner.open();
+        sibling.open();
+        Xid own = owner.generateXid(job, context, 10);
+        Xid peer = sibling.generateXid(job, context, 11);
+        XaFacade facade = mock(XaFacade.class);
+        when(facade.recover()).thenReturn(Arrays.asList(own, peer));
+
+        new XaGroupOpsImpl(facade).recoverAndRollback(job, context, owner, null);
+
+        verify(facade).rollback(own);
+        verify(facade, never()).rollback(peer);
+    }
+
+    @Test
+    void testOwnedOrphanRollbackFailurePropagates() {
+        JobContext job = new JobContext(1L);
+        SinkWriter.Context context = new DefaultSinkWriterContext(0, 1);
+        XidGenerator owner = XidGenerator.semanticXidGenerator();
+        owner.open();
+        Xid orphan = owner.generateXid(job, context, 10);
+        XaFacade facade = mock(XaFacade.class);
+        when(facade.recover()).thenReturn(Collections.singletonList(orphan));
+        doThrow(new RuntimeException("rollback failed")).when(facade).rollback(orphan);
+        Assertions.assertThrows(
+                JdbcConnectorException.class,
+                () -> new XaGroupOpsImpl(facade).recoverAndRollback(job, context, owner, null));
     }
 
     /**

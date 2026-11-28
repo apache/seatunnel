@@ -11,6 +11,13 @@
   - **影响**：最新检查点已损坏的作业现在会从上一个检查点继续运行，并重放此后处理过的数据。遇到存储读取错误的作业现在会恢复失败，而不是静默地从头开始。其他检查点存储插件不受影响。
   - **迁移指南**：无需修改配置。如果恢复因读取错误失败，请修复对检查点存储的访问后重新恢复作业。如果因所有检查点都已损坏而失败，请检查存储；如需在不使用状态的情况下启动作业，请不经恢复直接提交作业。
 
+### 文件连接器：ORC ZSTD 输出需要兼容的读取器
+
+- **影响组件**：`connector-file-base` 及使用其 ORC 读写实现的文件连接器。
+- **变更说明**：`orc-core:nohive` 从 1.5.6 升级为 1.8.7，共享 ORC sink 配置规则接受 ZSTD，并将 ZSTD 映射为 ORC `CompressionKind.ZSTD`。现在可以读取 ZSTD 压缩的 ORC 文件，且 `compress_codec = "zstd"` 会实际生成 ZSTD 压缩文件，而不是映射为 NONE。此前，文件工厂会在配置校验阶段拒绝 ORC/ZSTD；绕过该规则的调用路径则可能静默生成未压缩文件。
+- **兼容性影响**：新生成的 ZSTD 文件要求下游读取器支持 ORC ZSTD。保留 ORC 文件版本 0.12 并不能让旧读取器支持该压缩格式。已有文件不会被重写，默认压缩仍为 NONE。
+- **迁移指南**：启用 ORC ZSTD 前先验证或升级下游读取器。分阶段升级期间，可显式保留双方均支持的 SNAPPY 或 ZLIB 等压缩格式。 (#13084)
+
 ### HBase sink：DELETE 行删除映射的数据
 
 `DELETE` 行现在会删除本 sink 映射列簇中不晚于该变更时间戳的所有单元格版本。此前这些行会将旧值作为 Put 写入，未映射列簇仍不受影响。仅投影 rowkey 和版本列时，没有映射列簇，sink 会拒绝 DELETE 行。请在投影中包含目标列簇的至少一个数据列。
@@ -229,6 +236,12 @@ OptionRule rule = OptionRule.builder()
 - **行为变更**：使用 `decoding.plugin.name = "pgoutput"` 的流式作业会从源表结构中排除 PostgreSQL 发布未发布的列，包括 PostgreSQL 18 之前的生成列、虚拟生成列以及发布列列表中省略的列。仅快照作业和其他解码插件不受影响。
 - **影响**：下次启动或恢复作业时，快照和自动创建的目标表将不再包含未发布的非主键列。依赖这些列的现有目标表和下游使用方可能需要调整表结构或字段映射；此前流式更新可能将这些列写为 NULL，或因表结构不匹配而失败。如果必需的主键未发布（包括仅发布 INSERT 的发布），作业现在会在启动时失败，而不是保留该列并在流式同步中输出 NULL 主键。
 - **迁移指南**：升级前检查发布配置及下游表结构。在 PostgreSQL 18 中，设置 `publish_generated_columns = stored` 的发布可以保留存储生成列；虚拟生成列仍不会发布。使用发布列列表时，请加入所有必需主键列（包括 `table-names-config.primaryKeys` 配置的主键）和其他必需列。发布 UPDATE/DELETE 时，PostgreSQL 还要求包含副本标识列。请调整目标表结构和下游映射，移除其他未发布的列；没有显式列列表的发布仍遵循生成列规则。
+
+### PostgreSQL CDC：新增用户自定义枚举和范围类型列
+
+- **行为变更**：使用 `decoding.plugin.name = "pgoutput"` 并开启 Schema 变更时，用户自定义枚举、范围或多范围类型的新增列，类型名改为 `format_type(oid, NULL)` 的结果：需要时加引号，类型所在 schema 不在源连接 `search_path` 中时带上 schema。此前下游收到的是不带引号和 schema 的 `pg_type.typname`。
+- **影响**：PostgreSQL JDBC Sink 现在执行的是类似 `ALTER TABLE ... ADD c inv.mood` 的语句，而不是 `ADD c mood`。如果 Sink 此前把不带 schema 的类型名解析为另一个 schema 中的同名类型，现在会在 Sink 端失败。如果无法从源端 `pg_type` 读取列类型名，作业会以 `POSTGRES-05` 失败。
+- **迁移指南**：升级前，请在 Sink 数据库中按源端相同的 schema 创建新增列用到的用户自定义类型。
 
 ### Markdown File Source 的 `child_ids` 数组
 
