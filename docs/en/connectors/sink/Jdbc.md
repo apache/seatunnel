@@ -22,6 +22,18 @@ MySQL `DATETIME` maps to SeaTunnel `TIMESTAMP` (`LocalDateTime`). The MySQL JDBC
 
 When upgrading from a version affected by [#13024](https://github.com/apache/seatunnel/issues/13024), remove any manual hour offset added to compensate for shifted `DATETIME` writes. Previously stored values are not repaired automatically; compare them with the original source before correcting or reloading data.
 
+## GoldenDB
+
+To use the MySQL-compatible JDBC dialect and catalog with a GoldenDB driver, explicitly set `dialect = "GoldenDB"` along with its matching driver class and URL, for example:
+
+```hocon
+url = "jdbc:goldendb://goldendb-host:3306/example"
+driver = "com.goldendb.jdbc.Driver"
+dialect = "GoldenDB"
+```
+
+Install a GoldenDB JDBC driver compatible with your database version. Driver class names and supported URL formats depend on that version. GoldenDB deployments that expose the MySQL protocol may instead use a compatible MySQL JDBC driver and `jdbc:mysql://` URL; this selects the existing MySQL dialect. Existing `jdbc:goldendb:` configurations without an explicit dialect continue to use the generic dialect. The MySQL catalog requires `username` and `password` and does not forward the JDBC `properties` map to catalog connections. Verify SQL, data types, and transaction behavior against your GoldenDB version before production use. A MySQL test does not verify a GoldenDB server or its driver.
+
 ## Using Dependency
 
 Install the `connector-jdbc` plugin first:
@@ -208,13 +220,14 @@ Exactly-once delivery uses XA transactions and therefore requires XA support fro
 | password                                  | String  | No       | -                            |
 | query                                     | String  | No       | -                            |
 | compatible_mode                           | String  | No       | -                            |
-| dialect                                   | String  | No       | -                            | 
+| dialect                                   | String  | No       | -                            |
 | database                                  | String  | No       | -                            |
 | table                                     | String  | No       | -                            |
 | schema                                    | String  | No       | -                            |
 | tablePrefix                               | String  | No       | -                            |
 | tableSuffix                               | String  | No       | -                            |
 | primary_keys                              | Array   | No       | -                            |
+| multi_table_sink_replica                  | Int     | No       | 1                            |
 | connection_check_timeout_sec              | Int     | No       | 30                           |
 | connect_timeout_ms                        | Int     | No       | 86400000                     |
 | socket_timeout_ms                         | Int     | No       | 86400000                     |
@@ -306,6 +319,10 @@ If the `dialect` option is not set and no dialect matches the url, SeaTunnel use
 
 The target database or catalog used in generated SQL mode. This option is required when `generate_sink_sql = true` and must not be combined with `query`.
 
+### multi_table_sink_replica [int]
+
+The replica number of multi table sink writer. Only takes effect in multi-table jobs.
+
 ### table [string]
 
 The target table used in generated SQL mode. Do not combine it with `query`.
@@ -342,17 +359,19 @@ Deprecated. Use `table` with table placeholders instead. For example, use `table
 
 The target key columns used to generate database-native UPSERT, UPDATE, and DELETE statements. If omitted, SeaTunnel attempts to inherit a primary key or the first unique key from upstream catalog metadata. If no key is available, generated SQL uses plain INSERT.
 
+With `multi_table_sink_replica` above 1 and `is_exactly_once = false`, the sink sends each row to one of the writers of its table by the first column of the table's primary key, or, when the table has none, by the first column of `primary_keys`, configured or inherited from a unique key. The changes of one key then reach the same writer, in order. When that key column holds binary values (SeaTunnel type `BYTES`, for example `BINARY`, `VARBINARY` or `BYTEA`), the writer is chosen by the identity of each row's value instead of its content, so the changes of one key can still reach different writers; keep `multi_table_sink_replica` at 1 for such tables. Rows of a table without such a key, and all rows with `is_exactly_once = true`, are spread over the writers without regard to the key. An update that changes the key value can move the record to another writer, and rows in different writers have no order.
+
 ### connection_check_timeout_sec [int]
 
 The time in seconds to wait for the database operation used to validate the connection to complete.
 
 ### connect_timeout_ms [int]
 
-Connection timeout in milliseconds when establishing the JDBC connection. The default is 24 hours. Set it to `0` to disable the timeout.
+Connection timeout in milliseconds when establishing the JDBC connection. The default is 24 hours. Set it to `0` to use the driver default (no explicit timeout). Currently this option is only applied by the Hive dialect; other dialects ignore it.
 
 ### socket_timeout_ms [int]
 
-Socket read timeout in milliseconds after the JDBC connection is established. The default is 24 hours. Set it to `0` to disable the timeout.
+Socket read timeout in milliseconds after the JDBC connection is established. The default is 24 hours. Set it to `0` to use the driver default (no explicit timeout). Currently this option is only applied by the Hive dialect; other dialects ignore it.
 
 ### max_retries [int]
 
@@ -1006,9 +1025,13 @@ sink {
 }
 ```
 
-`dialect = "Dsql"` selects Amazon Aurora DSQL. AWS credentials are read from `access_key_id` / `secret_access_key`
-(and `region`) rather than from a username/password pair. Aurora DSQL does not support XA, so leave
-`is_exactly_once` at its default of `false`.
+`dialect = "Dsql"` selects Amazon Aurora DSQL. Set `username` to the database role. The connector uses
+`access_key_id`, `secret_access_key`, and `region` to generate the IAM token it supplies as the JDBC password.
+Leave `is_exactly_once` at its default of `false` because Aurora DSQL does not support XA.
+
+### multi_table_sink_replica [int]
+
+The replica number of the multi-table sink writer. Must be at least 1. The default value is `1`.
 
 ## Troubleshooting
 

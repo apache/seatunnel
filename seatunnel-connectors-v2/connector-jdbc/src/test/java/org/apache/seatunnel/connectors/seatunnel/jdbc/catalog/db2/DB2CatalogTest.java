@@ -86,6 +86,27 @@ public class DB2CatalogTest {
     }
 
     @Test
+    void testExistenceCheckCoversTablesAndViews() {
+        DB2Catalog catalog =
+                new DB2Catalog(
+                        "db2",
+                        "db2inst1",
+                        "123456",
+                        JdbcUrlUtil.getUrlInfo("jdbc:db2://127.0.0.1:50000/E2E"),
+                        "E2E",
+                        null);
+        TablePath view = TablePath.of("E2E", "SHOP", "V_ORDER");
+
+        Assertions.assertEquals(
+                "SELECT TABSCHEMA, TABNAME FROM SYSCAT.TABLES "
+                        + "WHERE TYPE IN ('T', 'V') AND TABSCHEMA = 'SHOP' AND TABNAME = 'V_ORDER'",
+                catalog.getTableWithConditionSql(view));
+        Assertions.assertTrue(
+                catalog.getListTableSql("E2E").contains("WHERE TYPE = 'T'"),
+                "table listing stays tables only");
+    }
+
+    @Test
     void testBuildColumnReadsDefaultValueAsString() throws SQLException {
         DB2Catalog catalog =
                 new DB2Catalog(

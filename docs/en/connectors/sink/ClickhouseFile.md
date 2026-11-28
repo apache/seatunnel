@@ -34,10 +34,10 @@ Write data to Clickhouse can also be done using JDBC
 | sharding_key           | string  | no       | -                                      |
 | copy_method            | string  | no       | scp                                    |
 | node_free_password     | boolean | no       | false                                  |
-| node_pass              | list    | no       | -                                      |
-| node_pass.node_address | string  | no       | -                                      |
+| node_pass              | list    | yes       | -                                      |
+| node_pass.node_address | string  | yes       | -                                      |
 | node_pass.username     | string  | no       | "root"                                 |
-| node_pass.password     | string  | no       | -                                      |
+| node_pass.password     | string  | yes       | -                                      |
 | compatible_mode        | boolean | no       | false                                  |
 | file_fields_delimiter  | string  | no       | "\t"                                   |
 | file_temp_path         | string  | no       | "/tmp/seatunnel/clickhouse-local/file" |
@@ -90,9 +90,11 @@ you can configure this option to true, otherwise you need to configure the corre
 
 Used to save the addresses and corresponding passwords of all clickhouse servers
 
+Note: `node_pass` is a list; every entry must contain `node_address` and `password` (`username` falls back to `root` when not configured). Missing either one fails job initialization.
+
 ### node_pass.node_address [string]
 
-The address corresponding to the clickhouse server
+The address corresponding to the clickhouse server. Required inside each `node_pass` entry.
 
 ### node_pass.username [string]
 

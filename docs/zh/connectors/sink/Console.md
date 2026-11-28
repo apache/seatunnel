@@ -50,7 +50,7 @@ subtaskIndex=<子任务编号>  rowIndex=<行编号>:  SeaTunnelRow#tableId=<表
 
 - `subtaskIndex` 表示打印该行的 Sink 子任务。
 - `rowIndex` 是每个 Sink Writer 内部独立递增的行编号。
-- `tableId` 表示上游表标识。单表任务通常显示为 `-1`。
+- `tableId` 表示上游表标识，是 source 侧解析出的表路径字符串（例如 `test.table1`）；source 未设置时显示为空字符串。旧版本曾打印数字形式的表编号 `-1`，当前版本始终打印字符串。
 - `row-kind` 表示行变更类型，例如 `INSERT`、`UPDATE_BEFORE`、`UPDATE_AFTER` 或 `DELETE`。
 
 ## 任务示例
