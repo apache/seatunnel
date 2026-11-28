@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.lance.catalog;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.connectors.seatunnel.lance.config.LanceCommonConfig;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -47,8 +49,7 @@ public class LanceCatalogLoader implements Serializable {
 
     public LanceNamespace loadNamespace() {
         Thread.currentThread().setContextClassLoader(LanceCatalogLoader.class.getClassLoader());
-        Map<String, String> properties = new HashMap<>();
-        properties.put("root", config.getRootNamespacePath());
+        Map<String, String> properties = buildNamespaceProps();
         config.setNamespaceProps(properties);
 
         return LanceNamespaces.connect(
@@ -56,5 +57,44 @@ public class LanceCatalogLoader implements Serializable {
                 config.getNamespaceProps(),
                 null,
                 bufferAllocator);
+    }
+
+    /**
+     * Builds the property map for the directory namespace. The namespace layer (lance-namespace
+     * over OpenDAL) does not understand the Lance-native {@code aws_*} storage keys, so the
+     * configured options are translated to their flat OpenDAL keys by {@link #translateStorageKey}
+     * and prefixed with {@code storage.}. When {@code storage.options} is not configured, no {@code
+     * storage.} property is added and the namespace keeps its ambient behavior.
+     */
+    @VisibleForTesting
+    Map<String, String> buildNamespaceProps() {
+        Map<String, String> properties = new HashMap<>();
+        properties.put("root", config.getRootNamespacePath());
+        Map<String, String> storageOptions = config.getStorageOptions();
+        if (storageOptions != null) {
+            for (Map.Entry<String, String> entry : storageOptions.entrySet()) {
+                properties.put("storage." + translateStorageKey(entry.getKey()), entry.getValue());
+            }
+        }
+        return properties;
+    }
+
+    /**
+     * Translates the Lance-native {@code aws_*} storage keys to the flat OpenDAL keys expected by
+     * the directory namespace; any other key is passed through unchanged.
+     */
+    private static String translateStorageKey(String key) {
+        switch (key) {
+            case "aws_endpoint_url":
+                return "endpoint";
+            case "aws_access_key_id":
+                return "access_key_id";
+            case "aws_secret_access_key":
+                return "secret_access_key";
+            case "aws_default_region":
+                return "region";
+            default:
+                return key;
+        }
     }
 }

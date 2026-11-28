@@ -36,6 +36,7 @@ import org.apache.seatunnel.connectors.seatunnel.lance.utils.SchemaUtils;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.lancedb.lance.Dataset;
 import com.lancedb.lance.FragmentMetadata;
@@ -62,7 +63,7 @@ public class LanceSinkWriter
     private final int batchSize;
 
     private BufferAllocator allocator;
-    private org.apache.arrow.vector.types.pojo.Schema schema;
+    private Schema schema;
     private Dataset dataset;
     private boolean datasetInitialized = false;
 
@@ -82,13 +83,22 @@ public class LanceSinkWriter
         this.allocator = new RootAllocator(Long.MAX_VALUE);
     }
 
+    /**
+     * Opens the dataset with the configured storage options, so paths on object storage (e.g.
+     * s3://) authenticate with the same credentials as dataset creation. lance-core resolves
+     * credentials per call, so every open must carry them.
+     */
+    private Dataset openDataset() {
+        return Dataset.open(allocator, config.getDatasetPath(), config.toReadOptions());
+    }
+
     private void initializeDataset(SeaTunnelRow firstElement) {
         if (datasetInitialized) {
             return;
         }
 
         try {
-            Dataset existingDataset = Dataset.open(config.getDatasetPath(), allocator);
+            Dataset existingDataset = openDataset();
             this.schema = existingDataset.getSchema();
             this.dataset = existingDataset;
             datasetInitialized = true;
@@ -107,7 +117,7 @@ public class LanceSinkWriter
                                 .withStorageOptions(config.getStorageOptions())
                                 .build());
 
-                this.dataset = Dataset.open(config.getDatasetPath(), allocator);
+                this.dataset = openDataset();
                 datasetInitialized = true;
             } catch (Exception createEx) {
                 throw new LanceConnectorException(
@@ -143,7 +153,8 @@ public class LanceSinkWriter
                             seaTunnelRowType,
                             schema,
                             allocator,
-                            config.getDatasetPath());
+                            config.getDatasetPath(),
+                            config.getStorageOptions());
 
             if (!allFragments.isEmpty()) {
                 Transaction transaction =
@@ -161,7 +172,7 @@ public class LanceSinkWriter
                 if (dataset != null) {
                     dataset.close();
                 }
-                dataset = Dataset.open(config.getDatasetPath(), allocator);
+                dataset = openDataset();
             }
 
             batchBuffer.clear();

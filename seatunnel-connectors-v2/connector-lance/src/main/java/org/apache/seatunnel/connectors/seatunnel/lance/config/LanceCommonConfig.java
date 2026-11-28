@@ -20,7 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.lance.config;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.lance.catalog.LanceNamespaceType;
 
+import com.lancedb.lance.ReadOptions;
+import com.lancedb.lance.WriteParams;
+
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -39,6 +43,8 @@ public class LanceCommonConfig implements Serializable {
     private List<String> namespaceIds;
 
     private String rootNamespacePath;
+
+    private Map<String, String> storageOptions;
 
     public LanceCommonConfig(LanceNamespaceType namespaceType, Map<String, String> namespaceProps) {
         this.namespaceType = namespaceType;
@@ -61,6 +67,7 @@ public class LanceCommonConfig implements Serializable {
         this.rootNamespacePath = pluginConfig.get(LanceCommonOptions.KEY_ROOT_NAMESPACE_PATH);
         this.namespaceType =
                 LanceNamespaceType.typeOf(pluginConfig.get(LanceCommonOptions.KEY_NAMESPACE_TYPE));
+        this.storageOptions = pluginConfig.get(LanceSinkOptions.WRITE_STORAGE_OPTIONS);
     }
 
     public LanceNamespaceType getNamespaceType() {
@@ -109,5 +116,38 @@ public class LanceCommonConfig implements Serializable {
 
     public void setRootNamespacePath(String rootNamespacePath) {
         this.rootNamespacePath = rootNamespacePath;
+    }
+
+    /**
+     * Storage options configured through lance.write.storage.options, shared by the sink writer and
+     * the catalog.
+     */
+    public Map<String, String> getStorageOptions() {
+        return storageOptions;
+    }
+
+    public void setStorageOptions(Map<String, String> storageOptions) {
+        this.storageOptions = storageOptions;
+    }
+
+    /**
+     * Read options carrying the configured storage credentials. lance-core resolves credentials per
+     * call instead of caching them, so every remote dataset open must pass these options; unset
+     * options become an empty map and local paths keep working unchanged.
+     */
+    public ReadOptions toReadOptions() {
+        return new ReadOptions.Builder()
+                .setStorageOptions(storageOptions == null ? new HashMap<>() : storageOptions)
+                .build();
+    }
+
+    /**
+     * Write params carrying the configured storage credentials for every remote dataset create and
+     * fragment write; unset options become an empty map for local paths.
+     */
+    public WriteParams toWriteParams() {
+        return new WriteParams.Builder()
+                .withStorageOptions(storageOptions == null ? new HashMap<>() : storageOptions)
+                .build();
     }
 }

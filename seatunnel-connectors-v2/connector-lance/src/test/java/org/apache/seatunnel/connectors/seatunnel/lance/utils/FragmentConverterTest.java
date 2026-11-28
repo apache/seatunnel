@@ -185,7 +185,8 @@ class FragmentConverterTest {
             String datasetPath = tempDir.resolve("batch.lance").toString();
             createEmptyDataset(allocator, datasetPath, schema);
             List<FragmentMetadata> fragments =
-                    FragmentConverter.reconvert(rows, rowType, schema, allocator, datasetPath);
+                    FragmentConverter.reconvert(
+                            rows, rowType, schema, allocator, datasetPath, null);
             Assertions.assertEquals(1, fragments.size());
             Assertions.assertEquals(3, fragments.get(0).getNumRows());
         } finally {

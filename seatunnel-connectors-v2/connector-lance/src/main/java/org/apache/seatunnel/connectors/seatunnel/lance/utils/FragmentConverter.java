@@ -39,6 +39,7 @@ import com.lancedb.lance.WriteParams;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /** The converter for converting {@link Fragment} and {@link SeaTunnelRow} * */
 public class FragmentConverter {
@@ -50,7 +51,8 @@ public class FragmentConverter {
             SeaTunnelRowType seaTunnelRowType,
             Schema schema,
             BufferAllocator allocator,
-            String datasetPath) {
+            String datasetPath,
+            Map<String, String> storageOptions) {
         if (rows == null || rows.isEmpty()) {
             return Collections.emptyList();
         }
@@ -60,7 +62,13 @@ public class FragmentConverter {
                     datasetPath,
                     allocator,
                     root,
-                    new WriteParams.Builder().withMaxRowsPerFile(Integer.MAX_VALUE).build());
+                    new WriteParams.Builder()
+                            .withMaxRowsPerFile(Integer.MAX_VALUE)
+                            .withStorageOptions(
+                                    storageOptions == null
+                                            ? Collections.emptyMap()
+                                            : storageOptions)
+                            .build());
         }
     }
 

@@ -111,7 +111,7 @@ Whether to enable stable row IDs when writing Lance data. The connector reads th
 
 ### lance.write.storage.options
 
-Passes extra storage parameters to Lance as key-value pairs.
+Passes extra storage parameters to Lance as key-value pairs. These options are applied to every dataset operation the connector performs (opening, creating, and writing fragments), so dataset paths on object storage (e.g. `s3://`) authenticate with the configured credentials instead of falling back to ambient `AWS_*` environment variables. The Lance catalog consumes this option as well, using it both to connect its directory namespace and to read dataset schemas.
 
 Example:
 
