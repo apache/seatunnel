@@ -20,27 +20,35 @@ package org.apache.seatunnel.engine.server.dag.physical;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.Task;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.map.IMap;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -198,5 +206,104 @@ class PhysicalVertexTest extends AbstractSeaTunnelServerTest<PhysicalVertexTest>
                 nodeEngine,
                 runningJobStateIMap,
                 runningJobStateTimestampsIMap);
+    }
+
+    /**
+     * Builds a vertex whose cancel operation delivery is instrumented: every attempt is counted and
+     * can be made to fail, so the bounded retry of {@code noticeCancelOperationWithRetry} can be
+     * verified without a real worker.
+     */
+    private PhysicalVertex newCancelTestVertex(
+            ExecutionState executionState, boolean failSend, AtomicInteger attempts) {
+        TaskGroupLocation taskGroupLocation = new TaskGroupLocation(1L, 1, 1);
+        TaskGroupDefaultImpl taskGroup =
+                new TaskGroupDefaultImpl(taskGroupLocation, "cancel-test", Collections.emptyList());
+
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine
+                        .getHazelcastInstance()
+                        .getMap("physical-vertex-cancel-test-state-" + UUID.randomUUID());
+        IMap<Object, Long[]> runningJobStateTimestampsIMap =
+                nodeEngine
+                        .getHazelcastInstance()
+                        .getMap("physical-vertex-cancel-test-timestamps-" + UUID.randomUUID());
+        runningJobStateIMap.put(taskGroupLocation, executionState);
+
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("test");
+        JobImmutableInformation jobImmutableInformation = mock(JobImmutableInformation.class);
+        when(jobImmutableInformation.getJobId()).thenReturn(1L);
+        when(jobImmutableInformation.getJobConfig()).thenReturn(jobConfig);
+
+        FlakeIdGenerator flakeIdGenerator =
+                nodeEngine
+                        .getHazelcastInstance()
+                        .getFlakeIdGenerator("physical-vertex-cancel-test-" + UUID.randomUUID());
+
+        return new PhysicalVertex(
+                0,
+                1,
+                taskGroup,
+                flakeIdGenerator,
+                1,
+                1,
+                Collections.emptyList(),
+                Collections.emptyList(),
+                jobImmutableInformation,
+                System.currentTimeMillis(),
+                nodeEngine,
+                runningJobStateIMap,
+                runningJobStateTimestampsIMap) {
+            @Override
+            void sendCancelOperation(Address executionAddress) throws Exception {
+                attempts.incrementAndGet();
+                if (failSend) {
+                    throw new RuntimeException("injected cancel send failure");
+                }
+            }
+        };
+    }
+
+    private JobMaster newJobMasterWithLocalSlot() {
+        SlotProfile slotProfile =
+                new SlotProfile(
+                        nodeEngine.getThisAddress(), 1, new ResourceProfile(), "test-sequence");
+        JobMaster jobMaster = mock(JobMaster.class);
+        when(jobMaster.getOwnedSlotProfiles(any(TaskGroupLocation.class))).thenReturn(slotProfile);
+        return jobMaster;
+    }
+
+    @Test
+    void shouldMarkTaskCanceledLocallyAfterBoundedCancelAttempts() {
+        long originalSleep = PhysicalVertex.cancelNoticeRetrySleepMillis;
+        PhysicalVertex.cancelNoticeRetrySleepMillis = 1L;
+        try {
+            AtomicInteger attempts = new AtomicInteger();
+            PhysicalVertex vertex = newCancelTestVertex(ExecutionState.CANCELING, true, attempts);
+            PassiveCompletableFuture<TaskExecutionState> future = vertex.initStateFuture();
+            vertex.startPhysicalVertex();
+            vertex.setJobMaster(newJobMasterWithLocalSlot());
+
+            vertex.noticeCancelOperationWithRetry();
+
+            Assertions.assertEquals(PhysicalVertex.CANCEL_NOTICE_ATTEMPTS, attempts.get());
+            Assertions.assertEquals(ExecutionState.CANCELED, vertex.getExecutionState());
+            Assertions.assertTrue(future.isDone());
+        } finally {
+            PhysicalVertex.cancelNoticeRetrySleepMillis = originalSleep;
+        }
+    }
+
+    @Test
+    void shouldStopRetryingOnceCancelOperationIsAccepted() {
+        AtomicInteger attempts = new AtomicInteger();
+        PhysicalVertex vertex = newCancelTestVertex(ExecutionState.CANCELING, false, attempts);
+        vertex.startPhysicalVertex();
+        vertex.setJobMaster(newJobMasterWithLocalSlot());
+
+        vertex.noticeCancelOperationWithRetry();
+
+        Assertions.assertEquals(1, attempts.get());
+        Assertions.assertEquals(ExecutionState.CANCELING, vertex.getExecutionState());
     }
 }

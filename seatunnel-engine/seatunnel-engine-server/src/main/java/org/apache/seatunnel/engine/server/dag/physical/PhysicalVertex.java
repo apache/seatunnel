@@ -75,6 +75,13 @@ import java.util.stream.Collectors;
 @Slf4j
 public class PhysicalVertex {
 
+    /** Total attempts of the cancel notification before the task is canceled locally. */
+    @VisibleForTesting static final int CANCEL_NOTICE_ATTEMPTS = 3;
+
+    /** Pause between two attempts of the cancel notification. */
+    @VisibleForTesting
+    static volatile long cancelNoticeRetrySleepMillis = Constant.OPERATION_RETRY_SLEEP;
+
     private final TaskGroupLocation taskGroupLocation;
 
     private final String taskFullName;
@@ -461,35 +468,43 @@ public class PhysicalVertex {
             updateTaskState(ExecutionState.CANCELED);
             return;
         }
-        int i = 0;
-        // In order not to generate uncontrolled tasks, We will try again until the taskFuture is
-        // completed
+        noticeCancelOperationWithRetry();
+    }
+
+    /**
+     * Notifies the worker that executes this task group about the cancellation, retrying a bounded
+     * number of times.
+     *
+     * <p>This method runs on the pipeline state-machine thread while holding the {@code SubPlan}
+     * and {@code PhysicalVertex} monitors, so a worker that stays a cluster member but keeps
+     * failing the cancel invocation must not be retried forever: after {@link
+     * #CANCEL_NOTICE_ATTEMPTS} attempts the task is marked CANCELED locally, exactly as when the
+     * member is already gone. The worker-side task is still interrupted by its own cancellation
+     * future or by the member-shutdown handling.
+     */
+    @VisibleForTesting
+    void noticeCancelOperationWithRetry() {
+        int attempts = 0;
         Address executionAddress = getCurrentExecutionAddress();
         while (!taskFuture.isDone()
                 && executionAddress != null
-                && nodeEngine.getClusterService().getMember(executionAddress) != null) {
+                && nodeEngine.getClusterService().getMember(executionAddress) != null
+                && attempts < CANCEL_NOTICE_ATTEMPTS) {
             try {
-                i++;
+                attempts++;
                 log.info(
                         String.format(
                                 "Send cancel %s operator to member %s",
                                 taskFullName, executionAddress));
-                nodeEngine
-                        .getOperationService()
-                        .createInvocationBuilder(
-                                Constant.SEATUNNEL_SERVICE_NAME,
-                                new CancelTaskOperation(taskGroupLocation),
-                                executionAddress)
-                        .invoke()
-                        .get();
+                sendCancelOperation(executionAddress);
                 return;
             } catch (Exception e) {
                 log.warn(
                         String.format(
                                 "%s cancel failed with Exception: %s, retry %s",
-                                this.getTaskFullName(), ExceptionUtils.getMessage(e), i));
+                                this.getTaskFullName(), ExceptionUtils.getMessage(e), attempts));
                 try {
-                    Thread.sleep(2000);
+                    Thread.sleep(cancelNoticeRetrySleepMillis);
                 } catch (InterruptedException ex) {
                     throw new RuntimeException(ex);
                 }
@@ -499,11 +514,30 @@ public class PhysicalVertex {
 
         if (!taskFuture.isDone() && ExecutionState.CANCELING.equals(getExecutionState())) {
             log.warn(
-                    "{} cancel did not receive a terminal callback before member {} became unavailable, mark task as CANCELED locally.",
+                    "{} cancel did not receive a terminal callback before member {} became unavailable or after {} attempts, mark task as CANCELED locally.",
                     taskFullName,
-                    executionAddress);
+                    executionAddress,
+                    CANCEL_NOTICE_ATTEMPTS);
             updateTaskState(ExecutionState.CANCELED);
         }
+    }
+
+    /**
+     * Sends the cancel operation for this task group to the given worker and waits for its
+     * response.
+     *
+     * @throws Exception if the invocation fails; the caller retries a bounded number of times
+     */
+    @VisibleForTesting
+    void sendCancelOperation(Address executionAddress) throws Exception {
+        nodeEngine
+                .getOperationService()
+                .createInvocationBuilder(
+                        Constant.SEATUNNEL_SERVICE_NAME,
+                        new CancelTaskOperation(taskGroupLocation),
+                        executionAddress)
+                .invoke()
+                .get();
     }
 
     private void updateStateTimestamps(@NonNull ExecutionState targetState) {
