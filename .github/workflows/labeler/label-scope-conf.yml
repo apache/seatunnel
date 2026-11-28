@@ -250,6 +250,15 @@ amplitude:
           - all-globs-to-all-files:
               - '!seatunnel-connectors-v2/connector-http/connector-http-!(amplitude)/**'
               - '!seatunnel-e2e/seatunnel-connector-v2-e2e/connector-!(amplitude)-e2e/**'
+harvest:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-http/connector-http-harvest/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-harvest-e2e/**
+          - all-globs-to-all-files:
+              - '!seatunnel-connectors-v2/connector-http/connector-http-!(harvest)/**'
+              - '!seatunnel-e2e/seatunnel-connector-v2-e2e/connector-!(harvest)-e2e/**'
 mailchimp:
   - all:
       - changed-files:
