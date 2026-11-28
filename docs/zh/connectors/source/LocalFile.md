@@ -105,7 +105,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | file_filter_modified_start | string  | 否    | -                   | 
 | file_filter_modified_end   | string  | 否    | -                   |
 | enable_file_split          | boolean | 否    | false               | 
-| file_split_size            | long    | 否    | 134217728           | 
+| file_split_size            | long    | 否    | 134217728           | `orc` 按完整 stripe 组合到此目标大小，超出目标大小的单个 stripe 不再拆分。 |
 | quote_char                 | string  | 否    | "                   |
 | escape_char                | string  | 否    | -                   |
 | metalake_type              | string  | 否    | gravitino          |
@@ -614,7 +614,9 @@ compare_mode = "len_mtime"
 
 ### enable_file_split [boolean]
 
-开启文件分割功能，默认为false。文件类型为csv、text、json、parquet非压缩格式时可选择。
+ORC 按完整 stripe 边界切分，相邻 stripe 按 `file_split_size` 目标大小组合。单个超出目标大小的 stripe 不再拆分，因此该大小不是硬上限。ORC 内部压缩不影响 stripe 切分；使用此路径时保持 `compress_codec` 和 `archive_compress_codec` 为 `NONE`，不切分外层压缩归档。范围读取保留字段投影，只有一个 stripe 的文件仍只产生一个 split。
+
+开启文件分割功能，默认为false。支持 csv、text、json、parquet、orc；外层压缩和归档限制见下文。
 
 **使用建议**
 - 适合：读取少量大文件，并希望通过更高并行度提升吞吐。

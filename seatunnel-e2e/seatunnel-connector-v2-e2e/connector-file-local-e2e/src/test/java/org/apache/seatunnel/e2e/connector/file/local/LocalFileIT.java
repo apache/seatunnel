@@ -38,6 +38,13 @@ import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.orc.OrcFile;
+import org.apache.orc.Reader;
+import org.apache.orc.TypeDescription;
+import org.apache.orc.Writer;
+import org.apache.orc.storage.ql.exec.vector.LongColumnVector;
+import org.apache.orc.storage.ql.exec.vector.VectorizedRowBatch;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
@@ -386,6 +393,7 @@ public class LocalFileIT extends TestSuiteBase {
                         container.execInContainer(
                                 "chmod", "1777", "/tmp/fake_empty", "/seatunnel/read/binary2");
                 Assertions.assertEquals(0, permissions.getExitCode(), permissions.getStderr());
+                copyOrcStripeFixture(container);
             };
 
     @TestTemplate
@@ -461,6 +469,53 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/json/fake_to_local_file_json_with_encoding.conf");
         helper.execute("/json/local_file_json_to_console_with_encoding.conf");
         helper.execute("/json/local_file_to_console.conf");
+    }
+
+    /** Exercises multiple real ORC stripes through the shared factory and parallel source. */
+    @TestTemplate
+    public void testLocalFileOrcStripeSplits(TestContainer container) throws Exception {
+        // Spark closes task-local Assert writers before subsequent tasks have contributed rows.
+        // Keep exact whole-file counting there; Flink and Zeta exercise parallel stripe readers.
+        int parallelism = container.identifier().getEngineType() == EngineType.SPARK ? 1 : 2;
+        Container.ExecResult result =
+                container.executeJob(
+                        "/orc/local_file_orc_stripes_to_assert.conf",
+                        Lists.newArrayList("stripe_parallelism=" + parallelism));
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+    }
+
+    /** Prepare the fixture for each engine container, including distributed workers. */
+    private void copyOrcStripeFixture(GenericContainer<?> container) throws IOException {
+        Path directory = Files.createTempDirectory("seatunnel-orc-stripes-");
+        Path file = directory.resolve("stripes.orc");
+        org.apache.hadoop.fs.Path hadoopPath = new org.apache.hadoop.fs.Path(file.toUri());
+        Configuration conf = new Configuration();
+        TypeDescription schema = TypeDescription.fromString("struct<id:bigint,value:bigint>");
+        try {
+            try (Writer writer =
+                    OrcFile.createWriter(
+                            hadoopPath, OrcFile.writerOptions(conf).setSchema(schema))) {
+                for (int stripe = 0; stripe < 6; stripe++) {
+                    VectorizedRowBatch batch = schema.createRowBatch(128);
+                    batch.size = 128;
+                    for (int row = 0; row < batch.size; row++) {
+                        ((LongColumnVector) batch.cols[0]).vector[row] = stripe * 128 + row;
+                        ((LongColumnVector) batch.cols[1]).vector[row] = row;
+                    }
+                    writer.addRowBatch(batch);
+                    writer.writeIntermediateFooter();
+                }
+            }
+            try (Reader reader = OrcFile.createReader(hadoopPath, OrcFile.readerOptions(conf))) {
+                Assertions.assertEquals(6, reader.getStripes().size());
+            }
+            ContainerUtil.copyFileIntoContainers(
+                    file, "/seatunnel/read/orc-stripes/stripes.orc", container);
+        } finally {
+            Files.deleteIfExists(file);
+            Files.deleteIfExists(directory.resolve(".stripes.orc.crc"));
+            Files.deleteIfExists(directory);
+        }
     }
 
     @TestTemplate
