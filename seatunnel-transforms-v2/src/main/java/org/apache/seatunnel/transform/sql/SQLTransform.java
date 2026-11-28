@@ -86,6 +86,8 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
 
     private transient SQLEngine sqlEngine;
 
+    private transient boolean closed;
+
     private final String inputTableName;
 
     /**
@@ -132,13 +134,26 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
 
     @Override
     public void open() {
-        sqlEngine = createSqlEngine();
-        sqlEngine.init(
-                inputTableName,
-                inputCatalogTable.getTableId().getTableName(),
-                inputCatalogTable.getSeaTunnelRowType(),
-                query);
-        referencedInputColumns = new HashSet<>(sqlEngine.referencedInputColumns());
+        synchronized (this) {
+            requireOpenable();
+            // Schema discovery may already have initialized this instance.
+            if (sqlEngine != null) {
+                return;
+            }
+            sqlEngine = createSqlEngine();
+            sqlEngine.init(
+                    inputTableName,
+                    inputCatalogTable.getTableId().getTableName(),
+                    inputCatalogTable.getSeaTunnelRowType(),
+                    query);
+            referencedInputColumns = new HashSet<>(sqlEngine.referencedInputColumns());
+        }
+    }
+
+    private void requireOpenable() {
+        if (closed) {
+            throw new IllegalStateException("Transform is closed");
+        }
     }
 
     /**
@@ -313,6 +328,15 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
      */
     @Override
     public SchemaChangeEvent mapSchemaChangeEvent(SchemaChangeEvent event) {
+        synchronized (this) {
+            requireOpenable();
+            // A candidate is evaluated and either installed or closed before close() can retire
+            // the live engine.
+            return mapSchemaChange(event);
+        }
+    }
+
+    private SchemaChangeEvent mapSchemaChange(SchemaChangeEvent event) {
         if (!(event instanceof AlterTableEvent)) {
             return event;
         }
@@ -429,21 +453,35 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
      */
     @Override
     public void setInputCatalogTable(@NonNull CatalogTable handedInput) {
-        if (handedInput.getTableSchema().equals(inputCatalogTable.getTableSchema())) {
-            return;
+        synchronized (this) {
+            requireOpenable();
+            if (handedInput.getTableSchema().equals(inputCatalogTable.getTableSchema())) {
+                return;
+            }
+            if (pending == null) {
+                pending =
+                        new PendingSchemaChange(
+                                inputCatalogTable, currentOutputSchema(), currentOutputSlots());
+            }
+            pending.handedInput = handedInput;
         }
-        if (pending == null) {
-            pending =
-                    new PendingSchemaChange(
-                            inputCatalogTable, currentOutputSchema(), currentOutputSlots());
-        }
-        pending.handedInput = handedInput;
     }
 
     @Override
     public void close() {
-        if (sqlEngine != null) {
-            sqlEngine.close();
+        synchronized (this) {
+            if (closed) {
+                return;
+            }
+            closed = true;
+            pending = null;
+            if (sqlEngine != null) {
+                try {
+                    sqlEngine.close();
+                } finally {
+                    sqlEngine = null;
+                }
+            }
         }
     }
 

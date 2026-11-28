@@ -857,6 +857,46 @@ public class SQLTransformSchemaChangeTest {
         Assertions.assertEquals(udf.opens.get(), udf.closes.get());
     }
 
+    @Test
+    public void testOpenReusesEngineInitializedBySchemaDiscovery() {
+        AtomicInteger inits = new AtomicInteger();
+        AtomicInteger closes = new AtomicInteger();
+        CountingSqlTransform transform =
+                new CountingSqlTransform(
+                        "select * from products", baseTable(), inits, closes, new CountingUdf());
+
+        transform.getProducedCatalogTable();
+        try {
+            transform.open();
+            Assertions.assertEquals(1, inits.get());
+            Assertions.assertEquals(0, closes.get());
+        } finally {
+            transform.close();
+        }
+        Assertions.assertEquals(1, closes.get());
+    }
+
+    @Test
+    public void testClosedTransformDoesNotStageOrEvaluateSchemaChanges() {
+        AtomicInteger inits = new AtomicInteger();
+        AtomicInteger closes = new AtomicInteger();
+        CountingSqlTransform transform =
+                new CountingSqlTransform(
+                        "select * from products", baseTable(), inits, closes, new CountingUdf());
+
+        CatalogTable before = transform.getProducedCatalogTable();
+        AlterTableColumnsEvent change = composite(addAge());
+        transform.close();
+        Assertions.assertThrows(
+                IllegalStateException.class, () -> transform.mapSchemaChangeEvent(change));
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> transform.setInputCatalogTable(apply(before, change)));
+        transform.close();
+        Assertions.assertEquals(1, inits.get());
+        Assertions.assertEquals(1, closes.get());
+    }
+
     private static PhysicalColumn column(
             String name, SeaTunnelDataType<?> type, String sourceType) {
         return PhysicalColumn.of(

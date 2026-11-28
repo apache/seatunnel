@@ -57,3 +57,18 @@ Transforms are easier to review when the code, docs, and examples change togethe
 For module-specific details such as transform module conventions or examples inside the `seatunnel-transforms-v2` tree, continue with the repository guide:
 
 - [Transform-V2 Contribution Guide](https://github.com/apache/seatunnel/blob/dev/seatunnel-transforms-v2/README.md)
+
+## Lifecycle ownership
+
+Multi-table wrappers forward `open()` and `close()` to their per-table transforms.
+Composed rules own their children, while the wrapper owns each composed chain.
+Normal startup and shutdown invoke each owned child once. If a child fails to
+open, later children are not opened and the owner closes all children, including
+those initialized during schema discovery. Cleanup continues after a close
+failure and retains the first exception with later failures suppressed.
+
+Schema discovery can initialize SQL engines or model clients before runtime
+startup. Reuse that initialization in `open()` instead of replacing the resource.
+Runtime lifecycle state is transient so serialized transforms acquire fresh
+ownership on the worker. A child that supports cancellation during `open()` must
+also allow its owner to call `close()` while initialization is in progress.
