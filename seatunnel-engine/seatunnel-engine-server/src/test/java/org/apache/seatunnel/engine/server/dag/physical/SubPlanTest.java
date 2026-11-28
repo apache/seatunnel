@@ -320,6 +320,116 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
     }
 
     @Test
+    void shouldFailThePipelineWhenAVertexNeverLeavesItsTerminalState() throws Exception {
+        // A vertex that is still terminal after the deployment pass can never satisfy
+        // areAllVerticesRunningOrFinished and no terminal callback will arrive for it: waiting
+        // would hang the pipeline at DEPLOYING forever, so the pipeline must fail instead and
+        // let the restore path retry (#13314).
+        PhysicalVertex stuckVertex = mockPhysicalVertex(ExecutionState.FAILED);
+        when(stuckVertex.hasTerminalResult()).thenReturn(false);
+        when(stuckVertex.getTaskFullName()).thenReturn("stuck-vertex");
+        PhysicalVertex deployedVertex = mockPhysicalVertex(ExecutionState.RUNNING);
+
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            SubPlan subPlan =
+                    newSubPlan(
+                            executorService,
+                            Arrays.asList(stuckVertex, deployedVertex),
+                            Collections.emptyList());
+            subPlan.isRunning = true;
+            subPlan.setCurrPipelineStatus(PipelineStatus.DEPLOYING);
+
+            invokeStateProcess(subPlan);
+
+            Assertions.assertEquals(PipelineStatus.FAILING, subPlan.getPipelineState());
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void shouldFailThePipelineWhenADeployedVertexStaysCreated() throws Exception {
+        // The deployment transition of this vertex was rejected (the IMap still holds a terminal
+        // state, e.g. after a reset whose write failed), so it is still CREATED after the
+        // deployment pass and can never run (#13314).
+        PhysicalVertex stuckVertex = mockPhysicalVertex(ExecutionState.CREATED);
+        when(stuckVertex.hasTerminalResult()).thenReturn(false);
+        when(stuckVertex.getTaskFullName()).thenReturn("created-vertex");
+
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            SubPlan subPlan =
+                    newSubPlan(
+                            executorService,
+                            Collections.singletonList(stuckVertex),
+                            Collections.emptyList());
+            subPlan.isRunning = true;
+            subPlan.setCurrPipelineStatus(PipelineStatus.DEPLOYING);
+
+            invokeStateProcess(subPlan);
+
+            Assertions.assertEquals(PipelineStatus.FAILING, subPlan.getPipelineState());
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void shouldNotFailThePipelineForVerticesWhoseTerminalResultArrived() throws Exception {
+        // A FAILED vertex whose callback already resolved reports its failure through the
+        // regular callback path; the deployment pass must leave it alone and stay DEPLOYING
+        // instead of double-failing the pipeline.
+        PhysicalVertex failedVertex = mockPhysicalVertex(ExecutionState.FAILED);
+        when(failedVertex.hasTerminalResult()).thenReturn(true);
+
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            SubPlan subPlan =
+                    newSubPlan(
+                            executorService,
+                            Collections.singletonList(failedVertex),
+                            Collections.emptyList());
+            subPlan.isRunning = true;
+            subPlan.setCurrPipelineStatus(PipelineStatus.DEPLOYING);
+
+            invokeStateProcess(subPlan);
+
+            Assertions.assertEquals(PipelineStatus.DEPLOYING, subPlan.getPipelineState());
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void shouldReachRunningWhenEveryVertexWasDeployed() throws Exception {
+        PhysicalVertex vertex = mockPhysicalVertex(ExecutionState.RUNNING);
+
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            SubPlan subPlan =
+                    newSubPlan(
+                            executorService,
+                            Collections.singletonList(vertex),
+                            Collections.emptyList());
+            subPlan.isRunning = true;
+            subPlan.setCurrPipelineStatus(PipelineStatus.DEPLOYING);
+
+            invokeStateProcess(subPlan);
+
+            Assertions.assertEquals(PipelineStatus.RUNNING, subPlan.getPipelineState());
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    private static void invokeStateProcess(SubPlan subPlan) throws Exception {
+        Method method = SubPlan.class.getDeclaredMethod("stateProcess");
+        method.setAccessible(true);
+        method.invoke(subPlan);
+    }
+
+    @Test
     void shouldCaptureTheRealErrorWhenARestoreIsPrepared() throws Exception {
         // The tests above call retainRestoreCause directly, which proves the retention works but
         // not that anything calls it. This drives prepareRestorePipeline instead.

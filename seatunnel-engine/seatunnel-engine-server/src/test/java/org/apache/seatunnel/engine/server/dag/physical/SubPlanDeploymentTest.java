@@ -81,11 +81,18 @@ class SubPlanDeploymentTest {
 
     @Test
     void failedVertexDuringDeploymentDoesNotPromotePipelineToRunning() {
+        // A deployment failure delivers the vertex's terminal result synchronously
+        // (makeTaskGroupFailing completes the vertex future), so the pipeline stays DEPLOYING
+        // here and the regular vertex callback moves it to FAILING. A FAILED vertex whose
+        // terminal result never arrives is the undeployable leftover of #13314 and is failed
+        // fast instead; SubPlanTest covers that shape.
+        PhysicalVertex failed = vertexIn(ExecutionState.FAILED);
+        when(failed.hasTerminalResult()).thenReturn(true);
         AtomicReference<PipelineStatus> state = new AtomicReference<>(PipelineStatus.DEPLOYING);
         SubPlan subPlan =
                 subPlanIn(
                         state,
-                        Collections.singletonList(vertexIn(ExecutionState.FAILED)),
+                        Collections.singletonList(failed),
                         Collections.singletonList(vertexIn(ExecutionState.RUNNING)));
 
         subPlan.startSubPlanStateProcess();

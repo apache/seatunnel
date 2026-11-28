@@ -41,6 +41,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -158,11 +160,6 @@ class PhysicalVertexTest extends AbstractSeaTunnelServerTest<PhysicalVertexTest>
 
     private PhysicalVertex newPhysicalVertex(
             ExecutionState executionState, String taskGroupName, Task... tasks) {
-        TaskGroupLocation taskGroupLocation =
-                new TaskGroupLocation(1L, 1, taskGroupName.hashCode() & Integer.MAX_VALUE);
-        TaskGroupDefaultImpl taskGroup =
-                new TaskGroupDefaultImpl(taskGroupLocation, taskGroupName, Arrays.asList(tasks));
-
         IMap<Object, Object> runningJobStateIMap =
                 nodeEngine
                         .getHazelcastInstance()
@@ -171,8 +168,37 @@ class PhysicalVertexTest extends AbstractSeaTunnelServerTest<PhysicalVertexTest>
                 nodeEngine
                         .getHazelcastInstance()
                         .getMap("physical-vertex-test-state-timestamps-" + UUID.randomUUID());
-        runningJobStateIMap.put(taskGroupLocation, executionState);
+        runningJobStateIMap.put(
+                new TaskGroupLocation(1L, 1, taskGroupName.hashCode() & Integer.MAX_VALUE),
+                executionState);
+        TaskGroupLocation taskGroupLocation =
+                new TaskGroupLocation(1L, 1, taskGroupName.hashCode() & Integer.MAX_VALUE);
+        TaskGroupDefaultImpl taskGroup =
+                new TaskGroupDefaultImpl(taskGroupLocation, taskGroupName, Arrays.asList(tasks));
 
+        return newPhysicalVertex(taskGroup, runningJobStateIMap, runningJobStateTimestampsIMap);
+    }
+
+    private PhysicalVertex newPhysicalVertex(
+            ExecutionState executionState,
+            String taskGroupName,
+            IMap<Object, Object> runningJobStateIMap,
+            IMap<Object, Long[]> runningJobStateTimestampsIMap) {
+        runningJobStateIMap.put(
+                new TaskGroupLocation(1L, 1, taskGroupName.hashCode() & Integer.MAX_VALUE),
+                executionState);
+        TaskGroupLocation taskGroupLocation =
+                new TaskGroupLocation(1L, 1, taskGroupName.hashCode() & Integer.MAX_VALUE);
+        TaskGroupDefaultImpl taskGroup =
+                new TaskGroupDefaultImpl(taskGroupLocation, taskGroupName, Collections.emptyList());
+
+        return newPhysicalVertex(taskGroup, runningJobStateIMap, runningJobStateTimestampsIMap);
+    }
+
+    private PhysicalVertex newPhysicalVertex(
+            TaskGroupDefaultImpl taskGroup,
+            IMap<Object, Object> runningJobStateIMap,
+            IMap<Object, Long[]> runningJobStateTimestampsIMap) {
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("test");
         JobImmutableInformation jobImmutableInformation = mock(JobImmutableInformation.class);
@@ -198,5 +224,40 @@ class PhysicalVertexTest extends AbstractSeaTunnelServerTest<PhysicalVertexTest>
                 nodeEngine,
                 runningJobStateIMap,
                 runningJobStateTimestampsIMap);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void shouldKeepTerminalStateWhenResetCannotBePersisted() {
+        // When the IMap write of the reset fails after retries, the in-memory state must stay
+        // aligned with the IMap instead of moving to CREATED: a CREATED vertex whose IMap entry
+        // is terminal gets its deployment rejected by the terminal-state guard and hangs the
+        // pipeline at DEPLOYING forever (#13314).
+        IMap<Object, Object> runningJobStateIMap = mock(IMap.class);
+        when(runningJobStateIMap.get(any())).thenReturn(ExecutionState.FAILED);
+        doThrow(new RuntimeException("imap write failed"))
+                .when(runningJobStateIMap)
+                .set(any(), any());
+        IMap<Object, Long[]> runningJobStateTimestampsIMap = mock(IMap.class);
+
+        PhysicalVertex vertex =
+                newPhysicalVertex(
+                        ExecutionState.FAILED,
+                        "reset-unpersistable",
+                        runningJobStateIMap,
+                        runningJobStateTimestampsIMap);
+
+        vertex.reset();
+
+        Assertions.assertEquals(ExecutionState.FAILED, vertex.getExecutionState());
+    }
+
+    @Test
+    void shouldResetToCreatedWhenResetCanBePersisted() {
+        PhysicalVertex vertex = newPhysicalVertex(ExecutionState.FAILED, "reset-ok");
+
+        vertex.reset();
+
+        Assertions.assertEquals(ExecutionState.CREATED, vertex.getExecutionState());
     }
 }
