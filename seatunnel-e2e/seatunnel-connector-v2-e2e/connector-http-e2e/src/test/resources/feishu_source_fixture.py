@@ -272,4 +272,29 @@ class Provider(BaseHTTPRequestHandler):
         return False
 
 
-ThreadingHTTPServer(("0.0.0.0", 8080), Provider).serve_forever()
+class PrefixProvider(Provider):
+    """Adds exact partial-page restore scenarios while preserving all original provider methods."""
+
+    def search(self, base_token, name, query, body):
+        mode = name.split("_")[0]
+        if mode not in ("prefixstable", "prefixchanged"):
+            return super().search(base_token, name, query, body)
+        with LOCK:
+            state = state_for(name)
+            state["requests"].append({"cursor": query.get("page_token", [None])[0],
+                                      "time": time.monotonic()})
+            attempt = len(state["requests"])
+            auth_attempts = state["auth"]
+        if (base_token != "base-" + name + "-credential"
+                or query != {"page_size": ["100"]} or body != {}
+                or self.headers.get("Authorization") != f"Bearer t-{name}-{auth_attempts}"):
+            self.reply(200, {"code": 13000, "msg": "unexpected prefix request"})
+            return
+        items = [{"record_id": f"rec-{index:03d}", "id": None,
+                  "fields": {"text": f"row-{index:03d}"}} for index in range(100)]
+        if mode == "prefixchanged" and attempt > 1:
+            items[0]["fields"]["text"] = "changed-accepted-record"
+        self.rows(tuple(json.dumps(item, separators=(",", ":")) for item in items))
+
+
+ThreadingHTTPServer(("0.0.0.0", 8080), PrefixProvider).serve_forever()

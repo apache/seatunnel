@@ -33,6 +33,9 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -46,10 +49,14 @@ import java.util.concurrent.TimeUnit;
 
 import static org.apache.seatunnel.connectors.seatunnel.feishu.source.FeishuApiClient.failure;
 
+/**
+ * Owns one bounded table scan with cancellable page I/O and exact accepted-prefix recovery. Each
+ * poll returns after one row so the engine can hand the checkpoint lock to waiting injectors.
+ */
 @Slf4j
 final class FeishuSourceReader implements SourceReader<SeaTunnelRow, SingleSplit> {
 
-    private static final int CHECKPOINT_VERSION = 1;
+    private static final int CHECKPOINT_VERSION = 2;
 
     private final FeishuSourceOptions config;
     private final Context context;
@@ -65,6 +72,8 @@ final class FeishuSourceReader implements SourceReader<SeaTunnelRow, SingleSplit
     private ExecutorService executor;
     private Future<FeishuApiClient.Page> pending;
     private long deadline;
+    // Only polling owns the decoded tail; count/hash, never rows, enter durable Progress.
+    private PreparedPage prepared;
 
     FeishuSourceReader(FeishuSourceOptions config, Context context) {
         this.config = config;
@@ -72,7 +81,10 @@ final class FeishuSourceReader implements SourceReader<SeaTunnelRow, SingleSplit
         checkpointScope = digest(config.recordsUri.toASCIIString() + "\n" + config.appId);
     }
 
-    /** The client and its worker are owned by this reader and created without network I/O. */
+    /**
+     * Creates the reader-owned client and worker without network I/O. A prior sticky close cannot
+     * be reversed by a later open, and only polling submits work to these owned resources.
+     */
     @Override
     public void open() {
         synchronized (lifecycle) {
@@ -89,7 +101,10 @@ final class FeishuSourceReader implements SourceReader<SeaTunnelRow, SingleSplit
         }
     }
 
-    /** Submit or reap a single page without blocking the engine's poll or checkpoint lock. */
+    /**
+     * Fetches and validates one page without engine locks, then accepts at most one row per poll.
+     * Each accepted prefix shares collection's checkpoint boundary before returning to handoff.
+     */
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         Progress current = progress;
@@ -101,84 +116,96 @@ final class FeishuSourceReader implements SourceReader<SeaTunnelRow, SingleSplit
             return;
         }
 
-        Future<FeishuApiClient.Page> task;
-        synchronized (lifecycle) {
-            if (closed) {
+        if (prepared == null) {
+            Future<FeishuApiClient.Page> task;
+            synchronized (lifecycle) {
+                if (closed) {
+                    return;
+                }
+                if (pending == null) {
+                    FeishuApiClient workerClient = client;
+                    String cursor = current.nextCursor;
+                    long pageDeadline =
+                            System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(config.pageTimeoutMs);
+                    deadline = pageDeadline;
+                    pending = executor.submit(() -> workerClient.fetchPage(cursor, pageDeadline));
+                    return;
+                }
+                task = pending;
+            }
+            if (!task.isDone()) {
+                if (System.nanoTime() - deadline >= 0L && !closed) {
+                    cancel();
+                    throw failure("page deadline expired");
+                }
                 return;
             }
-            if (pending == null) {
-                FeishuApiClient workerClient = client;
-                String cursor = current.nextCursor;
-                long pageDeadline =
-                        System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(config.pageTimeoutMs);
-                deadline = pageDeadline;
-                pending = executor.submit(() -> workerClient.fetchPage(cursor, pageDeadline));
-                return;
+            FeishuApiClient.Page page;
+            try {
+                page = task.get();
+            } catch (CancellationException | ExecutionException e) {
+                if (closed) {
+                    return;
+                }
+                if (e.getCause() instanceof HttpConnectorException) {
+                    throw (HttpConnectorException) e.getCause();
+                }
+                throw failure("page worker failed");
             }
-            task = pending;
-        }
-
-        if (!task.isDone()) {
-            if (System.nanoTime() - deadline >= 0L && !closed) {
-                cancel();
-                throw failure("page deadline expired");
-            }
-            return;
-        }
-
-        FeishuApiClient.Page page;
-        try {
-            page = task.get();
-        } catch (CancellationException | ExecutionException e) {
-            if (closed) {
-                return;
-            }
-            if (e.getCause() instanceof HttpConnectorException) {
-                throw (HttpConnectorException) e.getCause();
-            }
-            throw failure("page worker failed");
-        }
-
-        String nextDigest = page.nextCursor == null ? null : digest(page.nextCursor);
-        // The engine serializes its checkpoint barrier with this emission lock. The progress lock
-        // also makes snapshots safe on runners that call snapshotState directly.
-        synchronized (output.getCheckpointLock()) {
-            if (closed) {
-                return;
-            }
+            int count;
+            String prefix;
+            Set<String> seen;
             synchronized (progressLock) {
-                if (nextDigest != null && current.seen.contains(nextDigest)) {
-                    throw failure("Bitable pagination repeated a cursor");
+                count = current.acceptedCount;
+                prefix = current.acceptedHash;
+                seen = new HashSet<>(current.seen);
+            }
+            String nextDigest = page.nextCursor == null ? null : digest(page.nextCursor);
+            if (nextDigest != null && seen.contains(nextDigest)) {
+                throw failure("Bitable pagination repeated a cursor");
+            }
+            if (nextDigest != null && seen.size() + 1 >= config.maxPages) {
+                throw failure("Bitable scan exceeded max_pages");
+            }
+            prepared = prepare(page, nextDigest, count, prefix);
+            synchronized (lifecycle) {
+                if (pending == task) {
+                    pending = null;
                 }
-                if (nextDigest != null && current.seen.size() + 1 >= config.maxPages) {
-                    throw failure("Bitable scan exceeded max_pages");
-                }
-                for (SeaTunnelRow row : page.rows) {
-                    output.collect(row);
-                }
-                if (nextDigest != null) {
-                    current.seen.add(nextDigest);
-                }
-                current.nextCursor = page.nextCursor;
-                current.finished = page.nextCursor == null;
             }
         }
-
-        synchronized (lifecycle) {
-            pending = null;
+        synchronized (output.getCheckpointLock()) {
+            synchronized (progressLock) {
+                if (closed) {
+                    return;
+                }
+                PreparedPage page = prepared;
+                if (page.index < page.page.rows.size()) {
+                    output.collect(page.page.rows.get(page.index));
+                    current.acceptedHash = page.prefixes.get(page.index++);
+                    current.acceptedCount = page.index;
+                }
+                if (page.index == page.page.rows.size()) {
+                    // Last-row acceptance, next cursor/terminal state and reset are indivisible.
+                    if (page.nextDigest != null) {
+                        current.seen.add(page.nextDigest);
+                    }
+                    current.nextCursor = page.page.nextCursor;
+                    current.finished = page.page.nextCursor == null;
+                    current.acceptedCount = 0;
+                    current.acceptedHash = null;
+                    prepared = null;
+                }
+            }
         }
         if (current.finished && !closed) {
             signalEnd();
         }
     }
 
-    private void signalEnd() {
-        endSignalled = true;
-        context.signalNoMoreElement();
-    }
-
     /**
-     * Persist only fully emitted pages, with an opaque cursor and bounded cycle detection state.
+     * Persists the current page cursor and exact accepted output prefix without response records.
+     * The final row advances continuation and resets the prefix under the same checkpoint boundary.
      */
     @Override
     public List<SingleSplit> snapshotState(long checkpointId) throws IOException {
@@ -197,6 +224,8 @@ final class FeishuSourceReader implements SourceReader<SeaTunnelRow, SingleSplit
                 for (String cursorDigest : current.seen) {
                     output.writeUTF(cursorDigest);
                 }
+                output.writeInt(current.acceptedCount);
+                output.writeUTF(current.acceptedHash == null ? "" : current.acceptedHash);
             }
             return Collections.singletonList(new SingleSplit(bytes.toByteArray()));
         }
@@ -222,40 +251,6 @@ final class FeishuSourceReader implements SourceReader<SeaTunnelRow, SingleSplit
         }
     }
 
-    private Progress restoreProgress(byte[] state) {
-        try (DataInputStream input = new DataInputStream(new ByteArrayInputStream(state))) {
-            if (input.readInt() != CHECKPOINT_VERSION || !checkpointScope.equals(input.readUTF())) {
-                throw failure("checkpoint does not match this Feishu source or state version");
-            }
-            Progress restored = new Progress();
-            restored.finished = input.readBoolean();
-            String cursor = input.readUTF();
-            int seenCount = input.readInt();
-            if (cursor.length() > FeishuApiClient.MAX_CURSOR_LENGTH
-                    || (restored.finished && !cursor.isEmpty())
-                    || seenCount < 0
-                    || seenCount >= FeishuSourceOptions.MAX_SCAN_PAGES
-                    || (!restored.finished && seenCount >= config.maxPages)) {
-                throw failure("invalid Feishu checkpoint progress");
-            }
-            for (int i = 0; i < seenCount; i++) {
-                String hash = input.readUTF();
-                if (!hash.matches("[0-9a-f]{64}") || !restored.seen.add(hash)) {
-                    throw failure("invalid Feishu checkpoint cursor history");
-                }
-            }
-            if (input.available() != 0
-                    || (!cursor.isEmpty() && !restored.seen.contains(digest(cursor)))
-                    || (!restored.finished && seenCount > 0 && cursor.isEmpty())) {
-                throw failure("inconsistent Feishu checkpoint cursor");
-            }
-            restored.nextCursor = cursor.isEmpty() ? null : cursor;
-            return restored;
-        } catch (IOException e) {
-            throw failure("invalid Feishu checkpoint data");
-        }
-    }
-
     @Override
     public void handleNoMoreSplits() {}
 
@@ -271,7 +266,10 @@ final class FeishuSourceReader implements SourceReader<SeaTunnelRow, SingleSplit
         }
     }
 
-    /** Interrupt retry backoff and abort any active HTTP request without the checkpoint lock. */
+    /**
+     * Interrupts retry backoff and aborts the active request without the collector/progress locks.
+     * Worker and client ownership remain independent of a potentially blocked downstream collect.
+     */
     @Override
     public void close() throws IOException {
         FeishuApiClient toClose;
@@ -294,13 +292,132 @@ final class FeishuSourceReader implements SourceReader<SeaTunnelRow, SingleSplit
         }
     }
 
+    private void signalEnd() {
+        endSignalled = true;
+        context.signalNoMoreElement();
+    }
+
+    /**
+     * Accepts only this unreleased version and source scope. The prefix is bounded by the existing
+     * decoder row cap and verified against a fully refetched page before any restored tail output.
+     */
+    private Progress restoreProgress(byte[] state) {
+        try (DataInputStream input = new DataInputStream(new ByteArrayInputStream(state))) {
+            if (input.readInt() != CHECKPOINT_VERSION || !checkpointScope.equals(input.readUTF())) {
+                throw failure("checkpoint does not match this Feishu source or state version");
+            }
+            Progress restored = new Progress();
+            restored.finished = input.readBoolean();
+            String cursor = input.readUTF();
+            int seenCount = input.readInt();
+            if (cursor.length() > FeishuApiClient.MAX_CURSOR_LENGTH
+                    || (restored.finished && !cursor.isEmpty())
+                    || seenCount < 0
+                    || seenCount >= FeishuSourceOptions.MAX_SCAN_PAGES
+                    || (!restored.finished && seenCount >= config.maxPages)) {
+                throw failure("invalid Feishu checkpoint progress");
+            }
+            for (int i = 0; i < seenCount; i++) {
+                String hash = input.readUTF();
+                if (!hash.matches("[0-9a-f]{64}") || !restored.seen.add(hash)) {
+                    throw failure("invalid Feishu checkpoint cursor history");
+                }
+            }
+            restored.acceptedCount = input.readInt();
+            String prefix = input.readUTF();
+            restored.acceptedHash = prefix.isEmpty() ? null : prefix;
+            if (restored.acceptedCount < 0
+                    // decodePage already enforces this actual row cap before any collection.
+                    || restored.acceptedCount > config.pageSize
+                    || (restored.acceptedCount == 0 && restored.acceptedHash != null)
+                    || (restored.acceptedCount > 0
+                            && (restored.acceptedHash == null
+                                    || !restored.acceptedHash.matches("[A-Za-z0-9_-]{43}")))
+                    || (restored.finished && restored.acceptedCount != 0)
+                    || input.available() != 0
+                    || (!cursor.isEmpty() && !restored.seen.contains(digest(cursor)))
+                    || (!restored.finished && seenCount > 0 && cursor.isEmpty())) {
+                throw failure("inconsistent Feishu checkpoint cursor");
+            }
+            restored.nextCursor = cursor.isEmpty() ? null : cursor;
+            return restored;
+        } catch (IOException e) {
+            throw failure("invalid Feishu checkpoint data");
+        }
+    }
+
+    /**
+     * Validates the entire saved output prefix before a recovered page can emit its tail. Exact
+     * String framing includes nulls and UTF-16 code units without replacement-character aliases.
+     */
+    private PreparedPage prepare(
+            FeishuApiClient.Page page, String nextDigest, int count, String saved)
+            throws Exception {
+        PreparedPage result = new PreparedPage(page, nextDigest, count);
+        String previous = null;
+        for (SeaTunnelRow row : page.rows) {
+            MessageDigest hash = MessageDigest.getInstance("SHA-256");
+            if (previous != null) {
+                hash.update(previous.getBytes(StandardCharsets.US_ASCII));
+            }
+            for (int column = 0; column < 4; column++) {
+                hashString(hash, (String) row.getField(column));
+            }
+            previous = Base64.getUrlEncoder().withoutPadding().encodeToString(hash.digest());
+            result.prefixes.add(previous);
+        }
+        if (count > page.rows.size()
+                || (count == 0 && saved != null)
+                || (count > 0 && !result.prefixes.get(count - 1).equals(saved))) {
+            throw failure("checkpoint page prefix changed or is missing");
+        }
+        return result;
+    }
+
+    private static void hashString(MessageDigest hash, String value) {
+        int length = value == null ? -1 : value.length();
+        for (int shift = 24; shift >= 0; shift -= 8) {
+            hash.update((byte) (length >>> shift));
+        }
+        if (value != null) {
+            for (int i = 0; i < value.length(); i++) {
+                char unit = value.charAt(i);
+                hash.update((byte) (unit >>> 8));
+                hash.update((byte) unit);
+            }
+        }
+    }
+
     private static String digest(String value) {
         return Hashing.sha256().hashString(value, StandardCharsets.UTF_8).toString();
     }
 
+    /**
+     * Transient fully validated page and row digests survive only the current reader invocation.
+     * The index is durable only through Progress after a successful checkpoint-coordinated collect.
+     */
+    private static final class PreparedPage {
+        private final FeishuApiClient.Page page;
+        private final String nextDigest;
+        private final List<String> prefixes = new ArrayList<>();
+        private int index;
+
+        private PreparedPage(FeishuApiClient.Page page, String nextDigest, int index) {
+            this.page = page;
+            this.nextDigest = nextDigest;
+            this.index = index;
+        }
+    }
+
+    /**
+     * Bounded durable page coordinates and accepted-prefix digest contain no record data or token.
+     * Only polling updates them; snapshotting captures them under the independent progress monitor.
+     */
     private static final class Progress {
         private final Set<String> seen = new HashSet<>();
         private String nextCursor;
         private boolean finished;
+        private int acceptedCount;
+        private String acceptedHash;
     }
 }

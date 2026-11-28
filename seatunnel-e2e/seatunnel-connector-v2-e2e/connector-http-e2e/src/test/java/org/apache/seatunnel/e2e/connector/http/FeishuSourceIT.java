@@ -27,6 +27,8 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.ReuseTestContainers;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.awaitility.Awaitility;
@@ -34,8 +36,10 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
+import org.postgresql.Driver;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
@@ -44,17 +48,32 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Runs real engine jobs against the isolated provider fixture. Transactional append-only receipts
+ * additionally distinguish checkpointed accepted prefixes from nontransactional HTTP observations.
+ */
 @ReuseTestContainers(TestContainerId.SEATUNNEL)
 class FeishuSourceIT extends TestSuiteBase implements TestResource {
 
@@ -300,6 +319,202 @@ class FeishuSourceIT extends TestSuiteBase implements TestResource {
             if (!job.isDone() || (restoration != null && !restoration.isDone())) {
                 async(() -> container.cancelJob(jobId)).get(20, TimeUnit.SECONDS);
             }
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK})
+    void checkpointsDecodedPageAndRejectsChangedAcceptedPrefix(TestContainer container)
+            throws Exception {
+        for (boolean changed : Arrays.asList(false, true)) {
+            PostgreSQLContainer<?> database =
+                    new PostgreSQLContainer<>(DockerImageName.parse("postgres:14-alpine"))
+                            .withDatabaseName("test")
+                            .withUsername("test")
+                            .withPassword("test")
+                            .withNetwork(NETWORK)
+                            .withNetworkAliases("feishu-prefix-postgres")
+                            .withCommand("postgres -c max_prepared_transactions=100");
+            ExecutorService jobs = Executors.newSingleThreadExecutor();
+            try {
+                container.executeExtraCommands(
+                        engine ->
+                                DependencyJar.of(Driver.class)
+                                        .copyTo(
+                                                engine,
+                                                "/tmp/seatunnel/plugins/Jdbc/lib",
+                                                "postgresql.jar"));
+                database.start();
+                try (Connection connection = prefixConnection(database);
+                        Statement statement = connection.createStatement()) {
+                    statement.execute(
+                            "CREATE TABLE prefix_rows (\"record_id\" TEXT, \"id\" TEXT, \"fields\" TEXT, \"record_json\" TEXT)");
+                }
+                String scenario = changed ? scenario("prefixchanged") : scenario("prefixstable");
+                String initial = Long.toString(JobIdGenerator.newJobId());
+                String resumed = Long.toString(JobIdGenerator.newJobId());
+                Path file = prefixConfig(scenario);
+                String resource = "/" + file.getFileName();
+                try {
+                    Future<Container.ExecResult> running =
+                            jobs.submit(() -> container.executeJob(resource, initial));
+                    Awaitility.await()
+                            .atMost(90, TimeUnit.SECONDS)
+                            .until(() -> state(scenario).path("requests").size() == 1);
+                    // The old page-wide critical section drains for about 50 seconds; it cannot
+                    // commit this partial transaction within the shorter observation interval.
+                    Awaitility.await()
+                            .atMost(20, TimeUnit.SECONDS)
+                            .untilAsserted(
+                                    () -> {
+                                        int count = prefixRows(database).size();
+                                        Assertions.assertTrue(count >= 5 && count < 100);
+                                    });
+                    long baseline = container.getCompletedCheckpointCount(initial);
+                    Awaitility.await()
+                            .atMost(10, TimeUnit.SECONDS)
+                            .until(() -> container.getCompletedCheckpointCount(initial) > baseline);
+                    Assertions.assertEquals(1, state(scenario).path("requests").size());
+                    Assertions.assertTrue(prefixRows(database).size() < 100);
+                    container.stopJob(initial);
+                    Awaitility.await()
+                            .atMost(30, TimeUnit.SECONDS)
+                            .until(() -> "CANCELED".equals(container.getJobStatus(initial)));
+                    running.get(60, TimeUnit.SECONDS);
+                    List<List<String>> committed = prefixRows(database);
+                    Assertions.assertTrue(committed.size() >= 5 && committed.size() < 100);
+                    String before = container.getServerLogs();
+                    Container.ExecResult result =
+                            container.restoreJobWithCheckpoint(resource, initial, resumed);
+                    if (changed) {
+                        String logs =
+                                result.getStdout()
+                                        + result.getStderr()
+                                        + container.getServerLogs().substring(before.length());
+                        Assertions.assertNotEquals(0, result.getExitCode(), logs);
+                        Assertions.assertTrue(
+                                logs.contains("checkpoint page prefix changed or is missing"),
+                                logs);
+                        Assertions.assertEquals(committed, prefixRows(database));
+                    } else {
+                        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+                        List<List<String>> rows = prefixRows(database);
+                        Assertions.assertEquals(100, rows.size());
+                        for (int index = 0; index < 100; index++) {
+                            String id = String.format(Locale.ROOT, "rec-%03d", index);
+                            String text = String.format(Locale.ROOT, "row-%03d", index);
+                            String fields = "{\"text\":\"" + text + "\"}";
+                            Assertions.assertEquals(
+                                    Arrays.asList(
+                                            id,
+                                            null,
+                                            fields,
+                                            "{\"record_id\":\""
+                                                    + id
+                                                    + "\",\"id\":null,\"fields\":"
+                                                    + fields
+                                                    + "}"),
+                                    rows.get(index));
+                        }
+                    }
+                    Assertions.assertEquals(
+                            2,
+                            state(scenario).path("requests").size(),
+                            "Restore refetches only the same partial page");
+                } finally {
+                    try {
+                        cancelPrefixJob(container, initial);
+                    } finally {
+                        try {
+                            cancelPrefixJob(container, resumed);
+                        } finally {
+                            Files.deleteIfExists(file);
+                        }
+                    }
+                }
+            } finally {
+                try {
+                    jobs.shutdownNow();
+                } finally {
+                    database.close();
+                }
+            }
+        }
+    }
+
+    /**
+     * Transactional append-only JDBC receipts expose committed prefixes without an upsert hiding
+     * replay. This configuration uses only the existing HTTP E2E JDBC/driver dependency closure.
+     */
+    private static Path prefixConfig(String scenario) throws Exception {
+        String source =
+                "Feishu { app_id=\""
+                        + scenario
+                        + "\"\n client_secret=\"fixture-secret\"\n"
+                        + " token=\"base-"
+                        + scenario
+                        + "-credential\"\n table_id=\""
+                        + scenario
+                        + "\"\n"
+                        + " api_base_url=\"http://feishu-source-fixture:8080\"\n allow_insecure_http=true\n"
+                        + " page_size=100\n max_pages=9\n page_timeout_ms=30000\n max_retries=0\n}";
+        String config =
+                "env {\n parallelism=1\n job.mode=BATCH\n job.retry.times=0\n"
+                        + " read_limit.rows_per_second=2\n checkpoint.interval=1000\n"
+                        + " checkpoint.timeout=30000\n checkpoint.retain-after-job-cancelled=true\n}\n"
+                        + "source {\n"
+                        + source
+                        + "\n}\nsink { Jdbc {\n"
+                        + " driver=org.postgresql.Driver\n url=\"jdbc:postgresql://feishu-prefix-postgres:5432/test\"\n"
+                        + " username=test\n password=test\n batch_size=1\n max_retries=0\n"
+                        + " is_exactly_once=true\n xa_data_source_class_name=org.postgresql.xa.PGXADataSource\n"
+                        + " transaction_timeout_sec=3600\n query=\"\"\"INSERT INTO prefix_rows (\"record_id\", \"id\", \"fields\", \"record_json\")"
+                        + " VALUES (:record_id, :id, :fields, :record_json)\"\"\"\n} }\n";
+        Path file =
+                Files.createTempFile(
+                        ContainerUtil.getCurrentModulePath().resolve("src/test/resources"),
+                        "feishu-prefix-",
+                        ".conf");
+        Files.write(file, config.getBytes(StandardCharsets.UTF_8));
+        return file;
+    }
+
+    private static Connection prefixConnection(PostgreSQLContainer<?> database) throws Exception {
+        return DriverManager.getConnection(
+                database.getJdbcUrl(), database.getUsername(), database.getPassword());
+    }
+
+    /**
+     * Reads committed append-only rows in provider order. Duplicate rows remain visible and make
+     * the exact row/count assertion fail instead of being hidden by a primary key or upsert.
+     */
+    private static List<List<String>> prefixRows(PostgreSQLContainer<?> database) throws Exception {
+        List<List<String>> rows = new ArrayList<>();
+        try (Connection connection = prefixConnection(database);
+                Statement statement = connection.createStatement();
+                ResultSet values =
+                        statement.executeQuery(
+                                "SELECT \"record_id\", \"id\", \"fields\", \"record_json\" FROM prefix_rows ORDER BY record_id")) {
+            while (values.next()) {
+                List<String> row = new ArrayList<>();
+                for (int column = 1; column <= 4; column++) {
+                    row.add(values.getString(column));
+                }
+                rows.add(row);
+            }
+        }
+        return rows;
+    }
+
+    private static void cancelPrefixJob(TestContainer container, String id) throws Exception {
+        String state = container.getJobStatus(id);
+        if ("RUNNING".equals(state)
+                || "SCHEDULED".equals(state)
+                || "FAILING".equals(state)
+                || "RESTARTING".equals(state)) {
+            container.cancelJob(id);
         }
     }
 
