@@ -343,8 +343,17 @@ public class CheckpointManager {
     /**
      * Called by the JobMaster. <br>
      * Listen to the {@link JobStatus} of the {@link Job}.
+     *
+     * <p>When the job reaches a terminal state, every per-pipeline checkpoint-ID counter is
+     * removed, including the counters of pipelines that never started. A job can terminate while it
+     * is still waiting in the pending queue (cancel under {@code ScheduleStrategy.WAIT}) or before
+     * its first pipeline is scheduled ({@code ScheduleStrategy.REJECT} fails the resource
+     * pre-check). Those jobs never run a {@link SubPlan}, so the {@link #listenPipeline} path never
+     * sees their pipelines; without this cleanup their entries stay in the counter state store (and
+     * in its persisted IMap) forever.
      */
     public void clearCheckpointIfNeed(JobStatus jobStatus) {
+        shutdownCheckpointIdCounters(jobStatus);
         if (checkpointConfig.isCheckpointEnable()
                 && (jobStatus == JobStatus.FINISHED || jobStatus == JobStatus.CANCELED)
                 && !isSavePointEnd()) {
@@ -359,6 +368,55 @@ public class CheckpointManager {
         if (checkpointMonitorService != null
                 && (jobStatus == JobStatus.FINISHED || jobStatus == JobStatus.CANCELED)) {
             checkpointMonitorService.cleanupJob(jobId);
+        }
+    }
+
+    /**
+     * Shuts down the checkpoint-ID counter of every pipeline of this job when the job itself ended.
+     *
+     * <p>Idempotent: counters already removed by the normal pipeline lifecycle are simply removed
+     * again. Non-terminal job states are ignored so a master failover can keep the counters of a
+     * running job.
+     *
+     * <p>The removals are joined because a savepoint restore reuses the source job id. The job must
+     * not be reported complete (and therefore become replaceable by a restored job that recreates
+     * the same counter keys) before the old counters are gone.
+     */
+    private void shutdownCheckpointIdCounters(JobStatus jobStatus) {
+        PipelineStatus pipelineStatus = toPipelineTerminalStatus(jobStatus);
+        if (pipelineStatus == null) {
+            return;
+        }
+        coordinatorMap
+                .values()
+                .forEach(
+                        coordinator -> {
+                            try {
+                                coordinator
+                                        .getCheckpointIdCounter()
+                                        .shutdown(pipelineStatus)
+                                        .join();
+                            } catch (Exception e) {
+                                log.warn(
+                                        "Failed to remove the checkpoint-ID counter of job {} pipeline {}",
+                                        jobId,
+                                        coordinator.getPipelineId(),
+                                        e);
+                            }
+                        });
+    }
+
+    private static PipelineStatus toPipelineTerminalStatus(JobStatus jobStatus) {
+        switch (jobStatus) {
+            case FINISHED:
+            case SAVEPOINT_DONE:
+                return PipelineStatus.FINISHED;
+            case CANCELED:
+                return PipelineStatus.CANCELED;
+            case FAILED:
+                return PipelineStatus.FAILED;
+            default:
+                return null;
         }
     }
 
