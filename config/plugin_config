@@ -72,6 +72,7 @@ connector-hive
 connector-http-base
 connector-mem0
 connector-http-asana
+connector-http-datadog
 connector-http-intercom
 connector-http-typeform
 connector-http-mailchimp
