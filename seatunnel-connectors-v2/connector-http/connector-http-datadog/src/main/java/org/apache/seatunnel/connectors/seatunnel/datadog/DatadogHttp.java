@@ -146,6 +146,17 @@ final class DatadogHttp implements DatadogReader.PageClient {
     }
 
     /**
+     * Cancellation is sticky even if DNS, TLS or a retry wakeup has not started. Closing the raw
+     * socket and timer never needs the reader checkpoint lock.
+     */
+    @Override
+    public synchronized void close() {
+        closed = true;
+        closeSocket(current);
+        deadlineTimer.shutdownNow();
+    }
+
+    /**
      * One fixed-origin TLS exchange; no redirects or response-controlled target can receive keys.
      * The idle timeout and socket-closing timer cover different network-stall conditions.
      */
@@ -356,17 +367,6 @@ final class DatadogHttp implements DatadogReader.PageClient {
 
     private IllegalStateException failure(String reason) {
         return config.resource.invalid(reason);
-    }
-
-    /**
-     * Cancellation is sticky even if DNS, TLS or a retry wakeup has not started. Closing the raw
-     * socket and timer never needs the reader checkpoint lock.
-     */
-    @Override
-    public synchronized void close() {
-        closed = true;
-        closeSocket(current);
-        deadlineTimer.shutdownNow();
     }
 
     private static void closeSocket(Socket socket) {

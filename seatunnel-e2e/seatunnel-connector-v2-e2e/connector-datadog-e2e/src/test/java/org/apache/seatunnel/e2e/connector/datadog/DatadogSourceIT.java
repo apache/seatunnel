@@ -155,69 +155,6 @@ class DatadogSourceIT extends TestSuiteBase {
         engine.startUp();
     }
 
-    /**
-     * A fresh trust store for the isolated engine, with ordinary hostname verification. A second
-     * fixture alias deliberately lacks a certificate SAN to test peer rejection.
-     */
-    private void createTlsMaterial() throws Exception {
-        Path server = temp.resolve("server.p12");
-        String tool = Paths.get(System.getProperty("java.home"), "bin", "keytool").toString();
-        Process keytool =
-                new ProcessBuilder(
-                                tool,
-                                "-genkeypair",
-                                "-noprompt",
-                                "-alias",
-                                "dd",
-                                "-keyalg",
-                                "RSA",
-                                "-keysize",
-                                "2048",
-                                "-validity",
-                                "2",
-                                "-dname",
-                                "CN=api.datadoghq.com",
-                                "-ext",
-                                "SAN=dns:api.datadoghq.com,dns:api.ap2.datadoghq.com",
-                                "-storetype",
-                                "PKCS12",
-                                "-keystore",
-                                server.toString(),
-                                "-storepass",
-                                PASSWORD)
-                        .redirectErrorStream(true)
-                        .redirectOutput(temp.resolve("keytool.log").toFile())
-                        .start();
-        if (!keytool.waitFor(30, TimeUnit.SECONDS)) {
-            keytool.destroyForcibly();
-            throw new IllegalStateException("Fixture certificate generation timed out");
-        }
-        assertEquals(0, keytool.exitValue(), "Fixture certificate generation");
-        KeyStore privateStore = KeyStore.getInstance("PKCS12");
-        try (InputStream stream = Files.newInputStream(server)) {
-            privateStore.load(stream, PASSWORD.toCharArray());
-        }
-        Certificate certificate = privateStore.getCertificate("dd");
-        writePem("CERTIFICATE", certificate.getEncoded(), temp.resolve("cert.pem"));
-        writePem(
-                "PRIVATE KEY",
-                privateStore.getKey("dd", PASSWORD.toCharArray()).getEncoded(),
-                temp.resolve("key.pem"));
-
-        KeyStore trust = KeyStore.getInstance("JKS");
-        trust.load(null, null);
-        trust.setCertificateEntry("dd", certificate);
-        try (OutputStream out = Files.newOutputStream(temp.resolve("trust.jks"))) {
-            trust.store(out, PASSWORD.toCharArray());
-        }
-    }
-
-    private static void writePem(String type, byte[] value, Path path) throws Exception {
-        String encoded = Base64.getMimeEncoder(64, new byte[] {'\n'}).encodeToString(value);
-        String pem = "-----BEGIN " + type + "-----\n" + encoded + "\n-----END " + type + "-----\n";
-        Files.write(path, pem.getBytes(StandardCharsets.US_ASCII));
-    }
-
     @AfterAll
     void shutdown() throws Exception {
         try {
@@ -599,6 +536,69 @@ class DatadogSourceIT extends TestSuiteBase {
         } finally {
             cancelIfRunning(job);
         }
+    }
+
+    /**
+     * A fresh trust store for the isolated engine, with ordinary hostname verification. A second
+     * fixture alias deliberately lacks a certificate SAN to test peer rejection.
+     */
+    private void createTlsMaterial() throws Exception {
+        Path server = temp.resolve("server.p12");
+        String tool = Paths.get(System.getProperty("java.home"), "bin", "keytool").toString();
+        Process keytool =
+                new ProcessBuilder(
+                                tool,
+                                "-genkeypair",
+                                "-noprompt",
+                                "-alias",
+                                "dd",
+                                "-keyalg",
+                                "RSA",
+                                "-keysize",
+                                "2048",
+                                "-validity",
+                                "2",
+                                "-dname",
+                                "CN=api.datadoghq.com",
+                                "-ext",
+                                "SAN=dns:api.datadoghq.com,dns:api.ap2.datadoghq.com",
+                                "-storetype",
+                                "PKCS12",
+                                "-keystore",
+                                server.toString(),
+                                "-storepass",
+                                PASSWORD)
+                        .redirectErrorStream(true)
+                        .redirectOutput(temp.resolve("keytool.log").toFile())
+                        .start();
+        if (!keytool.waitFor(30, TimeUnit.SECONDS)) {
+            keytool.destroyForcibly();
+            throw new IllegalStateException("Fixture certificate generation timed out");
+        }
+        assertEquals(0, keytool.exitValue(), "Fixture certificate generation");
+        KeyStore privateStore = KeyStore.getInstance("PKCS12");
+        try (InputStream stream = Files.newInputStream(server)) {
+            privateStore.load(stream, PASSWORD.toCharArray());
+        }
+        Certificate certificate = privateStore.getCertificate("dd");
+        writePem("CERTIFICATE", certificate.getEncoded(), temp.resolve("cert.pem"));
+        writePem(
+                "PRIVATE KEY",
+                privateStore.getKey("dd", PASSWORD.toCharArray()).getEncoded(),
+                temp.resolve("key.pem"));
+
+        KeyStore trust = KeyStore.getInstance("JKS");
+        trust.load(null, null);
+        trust.setCertificateEntry("dd", certificate);
+        try (OutputStream out = Files.newOutputStream(temp.resolve("trust.jks"))) {
+            trust.store(out, PASSWORD.toCharArray());
+        }
+    }
+
+    private static void writePem(String type, byte[] value, Path path) throws Exception {
+        String encoded = Base64.getMimeEncoder(64, new byte[] {'\n'}).encodeToString(value);
+        String pem = "-----BEGIN " + type + "-----\n" + encoded + "\n-----END " + type + "-----\n";
+        Files.write(path, pem.getBytes(StandardCharsets.US_ASCII));
     }
 
     /**

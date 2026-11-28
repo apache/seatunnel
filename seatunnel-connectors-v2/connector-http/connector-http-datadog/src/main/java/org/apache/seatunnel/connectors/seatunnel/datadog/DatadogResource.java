@@ -143,75 +143,6 @@ enum DatadogResource {
     }
 
     /**
-     * A linked continuation is a token source only. The token always goes to the same authenticated
-     * API host, endpoint and filters. An authoritative body token takes precedence over link data.
-     */
-    private String cursor(DatadogConfig config, JsonNode response, String pointer) {
-        JsonNode body = response.at(pointer);
-        if (!body.isMissingNode() && !body.isNull() && !body.isTextual()) {
-            throw invalid("invalid pagination cursor");
-        }
-        String value = body.asText("");
-        if (!value.isEmpty()) {
-            return checkedCursor(value);
-        }
-        JsonNode next = response.at("/links/next");
-        if (next.isMissingNode()
-                || next.isNull()
-                || (next.isTextual() && next.textValue().isEmpty())) {
-            return null;
-        }
-        if (!next.isTextual() || next.textValue().length() > 16384) {
-            throw invalid("invalid pagination link");
-        }
-        try {
-            URI link = new URI(next.textValue());
-            String host = link.getHost();
-            String site = config.host.substring(4);
-            boolean apiHost = config.host.equalsIgnoreCase(host);
-            boolean webHost = site.equalsIgnoreCase(host) || ("app." + site).equalsIgnoreCase(host);
-            if (link.getUserInfo() != null
-                    || link.getFragment() != null
-                    || (link.getRawAuthority() != null && (!apiHost && !webHost))
-                    || (host != null && !"https".equalsIgnoreCase(link.getScheme()))
-                    || (link.getScheme() != null && host == null)
-                    || (link.getPort() != -1 && link.getPort() != 443)) {
-                throw invalid("unrecognized pagination origin");
-            }
-            String linkedPath = link.getRawPath();
-            if (!path.equals(linkedPath)
-                    && !(dated && (path.substring(0, path.length() - 1)).equals(linkedPath))
-                    && !"".equals(linkedPath)) {
-                throw invalid("unrecognized pagination path");
-            }
-            String token = null;
-            for (NameValuePair parameter : new URIBuilder(link).getQueryParams()) {
-                if ("page[cursor]".equals(parameter.getName())) {
-                    if (token != null || parameter.getValue() == null) {
-                        throw invalid("ambiguous pagination link");
-                    }
-                    token = checkedCursor(parameter.getValue());
-                }
-            }
-            if (token == null) {
-                throw invalid("missing pagination link cursor");
-            }
-            return token;
-        } catch (URISyntaxException | IllegalArgumentException ex) {
-            throw invalid("malformed pagination link");
-        }
-    }
-
-    private String checkedCursor(String value) {
-        if (value.isEmpty()
-                || value.length() > 4096
-                || value.chars().anyMatch(Character::isISOControl)) {
-            throw invalid("invalid pagination cursor");
-        }
-        return value;
-    }
-
-    /**
      * Evaluates continuation using the original page size, before time-bound row filtering.
      * Filtering must not make a continuing provider page appear terminal.
      */
@@ -283,6 +214,120 @@ enum DatadogResource {
         }
     }
 
+    String id(JsonNode item) {
+        if (this == METRICS && item.isTextual() && !item.textValue().isEmpty()) {
+            return item.textValue();
+        }
+        if (!item.isObject()) {
+            throw invalid("invalid result record");
+        }
+        JsonNode id = item.path(this == SYNTHETIC_TESTS ? "public_id" : "id");
+        if (id.isMissingNode() || id.isNull()) {
+            return null;
+        }
+        if (!id.isTextual() && !id.isIntegralNumber()) {
+            throw invalid("invalid result identifier");
+        }
+        return id.asText();
+    }
+
+    String timestamp(JsonNode item) {
+        return dated ? item.at("/attributes/timestamp").textValue() : null;
+    }
+
+    /**
+     * Filters exact event instants into the current half-open window. A row at the upper boundary
+     * is left for the following window rather than emitted twice.
+     */
+    boolean inWindow(String rawTimestamp, DatadogConfig config, DatadogSplit split) {
+        if (!dated) {
+            return true;
+        }
+        try {
+            if (rawTimestamp == null) {
+                throw invalid("missing event timestamp");
+            }
+            Instant timestamp = Instant.parse(rawTimestamp);
+            return !timestamp.isBefore(split.from)
+                    && timestamp.isBefore(split.until(config.sliceDays));
+        } catch (DateTimeException ex) {
+            throw invalid("invalid event timestamp");
+        }
+    }
+
+    ProviderFailure invalid(String reason) {
+        return new ProviderFailure("Datadog " + label + ": " + reason);
+    }
+
+    /**
+     * A linked continuation is a token source only. The token always goes to the same authenticated
+     * API host, endpoint and filters. An authoritative body token takes precedence over link data.
+     */
+    private String cursor(DatadogConfig config, JsonNode response, String pointer) {
+        JsonNode body = response.at(pointer);
+        if (!body.isMissingNode() && !body.isNull() && !body.isTextual()) {
+            throw invalid("invalid pagination cursor");
+        }
+        String value = body.asText("");
+        if (!value.isEmpty()) {
+            return checkedCursor(value);
+        }
+        JsonNode next = response.at("/links/next");
+        if (next.isMissingNode()
+                || next.isNull()
+                || (next.isTextual() && next.textValue().isEmpty())) {
+            return null;
+        }
+        if (!next.isTextual() || next.textValue().length() > 16384) {
+            throw invalid("invalid pagination link");
+        }
+        try {
+            URI link = new URI(next.textValue());
+            String host = link.getHost();
+            String site = config.host.substring(4);
+            boolean apiHost = config.host.equalsIgnoreCase(host);
+            boolean webHost = site.equalsIgnoreCase(host) || ("app." + site).equalsIgnoreCase(host);
+            if (link.getUserInfo() != null
+                    || link.getFragment() != null
+                    || (link.getRawAuthority() != null && (!apiHost && !webHost))
+                    || (host != null && !"https".equalsIgnoreCase(link.getScheme()))
+                    || (link.getScheme() != null && host == null)
+                    || (link.getPort() != -1 && link.getPort() != 443)) {
+                throw invalid("unrecognized pagination origin");
+            }
+            String linkedPath = link.getRawPath();
+            if (!path.equals(linkedPath)
+                    && !(dated && (path.substring(0, path.length() - 1)).equals(linkedPath))
+                    && !"".equals(linkedPath)) {
+                throw invalid("unrecognized pagination path");
+            }
+            String token = null;
+            for (NameValuePair parameter : new URIBuilder(link).getQueryParams()) {
+                if ("page[cursor]".equals(parameter.getName())) {
+                    if (token != null || parameter.getValue() == null) {
+                        throw invalid("ambiguous pagination link");
+                    }
+                    token = checkedCursor(parameter.getValue());
+                }
+            }
+            if (token == null) {
+                throw invalid("missing pagination link cursor");
+            }
+            return token;
+        } catch (URISyntaxException | IllegalArgumentException ex) {
+            throw invalid("malformed pagination link");
+        }
+    }
+
+    private String checkedCursor(String value) {
+        if (value.isEmpty()
+                || value.length() > 4096
+                || value.chars().anyMatch(Character::isISOControl)) {
+            throw invalid("invalid pagination cursor");
+        }
+        return value;
+    }
+
     /**
      * Numbered pages represent requested-size slots, so a short result page alone cannot prove
      * completion. A provider total can prove completion; otherwise probe until an empty page.
@@ -331,51 +376,6 @@ enum DatadogResource {
             throw invalid("invalid pagination number");
         }
         return value.longValue();
-    }
-
-    String id(JsonNode item) {
-        if (this == METRICS && item.isTextual() && !item.textValue().isEmpty()) {
-            return item.textValue();
-        }
-        if (!item.isObject()) {
-            throw invalid("invalid result record");
-        }
-        JsonNode id = item.path(this == SYNTHETIC_TESTS ? "public_id" : "id");
-        if (id.isMissingNode() || id.isNull()) {
-            return null;
-        }
-        if (!id.isTextual() && !id.isIntegralNumber()) {
-            throw invalid("invalid result identifier");
-        }
-        return id.asText();
-    }
-
-    String timestamp(JsonNode item) {
-        return dated ? item.at("/attributes/timestamp").textValue() : null;
-    }
-
-    /**
-     * Filters exact event instants into the current half-open window. A row at the upper boundary
-     * is left for the following window rather than emitted twice.
-     */
-    boolean inWindow(String rawTimestamp, DatadogConfig config, DatadogSplit split) {
-        if (!dated) {
-            return true;
-        }
-        try {
-            if (rawTimestamp == null) {
-                throw invalid("missing event timestamp");
-            }
-            Instant timestamp = Instant.parse(rawTimestamp);
-            return !timestamp.isBefore(split.from)
-                    && timestamp.isBefore(split.until(config.sliceDays));
-        } catch (DateTimeException ex) {
-            throw invalid("invalid event timestamp");
-        }
-    }
-
-    ProviderFailure invalid(String reason) {
-        return new ProviderFailure("Datadog " + label + ": " + reason);
     }
 
     /**

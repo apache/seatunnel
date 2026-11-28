@@ -149,6 +149,20 @@ final class DatadogConfig implements Serializable {
         }
     }
 
+    static byte[] digest(String value) {
+        return digest(new byte[0], value);
+    }
+
+    static byte[] digest(byte[] prior, String value) {
+        try {
+            MessageDigest hasher = MessageDigest.getInstance("SHA-256");
+            hasher.update(prior);
+            return hasher.digest(value.getBytes(StandardCharsets.UTF_8));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 unavailable");
+        }
+    }
+
     private void validateEnd(Instant end) {
         Duration duration = Duration.between(start, end);
         if (duration.isNegative() || duration.compareTo(MAX_RANGE) > 0) {
@@ -199,19 +213,5 @@ final class DatadogConfig implements Serializable {
 
     private static String escape(String query) {
         return new String(JsonStringEncoder.getInstance().quoteAsString(query));
-    }
-
-    static byte[] digest(String value) {
-        return digest(new byte[0], value);
-    }
-
-    static byte[] digest(byte[] prior, String value) {
-        try {
-            MessageDigest hasher = MessageDigest.getInstance("SHA-256");
-            hasher.update(prior);
-            return hasher.digest(value.getBytes(StandardCharsets.UTF_8));
-        } catch (NoSuchAlgorithmException ex) {
-            throw new IllegalStateException("SHA-256 unavailable");
-        }
     }
 }

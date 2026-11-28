@@ -93,10 +93,6 @@ public class DatadogSource implements SeaTunnelSource<SeaTunnelRow, DatadogSplit
                         null));
     }
 
-    private static PhysicalColumn column(String name, boolean nullable) {
-        return PhysicalColumn.of(name, BasicType.STRING_TYPE, 0, nullable, null, null);
-    }
-
     /**
      * Each reader owns its client; only the reader assigned the single split opens requests. Idle
      * parallel subtasks complete when the enumerator closes their assignments.
@@ -125,6 +121,10 @@ public class DatadogSource implements SeaTunnelSource<SeaTunnelRow, DatadogSplit
             SourceSplitEnumerator.Context<DatadogSplit> context, DatadogSplit state) {
         config.verify(state);
         return new Enumerator(context, config, state);
+    }
+
+    private static PhysicalColumn column(String name, boolean nullable) {
+        return PhysicalColumn.of(name, BasicType.STRING_TYPE, 0, nullable, null, null);
     }
 
     /**
@@ -187,22 +187,6 @@ public class DatadogSource implements SeaTunnelSource<SeaTunnelRow, DatadogSplit
             }
         }
 
-        /**
-         * Only reader zero owns the scan; other subtasks can finish without opening a request.
-         * Registration may happen before run and must not assign the active split prematurely.
-         */
-        private void dispatch(int reader) {
-            if (!running) {
-                return;
-            }
-            if (reader == 0 && !hasAssigned) {
-                context.assignSplit(reader, fallback.copy());
-                hasAssigned = true;
-            } else if (reader != 0 && endedReaders.add(reader)) {
-                context.signalNoMoreSplits(reader);
-            }
-        }
-
         @Override
         public int currentUnassignedSplitSize() {
             synchronized (context) {
@@ -237,5 +221,21 @@ public class DatadogSource implements SeaTunnelSource<SeaTunnelRow, DatadogSplit
 
         @Override
         public void close() {}
+
+        /**
+         * Only reader zero owns the scan; other subtasks can finish without opening a request.
+         * Registration may happen before run and must not assign the active split prematurely.
+         */
+        private void dispatch(int reader) {
+            if (!running) {
+                return;
+            }
+            if (reader == 0 && !hasAssigned) {
+                context.assignSplit(reader, fallback.copy());
+                hasAssigned = true;
+            } else if (reader != 0 && endedReaders.add(reader)) {
+                context.signalNoMoreSplits(reader);
+            }
+        }
     }
 }

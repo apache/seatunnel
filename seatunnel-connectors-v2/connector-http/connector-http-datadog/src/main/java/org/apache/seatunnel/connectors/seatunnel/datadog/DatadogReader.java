@@ -123,6 +123,68 @@ final class DatadogReader implements SourceReader<SeaTunnelRow, DatadogSplit> {
     }
 
     /**
+     * Snapshot logical progress only; futures, clients and decoded pages are reconstructed on
+     * restore.
+     */
+    @Override
+    public List<DatadogSplit> snapshotState(long checkpointId) {
+        synchronized (stateLock) {
+            return split == null
+                    ? Collections.emptyList()
+                    : Collections.singletonList(split.copy());
+        }
+    }
+
+    /**
+     * Only one active scan may own rows. Coordinated recovery installs a saved split on a newly
+     * created reader instead of replacing live state.
+     */
+    @Override
+    public void addSplits(List<DatadogSplit> splits) {
+        if (splits.size() != 1) {
+            throw config.resource.invalid("invalid split assignment");
+        }
+        DatadogSplit incoming = splits.get(0);
+        config.verify(incoming);
+        synchronized (stateLock) {
+            if (split != null) {
+                throw config.resource.invalid("received a duplicate active split");
+            }
+            split = incoming.copy();
+        }
+    }
+
+    @Override
+    public void handleNoMoreSplits() {
+        synchronized (stateLock) {
+            noMoreSplits = true;
+        }
+    }
+
+    @Override
+    public void notifyCheckpointComplete(long checkpointId) {}
+
+    /**
+     * Interrupts retry waits and aborts network reads without acquiring the checkpoint lock. The
+     * lifecycle lock prevents an earlier cancel from being undone by concurrent resource creation.
+     */
+    @Override
+    public void cancel() {
+        synchronized (lifecycleLock) {
+            closed = true;
+            if (http != null) {
+                http.close();
+                worker.shutdownNow();
+            }
+        }
+    }
+
+    @Override
+    public void close() {
+        cancel();
+    }
+
+    /**
      * Submit one immutable request and yield after a brief wait; no worker mutates checkpoint
      * state.
      */
@@ -257,68 +319,6 @@ final class DatadogReader implements SourceReader<SeaTunnelRow, DatadogSplit> {
             split.page++;
         }
         page = null;
-    }
-
-    /**
-     * Snapshot logical progress only; futures, clients and decoded pages are reconstructed on
-     * restore.
-     */
-    @Override
-    public List<DatadogSplit> snapshotState(long checkpointId) {
-        synchronized (stateLock) {
-            return split == null
-                    ? Collections.emptyList()
-                    : Collections.singletonList(split.copy());
-        }
-    }
-
-    /**
-     * Only one active scan may own rows. Coordinated recovery installs a saved split on a newly
-     * created reader instead of replacing live state.
-     */
-    @Override
-    public void addSplits(List<DatadogSplit> splits) {
-        if (splits.size() != 1) {
-            throw config.resource.invalid("invalid split assignment");
-        }
-        DatadogSplit incoming = splits.get(0);
-        config.verify(incoming);
-        synchronized (stateLock) {
-            if (split != null) {
-                throw config.resource.invalid("received a duplicate active split");
-            }
-            split = incoming.copy();
-        }
-    }
-
-    @Override
-    public void handleNoMoreSplits() {
-        synchronized (stateLock) {
-            noMoreSplits = true;
-        }
-    }
-
-    @Override
-    public void notifyCheckpointComplete(long checkpointId) {}
-
-    /**
-     * Interrupts retry waits and aborts network reads without acquiring the checkpoint lock. The
-     * lifecycle lock prevents an earlier cancel from being undone by concurrent resource creation.
-     */
-    @Override
-    public void cancel() {
-        synchronized (lifecycleLock) {
-            closed = true;
-            if (http != null) {
-                http.close();
-                worker.shutdownNow();
-            }
-        }
-    }
-
-    @Override
-    public void close() {
-        cancel();
     }
 
     /**
