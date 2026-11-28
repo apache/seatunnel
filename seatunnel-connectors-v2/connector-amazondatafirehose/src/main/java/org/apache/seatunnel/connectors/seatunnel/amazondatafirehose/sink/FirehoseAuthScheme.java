@@ -50,7 +50,10 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 
-/** Firehose SigV4 scope. The pinned SDK default signer logs the session token at DEBUG. */
+/**
+ * Signs only the Firehose POST-root SigV4 contract without logging canonical credentials. The
+ * pinned SDK default signer logs the session token at DEBUG, so the replacement is client-local.
+ */
 final class FirehoseAuthScheme
         implements AuthScheme<AwsCredentialsIdentity>, HttpSigner<AwsCredentialsIdentity> {
     private static final String ALGORITHM = "AWS4-HMAC-SHA256";
@@ -74,6 +77,10 @@ final class FirehoseAuthScheme
         return this;
     }
 
+    /*
+     * Hash the repeatable marshalled payload and sign normalized host/content-type/x-amz headers.
+     * The constrained root path avoids generic URI canonicalization; no global signer/logger is changed.
+     */
     @Override
     public SignedRequest sign(SignRequest<? extends AwsCredentialsIdentity> input) {
         SdkHttpRequest original = input.request();
@@ -183,6 +190,9 @@ final class FirehoseAuthScheme
         }
     }
 
+    /*
+     * Each scope step reinitializes the request-local MAC with its derived key; no signing state is shared.
+     */
     private static byte[] hmac(Mac mac, byte[] key, String data) throws GeneralSecurityException {
         mac.init(new SecretKeySpec(key, "HmacSHA256"));
         return mac.doFinal(data.getBytes(StandardCharsets.UTF_8));

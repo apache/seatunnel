@@ -22,7 +22,6 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonParser;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonToken;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.StreamReadConstraints;
 
-import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.amazondatafirehose.sink.AmazonDataFirehoseSinkOptions.Format;
@@ -38,6 +37,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Buffers one INSERT row per Firehose record on the engine-owned writer thread. Only complete
+ * acknowledgements clear the buffer; close aborts resources without sending it.
+ */
 final class AmazonDataFirehoseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     static final int REQUEST_MAX_BYTES = 4 * 1024 * 1024;
     // Covers the JSON object, the maximum-length stream name, and the records array delimiters.
@@ -51,17 +54,19 @@ final class AmazonDataFirehoseSinkWriter extends AbstractSinkWriter<SeaTunnelRow
 
     private final FirehoseBatchClient client;
     private final Format format;
-    private final SerializationSchema serializer;
+    private final FirehoseRowSerializationSchema serializer;
     private final int arity;
     private final int batchSize;
     private final int maxRecordBytes;
+    // Writer-thread owned; the client receives an immutable list snapshot, not this buffer.
     private final List<Record> pending;
+    // Conservative encoded-wire estimate, reset only after the entire pending batch succeeds.
     private int estimatedRequestBytes = REQUEST_OVERHEAD_BYTES;
 
     AmazonDataFirehoseSinkWriter(
             FirehoseBatchClient client,
             Format format,
-            SerializationSchema serializer,
+            FirehoseRowSerializationSchema serializer,
             int arity,
             int batchSize,
             int maxRecordBytes) {
@@ -74,7 +79,11 @@ final class AmazonDataFirehoseSinkWriter extends AbstractSinkWriter<SeaTunnelRow
         this.pending = new ArrayList<>(batchSize);
     }
 
-    /** Buffer one record under the service's count and wire-size bounds. */
+    /**
+     * Buffer a validated record and flush before count or encoded-request bounds can be exceeded. A
+     * failed flush retains the pending window for task failure/recovery rather than silently
+     * dropping it.
+     */
     @Override
     public void write(SeaTunnelRow row) throws IOException {
         if (row.getRowKind() != RowKind.INSERT || row.getArity() != arity) {
@@ -93,6 +102,40 @@ final class AmazonDataFirehoseSinkWriter extends AbstractSinkWriter<SeaTunnelRow
         }
     }
 
+    /**
+     * Flush through the writer thread before commit or on an engine flush signal. Retain the full
+     * pending window if sending fails; accepted records may repeat on engine recovery.
+     */
+    void flush() throws IOException {
+        if (!pending.isEmpty()) {
+            client.put(pending);
+            pending.clear();
+            estimatedRequestBytes = REQUEST_OVERHEAD_BYTES;
+        }
+    }
+
+    /*
+     * A checkpoint/final commit can acknowledge source progress only after buffered records flush.
+     * No commit handle or external rollback is available for Firehose acceptance.
+     */
+    @Override
+    public Optional<Void> prepareCommit(long checkpointId) throws IOException {
+        flush();
+        return Optional.empty();
+    }
+
+    /*
+     * Abort abandoned work rather than flushing from teardown, including failed or cancelled jobs.
+     */
+    @Override
+    public void close() {
+        client.close();
+    }
+
+    /*
+     * Preserve RAW bytes and the original JSON_LINES representation, including numeric precision.
+     * Strict parsing validates the latter without reserializing it or echoing rejected payloads.
+     */
     private byte[] encode(Object value) throws IOException {
         if (format == Format.RAW && value instanceof byte[]) {
             return requireRecordSize((byte[]) value);
@@ -130,6 +173,10 @@ final class AmazonDataFirehoseSinkWriter extends AbstractSinkWriter<SeaTunnelRow
         return appendDelimiter(encoded);
     }
 
+    /*
+     * Reject obvious top-level scalar excess early, then apply the complete typed native work guard.
+     * Its iterative JSON path and preflighted CSV path sanitize errors without quoting row values.
+     */
     private byte[] serializeRow(SeaTunnelRow row) throws IOException {
         long minimumPayloadBytes = 0;
         for (Object value : row.getFields()) {
@@ -150,12 +197,17 @@ final class AmazonDataFirehoseSinkWriter extends AbstractSinkWriter<SeaTunnelRow
         byte[] bytes;
         try {
             bytes = serializer.serialize(row);
+        } catch (IOException e) {
+            throw e;
         } catch (Exception e) {
             throw invalid("could not serialize the Firehose record");
         }
         return appendDelimiter(bytes);
     }
 
+    /*
+     * Count the LF in the record limit and copy rather than mutating caller-owned encoded payload bytes.
+     */
     private byte[] appendDelimiter(byte[] bytes) throws IOException {
         if (bytes.length >= maxRecordBytes) {
             throw invalid("payload and delimiter exceed max_record_bytes");
@@ -170,26 +222,6 @@ final class AmazonDataFirehoseSinkWriter extends AbstractSinkWriter<SeaTunnelRow
             throw invalid("requires a nonempty payload within max_record_bytes");
         }
         return bytes;
-    }
-
-    /** Flush through the real writer thread before commit, or on a Zeta flush signal. */
-    void flush() throws IOException {
-        if (!pending.isEmpty()) {
-            client.put(pending);
-            pending.clear();
-            estimatedRequestBytes = REQUEST_OVERHEAD_BYTES;
-        }
-    }
-
-    @Override
-    public Optional<Void> prepareCommit(long checkpointId) throws IOException {
-        flush();
-        return Optional.empty();
-    }
-
-    @Override
-    public void close() {
-        client.close();
     }
 
     private static IOException invalid(String message) {

@@ -61,7 +61,10 @@ import java.net.Socket;
 import java.net.URI;
 import java.util.zip.GZIPInputStream;
 
-/** Single-exchange transport. It cannot redirect or retry, and logs neither headers nor bodies. */
+/**
+ * Executes one directly connected Firehose exchange with bounded framing and decoded response size.
+ * It does not redirect, retry or log payloads; the owning batch deadline closes any active socket.
+ */
 final class FirehoseTransport implements SdkHttpClient {
     private static final int RESPONSE_MAX_BYTES = 1024 * 1024;
     private static final ObjectMapper JSON =
@@ -86,7 +89,9 @@ final class FirehoseTransport implements SdkHttpClient {
 
     private final URI endpoint;
     private final int socketTimeoutMillis;
+    // Guarded by this transport monitor; prevents registration after client shutdown.
     private boolean closed;
+    // Guarded by this transport monitor; only one exchange may publish a closeable raw socket.
     private Call active;
 
     FirehoseTransport(URI endpoint, int socketTimeoutMillis) {
@@ -94,20 +99,34 @@ final class FirehoseTransport implements SdkHttpClient {
         this.socketTimeoutMillis = socketTimeoutMillis;
     }
 
+    /*
+     * Allocate a cancellable call without starting I/O; abort may arrive before call registration.
+     */
     @Override
     public ExecutableHttpRequest prepareRequest(HttpExecuteRequest request) {
         return new Call(request);
     }
 
+    /**
+     * Owns one request/socket registration; abort and publication share the outer transport
+     * monitor. Connect, TLS and exchange I/O run outside that monitor so cancellation can close the
+     * socket.
+     */
     private final class Call implements ExecutableHttpRequest {
         private final HttpExecuteRequest request;
+        // Guarded by the outer transport monitor, including abort-before-call races.
         private boolean aborted;
+        // Published before connect so close/timeout can interrupt later socket I/O.
         private Socket socket;
 
         private Call(HttpExecuteRequest request) {
             this.request = request;
         }
 
+        /*
+         * Publish the raw socket before DNS/connect and restrict the signed origin before sending.
+         * Failures discard raw parser/TLS causes so private response data cannot enter diagnostics.
+         */
         @Override
         public HttpExecuteResponse call() throws IOException {
             try (Socket raw = new Socket(Proxy.NO_PROXY)) {
@@ -177,6 +196,9 @@ final class FirehoseTransport implements SdkHttpClient {
             }
         }
 
+        /*
+         * Close independently of the exchange thread; repeated abort and owner close are safe.
+         */
         @Override
         public void abort() {
             synchronized (FirehoseTransport.this) {
@@ -199,6 +221,10 @@ final class FirehoseTransport implements SdkHttpClient {
         return "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
     }
 
+    /*
+     * Send only the already signed root POST with a checked content length and no redirect path.
+     * Validate/decode the complete bounded response before returning a detached body to SDK unmarshalling.
+     */
     private static HttpExecuteResponse exchange(Socket socket, HttpExecuteRequest request)
             throws IOException, HttpException {
         SdkHttpRequest signed = request.httpRequest();
@@ -243,6 +269,10 @@ final class FirehoseTransport implements SdkHttpClient {
         }
     }
 
+    /*
+     * Reject conflicting framing and unsupported encodings, with independent wire/decoded bounds.
+     * Compression cannot turn a small acknowledgement into unbounded decoder output.
+     */
     private static byte[] decode(HttpResponse response) throws IOException {
         String length = header(response, "Content-Length");
         String transfer = header(response, "Transfer-Encoding");
@@ -277,6 +307,9 @@ final class FirehoseTransport implements SdkHttpClient {
         throw failure("unsupported acknowledgement encoding");
     }
 
+    /*
+     * Headers governing framing or decoding must be unambiguous even if the HTTP parser accepted them.
+     */
     private static String header(HttpResponse response, String name) throws IOException {
         Header[] values = response.getHeaders(name);
         if (values.length > 1) {
@@ -287,6 +320,9 @@ final class FirehoseTransport implements SdkHttpClient {
                 : values[0].getValue().trim();
     }
 
+    /*
+     * Apply the same finite limit to wire and decompressed streams before allocating the next output chunk.
+     */
     private static byte[] readBounded(InputStream input) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         byte[] bytes = new byte[8192];
@@ -300,6 +336,10 @@ final class FirehoseTransport implements SdkHttpClient {
         return out.toByteArray();
     }
 
+    /*
+     * Reject duplicate/ill-typed response fields before SDK coercion can hide an invalid acknowledgement.
+     * Only record result text is permitted; no upstream parser diagnostic is retained.
+     */
     private static void validateJsonShape(byte[] body) throws IOException {
         JsonNode result;
         try {
@@ -328,6 +368,9 @@ final class FirehoseTransport implements SdkHttpClient {
         return !object.has(member) || object.path(member).isTextual();
     }
 
+    /*
+     * Prevent further call registration and independently abort the socket owned by the current call.
+     */
     @Override
     public synchronized void close() {
         closed = true;
@@ -340,6 +383,11 @@ final class FirehoseTransport implements SdkHttpClient {
         return new TransportFailure(reason);
     }
 
+    /**
+     * Contains only local transport reasons safe for the batch client to expose without a cause
+     * chain. Raw framing, TLS or response-parser exceptions are discarded before crossing this
+     * boundary.
+     */
     static final class TransportFailure extends IOException {
         private static final long serialVersionUID = 1L;
 

@@ -42,6 +42,10 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+/**
+ * Owns a synchronous SDK client and one daemon worker for a bounded flush operation. Only validated
+ * failed positions are retried; ambiguous calls fail without internal whole-batch replay.
+ */
 final class FirehoseBatchClient implements AutoCloseable {
     private final String stream;
     private final int timeoutMillis;
@@ -56,9 +60,15 @@ final class FirehoseBatchClient implements AutoCloseable {
                         return thread;
                     });
 
+    // Guarded by this monitor; close prevents new submissions and cancels the published Future.
     private boolean closed;
+    // Guarded by this monitor; waiting/sending happens outside it so close can abort active I/O.
     private Future<Void> inFlight;
 
+    /*
+     * Use the pinned client-local signer/transport and disable implicit SDK retry/compression.
+     * The single outer flush budget owns any cancellation, including SDK and explicit subset attempts.
+     */
     FirehoseBatchClient(
             String stream,
             String region,
@@ -91,7 +101,10 @@ final class FirehoseBatchClient implements AutoCloseable {
         this.service = builder.build();
     }
 
-    /** Return after the whole batch is acknowledged, or report an explicit failure. */
+    /**
+     * Wait under one monotonic flush budget, including SDK calls and failed-subset backoff. Publish
+     * the Future before waiting so a concurrent close can abort it without taking the worker lock.
+     */
     void put(List<Record> records) throws IOException {
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
         Future<Void> request;
@@ -134,6 +147,10 @@ final class FirehoseBatchClient implements AutoCloseable {
         }
     }
 
+    /*
+     * Validate each complete positional response before deriving the next retry subset.
+     * The same deadline spans every attempt; SDK implicit retries remain disabled to avoid ambiguous replay.
+     */
     private void send(List<Record> pending, long deadline)
             throws IOException, InterruptedException {
         for (int attempt = 0; ; attempt++) {
@@ -177,6 +194,10 @@ final class FirehoseBatchClient implements AutoCloseable {
         }
     }
 
+    /*
+     * Require one consistent result per sent record before retrying any explicitly rejected slot.
+     * Provider messages are deliberately neither logged nor retained in connector failures.
+     */
     private static List<Record> failedRecords(PutRecordBatchResponse response, List<Record> sent)
             throws IOException {
         Integer count = response.failedPutCount();
@@ -216,6 +237,10 @@ final class FirehoseBatchClient implements AutoCloseable {
         return failed;
     }
 
+    /*
+     * Permanently close publication first, then abort transport/Future and release owned resources.
+     * Teardown does not submit retries or wait for an uninterruptible platform DNS resolver.
+     */
     @Override
     public synchronized void close() {
         if (closed) {
@@ -238,6 +263,11 @@ final class FirehoseBatchClient implements AutoCloseable {
         return failure(reason + "; Firehose may have accepted records");
     }
 
+    /**
+     * Carries only connector-generated diagnostic text, without provider payloads or SDK cause
+     * chains. It distinguishes expected sink failures from unexpected worker failures at the Future
+     * boundary.
+     */
     private static final class BatchFailure extends IOException {
         private static final long serialVersionUID = 1L;
 

@@ -47,7 +47,11 @@ Writes records to an existing Amazon Data Firehose DirectPut delivery stream thr
 | `max_retries` | Integer | No | 2 | Maximum attempts after the first one for explicitly failed records. Range 0–10. |
 | common-options | | No | | [Sink common options](../common-options/sink-common-options.md). |
 
+For native `JSON` and `DELIMITED`, the same limit also bounds expanded conversion work before output allocation. Each repeated value, container, field name, and map entry is charged separately; entries that coerce to the same JSON key still count. An input can therefore be rejected even when key overwrites would make its final JSON small. JSON retains native scalar formatting and key overwrite order without a fixed nesting-depth limit. DELIMITED retains the native formatter and its existing separator-depth limit. Invalid or over-budget values fail before a service call and are omitted from error messages.
+
 With an omitted credential pair, the worker reads `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and an optional `AWS_SESSION_TOKEN`. Provide credentials to the workers through your deployment's credential management. Direct SDK profile or metadata-provider resolution is outside this configuration.
+
+Workers must be able to connect directly to the endpoint. This transport does not discover JVM/SOCKS or SDK HTTP proxy settings; proxy/CONNECT routing is outside this initial connector contract.
 
 ## Input formats
 

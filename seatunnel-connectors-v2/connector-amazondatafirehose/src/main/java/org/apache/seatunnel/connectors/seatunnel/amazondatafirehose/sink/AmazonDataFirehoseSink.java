@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.amazondatafirehose.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -27,8 +26,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.amazondatafirehose.sink.AmazonDataFirehoseSinkOptions.Format;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.format.csv.CsvSerializationSchema;
-import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
@@ -40,6 +37,10 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Optional;
 
+/**
+ * Validates one DirectPut destination and creates a worker-owned buffered Firehose writer.
+ * Credential and format settings are additive; external acceptance cannot be rolled back.
+ */
 final class AmazonDataFirehoseSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private final CatalogTable catalog;
     private final String stream;
@@ -55,6 +56,10 @@ final class AmazonDataFirehoseSink extends AbstractSimpleSink<SeaTunnelRow, Void
     private final int timeoutMillis;
     private final int maxRetries;
 
+    /*
+     * Reject invalid origins, credential pairs and record limits before creating network resources.
+     * The catalog supplies the native row schema; encoded formats require exactly one payload field.
+     */
     AmazonDataFirehoseSink(ReadonlyConfig options, CatalogTable catalog) {
         this.catalog = catalog;
         this.stream = options.get(AmazonDataFirehoseSinkOptions.DELIVERY_STREAM);
@@ -132,12 +137,64 @@ final class AmazonDataFirehoseSink extends AbstractSimpleSink<SeaTunnelRow, Void
         }
     }
 
+    @Override
+    public String getPluginName() {
+        return "AmazonDataFirehose";
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.of(catalog);
+    }
+
+    /*
+     * Resolve worker credentials without profile/metadata discovery and bound native conversion work.
+     * The writer owns its client; engine flush signals stay on the ordinary writer execution path.
+     */
+    @Override
+    public AmazonDataFirehoseSinkWriter createWriter(SinkWriter.Context context) {
+        AwsCredentialsProvider credentials;
+        if (accessKey == null) {
+            credentials = EnvironmentVariableCredentialsProvider.create();
+        } else {
+            credentials =
+                    StaticCredentialsProvider.create(
+                            token == null
+                                    ? AwsBasicCredentials.create(accessKey, secretKey)
+                                    : AwsSessionCredentials.create(accessKey, secretKey, token));
+        }
+        SeaTunnelRowType rowType = catalog.getSeaTunnelRowType();
+        FirehoseRowSerializationSchema serializer =
+                format == Format.JSON || format == Format.DELIMITED
+                        ? new FirehoseRowSerializationSchema(
+                                rowType, format, delimiter, maxRecordBytes)
+                        : null;
+        FirehoseBatchClient client =
+                new FirehoseBatchClient(
+                        stream, region, endpoint, credentials, timeoutMillis, maxRetries);
+        AmazonDataFirehoseSinkWriter writer =
+                new AmazonDataFirehoseSinkWriter(
+                        client,
+                        format,
+                        serializer,
+                        rowType.getTotalFields(),
+                        batchSize,
+                        maxRecordBytes);
+        context.enableDeferredTerminalWriteOutcomes();
+        context.registerFlushAction(writer::flush);
+        return writer;
+    }
+
     private static boolean validSecret(String secret) {
         return secret.length() > 0
                 && secret.length() <= 8192
                 && secret.chars().allMatch(c -> c >= 0x21 && c <= 0x7e);
     }
 
+    /*
+     * Permit only a trusted origin so credentials cannot be redirected through path/query input.
+     * Keep diagnostics independent of the rejected value, which may itself contain a secret.
+     */
     private static URI parseEndpoint(String value, boolean allowHttp) {
         if (value == null) {
             return null;
@@ -175,54 +232,5 @@ final class AmazonDataFirehoseSink extends AbstractSimpleSink<SeaTunnelRow, Void
 
     private static IllegalArgumentException invalid(String reason) {
         return new IllegalArgumentException("Amazon Data Firehose Sink " + reason);
-    }
-
-    @Override
-    public String getPluginName() {
-        return "AmazonDataFirehose";
-    }
-
-    @Override
-    public Optional<CatalogTable> getWriteCatalogTable() {
-        return Optional.of(catalog);
-    }
-
-    @Override
-    public AmazonDataFirehoseSinkWriter createWriter(SinkWriter.Context context) {
-        AwsCredentialsProvider credentials;
-        if (accessKey == null) {
-            credentials = EnvironmentVariableCredentialsProvider.create();
-        } else {
-            credentials =
-                    StaticCredentialsProvider.create(
-                            token == null
-                                    ? AwsBasicCredentials.create(accessKey, secretKey)
-                                    : AwsSessionCredentials.create(accessKey, secretKey, token));
-        }
-        SeaTunnelRowType rowType = catalog.getSeaTunnelRowType();
-        SerializationSchema serializer = null;
-        if (format == Format.JSON) {
-            serializer = new JsonSerializationSchema(rowType);
-        } else if (format == Format.DELIMITED) {
-            serializer =
-                    CsvSerializationSchema.builder()
-                            .seaTunnelRowType(rowType)
-                            .delimiter(delimiter)
-                            .build();
-        }
-        FirehoseBatchClient client =
-                new FirehoseBatchClient(
-                        stream, region, endpoint, credentials, timeoutMillis, maxRetries);
-        AmazonDataFirehoseSinkWriter writer =
-                new AmazonDataFirehoseSinkWriter(
-                        client,
-                        format,
-                        serializer,
-                        rowType.getTotalFields(),
-                        batchSize,
-                        maxRecordBytes);
-        context.enableDeferredTerminalWriteOutcomes();
-        context.registerFlushAction(writer::flush);
-        return writer;
     }
 }

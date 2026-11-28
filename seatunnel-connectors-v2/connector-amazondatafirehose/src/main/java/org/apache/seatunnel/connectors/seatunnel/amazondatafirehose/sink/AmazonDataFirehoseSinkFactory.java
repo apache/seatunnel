@@ -25,6 +25,10 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 
 import com.google.auto.service.AutoService;
 
+/**
+ * Registers the isolated AmazonDataFirehose sink and its dedicated option contract through SPI.
+ * Resource validation and row-format ownership remain in the product-specific sink.
+ */
 @AutoService(Factory.class)
 public class AmazonDataFirehoseSinkFactory implements TableSinkFactory {
 
@@ -54,6 +58,9 @@ public class AmazonDataFirehoseSinkFactory implements TableSinkFactory {
                 .build();
     }
 
+    /*
+     * Defer worker writer/client construction while retaining the factory-provided catalog and options.
+     */
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         return () -> new AmazonDataFirehoseSink(context.getOptions(), context.getCatalogTable());

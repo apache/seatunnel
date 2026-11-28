@@ -47,7 +47,11 @@ import ChangeLog from '../changelog/connector-amazondatafirehose.md';
 | `max_retries` | Integer | 否 | 2 | 对明确失败记录的最大重试次数，取值 0–10。 |
 | common-options | | 否 | | [Sink 通用选项](../common-options/sink-common-options.md)。 |
 
+原生 `JSON` 和 `DELIMITED` 同时使用该上限限制输出分配前的展开转换工作量。重复值、容器、字段名和每个 map 条目都分别计入；转换成同一个 JSON key 的条目也不会去重。因此，即使 key 覆盖会缩小最终 JSON，输入仍可能超出工作量上限而被拒绝。JSON 保留原生标量格式与 key 覆盖顺序，不新增固定嵌套深度限制。DELIMITED 保留原生格式器及其既有分隔符层级限制。非法值或超限输入在调用服务前失败，错误信息不包含数据值。
+
 未显式填写密钥对时，工作节点读取 `AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY` 和可选的 `AWS_SESSION_TOKEN`。请通过部署环境的凭证管理机制向工作节点提供密钥。连接器当前不直接读取 AWS 配置档案或调用实例元数据凭证接口。
+
+工作节点必须能够直接连接端点。当前传输不会读取 JVM/SOCKS 或 SDK HTTP 代理配置；代理和 CONNECT 路由不属于本连接器的初始能力范围。
 
 ## 输入格式
 

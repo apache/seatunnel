@@ -60,6 +60,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Exercises captured signatures/record bytes and failure, flush, recovery and cancellation
+ * boundaries. Synthetic HTTP fixtures and isolated DEBUG logging do not certify live AWS TLS or
+ * final delivery.
+ */
 @Execution(ExecutionMode.SAME_THREAD)
 class AmazonDataFirehoseSinkIT extends TestSuiteBase implements TestResource {
     private static final String ACCESS = "AKIA000000000000TEST";
@@ -161,6 +166,37 @@ class AmazonDataFirehoseSinkIT extends TestSuiteBase implements TestResource {
                 data("{\"name\":\"sea|\\\"鲸\\\"\",\"score\":85}\n"),
                 data("{\"name\":\"missing\",\"score\":null}\n"));
         assertBatch(state, 1, false, data("\"sea|\"\"鲸\"\"\"|85\n"), data("missing|\n"));
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK})
+    void rejectsExpandedNativeArraysWithoutServiceCalls(TestContainer container) throws Exception {
+        reset();
+        ArrayNode small = JSON.createArrayNode().add("雪").add("quote\"");
+        succeeds(
+                run(
+                        container,
+                        nativeJsonOptions().put("max_record_bytes", 512),
+                        "array<string>",
+                        rows(row("INSERT", small))));
+        assertBatch(state(), 0, false, data("{\"payload\":[\"雪\",\"quote\\\"\"]}\n"));
+        reset();
+        char[] characters = new char[128];
+        Arrays.fill(characters, 'a');
+        String shared = new String(characters);
+        ArrayNode expanded = JSON.createArrayNode();
+        for (int i = 0; i < 16; i++) {
+            expanded.add(shared);
+        }
+        fails(
+                container,
+                nativeJsonOptions().put("max_record_bytes", 512),
+                "array<string>",
+                rows(row("INSERT", expanded)),
+                "max_record_bytes");
+        Assertions.assertEquals(0, state().path("requests").size());
     }
 
     @TestTemplate
@@ -558,6 +594,11 @@ class AmazonDataFirehoseSinkIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    /**
+     * Starts a separate Zeta server with DEBUG configured before startup to verify privacy
+     * diagnostics. Its network, provider fixture and logs stay isolated from the ordinary
+     * integration container.
+     */
     private static final class DebugZeta extends SeaTunnelContainer {
         private void stopIsolatedServer() {
             if (server != null) {

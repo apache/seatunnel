@@ -20,6 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.amazondatafirehose.sink;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+/**
+ * Defines stable DirectPut sink settings, including credential, record and whole-flush limits.
+ * These option keys are the user contract shared by factory validation and writer construction.
+ */
 public final class AmazonDataFirehoseSinkOptions {
     public static final Option<String> DELIVERY_STREAM =
             Options.key("delivery_stream")
@@ -99,6 +103,11 @@ public final class AmazonDataFirehoseSinkOptions {
 
     private AmazonDataFirehoseSinkOptions() {}
 
+    /**
+     * Selects native row serialization or an already encoded payload without changing record
+     * identity. All formats except RAW append one LF, which counts toward the configured
+     * record-byte limit.
+     */
     public enum Format {
         JSON,
         DELIMITED,
