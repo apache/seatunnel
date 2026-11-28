@@ -49,6 +49,8 @@ The client retains the deployment JVM default proxy selector: plain `ws` uses HT
 
 The client uses standard TLS trust and hostname validation and rejects redirects. This sink does not negotiate WebSocket extensions, including permessage-deflate; extension frames fail explicitly. The outgoing queue is bounded by bytes and message count. Incoming application frames are discarded without aggregation; wire frames and cumulative message sizes are bounded by `max_inbound_message_bytes`. A message that exceeds its configured limit fails before enqueue. Connection, write and lifecycle failures fail the writer. Use a trusted receiving service. Inbound data messages do not acknowledge exported rows.
 
+JSON conversion counts each typed value occurrence and input-sized scalar/key work against `max_frame_bytes` before allocating its tree; shared values and overwritten map-key occurrences still consume this budget. Exact serialized bytes are checked independently, including escaping and punctuation. This bounds conversion as well as output, so pathological key collisions or large numeric input text can be rejected even when their normalized final JSON would be smaller. Container conversion and output are iterative without a fixed nesting-depth limit.
+
 ## Delivery and recovery
 
 Flush and checkpoint preparation wait for the local send queue to drain. A normal shutdown also waits for the WebSocket closing handshake. Neither local drain nor the connection close confirms application acceptance or durable storage. The sink has no receiver acknowledgement protocol, transactional state, or exactly-once guarantee.

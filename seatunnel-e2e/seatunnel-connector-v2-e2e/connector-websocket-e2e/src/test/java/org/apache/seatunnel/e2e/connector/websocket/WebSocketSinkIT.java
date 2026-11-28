@@ -21,6 +21,24 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.Deserialization
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.websocket.sink.WebSocketSinkFactory;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 
@@ -50,16 +68,26 @@ import okio.ByteString;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.KeyStore;
+import java.time.LocalTime;
+import java.util.AbstractMap;
+import java.util.AbstractSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -73,7 +101,8 @@ import java.util.function.Function;
 
 /**
  * Checks exact wire output, finite transport failure, checkpoint replay and pre-aggregation receive
- * rejection through a private Zeta engine with independent HTTPS/WebSocket/TCP fixtures.
+ * rejection through a private Zeta engine with independent HTTPS/WebSocket/TCP fixtures. Direct
+ * factory/writer cases additionally observe early typed conversion and exact admitted wire bytes.
  */
 @Timeout(value = 4, unit = TimeUnit.MINUTES)
 @Execution(ExecutionMode.SAME_THREAD)
@@ -546,11 +575,186 @@ class WebSocketSinkIT extends TestSuiteBase {
         }
     }
 
+    @Test
+    void rejectsSharedRowExpansionBeforeTraversingEveryMapOccurrence() throws Exception {
+        int before = plain.getRequestCount();
+        MapType<String, String> strings =
+                new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE);
+        String[] names = new String[16];
+        SeaTunnelDataType<?>[] types = new SeaTunnelDataType<?>[16];
+        Object[] fields = new Object[16];
+        TrackingMap<String> inner = new TrackingMap<>();
+        char[] characters = new char[128];
+        Arrays.fill(characters, 'a');
+        inner.values.put("s", new String(characters));
+        for (int index = 0; index < fields.length; index++) {
+            names[index] = "f" + index;
+            types[index] = strings;
+            fields[index] = inner;
+        }
+        SeaTunnelRowType nested = new SeaTunnelRowType(names, types);
+        TrackingMap<SeaTunnelRow> outer = new TrackingMap<>();
+        SeaTunnelRow shared = new SeaTunnelRow(fields);
+        for (int index = 0; index < 16; index++) {
+            outer.values.put("k" + index, shared);
+        }
+        SinkWriter<SeaTunnelRow, Void, Void> writer =
+                payloadWriter(payloadType(new MapType<>(BasicType.STRING_TYPE, nested)), 512);
+        IOException failure =
+                Assertions.assertThrows(
+                        IOException.class,
+                        () -> writer.write(new SeaTunnelRow(new Object[] {outer})));
+        Assertions.assertEquals(
+                "WebSocket sink: message exceeds max_frame_bytes", failure.getMessage());
+        // Native whole-row conversion visits all 16 outer entries and 256 inner occurrences.
+        Assertions.assertTrue(outer.visited > 0 && outer.visited < 16);
+        Assertions.assertTrue(inner.visited > 0 && inner.visited < 16);
+        Assertions.assertEquals(
+                failure.getMessage(),
+                Assertions.assertThrows(IOException.class, writer::close).getMessage());
+
+        SinkWriter<SeaTunnelRow, Void, Void> decimal =
+                payloadWriter(payloadType(new DecimalType(30, 8)), 512);
+        IOException expanded =
+                Assertions.assertThrows(
+                        IOException.class,
+                        () ->
+                                decimal.write(
+                                        new SeaTunnelRow(
+                                                new Object[] {new BigDecimal("1E+1000")})));
+        Assertions.assertEquals(
+                "WebSocket sink: message exceeds max_frame_bytes", expanded.getMessage());
+        Assertions.assertThrows(IOException.class, decimal::close);
+
+        SinkWriter<SeaTunnelRow, Void, Void> escaped =
+                payloadWriter(payloadType(BasicType.STRING_TYPE), 32);
+        IOException escaping =
+                Assertions.assertThrows(
+                        IOException.class,
+                        () ->
+                                escaped.write(
+                                        new SeaTunnelRow(
+                                                new Object[] {
+                                                    "\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\""
+                                                })));
+        Assertions.assertEquals(
+                "WebSocket sink: message exceeds max_frame_bytes", escaping.getMessage());
+        Assertions.assertThrows(IOException.class, escaped::close);
+        Assertions.assertEquals(before, plain.getRequestCount());
+    }
+
+    @Test
+    void preservesNativeTypedJsonAndDeepNarrowValuesThroughTheRealWriter() throws Exception {
+        Map<Object, String> collisions = new LinkedHashMap<>();
+        collisions.put(1, "first");
+        collisions.put(2, "雪");
+        collisions.put("1", "last");
+        assertPayload(
+                new SeaTunnelRowType(
+                        new String[] {
+                            "id", "amount", "nested", "array", "binary", "time", "escaped"
+                        },
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.LONG_TYPE,
+                            new DecimalType(30, 8),
+                            new MapType<>(BasicType.INT_TYPE, BasicType.STRING_TYPE),
+                            ArrayType.STRING_ARRAY_TYPE,
+                            PrimitiveByteArrayType.INSTANCE,
+                            LocalTimeType.LOCAL_TIME_TYPE,
+                            BasicType.STRING_TYPE
+                        }),
+                new SeaTunnelRow(
+                        new Object[] {
+                            9007199254740993L,
+                            new BigDecimal("1.20"),
+                            collisions,
+                            new String[] {"same", null, "same"},
+                            new byte[] {0, (byte) 255},
+                            LocalTime.of(1, 2, 3, 123000000),
+                            "\"\\\n"
+                        }),
+                512,
+                "{\"id\":9007199254740993,\"amount\":1.20,\"nested\":{\"1\":\"last\",\"2\":\"雪\"},"
+                        + "\"array\":[\"same\",null,\"same\"],\"binary\":\"AP8=\",\"time\":\"01:02:03.123\","
+                        + "\"escaped\":\"\\\"\\\\\\n\"}");
+        Map<BigDecimal, String> compact = new LinkedHashMap<>();
+        compact.put(new BigDecimal("1E+100"), "compact");
+        assertPayload(
+                payloadType(new MapType<>(new DecimalType(30, 8), BasicType.STRING_TYPE)),
+                new SeaTunnelRow(new Object[] {compact}),
+                64,
+                "{\"value\":{\"1E+100\":\"compact\"}}");
+
+        SeaTunnelDataType<?> type = BasicType.STRING_TYPE;
+        Object value = "leaf";
+        StringBuilder expected = new StringBuilder();
+        for (int depth = 0; depth < 2000; depth++) {
+            type = new SeaTunnelRowType(new String[] {"v"}, new SeaTunnelDataType<?>[] {type});
+            value = new SeaTunnelRow(new Object[] {value});
+            expected.append("{\"v\":");
+        }
+        expected.append("\"leaf\"");
+        for (int depth = 0; depth < 2000; depth++) {
+            expected.append('}');
+        }
+        assertPayload((SeaTunnelRowType) type, (SeaTunnelRow) value, 32768, expected.toString());
+        SeaTunnelRowType shared = payloadType(BasicType.STRING_TYPE);
+        for (int level = 0; level < 8; level++) {
+            shared =
+                    new SeaTunnelRowType(
+                            new String[] {"left", "right"},
+                            new SeaTunnelDataType<?>[] {shared, shared});
+        }
+        assertPayload(
+                shared,
+                new SeaTunnelRow(new Object[] {null, null}),
+                64,
+                "{\"left\":null,\"right\":null}");
+    }
+
     private Container.ExecResult execute(String conf, String[] args) throws Exception {
         String job = nextJob();
         Container.ExecResult result = engine.executeJob(conf, job, args);
         assertStatus(job, "FINISHED");
         return result;
+    }
+
+    private SinkWriter<SeaTunnelRow, Void, Void> payloadWriter(SeaTunnelRowType type, int cap)
+            throws IOException {
+        Map<String, Object> values = new HashMap<>();
+        values.put("url", "ws://localhost:" + plain.getPort() + "/sink");
+        values.put("max_frame_bytes", cap);
+        CatalogTable table = CatalogTableUtil.getCatalogTable("payload", type);
+        SeaTunnelSink<SeaTunnelRow, Void, Void, Void> sink =
+                new WebSocketSinkFactory()
+                        .createSink(
+                                new TableSinkFactoryContext(
+                                        table,
+                                        ReadonlyConfig.fromMap(values),
+                                        getClass().getClassLoader()))
+                        .createSink();
+        Assertions.assertSame(table, sink.getWriteCatalogTable().get());
+        return sink.createWriter(new PayloadContext());
+    }
+
+    private void assertPayload(SeaTunnelRowType type, SeaTunnelRow row, int cap, String expected)
+            throws Exception {
+        Capture capture = new Capture(true);
+        plainResponder = request -> capture.upgrade();
+        SinkWriter<SeaTunnelRow, Void, Void> writer = payloadWriter(type, cap);
+        try {
+            writer.write(row);
+            writer.prepareCommit();
+        } finally {
+            writer.close();
+        }
+        capture.assertClosed();
+        Assertions.assertEquals(Collections.singletonList(expected), capture.text);
+        Assertions.assertTrue(capture.binary.isEmpty());
+    }
+
+    private static SeaTunnelRowType payloadType(SeaTunnelDataType<?> value) {
+        return new SeaTunnelRowType(new String[] {"value"}, new SeaTunnelDataType<?>[] {value});
     }
 
     private void rejected(String conf, String[] args, String... errors) throws Exception {
@@ -690,6 +894,66 @@ class WebSocketSinkIT extends TestSuiteBase {
         server.start();
         Testcontainers.exposeHostPorts(server.getPort());
         return server;
+    }
+
+    /**
+     * Tracks real map traversal through nested ROW values so early admission is observed before
+     * native conversion could expand every shared occurrence; it never fabricates serializer
+     * output.
+     */
+    private static final class TrackingMap<T> extends AbstractMap<String, T> {
+        private final Map<String, T> values = new LinkedHashMap<>();
+        private int visited;
+
+        @Override
+        public Set<Entry<String, T>> entrySet() {
+            return new AbstractSet<Entry<String, T>>() {
+                @Override
+                public Iterator<Entry<String, T>> iterator() {
+                    Iterator<Entry<String, T>> delegate = values.entrySet().iterator();
+                    return new Iterator<Entry<String, T>>() {
+                        @Override
+                        public boolean hasNext() {
+                            return delegate.hasNext();
+                        }
+
+                        @Override
+                        public Entry<String, T> next() {
+                            visited++;
+                            return delegate.next();
+                        }
+                    };
+                }
+
+                @Override
+                public int size() {
+                    return values.size();
+                }
+            };
+        }
+    }
+
+    /**
+     * Supplies the minimal real-writer context for component-level transport assertions inside this
+     * existing Sink suite; periodic engine flushing remains covered by the original engine cases.
+     */
+    private static final class PayloadContext implements SinkWriter.Context {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public int getIndexOfSubtask() {
+            return 0;
+        }
+
+        @Override
+        public MetricsContext getMetricsContext() {
+            return null;
+        }
+
+        @Override
+        public EventListener getEventListener() {
+            return null;
+        }
     }
 
     /**

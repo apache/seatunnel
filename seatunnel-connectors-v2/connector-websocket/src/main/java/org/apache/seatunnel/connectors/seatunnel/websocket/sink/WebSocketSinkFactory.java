@@ -74,8 +74,6 @@ public final class WebSocketSinkFactory
 
     @Override
     public TableSink<SeaTunnelRow, Void, Void, Void> createSink(TableSinkFactoryContext context) {
-        return () ->
-                new WebSocketSink(
-                        context.getOptions(), context.getCatalogTable().getSeaTunnelRowType());
+        return () -> new WebSocketSink(context.getOptions(), context.getCatalogTable());
     }
 }
