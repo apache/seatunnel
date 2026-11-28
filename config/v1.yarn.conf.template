@@ -1,0 +1,94 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# From the extracted SeaTunnel directory, set distribution to your release archive, configure
+# HADOOP_CONF_DIR, and submit the inline FakeSource-to-Console demo with just -a.
+#   bin/seatunnel-application.sh submit -t yarn -a config/v1.yarn.conf.template
+# Edit local-resources.job.content below for your own job, or replace the job block with a local or HDFS job-config-file.
+# See docs/en/getting-started/application/yarn/configuration.md for the full option reference.
+application {
+  name = "example-batch"
+  # The demo uses parallelism 2, with slots for the readers and split enumerator.
+  worker-count = 2
+  worker.memory-mb = 1024
+  worker.cpu-cores = 1
+  worker.slots = 2
+  master.memory-mb = 1024
+  master.cpu-cores = 1
+}
+
+yarn {
+  # Set a submitter-local path or an HDFS URI, e.g. hdfs://nameservice1/releases/seatunnel.tgz.
+  # To reuse an archive on the staging HDFS, set its snapshot path, e.g. hdfs://nameservice1/releases/.snapshot/v1/seatunnel.tgz.
+  distribution = "/path/to/apache-seatunnel-<version>-bin.tar.gz"
+  job-config-file = files/job.conf
+
+  local-resources {
+    job {
+      content {
+        "job.conf" = """
+          env {
+            job.mode = BATCH
+            parallelism = 2
+          }
+
+          source {
+            FakeSource {
+              row.num = 10
+              split.num = 2
+              schema { fields { id = int } }
+            }
+          }
+
+          sink { Console {} }
+        """
+      }
+    }
+
+    # Read selected files from a local or HDFS directory.
+    # runtime {
+    #   source-dir = "hdfs://nameservice1/seatunnel/conf"
+    #   localize {
+    #     "seatunnel.yaml" = files/runtime/seatunnel.yaml
+    #   }
+    # }
+  }
+  # config-dir = "/etc/hadoop/conf"  # defaults to HADOOP_CONF_DIR on the submission host
+
+  # Optional scheduling. An empty worker node label inherits the AM label.
+  # queue = "analytics"
+  # master.node-label = "batch"
+  # worker.node-label = "batch"
+  # active-deadline-seconds = 3600
+
+  # Enable the Web UI and REST API on this exact AM host port (HTTPS if enabled in seatunnel.yaml).
+  # master.http-port = 8095
+
+  # Optional runtime configuration shared by both roles, with a separate worker JVM file.
+  # env.DATA_REGION = "east"
+  # seatunnel-config-file = files/runtime/seatunnel.yaml
+  # worker.jvm-options-file = jvm_worker_options
+  # master.hazelcast-config = "hazelcast-master.yaml"
+  # worker.hazelcast-config = "hazelcast-worker.yaml"
+  # log4j-config-file = "log4j2_client.properties"
+
+  # Simple authentication uses the submitter's effective Hadoop user for staging and containers.
+  # hadoop-user-name = "your-hadoop-user"
+  # Kerberos-enabled clusters use the existing kinit ticket or both submitter-local settings below.
+  # kerberos.principal = "seatunnel@EXAMPLE.COM"
+  # kerberos.keytab = "/etc/security/keytabs/seatunnel.keytab"
+}

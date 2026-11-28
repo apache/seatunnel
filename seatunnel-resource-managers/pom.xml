@@ -27,6 +27,7 @@
     <packaging>pom</packaging>
     <name>SeaTunnel : Resource Managers</name>
     <modules>
+        <module>yarn</module>
         <module>kubernetes</module>
     </modules>
 </project>

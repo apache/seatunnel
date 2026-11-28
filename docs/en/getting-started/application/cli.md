@@ -13,9 +13,9 @@ so `status` and `cancel` see exactly the application `submit` created.
 
 ```bash
 bin/seatunnel-application.sh submit -t <target> [-a application.config] [-Dkey=value ...] [-c job.conf]
-bin/seatunnel-application.sh status -t <target> --id APPLICATION_ID -a application.config [--wait] \
+bin/seatunnel-application.sh status -t <target> --id APPLICATION_ID [-a application.config] [--wait] \
   [--wait-timeout <ms>] [--wait-interval <ms>]
-bin/seatunnel-application.sh cancel -t <target> --id APPLICATION_ID -a application.config
+bin/seatunnel-application.sh cancel -t <target> --id APPLICATION_ID [-a application.config]
 ```
 
 The built-in help lists every option:
@@ -29,16 +29,15 @@ Usage: seatunnel-application.sh [options] submit | status | cancel
   Options:
     -a, --application-config Optional HOCON deployment file, e.g.
                              application.config (not the job file)
-    -c, --config             SeaTunnel job configuration file (required for
-                             submit unless the provider supplies it, for
-                             example kubernetes.job-config-file)
+    -c, --config             SeaTunnel job configuration file (optional with
+                             kubernetes.job-config-file or yarn.job-config-file)
     -h, --help               Show the usage message
     --id                     Platform application ID (required for
                              status/cancel)
     --job-id                 Optional native Zeta job ID for submit
     --restore-job-id         Historical Zeta job ID whose latest checkpoint
                              restores this new application
-  * -t, --target             External resource platform: kubernetes
+  * -t, --target             External resource platform: kubernetes or yarn
     --wait                   Wait for completion (submit/status only; default:
                              return immediately) (default: false)
     --wait-timeout           Maximum time in milliseconds that --wait polls for
@@ -58,7 +57,7 @@ Usage: seatunnel-application.sh [options] submit | status | cancel
 | `-t`, `--target` | all | Resource platform that runs the application |
 | `-c`, `--config` | submit | SeaTunnel job configuration file; optional when the platform carries the job, such as a mounted `job.conf` |
 | `-a`, `--application-config` | all | Optional deployment file with common and platform options; options can also be supplied through `-D` |
-| `-Dkey=value` | all | Override one non-sensitive `application.*` or `kubernetes.*` deployment option, for example `-Dapplication.worker-count=4`; repeatable. Job `${...}` variables are resolved inside the Pod, not on the submitting host |
+| `-Dkey=value` | all | Override one non-sensitive `application.*`, `kubernetes.*` or `yarn.*` option, such as `-Dapplication.worker-count=4`. Repeat for additional options. Job variables resolve inside the application master |
 | `--id` | status, cancel | Platform application ID printed by `submit` |
 | `--wait` | submit, status | Poll until a terminal status |
 | `--wait-timeout <ms>` | submit, status | Maximum time in milliseconds that `--wait` polls before failing with the last observed status; `0` (the default) waits indefinitely. Requires `--wait` |
@@ -74,18 +73,16 @@ Usage: seatunnel-application.sh [options] submit | status | cancel
 | `status` | Reads the platform state and maps it to an `ApplicationStatus` | Prints the application ID and status; a successful plain query exits `0`; with `--wait`, follows the [waiting exit codes](#status-and-waiting) |
 | `cancel` | Removes the application and the resources it owns | Prints the application ID and the cancellation result |
 
-## Submit returns immediately
+## When submit returns
 
-`submit` returns as soon as the platform accepted the started application. Image pulls, admission
-and scheduling therefore never fail the command; add `--wait` to wait for the terminal status
-inside the same command:
+Kubernetes returns after the API accepts the started Job. YARN waits for the ApplicationMaster to reach `RUNNING` or for a fast job to succeed. Add `--wait` to follow either platform through to completion.
 
 ```bash
 bin/seatunnel-application.sh submit -t <target> -a application.config --wait
 ```
 
 The job comes from `-c` or from a file the platform mounts inside the application, for example
-`kubernetes.job-config-file`. A submission that provides neither is rejected before the first
+`kubernetes.job-config-file` or `yarn.job-config-file`. A submission that provides neither is rejected before the first
 resource is created. Values written as `${VAR}` are resolved inside the running application, never
 on the submitting host, so platform-managed credentials can be injected through the environment.
 
