@@ -96,28 +96,6 @@ public class WordPressSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                         "Public WordPress.com posts");
     }
 
-    /**
-     * Requires explicit UTC seconds so publication-window comparisons have one time basis. Invalid
-     * option values are not included in diagnostics.
-     */
-    private static Instant parseDate(String value, String option) {
-        try {
-            if (value != null
-                    && value.matches(
-                            "[0-9]{4}-[0-9]{2}-[0-9]{2}T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z")) {
-                return Instant.parse(value);
-            }
-        } catch (DateTimeParseException ignored) {
-            // Do not expose submitted option values.
-        }
-        throw new IllegalArgumentException(
-                "WordPress " + option + " must be an ISO-8601 UTC instant with second precision");
-    }
-
-    private static PhysicalColumn column(String name, SeaTunnelDataType<?> type) {
-        return PhysicalColumn.of(name, type, 0L, false, null, null);
-    }
-
     @Override
     public String getPluginName() {
         return PLUGIN_NAME;
@@ -146,5 +124,26 @@ public class WordPressSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext context) {
         return new WordPressReader(site, start, end, pageSize, maxPages, table, context);
+    }
+    /**
+     * Requires explicit UTC seconds so publication-window comparisons have one time basis. Invalid
+     * option values are not included in diagnostics.
+     */
+    private static Instant parseDate(String value, String option) {
+        try {
+            if (value != null
+                    && value.matches(
+                            "[0-9]{4}-[0-9]{2}-[0-9]{2}T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z")) {
+                return Instant.parse(value);
+            }
+        } catch (DateTimeParseException ignored) {
+            // Do not expose submitted option values.
+        }
+        throw new IllegalArgumentException(
+                "WordPress " + option + " must be an ISO-8601 UTC instant with second precision");
+    }
+
+    private static PhysicalColumn column(String name, SeaTunnelDataType<?> type) {
+        return PhysicalColumn.of(name, type, 0L, false, null, null);
     }
 }
