@@ -30,15 +30,18 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -313,6 +316,43 @@ class SeaTunnelSourcePluginDiscoveryTest {
                         Paths.get(
                                 seatunnelHome, "/plugins/otherWithLib/lib/common-dependency3.jar")),
                 paths);
+    }
+
+    // Kept in this class despite testing a sink: it needs the "duplicate" fixture and the jars
+    // created in before(), which getPluginBaseClass already uses for sink identifiers too.
+    @Test
+    @ResourceLock("default-locale")
+    void getSinkPluginJarPathsUnderTurkishLocale() throws Exception {
+        Locale originalLocale = Locale.getDefault();
+        Locale originalDisplayLocale = Locale.getDefault(Locale.Category.DISPLAY);
+        Locale originalFormatLocale = Locale.getDefault(Locale.Category.FORMAT);
+        try {
+            // Under tr-TR, "sink".toUpperCase() turns the 'i' into a dotted capital I
+            // (U+0130), so the result no longer matches the PluginType.SINK constant.
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+            // Jdbc matches two jars in the fixture, so it also covers the selectPluginJar path.
+            List<PluginIdentifier> pluginIdentifiers =
+                    Lists.newArrayList(
+                            PluginIdentifier.of(
+                                    "seatunnel", PluginType.SINK.getType(), "Clickhouse"),
+                            PluginIdentifier.of("seatunnel", PluginType.SINK.getType(), "Jdbc"));
+            SeaTunnelSinkPluginDiscovery seaTunnelSinkPluginDiscovery =
+                    new SeaTunnelSinkPluginDiscovery();
+            List<URL> pluginJarPaths =
+                    seaTunnelSinkPluginDiscovery.getPluginJarPaths(pluginIdentifiers);
+            Assertions.assertEquals(2, pluginJarPaths.size());
+            Assertions.assertEquals(
+                    Paths.get(seatunnelHome, "connectors", "connector-clickhouse.jar").toString(),
+                    new File(pluginJarPaths.get(0).toURI()).getPath());
+            Assertions.assertEquals(
+                    Paths.get(seatunnelHome, "connectors", "connector-jdbc-release-1.1.jar")
+                            .toString(),
+                    new File(pluginJarPaths.get(1).toURI()).getPath());
+        } finally {
+            Locale.setDefault(originalLocale);
+            Locale.setDefault(Locale.Category.DISPLAY, originalDisplayLocale);
+            Locale.setDefault(Locale.Category.FORMAT, originalFormatLocale);
+        }
     }
 
     @AfterEach

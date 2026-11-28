@@ -59,6 +59,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.ServiceLoader;
@@ -426,9 +427,9 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     protected abstract Class<T> getPluginBaseClass();
 
     private Optional<String> getPluginMappingPrefix(PluginIdentifier pluginIdentifier) {
-        final String engineType = pluginIdentifier.getEngineType().toLowerCase();
-        final String pluginType = pluginIdentifier.getPluginType().toLowerCase();
-        final String pluginName = pluginIdentifier.getPluginName().toLowerCase();
+        final String engineType = pluginIdentifier.getEngineType().toLowerCase(Locale.ROOT);
+        final String pluginType = pluginIdentifier.getPluginType().toLowerCase(Locale.ROOT);
+        final String pluginName = pluginIdentifier.getPluginName().toLowerCase(Locale.ROOT);
         if (!pluginMappingConfig.hasPath(engineType)) {
             return Optional.empty();
         }
@@ -455,8 +456,8 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         if (!pluginPrefix.isPresent()) {
             return Optional.empty();
         }
-        final String pluginName = pluginIdentifier.getPluginName().toLowerCase();
-        final String pluginType = pluginIdentifier.getPluginType().toLowerCase();
+        final String pluginName = pluginIdentifier.getPluginName().toLowerCase(Locale.ROOT);
+        final String pluginType = pluginIdentifier.getPluginType().toLowerCase(Locale.ROOT);
         File[] targetPluginFiles =
                 pluginDir
                         .toFile()
@@ -466,7 +467,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         if (ArrayUtils.isEmpty(targetPluginFiles)) {
             return Optional.empty();
         }
-        PluginType type = PluginType.valueOf(pluginType.toUpperCase());
+        PluginType type = PluginType.valueOf(pluginType.toUpperCase(Locale.ROOT));
         List<URL> pluginJarPaths;
         try {
             if (targetPluginFiles.length == 1) {
