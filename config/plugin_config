@@ -22,6 +22,7 @@
 --connectors-v2--
 connector-amazondocumentdb
 connector-amazondynamodb
+connector-amazondatafirehose
 connector-aerospike
 connector-azurecosmosdb
 connector-assert
