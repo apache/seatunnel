@@ -25,7 +25,14 @@ import com.google.auto.service.AutoService;
 
 import javax.annotation.Nonnull;
 
-/** Factory for {@link KingbaseDialect}. */
+/**
+ * Factory for {@link KingbaseDialect}.
+ *
+ * <p>The KingbaseES compatibility mode is taken exclusively from the explicit {@code
+ * compatible_mode} option. This factory never opens a connection during planning: an absent mode
+ * deterministically selects the native Kingbase (PostgreSQL-compatible) behavior, which is the
+ * pre-existing behavior of this connector.
+ */
 @AutoService(JdbcDialectFactory.class)
 public class KingbaseDialectFactory implements JdbcDialectFactory {
 
@@ -46,6 +53,6 @@ public class KingbaseDialectFactory implements JdbcDialectFactory {
 
     @Override
     public JdbcDialect create(@Nonnull String compatibleMode, String fieldIde) {
-        return new KingbaseDialect(fieldIde);
+        return new KingbaseDialect(compatibleMode, fieldIde);
     }
 }

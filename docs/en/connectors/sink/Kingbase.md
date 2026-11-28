@@ -79,11 +79,15 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | auto_commit                               | Boolean | No       | true    | Automatic transaction commit is enabled by default                                                                                                                                                                                           |
 | common-options                            |         | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                                  |
 | enable_upsert                             | Boolean | No       | true    | Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import                                                                                                       |
+| compatible_mode                           | String  | No       | -       | The compatibility mode of the KingbaseES server. Set it to `mysql` when KingbaseES runs in MySQL compatibility mode, so MySQL-style type mapping, row conversion and `ON DUPLICATE KEY UPDATE` upsert are used. When it is not set, the native Kingbase/PostgreSQL behavior is used. Accepts `compatibleMode` as a fallback key. |
 
 ### Tips
 
-> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed
+> 1. If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed
 > in parallel according to the concurrency of tasks.
+> 2. When KingbaseES runs in MySQL compatibility mode, set `compatible_mode = "mysql"` to reuse the existing Kingbase connector configuration: the connector then uses MySQL-style type mapping, row conversion and `ON DUPLICATE KEY UPDATE` for upsert. No new option name is introduced, `compatible_mode` already existed for other multi-mode databases.
+> 3. The compatibility mode is read from configuration only: **selecting** it opens no connection and never probes the server. An absent or unrecognized mode deterministically keeps the native Kingbase/PostgreSQL behavior instead of guessing, and nothing silently degrades after a transient connection error. This promise covers mode selection only. The connector still makes its normal connections: with `compatible_mode = "mysql"` table discovery uses the MySQL catalog, which connects and reads metadata (including a server version query) just as the native Kingbase catalog does.
+> 4. Existing jobs that do not set `compatible_mode` keep their previous behavior and gain no extra planning-time connection. Jobs that already set `compatible_mode = "mysql"` change behavior in this release: MySQL-style conversion, `ON DUPLICATE KEY UPDATE` upsert and MySQL catalog metadata replace the native ones, so validate them before upgrading. See [incompatible changes](../../introduction/concepts/incompatible-changes.md).
 
 ## Task Example
 
