@@ -519,13 +519,10 @@ public class MultipleTableJobConfigParser {
                         .map(Tuple2::_1)
                         .collect(Collectors.toCollection(LinkedHashSet::new));
         checkProducedTypeEquals(inputActions);
-        int spareParallelism = inputs.get(0)._2().getParallelism();
-        int parallelism =
-                DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())
-                        ? 1
-                        : readonlyConfig
-                                .getOptional(EnvCommonOptions.PARALLELISM)
-                                .orElse(spareParallelism);
+        // A transform runs chained into the task of its upstream, once per upstream subtask, so it
+        // takes the parallelism of its upstream, and so does the sink behind it. A parallelism
+        // configured on the transform cannot change that.
+        int parallelism = inputs.get(0)._2().getParallelism();
         SeaTunnelTransform<?> transform =
                 FactoryUtil.createAndPrepareMultiTableTransform(
                         new ArrayList<>(catalogTables), readonlyConfig, classLoader, factoryId);
@@ -543,6 +540,15 @@ public class MultipleTableJobConfigParser {
                                 configuredName));
             }
             actionName = configuredName;
+        }
+        Optional<Integer> configuredParallelism =
+                readonlyConfig.getOptional(EnvCommonOptions.PARALLELISM);
+        if (configuredParallelism.isPresent() && configuredParallelism.get() != parallelism) {
+            log.warn(
+                    "Transform '{}' configures parallelism {} but runs chained into its upstream with parallelism {}; the configured value is ignored.",
+                    actionName,
+                    configuredParallelism.get(),
+                    parallelism);
         }
 
         TransformAction transformAction =

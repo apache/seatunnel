@@ -294,7 +294,33 @@ public class MultipleTableJobConfigParserTest {
         List<Action> actions = parse.getLeft();
         Assertions.assertEquals(1, actions.size());
         Assertions.assertEquals("t_sql_named", actions.get(0).getUpstream().get(0).getName());
-        Assertions.assertEquals(4, actions.get(0).getUpstream().get(0).getParallelism());
+        // The transform declares parallelism 4 but runs with that of its source.
+        Assertions.assertEquals(1, actions.get(0).getUpstream().get(0).getParallelism());
+    }
+
+    @Test
+    public void testTransformAndSinkRunWithUpstreamParallelism() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource(
+                        "/batch_fake_to_console_with_transform_parallelism.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        Config config = ConfigBuilder.of(Paths.get(filePath));
+
+        ImmutablePair<List<Action>, Set<URL>> parse =
+                new MultipleTableJobConfigParser(config, new IdGenerator(), jobConfig).parse(null);
+
+        // The source declares 2 and the transform 1; the transform and the sink behind it run
+        // chained into the source task, so both take the parallelism of the source.
+        List<Action> actions = parse.getLeft();
+        Assertions.assertEquals(1, actions.size());
+        Action sinkAction = actions.get(0);
+        Action transformAction = sinkAction.getUpstream().get(0);
+        Action sourceAction = transformAction.getUpstream().get(0);
+        Assertions.assertEquals(2, sourceAction.getParallelism());
+        Assertions.assertEquals(2, transformAction.getParallelism());
+        Assertions.assertEquals(2, sinkAction.getParallelism());
     }
 
     @Test

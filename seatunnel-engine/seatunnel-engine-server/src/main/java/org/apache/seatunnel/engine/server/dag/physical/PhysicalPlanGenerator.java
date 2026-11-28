@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
+import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
@@ -36,9 +37,11 @@ import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionEdge;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlan;
+import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
 import org.apache.seatunnel.engine.server.dag.physical.config.FlowConfig;
 import org.apache.seatunnel.engine.server.dag.physical.config.IntermediateQueueConfig;
@@ -205,6 +208,7 @@ public class PhysicalPlanGenerator {
                                     List<PhysicalVertex> physicalVertexList =
                                             getSourceTask(
                                                     edges, sources, pipelineId, totalPipelineNum);
+                                    checkActionParallelism(pipeline, subtaskActions);
 
                                     CompletableFuture<PipelineStatus> pipelineFuture =
                                             new CompletableFuture<>();
@@ -538,6 +542,35 @@ public class PhysicalPlanGenerator {
                             return t.stream();
                         })
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Checks that every action of a pipeline runs in as many subtasks as it declares.
+     *
+     * <p>The checkpoint state of an action, the aggregated committer of a sink and the sink writer
+     * context are all sized by the declared parallelism, while the subtasks that acknowledge
+     * checkpoints and send commit infos are the ones that actually run the action. A mismatch
+     * either drops the state or the commit info of some subtasks or keeps a checkpoint waiting for
+     * subtasks that do not exist, so the plan is rejected instead.
+     */
+    private static void checkActionParallelism(
+            Pipeline pipeline,
+            Map<TaskLocation, Set<Tuple2<ActionStateKey, Integer>>> subtaskActions) {
+        Map<ActionStateKey, Integer> runningParallelism =
+                CheckpointCoordinator.getActionParallelism(subtaskActions);
+        for (ExecutionVertex vertex : pipeline.getVertexes().values()) {
+            Action action = vertex.getAction();
+            Integer running = runningParallelism.get(ActionStateKey.of(action));
+            if (running != null && running != action.getParallelism()) {
+                throw new JobDefineCheckException(
+                        String.format(
+                                "Action '%s' declares parallelism %d but runs in %d subtasks of pipeline %d.",
+                                action.getName(),
+                                action.getParallelism(),
+                                running,
+                                pipeline.getId()));
+            }
+        }
     }
 
     private void fillCheckpointPlan(SeaTunnelTask task) {

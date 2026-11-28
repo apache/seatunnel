@@ -78,6 +78,15 @@ sink {
 }
 ```
 
+## Parallelism
+
+A transform does not have a parallelism of its own.
+
+- On the Zeta engine a transform runs in the same task as its upstream, so it runs with the parallelism of its source, and so does the sink behind it. A `parallelism` option set on a transform is ignored, and the job logs a warning that names the transform, the declared value and the parallelism it runs with.
+- The Flink and Spark engines do not read a `parallelism` option on a transform either.
+
+To change how many instances of a transform run, set `parallelism` on the source or in `env`.
+
 ## Practical Guidelines
 
 - keep dataset names short and descriptive
