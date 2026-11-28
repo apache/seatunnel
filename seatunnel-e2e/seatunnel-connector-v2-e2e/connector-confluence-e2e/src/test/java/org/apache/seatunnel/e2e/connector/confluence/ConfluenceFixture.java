@@ -132,27 +132,6 @@ final class ConfluenceFixture implements AutoCloseable {
         scenario = plan;
     }
 
-    private void dispatch(HttpExchange exchange) throws IOException {
-        try {
-            Scenario current = scenario;
-            if (current == null) {
-                status(exchange, 500);
-                return;
-            }
-            int index = current.record(exchange);
-            if (!"GET".equals(exchange.getRequestMethod())
-                    || !AUTHORIZATION.equals(
-                            exchange.getRequestHeaders().getFirst("Authorization"))) {
-                current.problems.add("Invalid method or Authorization header");
-                status(exchange, 401);
-                return;
-            }
-            current.script.reply(index, exchange);
-        } finally {
-            exchange.close();
-        }
-    }
-
     @Override
     public void close() throws InterruptedException {
         server.stop(0);
@@ -176,6 +155,27 @@ final class ConfluenceFixture implements AutoCloseable {
         }
         exchange.getResponseHeaders().set("Content-Encoding", "gzip");
         body(exchange, bytes.toByteArray());
+    }
+
+    private void dispatch(HttpExchange exchange) throws IOException {
+        try {
+            Scenario current = scenario;
+            if (current == null) {
+                status(exchange, 500);
+                return;
+            }
+            int index = current.record(exchange);
+            if (!"GET".equals(exchange.getRequestMethod())
+                    || !AUTHORIZATION.equals(
+                            exchange.getRequestHeaders().getFirst("Authorization"))) {
+                current.problems.add("Invalid method or Authorization header");
+                status(exchange, 401);
+                return;
+            }
+            current.script.reply(index, exchange);
+        } finally {
+            exchange.close();
+        }
     }
 
     private static void body(HttpExchange exchange, byte[] bytes) throws IOException {

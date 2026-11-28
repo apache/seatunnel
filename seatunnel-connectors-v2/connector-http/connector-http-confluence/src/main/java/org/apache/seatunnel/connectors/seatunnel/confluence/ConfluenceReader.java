@@ -113,6 +113,74 @@ final class ConfluenceReader implements SourceReader<SeaTunnelRow, ConfluenceSpl
     }
 
     /**
+     * Copies secret-free progress, including a terminal or pre-assignment position, for engine
+     * recovery.
+     */
+    @Override
+    public List<ConfluenceSplit> snapshotState(long checkpointId) {
+        // A pre-assignment barrier owns the initial position. On restore it can be handed back
+        // to an enumerator whose original initial assignment had not reached the reader.
+        synchronized (splitStateLock) {
+            return Collections.singletonList(
+                    new ConfluenceSplit(
+                            config.binding, position, pages, emitted, prefix, finished, visited));
+        }
+    }
+
+    /*
+     * Installs exactly one validated initial or restored position before publishing assignment.
+     */
+    @Override
+    public void addSplits(List<ConfluenceSplit> splits) {
+        if (splits.isEmpty()) {
+            return;
+        }
+        synchronized (splitStateLock) {
+            if (assigned || splits.size() != 1) {
+                throw config.failure("expected exactly one pagination split");
+            }
+            ConfluenceSplit split = splits.get(0);
+            split.check(config);
+            position = split.position;
+            pages = split.pages;
+            emitted = split.emitted;
+            prefix = split.prefix;
+            finished = split.finished;
+            visited = new HashSet<>(split.visited);
+            assigned = true;
+        }
+    }
+
+    @Override
+    public void handleNoMoreSplits() {}
+
+    @Override
+    public void notifyCheckpointComplete(long checkpointId) {}
+
+    /**
+     * Closes active I/O as well as cancelling the future, so blocked socket reads can leave
+     * promptly.
+     */
+    @Override
+    public void cancel() {
+        cancelled.set(true);
+        http.abort();
+        Future<ConfluencePage> pending = request;
+        if (pending != null) {
+            pending.cancel(true);
+        }
+    }
+
+    /*
+     * Cancels I/O and stops the reader-owned worker; no shared executor is affected.
+     */
+    @Override
+    public void close() {
+        cancel();
+        worker.shutdownNow();
+    }
+
+    /**
      * Polls the worker without blocking checkpoint progress and validates any restored committed
      * prefix before attaching the decoded page to reader state.
      */
@@ -252,73 +320,5 @@ final class ConfluenceReader implements SourceReader<SeaTunnelRow, ConfluenceSpl
             completionSignalled = true;
             context.signalNoMoreElement();
         }
-    }
-
-    /**
-     * Copies secret-free progress, including a terminal or pre-assignment position, for engine
-     * recovery.
-     */
-    @Override
-    public List<ConfluenceSplit> snapshotState(long checkpointId) {
-        // A pre-assignment barrier owns the initial position. On restore it can be handed back
-        // to an enumerator whose original initial assignment had not reached the reader.
-        synchronized (splitStateLock) {
-            return Collections.singletonList(
-                    new ConfluenceSplit(
-                            config.binding, position, pages, emitted, prefix, finished, visited));
-        }
-    }
-
-    /*
-     * Installs exactly one validated initial or restored position before publishing assignment.
-     */
-    @Override
-    public void addSplits(List<ConfluenceSplit> splits) {
-        if (splits.isEmpty()) {
-            return;
-        }
-        synchronized (splitStateLock) {
-            if (assigned || splits.size() != 1) {
-                throw config.failure("expected exactly one pagination split");
-            }
-            ConfluenceSplit split = splits.get(0);
-            split.check(config);
-            position = split.position;
-            pages = split.pages;
-            emitted = split.emitted;
-            prefix = split.prefix;
-            finished = split.finished;
-            visited = new HashSet<>(split.visited);
-            assigned = true;
-        }
-    }
-
-    @Override
-    public void handleNoMoreSplits() {}
-
-    @Override
-    public void notifyCheckpointComplete(long checkpointId) {}
-
-    /**
-     * Closes active I/O as well as cancelling the future, so blocked socket reads can leave
-     * promptly.
-     */
-    @Override
-    public void cancel() {
-        cancelled.set(true);
-        http.abort();
-        Future<ConfluencePage> pending = request;
-        if (pending != null) {
-            pending.cancel(true);
-        }
-    }
-
-    /*
-     * Cancels I/O and stops the reader-owned worker; no shared executor is affected.
-     */
-    @Override
-    public void close() {
-        cancel();
-        worker.shutdownNow();
     }
 }

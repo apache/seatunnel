@@ -109,6 +109,20 @@ final class ConfluenceHttp {
     }
 
     /**
+     * Closes the active raw socket without draining a rejected or still-streaming response body.
+     */
+    void abort() {
+        Socket socket = active.getAndSet(null);
+        if (socket != null) {
+            try {
+                socket.close();
+            } catch (IOException ignored) {
+                // The worker also closes the socket when it leaves fetch().
+            }
+        }
+    }
+
+    /**
      * Checks status before body decoding and always shuts down without draining a rejected
      * response.
      */
@@ -150,20 +164,6 @@ final class ConfluenceHttp {
                 connection.shutdown();
             } catch (IOException ignored) {
                 // The owning socket also closes when fetch exits.
-            }
-        }
-    }
-
-    /**
-     * Closes the active raw socket without draining a rejected or still-streaming response body.
-     */
-    void abort() {
-        Socket socket = active.getAndSet(null);
-        if (socket != null) {
-            try {
-                socket.close();
-            } catch (IOException ignored) {
-                // The worker also closes the socket when it leaves fetch().
             }
         }
     }

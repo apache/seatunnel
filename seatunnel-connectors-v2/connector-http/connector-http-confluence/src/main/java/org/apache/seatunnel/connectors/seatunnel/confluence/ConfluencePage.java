@@ -45,9 +45,12 @@ import java.util.TreeMap;
  */
 final class ConfluencePage {
     private static final int MAX_JSON_TOKENS = 200000;
+    // This template creates nodes only; each response owns the factory used by both parser passes.
     private static final ObjectMapper JSON =
             new ObjectMapper(
                             JsonFactory.builder()
+                                    .disable(JsonFactory.Feature.INTERN_FIELD_NAMES)
+                                    .enable(JsonFactory.Feature.CANONICALIZE_FIELD_NAMES)
                                     .streamReadConstraints(
                                             StreamReadConstraints.builder()
                                                     .maxNestingDepth(64)
@@ -74,15 +77,17 @@ final class ConfluencePage {
      */
     static ConfluencePage decode(
             ConfluenceConfig config, byte[] bytes, Header[] links, String current) {
+        // A fresh factory bounds retained field-name symbols to this response, including failures.
+        ObjectMapper response = JSON.copy();
         JsonNode envelope;
-        try (JsonParser parser = JSON.getFactory().createParser(bytes)) {
+        try (JsonParser parser = response.getFactory().createParser(bytes)) {
             int tokens = 0;
             while (parser.nextToken() != null) {
                 if (++tokens > MAX_JSON_TOKENS) {
                     throw config.failure("response JSON token limit exceeded");
                 }
             }
-            envelope = JSON.readTree(bytes);
+            envelope = response.readTree(bytes);
         } catch (IOException e) {
             throw config.failure("malformed JSON response (body withheld)");
         }

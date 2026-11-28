@@ -116,6 +116,37 @@ class ConfluencePositionTest {
         assertFalse(first.equals(changed));
     }
 
+    /**
+     * Preserves bounded long property names, precision and UTF-8 BOM handling while malformed byte
+     * sequences still fail before any row is exposed. This is payload compatibility coverage.
+     */
+    @Test
+    void preservesLongPropertyNamesAndBomAndRejectsMalformedBytes() {
+        String name = String.join("", Collections.nCopies(131072, "k"));
+        String content =
+                "{\"id\":\"long\",\""
+                        + name
+                        + "\":\"雪🦊\",\"decimal\":1.23456789101112131415,\"nothing\":null}";
+        String body = "{\"results\":[" + content + "]}";
+        for (String prefix : new String[] {"", "\uFEFF"}) {
+            ConfluencePage page =
+                    ConfluencePage.decode(
+                            config,
+                            (prefix + body).getBytes(StandardCharsets.UTF_8),
+                            new Header[0],
+                            "");
+            assertEquals(1, page.rows.size());
+            assertEquals(content, page.rows.get(0).value.getField(3));
+            assertEquals("long", page.rows.get(0).value.getField(1));
+            assertNull(page.next);
+        }
+        byte[] malformed = "{\"results\":[{\"id\":\"x\"}]}".getBytes(StandardCharsets.UTF_8);
+        malformed[malformed.length - 5] = (byte) 0xFF;
+        assertThrows(
+                ConfluenceConfig.Failure.class,
+                () -> ConfluencePage.decode(config, malformed, new Header[0], ""));
+    }
+
     @Test
     void rejectsUnsafeStateAndOriginsWithoutEchoingInputs() {
         ConfluenceSplit initial = ConfluenceSplit.initial(config);

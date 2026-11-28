@@ -231,6 +231,10 @@ final class ConfluenceConfig implements Serializable {
         return value;
     }
 
+    /**
+     * Carries a sanitized connector failure without attaching provider bodies or authentication
+     * details to engine diagnostics.
+     */
     static final class Failure extends IllegalStateException {
         private static final long serialVersionUID = 1L;
 

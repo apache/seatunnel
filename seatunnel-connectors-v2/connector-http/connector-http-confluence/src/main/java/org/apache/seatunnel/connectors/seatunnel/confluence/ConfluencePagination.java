@@ -84,6 +84,76 @@ final class ConfluencePagination {
         return Integer.toString(nextStart);
     }
 
+    /**
+     * Accepts bounded raw query tokens without permitting separators or malformed percent escapes.
+     */
+    static boolean cursorToken(String value) {
+        if (value.isEmpty() || value.length() > 4096) {
+            return false;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c == '%'
+                    && i + 2 < value.length()
+                    && Character.digit(value.charAt(i + 1), 16) >= 0
+                    && Character.digit(value.charAt(i + 2), 16) >= 0) {
+                i += 2;
+            } else if (!((c >= 'a' && c <= 'z')
+                    || (c >= 'A' && c <= 'Z')
+                    || (c >= '0' && c <= '9')
+                    || "_.~+=/-".indexOf(c) >= 0)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /*
+     * Accepts only nonnegative decimal offsets within the supported integer range.
+     */
+    static int offset(ConfluenceConfig config, String value) {
+        if (value.matches("[0-9]{1,10}")) {
+            try {
+                return Integer.parseInt(value);
+            } catch (NumberFormatException ignored) {
+                // Use the same redacted diagnostic as malformed values.
+            }
+        }
+        throw config.failure("invalid offset in pagination state");
+    }
+
+    /**
+     * Normalizes equivalent permitted percent encodings before hashing positions for cycle
+     * detection.
+     */
+    static String fingerprint(String value) {
+        StringBuilder canonical = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c != '%') {
+                canonical.append(c);
+                continue;
+            }
+            String escape = value.substring(i + 1, i + 3);
+            char decoded = (char) Integer.parseInt(escape, 16);
+            if ((decoded >= 'a' && decoded <= 'z')
+                    || (decoded >= 'A' && decoded <= 'Z')
+                    || (decoded >= '0' && decoded <= '9')
+                    || decoded == '-'
+                    || decoded == '_'
+                    || decoded == '.'
+                    || decoded == '~'
+                    || decoded == '='
+                    || decoded == '/') {
+                canonical.append(decoded);
+            } else {
+                canonical.append('%').append(escape.toUpperCase(Locale.ROOT));
+            }
+            i += 2;
+        }
+        return ConfluenceConfig.digest(canonical.toString().getBytes(StandardCharsets.US_ASCII));
+    }
+
     private int size(JsonNode envelope, String key, int fallback) {
         JsonNode value = envelope.get(key);
         if (value == null) {
@@ -265,75 +335,5 @@ final class ConfluencePagination {
             throw config.failure("missing or invalid next position");
         }
         return config.resource.cursor() ? position : Integer.toString(offset(config, position));
-    }
-
-    /**
-     * Accepts bounded raw query tokens without permitting separators or malformed percent escapes.
-     */
-    static boolean cursorToken(String value) {
-        if (value.isEmpty() || value.length() > 4096) {
-            return false;
-        }
-        for (int i = 0; i < value.length(); i++) {
-            char c = value.charAt(i);
-            if (c == '%'
-                    && i + 2 < value.length()
-                    && Character.digit(value.charAt(i + 1), 16) >= 0
-                    && Character.digit(value.charAt(i + 2), 16) >= 0) {
-                i += 2;
-            } else if (!((c >= 'a' && c <= 'z')
-                    || (c >= 'A' && c <= 'Z')
-                    || (c >= '0' && c <= '9')
-                    || "_.~+=/-".indexOf(c) >= 0)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /*
-     * Accepts only nonnegative decimal offsets within the supported integer range.
-     */
-    static int offset(ConfluenceConfig config, String value) {
-        if (value.matches("[0-9]{1,10}")) {
-            try {
-                return Integer.parseInt(value);
-            } catch (NumberFormatException ignored) {
-                // Use the same redacted diagnostic as malformed values.
-            }
-        }
-        throw config.failure("invalid offset in pagination state");
-    }
-
-    /**
-     * Normalizes equivalent permitted percent encodings before hashing positions for cycle
-     * detection.
-     */
-    static String fingerprint(String value) {
-        StringBuilder canonical = new StringBuilder(value.length());
-        for (int i = 0; i < value.length(); i++) {
-            char c = value.charAt(i);
-            if (c != '%') {
-                canonical.append(c);
-                continue;
-            }
-            String escape = value.substring(i + 1, i + 3);
-            char decoded = (char) Integer.parseInt(escape, 16);
-            if ((decoded >= 'a' && decoded <= 'z')
-                    || (decoded >= 'A' && decoded <= 'Z')
-                    || (decoded >= '0' && decoded <= '9')
-                    || decoded == '-'
-                    || decoded == '_'
-                    || decoded == '.'
-                    || decoded == '~'
-                    || decoded == '='
-                    || decoded == '/') {
-                canonical.append(decoded);
-            } else {
-                canonical.append('%').append(escape.toUpperCase(Locale.ROOT));
-            }
-            i += 2;
-        }
-        return ConfluenceConfig.digest(canonical.toString().getBytes(StandardCharsets.US_ASCII));
     }
 }
