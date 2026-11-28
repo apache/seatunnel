@@ -91,6 +91,17 @@ public interface ResourceManager {
             throws NoEnoughResourceException;
 
     /**
+     * Drops the job-scoped allocation bookkeeping kept by the slot allocation strategy.
+     *
+     * <p>Called when a job starts a new allocation round and when it reaches a terminal state. Only
+     * the supplied job's counters are dropped; the in-flight allocation state of other jobs must be
+     * preserved. Managers whose strategy keeps no state can keep the default no-op.
+     *
+     * @param jobId job whose allocation state should be dropped
+     */
+    default void resetSlotAllocationState(long jobId) {}
+
+    /**
      * Releases a collection of job-owned slot assignments through their worker slot services.
      *
      * <p>Each release is attempted. The aggregate future fails if any individual release fails;

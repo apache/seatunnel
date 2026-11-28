@@ -155,6 +155,13 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
   - **影响**：对批作业，这消除了已完成作业指标多计的问题。对流作业，故障转移恢复后上报的总量会从新一次执行的数值重新开始，而不是延续故障前的累计值；外部聚合这些计数器的看板或告警不应将这种清零解读为数据丢失。该清零是尽力而为的：恢复期间恰好在途的 worker 上报，最多可能在毫秒级窗口内携带一次旧数值。
   - **迁移指南**：正确性上无需任何操作。如果需要跨故障转移的生命周期总量，请在运行中的作业之外自行累计，例如从作业历史中已完成作业存储的指标获取。
 
+### Zeta：槽位分配策略状态按作业隔离
+
+- **行为变更：`SlotRatioStrategy` 与 `SystemLoadStrategy` 中已废弃的 `getWorkerAssignedSlots()` / `setWorkerAssignedSlots()` 不再暴露引擎实时的分配计数**
+  - **描述**：此前每个策略只有一份共享的槽位计数 Map，并且每个作业开始申请资源时都会替换它，因此一个作业的分配轮次会丢弃其他所有作业正在使用的计数。现在每个策略按作业 ID 保存一份计数 Map，重置时只丢弃指定作业的计数。为保持二进制兼容，已废弃的访问器仍然保留，但它们只描述旧的非作业级记账：getter 返回 setter 安装的同一个 Map 实例（首次直接调用 `selectWorker(List)` 会安装一个空 Map，在此之前 getter 返回 `null`），非作业级的 `selectWorker(List)` 入口仍然读写该 Map。引擎自身的分配记在按作业划分的 Map 中，而不是该 Map 中。setter 仍然安装调用方传入的 Map 引用而不是副本，因此调用方通过该引用所做的更新仍然会影响非作业级选择路径。
+  - **影响**：通过 `getWorkerAssignedSlots()` 观察 master 实时槽位分配的扩展或诊断代码将不再看到这些数据：该值只包含调用方安装的内容，或直接调用 `selectWorker(List)` 记录的内容，既不能替换也不能查看正在运行的作业状态。管道恢复仍然会重置整个作业的计数，包括该作业其他管道临时记录的计数；这一“整个作业”的契约是有意保留且未改变的。
+  - **迁移指南**：现有作业无需修改源码或配置；`SlotAllocationStrategy` 的实现类也不需要修改，因为面向作业的方法都是默认方法。需要按作业进行分配决策的代码应使用 `selectWorker(List, long jobId)` 传入作业 ID，并通过 `resetJobState(long)`（或 `ResourceManager.resetSlotAllocationState(long)`）丢弃该作业的计数。本版本不提供按作业查看内部计数的 API，请勿使用已废弃的访问器观察引擎分配状态。无需迁移任何网络传输格式或 checkpoint 格式。
+
 ### JSON 格式：`ARRAY` 与 `MAP` 字段拒绝容器类型不匹配的值
 
 当字段声明为 `ARRAY` 时，此前若 JSON 值不是数组（字符串、数字、布尔值或对象），会静默得到空数组 `[]`，若是对象则得到每个成员都为 `null` 的数组；当字段声明为 `MAP` 时，非对象的 JSON 值会静默得到空 Map `{}`。无论 `ignore-parse-errors` 关闭还是开启，行为都是如此。

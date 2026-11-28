@@ -78,11 +78,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.cleanup.JobCleanupRecord;
 import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
-import org.apache.seatunnel.engine.server.resourcemanager.AbstractResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
-import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotAllocationStrategy;
-import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotRatioStrategy;
-import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SystemLoadStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
@@ -517,23 +513,19 @@ public class JobMaster {
      */
     public boolean preApplyResources(SubPlan subPlan) {
 
-        // When starting to apply for task resources, reset the worker's slot allocation information
+        // When starting to apply for task resources, reset this job's slot allocation bookkeeping.
         // Mainly used in two scenarios:
         // 1. When based on the SYSTEM_LOAD strategy, the system load cannot change dynamically, and
         // the resources used by each slot need to be calculated and inferred
         // 2. When based on the SLOT_RATIO strategy, registerWorker is not updated in real time, and
         // is used to record the slot application status
-        //        ((AbstractResourceManager) resourceManager)
-        //                .setWorkerAssignedSlots(new ConcurrentHashMap<>());
-        SlotAllocationStrategy slotAllocationStrategy =
-                ((AbstractResourceManager) resourceManager).getSlotAllocationStrategy();
-        if (slotAllocationStrategy instanceof SlotRatioStrategy) {
-            ((SlotRatioStrategy) slotAllocationStrategy)
-                    .setWorkerAssignedSlots(new ConcurrentHashMap<>());
-        } else if (slotAllocationStrategy instanceof SystemLoadStrategy) {
-            ((SystemLoadStrategy) slotAllocationStrategy)
-                    .setWorkerAssignedSlots(new ConcurrentHashMap<>());
-        }
+        //
+        // The strategy instance is shared by every job on the master, and its bookkeeping is
+        // scoped per job, so this only drops the counters of the job being pre-applied. Replacing
+        // a global map here used to wipe the in-flight counters of every other job. The key is the
+        // job, not the pipeline: a single-pipeline pre-apply still drops the provisional counters
+        // this job's other pipelines recorded, which is the pre-existing behavior.
+        resourceManager.resetSlotAllocationState(jobImmutableInformation.getJobId());
 
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =
                 new HashMap<>();
@@ -1042,6 +1034,8 @@ public class JobMaster {
         checkpointManager.clearCheckpointIfNeed(physicalPlan.getJobStatus());
         jobHistoryService.storeJobInfo(jobImmutableInformation.getJobId(), getJobDAGInfo());
         jobHistoryService.storeFinishedJobState(this);
+        // The job cannot allocate again, so drop its job-scoped allocation bookkeeping.
+        resourceManager.resetSlotAllocationState(jobImmutableInformation.getJobId());
         scheduleRemoveJobStateMaps();
     }
 
