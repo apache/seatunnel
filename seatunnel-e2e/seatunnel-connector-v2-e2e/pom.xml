@@ -125,6 +125,7 @@
         <module>connector-couchbase-e2e</module>
         <module>connector-firebase-e2e</module>
         <module>connector-websocket-e2e</module>
+        <module>connector-akeneo-e2e</module>
     </modules>
 
     <properties>
