@@ -217,6 +217,7 @@ public class ZetaSQLFunction {
     public static final String IFNULL = "IFNULL";
     public static final String NULLIF = "NULLIF";
     public static final String MULTI_IF = "MULTI_IF";
+    public static final String IF = "IF";
 
     public static final String UUID = "UUID";
 
@@ -400,6 +401,11 @@ public class ZetaSQLFunction {
             // Special handling for MULTI_IF to properly evaluate comparison expressions
             if (MULTI_IF.equalsIgnoreCase(functionName)) {
                 return multiIfFunction(function, inputFields);
+            }
+
+            // Special handling for IF to properly evaluate comparison expressions
+            if (IF.equalsIgnoreCase(functionName)) {
+                return ifFunction(function, inputFields);
             }
 
             // Standard handling for other functions
@@ -1098,6 +1104,60 @@ public class ZetaSQLFunction {
 
         // No condition was true, evaluate and return the default value (last argument)
         return computeForValue(expressions.get(expressions.size() - 1), inputFields);
+    }
+
+    /**
+     * Evaluates {@code IF(condition, trueValue, falseValue)}. Any boolean-typed condition
+     * expression (comparison, {@code IS NULL}, {@code IN}, {@code LIKE}, boolean combinations, with
+     * or without parentheses) is evaluated through the filter evaluator; a bare boolean column
+     * keeps the value path so a null value is treated as false, and a non-null non-boolean
+     * condition is an error. Type inference for both branches is eager during planning, but per row
+     * only the selected branch is evaluated, and a selected value already of the resolved common
+     * result type is returned unchanged, so identity-sensitive values such as byte arrays, arrays
+     * and maps survive; other values are converted to the common type following CAST semantics.
+     */
+    private Object ifFunction(Function function, Object[] inputFields) {
+        ExpressionList<Expression> expressionList =
+                (ExpressionList<Expression>) function.getParameters();
+        if (expressionList == null
+                || expressionList.getExpressions() == null
+                || expressionList.getExpressions().size() != 3) {
+            throw new TransformException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    String.format("IF function requires exactly 3 arguments: %s", function));
+        }
+
+        List<Expression> expressions = expressionList.getExpressions();
+        Expression conditionExpr = expressions.get(0);
+        Object conditionResult;
+
+        Expression unwrappedCondition = conditionExpr;
+        while (unwrappedCondition instanceof Parenthesis) {
+            unwrappedCondition = ((Parenthesis) unwrappedCondition).getExpression();
+        }
+        if (zetaSQLFilter.isConditionExpr(conditionExpr)
+                && !(unwrappedCondition instanceof Column)) {
+            conditionResult = zetaSQLFilter.executeFilter(conditionExpr, inputFields);
+        } else {
+            conditionResult = computeForValue(conditionExpr, inputFields);
+        }
+
+        if (conditionResult != null && !(conditionResult instanceof Boolean)) {
+            throw new TransformException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    String.format(
+                            "IF function condition must be boolean, but was %s",
+                            conditionResult.getClass().getSimpleName()));
+        }
+
+        Expression branchExpr =
+                Boolean.TRUE.equals(conditionResult) ? expressions.get(1) : expressions.get(2);
+        Object result = computeForValue(branchExpr, inputFields);
+        SeaTunnelDataType<?> resultType = zetaSQLType.getExpressionType(function);
+        if (result == null || resultType.equals(zetaSQLType.getExpressionType(branchExpr))) {
+            return result;
+        }
+        return SystemFunction.castAs(result, resultType);
     }
 
     private Object computeDateTimeLiteralExpression(DateTimeLiteralExpression expression) {

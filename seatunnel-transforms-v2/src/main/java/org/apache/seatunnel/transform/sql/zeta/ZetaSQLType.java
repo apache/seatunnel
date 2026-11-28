@@ -308,6 +308,89 @@ public class ZetaSQLType {
         return result;
     }
 
+    /**
+     * Resolves the common result type of the two value branches of {@code IF}. A {@code NULL}
+     * literal branch is transparent. Unlike {@link #getMaxType(SeaTunnelDataType,
+     * SeaTunnelDataType)}, a string branch widens the result to STRING (the other branch is
+     * rendered as text, following CAST semantics), so a string branch can be mixed with a numeric
+     * branch. Decimal operands are merged exactly so no branch value is truncated, as described in
+     * {@link #mergeIfDecimalType}.
+     */
+    private SeaTunnelDataType<?> getIfCommonType(
+            SeaTunnelDataType<?> trueType, SeaTunnelDataType<?> falseType) {
+        if (trueType == null || BasicType.VOID_TYPE.equals(trueType)) {
+            return falseType;
+        }
+        if (falseType == null || BasicType.VOID_TYPE.equals(falseType)) {
+            return trueType;
+        }
+        if (trueType.equals(falseType)) {
+            return trueType;
+        }
+        if (BasicType.STRING_TYPE.equals(trueType) || BasicType.STRING_TYPE.equals(falseType)) {
+            return BasicType.STRING_TYPE;
+        }
+        SeaTunnelDataType<?> decimalMergedType = mergeIfDecimalType(trueType, falseType);
+        if (decimalMergedType != null) {
+            return decimalMergedType;
+        }
+        return getMaxType(trueType, falseType);
+    }
+
+    /**
+     * Merges a decimal branch type with the other branch type of {@code IF}, or returns null when
+     * neither branch type is decimal. The merged precision keeps the wider integer part, so a
+     * DECIMAL(10,2) branch combined with a DECIMAL(10,8) branch resolves to DECIMAL(16,8) rather
+     * than truncating the integer part, and an integer branch contributes its full digit width
+     * (TINYINT 3, SMALLINT 5, INT 10, BIGINT 19). A FLOAT or DOUBLE branch resolves to DOUBLE
+     * following CAST semantics.
+     */
+    private SeaTunnelDataType<?> mergeIfDecimalType(
+            SeaTunnelDataType<?> trueType, SeaTunnelDataType<?> falseType) {
+        DecimalType decimalType;
+        SeaTunnelDataType<?> otherType;
+        if (trueType.getSqlType() == SqlType.DECIMAL) {
+            decimalType = (DecimalType) trueType;
+            otherType = falseType;
+        } else if (falseType.getSqlType() == SqlType.DECIMAL) {
+            decimalType = (DecimalType) falseType;
+            otherType = trueType;
+        } else {
+            return null;
+        }
+        int decimalIntegerDigits = decimalType.getPrecision() - decimalType.getScale();
+        if (otherType.getSqlType() == SqlType.DECIMAL) {
+            DecimalType otherDecimalType = (DecimalType) otherType;
+            int otherIntegerDigits = otherDecimalType.getPrecision() - otherDecimalType.getScale();
+            int scale = Math.max(decimalType.getScale(), otherDecimalType.getScale());
+            return new DecimalType(
+                    Math.max(decimalIntegerDigits, otherIntegerDigits) + scale, scale);
+        }
+        switch (otherType.getSqlType()) {
+            case TINYINT:
+                return new DecimalType(
+                        Math.max(decimalIntegerDigits, 3) + decimalType.getScale(),
+                        decimalType.getScale());
+            case SMALLINT:
+                return new DecimalType(
+                        Math.max(decimalIntegerDigits, 5) + decimalType.getScale(),
+                        decimalType.getScale());
+            case INT:
+                return new DecimalType(
+                        Math.max(decimalIntegerDigits, 10) + decimalType.getScale(),
+                        decimalType.getScale());
+            case BIGINT:
+                return new DecimalType(
+                        Math.max(decimalIntegerDigits, 19) + decimalType.getScale(),
+                        decimalType.getScale());
+            case FLOAT:
+            case DOUBLE:
+                return BasicType.DOUBLE_TYPE;
+            default:
+                return null;
+        }
+    }
+
     private SeaTunnelDataType<?> getCaseType(CaseExpression caseExpression) {
         final Collection<SeaTunnelDataType<?>> types =
                 caseExpression.getWhenClauses().stream()
@@ -519,6 +602,20 @@ public class ZetaSQLType {
                 resultTypes.add(
                         getExpressionType(multiIfExpressions.get(multiIfExpressions.size() - 1)));
                 return getMaxType(resultTypes);
+            case ZetaSQLFunction.IF:
+                ExpressionList ifExpressionList = function.getParameters();
+                if (ifExpressionList == null
+                        || ifExpressionList.getExpressions() == null
+                        || ifExpressionList.getExpressions().size() != 3) {
+                    throw new TransformException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                            String.format("IF function requires exactly 3 arguments"));
+                }
+
+                List<Expression> ifExpressions = ifExpressionList.getExpressions();
+                return getIfCommonType(
+                        getExpressionType(ifExpressions.get(1)),
+                        getExpressionType(ifExpressions.get(2)));
             case ZetaSQLFunction.MOD:
                 // Result has the same type as second argument
                 return getExpressionType(function.getParameters().getExpressions().get(1));
