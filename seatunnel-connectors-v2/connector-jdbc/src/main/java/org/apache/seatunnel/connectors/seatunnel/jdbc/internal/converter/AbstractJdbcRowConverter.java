@@ -65,13 +65,23 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
     protected static final LocalDate[] TYPE_ARRAY_LOCAL_DATE = new LocalDate[0];
     protected static final LocalDateTime[] TYPE_ARRAY_LOCAL_DATETIME = new LocalDateTime[0];
 
+    // Remember only the last schema in each direction. A different schema instance, including
+    // one produced by schema evolution, always gets its own conversion metadata.
+    private transient volatile ReadMetadata readMetadata;
+    private transient volatile WriteMetadata writeMetadata;
+
     public abstract String converterName();
 
     public AbstractJdbcRowConverter() {}
 
     @Override
     public SeaTunnelRow toInternal(ResultSet rs, TableSchema tableSchema) throws SQLException {
-        SeaTunnelRowType typeInfo = tableSchema.toPhysicalRowDataType();
+        ReadMetadata metadata = readMetadata;
+        if (metadata == null || metadata.schema != tableSchema) {
+            metadata = new ReadMetadata(tableSchema);
+            readMetadata = metadata;
+        }
+        SeaTunnelRowType typeInfo = metadata.rowType;
         Object[] fields = new Object[typeInfo.getTotalFields()];
         for (int fieldIndex = 0; fieldIndex < typeInfo.getTotalFields(); fieldIndex++) {
             SeaTunnelDataType<?> seaTunnelDataType = typeInfo.getFieldType(fieldIndex);
@@ -202,16 +212,19 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
             SeaTunnelRow row,
             PreparedStatement statement)
             throws SQLException {
-        SeaTunnelRowType rowType = tableSchema.toPhysicalRowDataType();
+        WriteMetadata metadata = writeMetadata;
+        if (metadata == null
+                || metadata.schema != tableSchema
+                || metadata.databaseSchema != databaseTableSchema) {
+            metadata = new WriteMetadata(tableSchema, databaseTableSchema);
+            writeMetadata = metadata;
+        }
+        SeaTunnelRowType rowType = metadata.rowType;
         for (int fieldIndex = 0; fieldIndex < rowType.getTotalFields(); fieldIndex++) {
             try {
                 SeaTunnelDataType<?> seaTunnelDataType = rowType.getFieldType(fieldIndex);
-                String fieldName = rowType.getFieldName(fieldIndex);
                 int statementIndex = fieldIndex + 1;
-                String sourceType = null;
-                if (databaseTableSchema != null && databaseTableSchema.contains(fieldName)) {
-                    sourceType = databaseTableSchema.getColumn(fieldName).getSourceType();
-                }
+                String sourceType = metadata.sourceTypes[fieldIndex];
                 Object fieldValue = row.getField(fieldIndex);
                 if (fieldValue == null) {
                     setNullToStatementByDataType(
@@ -219,11 +232,7 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                     continue;
                 }
                 setValueToStatementByDataType(
-                        row.getField(fieldIndex),
-                        statement,
-                        seaTunnelDataType,
-                        statementIndex,
-                        sourceType);
+                        fieldValue, statement, seaTunnelDataType, statementIndex, sourceType);
             } catch (Exception e) {
                 throw new JdbcConnectorException(
                         JdbcConnectorErrorCode.DATA_TYPE_CAST_FAILED,
@@ -367,5 +376,37 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
     protected void writeTimestamp(PreparedStatement statement, int index, LocalDateTime value)
             throws SQLException {
         statement.setTimestamp(index, Timestamp.valueOf(value));
+    }
+
+    private static final class ReadMetadata {
+        private final TableSchema schema;
+        private final SeaTunnelRowType rowType;
+
+        private ReadMetadata(TableSchema schema) {
+            this.schema = schema;
+            this.rowType = schema.toPhysicalRowDataType();
+        }
+    }
+
+    private static final class WriteMetadata {
+        private final TableSchema schema;
+        private final TableSchema databaseSchema;
+        private final SeaTunnelRowType rowType;
+        private final String[] sourceTypes;
+
+        private WriteMetadata(TableSchema schema, @Nullable TableSchema databaseSchema) {
+            this.schema = schema;
+            this.databaseSchema = databaseSchema;
+            this.rowType = schema.toPhysicalRowDataType();
+            this.sourceTypes = new String[rowType.getTotalFields()];
+            if (databaseSchema != null) {
+                for (int i = 0; i < sourceTypes.length; i++) {
+                    String fieldName = rowType.getFieldName(i);
+                    if (databaseSchema.contains(fieldName)) {
+                        sourceTypes[i] = databaseSchema.getColumn(fieldName).getSourceType();
+                    }
+                }
+            }
+        }
     }
 }
