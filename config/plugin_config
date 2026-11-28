@@ -149,3 +149,4 @@ connector-python
 connector-bigquery
 connector-nats-jetstream
 connector-websocket
+connector-http-amazon-ads
