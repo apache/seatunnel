@@ -22,6 +22,18 @@ MySQL `DATETIME` maps to SeaTunnel `TIMESTAMP` (`LocalDateTime`). The MySQL JDBC
 
 When upgrading from a version affected by [#13024](https://github.com/apache/seatunnel/issues/13024), remove any manual hour offset added to compensate for shifted `DATETIME` writes. Previously stored values are not repaired automatically; compare them with the original source before correcting or reloading data.
 
+## GoldenDB
+
+To use the MySQL-compatible JDBC dialect and catalog with a GoldenDB driver, explicitly set `dialect = "GoldenDB"` along with its matching driver class and URL, for example:
+
+```hocon
+url = "jdbc:goldendb://goldendb-host:3306/example"
+driver = "com.goldendb.jdbc.Driver"
+dialect = "GoldenDB"
+```
+
+Install a GoldenDB JDBC driver compatible with your database version. Driver class names and supported URL formats depend on that version. GoldenDB deployments that expose the MySQL protocol may instead use a compatible MySQL JDBC driver and `jdbc:mysql://` URL; this selects the existing MySQL dialect. Existing `jdbc:goldendb:` configurations without an explicit dialect continue to use the generic dialect. The MySQL catalog requires `username` and `password` and does not forward the JDBC `properties` map to catalog connections. Verify SQL, data types, and transaction behavior against your GoldenDB version before production use. A MySQL test does not verify a GoldenDB server or its driver.
+
 ## Using Dependency
 
 Install the `connector-jdbc` plugin first:
@@ -208,13 +220,14 @@ Exactly-once delivery uses XA transactions and therefore requires XA support fro
 | password                                  | String  | No       | -                            |
 | query                                     | String  | No       | -                            |
 | compatible_mode                           | String  | No       | -                            |
-| dialect                                   | String  | No       | -                            | 
+| dialect                                   | String  | No       | -                            |
 | database                                  | String  | No       | -                            |
 | table                                     | String  | No       | -                            |
 | schema                                    | String  | No       | -                            |
 | tablePrefix                               | String  | No       | -                            |
 | tableSuffix                               | String  | No       | -                            |
 | primary_keys                              | Array   | No       | -                            |
+| multi_table_sink_replica                  | Int     | No       | 1                            |
 | connection_check_timeout_sec              | Int     | No       | 30                           |
 | connect_timeout_ms                        | Int     | No       | 86400000                     |
 | socket_timeout_ms                         | Int     | No       | 86400000                     |
@@ -239,6 +252,7 @@ Exactly-once delivery uses XA transactions and therefore requires XA support fro
 | enable_upsert                             | Boolean | No       | true                         |
 | is_primary_key_updated                    | Boolean | No       | true                         |
 | support_upsert_by_insert_only             | Boolean | No       | false                        |
+| upsert_batch_key_ordered                  | Boolean | No       | false                        |
 | table_options                             | Map     | No       | -                            |
 | use_copy_statement                        | Boolean | No       | false                        |
 | oracle_insert_mode                        | Enum    | No       | CONVENTIONAL                 |
@@ -283,9 +297,9 @@ Postgres 9.5 version or below,please set it to `postgresLow` to support cdc
 
 ### dialect [string]
 
-The appointed dialect, if it does not exist, is still obtained according to the url, and the priority is higher than the url. For example,when using starrocks, you need set it to `starrocks`. Similarly, when using mysql, you need to set its value to `mysql`.
+The appointed dialect. When set, its value must match one of the dialect names in the dialect list below (case-insensitive) and takes priority over the dialect inferred from the url; when it is not set, the dialect is inferred from the url. For example, when using MySQL, you need to set its value to `mysql`. Note: StarRocks is not a dialect name. When using StarRocks, leave `dialect` unset and set `compatible_mode` to `starrocks`. Inceptor is not a dialect name either. When using Inceptor, leave `dialect` unset or set `dialect` to `HIVE`, and set `compatible_mode` to `inceptor`.
 
-If one dialect not supported by SeaTunnel, it will use the default dialect `GenericDialect`. Just make sure the driver you provided support the database you want to connect.
+If the `dialect` option is not set and no dialect matches the url, SeaTunnel uses the default dialect `GenericDialect`. If `dialect` is set to a value that does not match any supported dialect name, job initialization fails instead of falling back. Just make sure the driver you provided supports the database you want to connect.
 
 #### dialect list
 
@@ -293,17 +307,22 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 |-----------|--------------|----------|
 | Greenplum | DB2          | Dameng   |
 | Gbase8a   | HIVE         | KingBase |
-| MySQL     | StarRocks    | Oracle   |
+| MySQL     | OpenGauss    | Oracle   |
 | Phoenix   | Postgres     | Redshift |
 | SapHana   | Snowflake    | Sqlite   |
 | SqlServer | Tablestore   | Teradata |
 | Vertica   | OceanBase    | XUGU     |
-| IRIS      | Inceptor     | Highgo   |
-| OpenGauss | Presto       | Dsql        |
-| DuckDB    | YashanDB     | CockroachDB |
+| IRIS      | Presto       | Highgo   |
+| DSQL      |              |          |
+| YashanDB  | CockroachDB  |          |
+| DuckDB    |              |          |
 ### database [string]
 
 The target database or catalog used in generated SQL mode. This option is required when `generate_sink_sql = true` and must not be combined with `query`.
+
+### multi_table_sink_replica [int]
+
+The replica number of multi table sink writer. Only takes effect in multi-table jobs.
 
 ### table [string]
 
@@ -341,21 +360,23 @@ Deprecated. Use `table` with table placeholders instead. For example, use `table
 
 The target key columns used to generate database-native UPSERT, UPDATE, and DELETE statements. If omitted, SeaTunnel attempts to inherit a primary key or the first unique key from upstream catalog metadata. If no key is available, generated SQL uses plain INSERT.
 
+With `multi_table_sink_replica` above 1 and `is_exactly_once = false`, the sink sends each row to one of the writers of its table by the first column of the table's primary key, or, when the table has none, by the first column of `primary_keys`, configured or inherited from a unique key. The changes of one key then reach the same writer, in order. When that key column holds binary values (SeaTunnel type `BYTES`, for example `BINARY`, `VARBINARY` or `BYTEA`), the writer is chosen by the identity of each row's value instead of its content, so the changes of one key can still reach different writers; keep `multi_table_sink_replica` at 1 for such tables. Rows of a table without such a key, and all rows with `is_exactly_once = true`, are spread over the writers without regard to the key. An update that changes the key value can move the record to another writer, and rows in different writers have no order.
+
 ### connection_check_timeout_sec [int]
 
 The time in seconds to wait for the database operation used to validate the connection to complete.
 
 ### connect_timeout_ms [int]
 
-Connection timeout in milliseconds when establishing the JDBC connection. The default is 24 hours. Set it to `0` to disable the timeout.
+Connection timeout in milliseconds when establishing the JDBC connection. The default is 24 hours. Set it to `0` to use the driver default (no explicit timeout). Currently this option is only applied by the Hive dialect; other dialects ignore it.
 
 ### socket_timeout_ms [int]
 
-Socket read timeout in milliseconds after the JDBC connection is established. The default is 24 hours. Set it to `0` to disable the timeout.
+Socket read timeout in milliseconds after the JDBC connection is established. The default is 24 hours. Set it to `0` to use the driver default (no explicit timeout). Currently this option is only applied by the Hive dialect; other dialects ignore it.
 
 ### max_retries [int]
 
-The number of retries after a failed JDBC `executeBatch`. Exactly-once mode requires this option to be `0`; retrying a failed XA batch can violate transaction guarantees.
+The number of retries after a failed JDBC `executeBatch`. In auto-commit mode, transaction conflicts such as PostgreSQL `40P01` keep the existing generic retry behavior. On manual-commit connections, conflicts are retried only when the sink can roll back and replay the complete flush transaction; otherwise they are propagated. When a checkpoint transaction spans multiple flushes, checkpoint recovery replays the complete transaction safely. Exactly-once mode requires this option to be `0`; retrying a failed XA batch can violate transaction guarantees.
 
 A non-XA manual-commit failure at `Connection.commit()` is treated as a system error, even with SQLState class `22` or `23`. The failed writer cannot retry the commit as if it restored the transaction. With checkpointing enabled, any flushed work sharing that transaction is marked unsafe, and other writers on the same queue also refuse to commit until recovery.
 
@@ -619,6 +640,10 @@ Whether primary key fields are included when generating update statements. Keep 
 ### support_upsert_by_insert_only [boolean]
 
 Whether to support upsert behavior through insert-only statements for compatible dialects. This is an advanced compatibility option and is disabled by default.
+
+### upsert_batch_key_ordered [boolean]
+
+Sorts standard primary-key upsert and delete entries in each flush by a deterministic primary-key order before executing them. This reduces lock-order deadlocks between concurrent JDBC writers. A batch that mixes upserts and deletes may execute more child batches when the change flag alternates. The option defaults to `false` for compatibility and applies to the generated primary-key upsert path; custom `query` statements keep their configured ordering. Sorting only orders records within one flush and cannot replace transaction conflict handling.
 
 ### use_copy_statement [boolean]
 
@@ -1005,9 +1030,13 @@ sink {
 }
 ```
 
-`dialect = "Dsql"` selects Amazon Aurora DSQL. AWS credentials are read from `access_key_id` / `secret_access_key`
-(and `region`) rather than from a username/password pair. Aurora DSQL does not support XA, so leave
-`is_exactly_once` at its default of `false`.
+`dialect = "Dsql"` selects Amazon Aurora DSQL. Set `username` to the database role. The connector uses
+`access_key_id`, `secret_access_key`, and `region` to generate the IAM token it supplies as the JDBC password.
+Leave `is_exactly_once` at its default of `false` because Aurora DSQL does not support XA.
+
+### multi_table_sink_replica [int]
+
+The replica number of the multi-table sink writer. Must be at least 1. The default value is `1`.
 
 ## Troubleshooting
 

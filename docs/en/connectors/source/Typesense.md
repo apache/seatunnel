@@ -22,8 +22,11 @@ The source is bounded. Each job reads every document that matches the configured
 - [ ] [Exactly-Once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [Schema](../../introduction/concepts/connector-v2-features.md)
-- [x] [Parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [Parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [User-Defined Splits Support](../../introduction/concepts/connector-v2-features.md)
+
+The split enumerator creates exactly one split for the configured collection. A job can set
+`parallelism` greater than `1`, but only one reader receives the split and the other readers stay idle.
 
 ## Options
 

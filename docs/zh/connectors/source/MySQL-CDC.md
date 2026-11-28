@@ -105,7 +105,7 @@ enforce_gtid_consistency = on
 3. 重启MySQL Server
 
 ```shell
-/etc/inint.d/mysqld restart
+/etc/init.d/mysqld restart
 ```
 
 4. 修改之后再检查一次binlog的状态:
@@ -179,7 +179,7 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | DATE                                                                                           | DATE          |
 | TIME(s)                                                                                        | TIME(s)       |
 | DATETIME<br/>TIMESTAMP(s)                                                                      | TIMESTAMP(s)  |
-| BINARY<br/>VARBINAR<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB <br/>GEOMETRY | BYTES         |
+| BINARY<br/>VARBINARY<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB <br/>GEOMETRY | BYTES         |
 
 ## 配置参数选项
 
@@ -207,7 +207,7 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | snapshot.fetch.size                       | Integer  | 否    | 1024    | 每次轮询读取表快照时的最大获取大小.                                                                                                                                                                                                                           |
 | incremental.parallelism                   | Integer  | 否    | 1       | 增量（binlog）阶段并行读取器的数量.                                                                                                                                                                                                                       |
 | server-id                                 | String   | 否    | -       | 此 CDC 读取器使用的数字 ID 或数字 ID 范围，例如 `5400` 或 `5400-5408`。每个 ID 在 MySQL 集群中必须唯一。当任务有多个读取并发或并行读取多张表时，请配置足够大的 ID 范围。未配置时 SeaTunnel 会随机生成 ID，但生产环境建议显式配置。 |
-| server-time-zone                          | String   | 否    | -       | 数据库服务中的会话时区. 如果没设置, 使用 ZoneId.systemDefault() 来确定服务的时区.                                                                                                                                                                                      |
+| server-time-zone                          | String   | 否    | JVM 系统时区 | 数据库服务中的会话时区. 如果没设置, 使用 ZoneId.systemDefault() 来确定服务的时区.                                                                                                                                                                       |
 | connect.timeout.ms                        | Long     | 否    | 30000   | 连接器在尝试连接数据库服务器后，在超时之前应等待的最长时间.                                                                                                                                                                                                               |
 | connect.max-retries                       | Integer  | 否    | 3       | 连接器在构建数据库服务器连接时应重试的最大重试次数.                                                                                                                                                                                                                   |
 | connection.pool.size                      | Integer  | 否    | 20      | jdbc连接池大小.                                                                                                                                                                                                                                   |
@@ -219,8 +219,9 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | enable_concurrent_read                    | Boolean  | 否    | true    | 是否在快照阶段启用基于分片的并发读取。当设置为 false 时，source 会跳过分片分析，并以单个 split 读取整张表，适合没有索引的表。默认值为 true。 |
 | exactly_once                              | Boolean  | 否    | false   | 启用精确一次语义。当 `startup.mode` 为 `initial` 或 `snapshot-only` 时，还会在快照阶段额外启用有界的 low-to-high-watermark binlog 回填。                                                                                                                                                                             |
 | format                                    | Enum     | 否    | DEFAULT | MySQL CDC 的可选输出格式, 有效的枚举值为 `DEFAULT`、`COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                                             |
-| schema-changes.enabled                    | Boolean  | 否    | false   | 模式演进默认是禁用的. 当前我们只支持 `add column`、`drop column`、`rename column` 和 `modify column`.                                                                                                                                                            |
-| schema-changes.include                     | List     | 否    | -       | 仅向下游发送列出的 schema change 事件类型（需 `schema-changes.enabled = true`）。为空表示全部允许。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                              |
+| schema-changes.enabled                    | Boolean  | 否    | false   | 模式演进默认是禁用的. 当前支持的变更类型：`add column`、`drop column`、`rename column`、`modify column`（类型变更），以及表注释和列注释变更。`schema-changes.include`/`exclude` 中只能选择列级别的变更类型。                                                                                                                                                            |
+| schema-changes.behavior                   | Enum     | 否    | evolve  | `schema-changes.enabled = true` 时，处理经过 `schema-changes.include` / `schema-changes.exclude` 过滤后保留的事件。值不区分大小写：`strict`、`evolve`、`ignore`。`ignore` 只丢弃纯注释事件，行结构变更会失败。目前仅在 Flink 上生效，Zeta 和 Spark 不支持。详见 [Schema 变更行为策略](../../introduction/configuration/schema-evolution.md#schema-变更行为策略)。 |
+| schema-changes.include                    | List     | 否    | -       | 仅向下游发送列出的 schema change 事件类型（需 `schema-changes.enabled = true`）。为空表示全部允许。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                              |
 | schema-changes.exclude                     | List     | 否    | -       | 此处列出的 schema change 事件类型不会发送到下游。在 `schema-changes.include` 之后应用；冲突时 exclude 优先。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                       |
 | debezium                                  | Config   | 否    | -       | 传递 [Debezium的属性](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/mysql.adoc#connector-properties) 给Debezium嵌入式引擎, 该引擎用于捕获 MySQL 服务的数据变更.                                                  |
 | int_type_narrowing                        | Boolean  | 否    | true    | Int类型收窄，如果为 true，则 tinyint(1) 类型将被收窄为 boolean 类型（如果没有精度损失）。目前仅支持 MySQL。                                                                                                                                                                      |
@@ -505,6 +506,8 @@ source {
 }
 ```
 
+当没有可用主键（无论配置的还是物理的）时，连接器无法安全地应用 UPDATE/DELETE 事件。请只在仅追加（append-only）负载、或下游 Sink 行为不依赖行标识的场景中使用该模式。
+
 上述示例演示的是"逻辑主键"场景：源表本身没有物理主键，但通过 `table-names-config.primaryKeys` 显式声明了一列作为稳定行标识，并启用 `exactly_once = true`，让快照阶段与 binlog 阶段都使用同一逻辑主键。只有当被声明的列在源数据中确实保持唯一时，UPDATE/DELETE 才能被正确路由；如果源数据中存在重复值，行为将不再可靠。
 
 可空唯一键列中的 NULL 值，以及 `table-names-config.primaryKeys` 中配置的可空列中的 NULL 值，在快照阶段和 binlog 阶段都会按 NULL 输出。NULL 无法标识一行数据，因此当需要按键应用 UPDATE/DELETE 事件时，请选择 NOT NULL 的列作为键。开启 `exactly_once = true` 时，键为 NULL 的行同样无法区分，每个快照分片中只会保留其中一行。
@@ -697,7 +700,7 @@ source options 示例那样，通过 `table-names-config.primaryKeys` 指定自�
 
 支持，但能力有限。需要启用 `schema-changes.enabled = true`，并遵循当前页面以及
 [Schema Evolution 文档](../../introduction/configuration/schema-evolution.md)中已经定义好的契约。
-目前文档中明确支持 `add column`、`drop column`、`rename column` 和 `modify column`。
+当前支持的变更类型为 `add column`、`drop column`、`rename column`、`modify column`（类型变更），以及表注释和列注释变更。
 
 ### 运行多个 CDC 任务时如何避免 `server-id` 冲突？
 

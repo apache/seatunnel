@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTestin
 import org.apache.seatunnel.shade.com.google.common.collect.ImmutableList;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
@@ -61,6 +62,8 @@ public class IcebergSinkConfig extends IcebergCommonConfig {
     private SchemaSaveMode schemaSaveMode;
     private DataSaveMode dataSaveMode;
     private String dataSaveModeSQL;
+    /** Rotate the task writer after this many rows; null keeps it open until the checkpoint. */
+    private Long flushRowSize;
 
     public IcebergSinkConfig(ReadonlyConfig readonlyConfig) {
         super(readonlyConfig);
@@ -81,6 +84,12 @@ public class IcebergSinkConfig extends IcebergCommonConfig {
         this.dataSaveMode = readonlyConfig.get(IcebergSinkOptions.DATA_SAVE_MODE);
         this.dataSaveModeSQL = readonlyConfig.get(IcebergSinkOptions.DATA_SAVE_MODE_CUSTOM_SQL);
         this.commitBranch = readonlyConfig.get(IcebergSinkOptions.TABLES_DEFAULT_COMMIT_BRANCH);
+        this.flushRowSize = readonlyConfig.get(IcebergSinkOptions.FLUSH_ROW_SIZE);
+        if (flushRowSize != null && flushRowSize <= 0) {
+            throw new OptionValidationException(
+                    "The option '%s' must be greater than 0, but was %d.",
+                    IcebergSinkOptions.FLUSH_ROW_SIZE.key(), flushRowSize);
+        }
     }
 
     @VisibleForTesting

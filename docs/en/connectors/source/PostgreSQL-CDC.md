@@ -28,8 +28,7 @@ once from `information_schema.tables`. The connector deduplicates discovered tab
 qualified `catalog.schema.table` id, so these repeated rows are ignored and the job starts normally.
 
 On a type-name cache miss, an unqualified name shared by multiple schemas resolves to the type
-visible on the source connection's `search_path`. This does not change cached names or add source
-type namespaces to downstream `ADD COLUMN` statements.
+visible on the source connection's `search_path`. This does not change cached names.
 
 ## Supported DataSource Info
 
@@ -98,7 +97,7 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 
 |                      Name                 |   Type   | Required | Default  | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 |-------------------------------------------|----------|----------|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                       | String   | Yes      | -        | The URL of the JDBC connection. Refer to a case: `jdbc:postgresql://localhost:5432/postgres_cdc?loggerLevel=OFF`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| url                                       | String   | Yes      | -        | The URL of the JDBC connection. The value must not be empty or whitespace-only. Refer to a case: `jdbc:postgresql://localhost:5432/postgres_cdc?loggerLevel=OFF`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | username                                  | String   | Yes      | -        | Name of the database to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | password                                  | String   | Yes      | -        | Password to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | database-names                            | List     | No       | -        | Database names to monitor.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
@@ -110,9 +109,10 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | stop.mode                                 | Enum     | No       | NEVER    | Optional stop mode for PostgreSQL CDC consumer. The only valid enumeration is `never`: the source keeps streaming WAL changes and never stops on its own once it reaches the incremental phase.                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | snapshot.split.size                       | Integer  | No       | 8096     | The split size (number of rows) of table snapshot, captured tables are split into multiple splits when read the snapshot of table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | snapshot.fetch.size                       | Integer  | No       | 1024     | The maximum fetch size for per poll when read table snapshot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| incremental.parallelism                   | Integer  | No       | 1        | The number of parallel readers in the incremental (WAL) phase.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | slot.name                                 | String   | No       | seatunnel | The PostgreSQL logical decoding slot name. Use a different slot name for each CDC job that reads from the same PostgreSQL instance.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | decoding.plugin.name                      | String   | No       | pgoutput | The name of the Postgres logical decoding plug-in installed on the server,Supported values are decoderbufs, wal2json, wal2json_rds, wal2json_streaming,wal2json_rds_streaming and pgoutput.                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| server-time-zone                          | String   | No       | -        | The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| server-time-zone                          | String   | No       | JVM system time zone | The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone.                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | connect.timeout.ms                        | Long     | No       | 30000    | The maximum time that the connector should wait after trying to connect to the database server before timing out.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | connect.max-retries                       | Integer  | No       | 3        | The max retry times that the connector should retry to build database server connection.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | connection.pool.size                      | Integer  | No       | 20       | The jdbc connection pool size.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -190,6 +190,17 @@ PostgreSQL does not put the original `ALTER TABLE` SQL text in the logical repli
 With `pgoutput`, SeaTunnel detects the changed table definition from the RELATION message, emits an
 `ADD COLUMN` event before the following row event, and updates the downstream table schema. A table
 must therefore receive a row change after the DDL before the schema change can be observed.
+
+An added column of a user-defined enum, range or multirange type gets the type name PostgreSQL
+itself uses in DDL, the result of `format_type(oid, NULL)`: names that need quoting stay quoted
+(`"JobStatus"`, `"order"`), and a type whose schema is not on the source connection's
+`search_path` is qualified with that schema (`inv.mood`). A PostgreSQL sink uses this name in
+`ALTER TABLE ... ADD`, so the sink database must already have the type: in the same schema when
+the name is qualified, otherwise on the sink connection's `search_path`. To write enum values, add
+`stringtype=unspecified` to the sink `url`. By default Debezium does not emit values of a
+user-defined range column, so such a column is added but stays NULL. If the column type names cannot be read from
+`pg_type`, or a column type no longer exists, the job fails with error `POSTGRES-05`. Composite
+types, domains and arrays of user-defined types keep the bare type name.
 
 If a RELATION message contains a row-schema change other than `ADD COLUMN`, the job fails before
 processing rows with that schema. Restoring the same checkpoint will encounter the change again;
@@ -335,15 +346,20 @@ Without a usable primary key, the connector cannot safely apply UPDATE/DELETE ev
 
 ## CDC Metadata Fields
 
-PostgreSQL CDC exposes metadata fields that can be used by the `Metadata` transform:
+PostgreSQL CDC exposes metadata fields that can be used by the `Metadata` transform.
+
+Field names are case-sensitive and must be written exactly as shown below (e.g. `Database`, not `database`), otherwise the job fails with a "cannot find metadata field" error:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| database | STRING | Source database name. |
-| table | STRING | Source table name. |
-| rowKind | STRING | Change type, such as insert, update, or delete. |
-| ts_ms | LONG | Source event timestamp in milliseconds. |
-| delay | LONG | Delay between event time and processing time in milliseconds. |
+| Database | STRING | Source database name. |
+| Table | STRING | Source table name. |
+| RowKind | STRING | Change type; emitted as the RowKind short code: `+I` (insert), `-U` (update before), `+U` (update after), `-D` (delete). |
+| EventTime | LONG | The time when the connector fetched and processed the event, in milliseconds. |
+| Delay | LONG | Delay between the source event time and the connector fetch time, in milliseconds. |
+| SourceTimestamp | LONG | The time when the change was committed in the source database (`source.ts_ms`), in milliseconds. |
+
+The connector's metadata schema also declares `BinlogFile`, `BinlogPos`, `BinlogRow`, and `Gtid`, so they can be projected by the `Metadata` transform, but these keys are only populated by MySQL-CDC; with PostgreSQL CDC they are always `null`.
 
 Example:
 
@@ -376,7 +392,7 @@ Also set `wal_level = logical` in `postgresql.conf` and add an entry in `pg_hba.
 
 ### Which logical decoding plugins are supported?
 
-SeaTunnel PostgreSQL CDC supports `pgoutput` (built-in since PostgreSQL 10), `wal2json`, and `decoderbufs`. The default is `pgoutput`. Use the `decoding.plugin.name` parameter to select the plugin.
+The `decoding.plugin.name` option accepts `pgoutput` (default, built-in since PostgreSQL 10), `decoderbufs`, `wal2json`, `wal2json_rds`, `wal2json_streaming`, and `wal2json_rds_streaming`. Note that schema evolution (`schema-changes.enabled`) requires `pgoutput`.
 
 ### Can SeaTunnel read CDC from a PostgreSQL standby?
 

@@ -30,9 +30,11 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -47,6 +49,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -62,6 +65,10 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
     private static final String SQLSERVER_DATABASE = "master";
     private static final String SQLSERVER_SCHEMA = "dbo";
     private static final String SQLSERVER_CATALOG_DATABASE = "catalog_test";
+    private static final String VIEW_SOURCE = "e2e_view_source";
+    private static final String VIEW_SINK = "e2e_view_sink";
+    private static final List<String> VIEW_COLUMNS =
+            Arrays.asList("BIGINT_TEST", "INT_TEST", "DATE_TEST");
     private static final int SQLSERVER_CONTAINER_PORT = 1433;
     private static final String SQLSERVER_URL =
             "jdbc:sqlserver://"
@@ -151,6 +158,43 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
     private String username;
 
     private String password;
+
+    /** A source {@code table_path} may name a view, not only a table. */
+    @TestTemplate
+    public void testViewAsSourceTablePath(TestContainer container) throws Exception {
+        assertViewReadThroughTablePath(
+                container,
+                "/jdbc_sqlserver_view_source_to_sink.conf",
+                createViewSql(),
+                buildTableInfoWithSchema(SQLSERVER_SCHEMA, VIEW_SOURCE),
+                buildTableInfoWithSchema(SQLSERVER_SCHEMA, VIEW_SINK));
+    }
+
+    @Test
+    public void testCatalogResolvesView() throws Exception {
+        assertCatalogResolvesView(
+                new SqlServerCatalog(
+                        "sqlserver",
+                        jdbcCase.getUserName(),
+                        jdbcCase.getPassword(),
+                        SqlServerURLParser.parse(
+                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())),
+                        SQLSERVER_SCHEMA,
+                        null),
+                createViewSql(),
+                buildTableInfoWithSchema(SQLSERVER_SCHEMA, VIEW_SOURCE),
+                TablePath.of(SQLSERVER_DATABASE, SQLSERVER_SCHEMA, VIEW_SOURCE),
+                VIEW_COLUMNS);
+    }
+
+    private String createViewSql() {
+        return "CREATE OR ALTER VIEW "
+                + buildTableInfoWithSchema(SQLSERVER_SCHEMA, VIEW_SOURCE)
+                + " AS SELECT "
+                + String.join(", ", VIEW_COLUMNS)
+                + " FROM "
+                + buildTableInfoWithSchema(SQLSERVER_SCHEMA, SQLSERVER_SOURCE);
+    }
 
     @Override
     JdbcCase getJdbcCase() {

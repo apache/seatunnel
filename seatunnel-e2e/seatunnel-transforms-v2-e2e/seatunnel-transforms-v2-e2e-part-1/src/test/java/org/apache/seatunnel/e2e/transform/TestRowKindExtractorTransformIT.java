@@ -31,10 +31,12 @@ public class TestRowKindExtractorTransformIT extends TestSuiteBase {
     public void testRowKindExtractorTransform(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult1 =
-                container.executeJob("/rowkind_extractor_transform_case1.conf");
+                container.executeJob(
+                        "/rowkind_extractor_transform/rowkind_extractor_transform_case1.conf");
         Assertions.assertEquals(0, execResult1.getExitCode());
         Container.ExecResult execResult2 =
-                container.executeJob("/rowkind_extractor_transform_case2.conf");
+                container.executeJob(
+                        "/rowkind_extractor_transform/rowkind_extractor_transform_case2.conf");
         Assertions.assertEquals(0, execResult2.getExitCode());
     }
 
@@ -42,14 +44,16 @@ public class TestRowKindExtractorTransformIT extends TestSuiteBase {
     public void testRowKindExtractorMultiTable(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/rowkind_extractor_transform_case1_multi_table.conf");
+                container.executeJob(
+                        "/rowkind_extractor_transform/rowkind_extractor_transform_case1_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
     public void testOriginalRowKindPreservedAcrossBranches(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/rowkind_extractor_fanout.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/rowkind_extractor_transform/rowkind_extractor_fanout.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
