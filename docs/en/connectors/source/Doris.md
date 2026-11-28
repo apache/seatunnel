@@ -22,7 +22,7 @@ import ChangeLog from '../changelog/connector-doris.md';
 
 ## Description
 
-Used to read data from Apache Doris.
+Used to read data from Apache Doris. The connector uses the MySQL client protocol to communicate with Doris, so the MySQL JDBC driver must be on the classpath of the chosen engine (see *Using Dependency* below).
 
 ## Using Dependency
 
@@ -69,12 +69,12 @@ Base configuration:
 
 |               Name               |  Type  | Required |  Default   |                                             Description                                             |
 |----------------------------------|--------|----------|------------|-----------------------------------------------------------------------------------------------------|
-| fenodes                          | string | yes      | -          | FE address, the format is `"fe_host:fe_http_port"`                                                  |
+| fenodes                          | string | yes      | -          | FE address, the format is `"fe_host:fe_http_port"`. Multiple FEs can be specified as a comma-separated list. |
 | username                         | string | yes      | -          | User username                                                                                       |
 | password                         | string | yes      | -          | User password                                                                                       |
 | doris.request.retries            | int    | no       | 3          | Number of retries to send requests to Doris FE.                                                     |
-| doris.request.read.timeout.ms    | int    | no       | 30000      | Socket read timeout for requests sent to Doris FE or BE.                                            |
-| doris.request.connect.timeout.ms | int    | no       | 30000      | Connection timeout for requests sent to Doris FE or BE.                                             |
+| doris.request.read.timeout.ms    | int    | no       | 30000      | Socket read timeout for requests sent to Doris FE or BE, in milliseconds. |
+| doris.request.connect.timeout.ms | int    | no       | 30000      | Connection timeout for requests sent to Doris FE or BE, in milliseconds. |
 | query-port                       | int    | no       | 9030       | Doris query port.                                                                                   |
 | doris.request.query.timeout.s    | int    | no       | 3600       | Timeout period of Doris scan data, expressed in seconds.                                            |
 | doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | The number of Doris tablets grouped into each SeaTunnel split. The minimum value is `1`.       |
@@ -82,10 +82,11 @@ Base configuration:
 | doris.deserialize.queue.size     | int    | no       | 64         | Queue size used by asynchronous Arrow deserialization.                                               |
 | database                         | string | yes      | -          | The name of Doris database. Required at the top level when `table_list` is not configured.           |
 | table                            | string | yes      | -          | The name of Doris table. Required at the top level when `table_list` is not configured.              |
+| doris.exec.mem.limit             | long   | no       | 2147483648 | Maximum memory that can be used by a single BE scan request. The default memory is 2G (2147483648).  |
 | table_list                       | Array  | no       | -          | List of Doris tables to read.                                                                        |
 | case_sensitive                   | boolean | no      | true       | Whether to preserve the original case of the database and table names. When set to false, the database and table names will be converted to lowercase. Only takes effect when a single table is configured via `database` and `table`. |
 
-Table list configuration:
+Table list configuration (when using `table_list`):
 
 |               Name               |  Type  | Required |  Default   |                                             Description                                             |
 |----------------------------------|--------|----------|------------|-----------------------------------------------------------------------------------------------------|
@@ -236,6 +237,20 @@ sink{
   }
 }
 ```
+
+## FAQ
+
+### How do I configure asynchronous Arrow deserialization?
+
+Set `doris.deserialize.arrow.async=true` to enable asynchronous Arrow deserialization. Use `doris.deserialize.queue.size` to configure its queue size; the default is `64`.
+
+### How do I read multiple Doris tables in one job?
+
+Use the `table_list` option and provide one entry per table. Each entry can override `database`, `table`, `doris.read.field`, `doris.filter.query`, `doris.request.tablet.size`, `doris.batch.size`, and `doris.exec.mem.limit`. For a single table, you can flatten these options onto the outer source level and omit `table_list`.
+
+### When should I tune `doris.request.tablet.size`?
+
+A larger value groups more Doris tablets into each SeaTunnel split, which reduces the number of splits and may hurt parallelism. A smaller value (minimum `1`) produces more splits and increases parallel readers. Tune this together with `env.parallelism` to balance load across workers.
 
 ## Changelog
 

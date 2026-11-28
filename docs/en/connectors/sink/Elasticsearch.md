@@ -2,12 +2,6 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 # Elasticsearch
 
-## Support Those Engines
-
-> Spark<br/>
-> Flink<br/>
-> SeaTunnel Zeta<br/>
-
 ## Description
 
 Output data to Elasticsearch or OpenSearch-compatible clusters. The connector uses the Bulk API to buffer documents and flush them in batches. Document IDs are derived from the primary key columns, which makes the sink suitable for CDC workloads that need update and delete semantics. Elasticsearch `2.x` through `9.x` is supported.
@@ -44,7 +38,7 @@ Engine Supported
 | password                | string  | no       | -                            | Password for `basic` auth. |
 | auth.api_key_id         | string  | no       | -                            | API key id for `api_key` auth. |
 | auth.api_key            | string  | no       | -                            | API key secret for `api_key` auth. |
-| auth.api_key_encoded    | string  | no       | -                            | Base64-encoded `id:secret` API key, alternative to `auth.api_key_id` + `auth.api_key`. |
+| auth.api_key_encoded    | string  | no       | -                            | Base64 encoded API key (`base64(id:api_key)`). Used when `auth_type=api_key_encoded`. |
 | max_retry_count         | int     | no       | 3                            | Maximum retry attempts for a single bulk request. |
 | max_batch_size          | int     | no       | 10                           | Maximum number of documents buffered in one bulk request before flushing. |
 | tls_verify_certificate  | boolean | no       | true                         | Validate the server certificate when using HTTPS. |

@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-druid.md';
 
 > Druid sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Write data to Apache Druid through the Druid indexing task API.
@@ -199,6 +205,24 @@ sink {
   }
 }
 ```
+
+## FAQ
+
+### Does Druid Sink support CDC?
+
+No. The connector is designed for append-style batch ingestion. CDC update/delete row kinds are not interpreted as Druid upserts or deletes.
+
+### Which SeaTunnel data types are supported by Druid Sink?
+
+Only the types listed in [Data Type Mapping](#data-type-mapping) are supported. Other types fail during write planning. Complex nested types should be flattened in an upstream transform before the Druid sink.
+
+### How does the connector flush data?
+
+The writer submits the accumulated buffer as a native batch indexing task whenever another `batchSize` rows arrive. A submission leaves its rows in the buffer. Closing the writer submits that buffer again, including previously submitted rows. `batchSize` controls when a task is sent. The retained buffer grows for the lifetime of the writer.
+
+### Can I write multiple upstream tables to multiple Druid datasources?
+
+Yes. Set `datasource = "${table_name}"` and SeaTunnel routes each upstream table to a Druid datasource that shares the table name. For per-table tuning, you can still layer common sink options such as `multi_table_sink_replica`.
 
 ## Changelog
 

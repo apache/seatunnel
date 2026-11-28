@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-druid.md';
 
 > Druid 接收器连接器
 
+## 支持引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 通过 Druid 索引任务 API 将数据写入 Apache Druid。
@@ -199,6 +205,24 @@ sink {
   }
 }
 ```
+
+## 常见问题
+
+### Druid Sink 是否支持 CDC？
+
+不支持。该连接器面向追加式批量写入场景，CDC 的 update/delete 行不会被解释为 Druid 的 upsert 或 delete。
+
+### Druid Sink 支持哪些 SeaTunnel 数据类型？
+
+仅支持[数据类型映射](#数据类型映射)中列出的类型，其他类型在写入规划阶段就会失败。复杂嵌套类型请在上游 transform 中扁平化后再交给 Druid Sink。
+
+### 连接器如何刷新数据？
+
+每新增 `batchSize` 行，writer 会把当前累计缓冲区作为一个 native batch indexing 任务提交。提交后缓冲区仍保留这些行。关闭 writer 时会再次提交累计缓冲区，其中包含之前提交过的行。`batchSize` 控制提交时机，缓冲区会在 writer 的生命周期内持续增长。
+
+### 如何把多张上游表写到多个 Druid datasource？
+
+设置 `datasource = "${table_name}"`，SeaTunnel 会把每张上游表写到同名 Druid datasource。如需针对每张表进行并行度微调，可叠加通用 sink 选项（如 `multi_table_sink_replica`）。
 
 ## 变更日志
 
