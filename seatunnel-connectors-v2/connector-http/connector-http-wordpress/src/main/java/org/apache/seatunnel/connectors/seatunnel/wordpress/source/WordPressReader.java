@@ -52,6 +52,10 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * Reads a bounded public-post window with whole-page validation and cancellable HTTP. No page
+ * cursor is checkpointed; a restored split replays the requested window.
+ */
 final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private static final String API = "https://public-api.wordpress.com/rest/v1/sites/";
     private static final int TIMEOUT_MS = 30000;
@@ -68,12 +72,22 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final int maxPages;
     private final CatalogTable table;
     private final SingleSplitReaderContext context;
+    /*
+     * Tracks the dispatched request so cancellation can abort I/O without taking lifecycleLock.
+     */
     private final AtomicReference<HttpGet> activeRequest = new AtomicReference<>();
+    /**
+     * Sticky across open and close; checked at resource publication and before further I/O.
+     * cancel() does not acquire lifecycleLock or wait for resource detachment.
+     */
     private volatile boolean cancelled;
 
     // Only resource publication and detachment use this monitor. In particular, never abort,
     // execute or close a request under this lock, or acquire it from cancel().
     private final Object lifecycleLock = new Object();
+    /*
+     * Published and detached under lifecycleLock; the detaching owner closes both resources.
+     */
     private volatile ClientResources resources;
 
     WordPressReader(
@@ -104,6 +118,10 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         this.context = context;
     }
 
+    /**
+     * Creates the HTTP client and request-deadline executor as one owned resource pair. A competing
+     * open or cancellation closes the unpublished pair outside lifecycleLock.
+     */
     @Override
     public void open() throws IOException {
         if (cancelled || resources != null) {
@@ -143,6 +161,11 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         throw new IllegalStateException("WordPress reader cannot be opened");
     }
 
+    /**
+     * Runs under the inherited checkpoint lock, including HTTP and output collection. Validates
+     * each complete page before emission and rejects count or ID drift across pages. Earlier pages
+     * may already be emitted when a later page fails; this is not a snapshot.
+     */
     @Override
     public void internalPollNext(Collector<SeaTunnelRow> output) throws Exception {
         int total = -1;
@@ -208,6 +231,10 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         context.signalNoMoreElement();
     }
 
+    /**
+     * Fetches an ordered, projected page with a 30-second abort deadline. Always cancels the
+     * deadline and aborts/detaches its request, including close races.
+     */
     private JsonNode readPage(int offset) throws Exception {
         HttpGet request =
                 new HttpGet(
@@ -246,6 +273,10 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
+    /**
+     * Bounds the decoded page to 4 MiB and rejects non-200 or malformed responses. Parser errors
+     * expose the offset and error type, not response content.
+     */
     private JsonNode executePage(CloseableHttpClient client, HttpGet request, int offset) {
         try (CloseableHttpResponse response = client.execute(request)) {
             int status = response.getStatusLine().getStatusCode();
@@ -291,6 +322,9 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         return value.textValue();
     }
 
+    /*
+     * Normalizes API timestamps to UTC before output and publication-window validation.
+     */
     private static LocalDateTime timestamp(JsonNode post, String field) {
         try {
             return OffsetDateTime.parse(string(post, field))
@@ -313,6 +347,9 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         return new IllegalStateException("WordPress: " + message);
     }
 
+    /*
+     * Permanently marks cancellation and aborts any published request without locking.
+     */
     @Override
     public void cancel() {
         cancelled = true;
@@ -322,6 +359,9 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
+    /*
+     * Detaches resources once under lifecycleLock, then shuts them down outside the lock.
+     */
     @Override
     public void close() throws IOException {
         cancel();
@@ -335,6 +375,10 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
+    /**
+     * Owns one HTTP client and its deadline executor; both share one close lifecycle. The owner
+     * detaches the pair before closing it, without holding the reader lifecycle lock.
+     */
     private static final class ClientResources {
         private final CloseableHttpClient client;
         private final ScheduledThreadPoolExecutor deadlineExecutor;

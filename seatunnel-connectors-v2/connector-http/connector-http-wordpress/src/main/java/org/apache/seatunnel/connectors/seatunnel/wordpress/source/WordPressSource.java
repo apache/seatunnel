@@ -39,6 +39,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
 
+/**
+ * Validates a bounded public-post window and exposes its fixed UTC output schema. The configured
+ * site is a public API path component and the source does not track an incremental cursor.
+ */
 public class WordPressSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     public static final String PLUGIN_NAME = "WordPress";
     private static final Pattern HOSTNAME =
@@ -52,22 +56,26 @@ public class WordPressSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     private final int maxPages;
     private final CatalogTable table;
 
+    /**
+     * Accepts a site ID or hostname, second-precision UTC bounds and finite paging limits. The site
+     * is an API path component, never an arbitrary request URL.
+     */
     public WordPressSource(ReadonlyConfig options) {
-        site = options.get(WordPressOptions.SITE);
+        site = options.get(WordPressSourceOptions.SITE);
         if (site == null
                 || site.length() > 253
                 || (!site.matches("[1-9][0-9]{0,18}") && !HOSTNAME.matcher(site).matches())) {
             throw new IllegalArgumentException(
                     "WordPress site must be a positive numeric ID or hostname");
         }
-        start = parseDate(options.get(WordPressOptions.START_DATE), "start_date");
-        end = parseDate(options.get(WordPressOptions.END_DATE), "end_date");
+        start = parseDate(options.get(WordPressSourceOptions.START_DATE), "start_date");
+        end = parseDate(options.get(WordPressSourceOptions.END_DATE), "end_date");
         if (start.isAfter(end)) {
             throw new IllegalArgumentException(
                     "WordPress start_date must be at or before end_date");
         }
-        pageSize = options.get(WordPressOptions.PAGE_SIZE);
-        maxPages = options.get(WordPressOptions.MAX_PAGES);
+        pageSize = options.get(WordPressSourceOptions.PAGE_SIZE);
+        maxPages = options.get(WordPressSourceOptions.MAX_PAGES);
         if (pageSize < 1 || pageSize > 100 || maxPages < 1 || maxPages > 10000) {
             throw new IllegalArgumentException(
                     "WordPress page_size must be 1–100 and max_pages 1–10000");
@@ -88,6 +96,10 @@ public class WordPressSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                         "Public WordPress.com posts");
     }
 
+    /**
+     * Requires explicit UTC seconds so publication-window comparisons have one time basis. Invalid
+     * option values are not included in diagnostics.
+     */
     private static Instant parseDate(String value, String option) {
         try {
             if (value != null
@@ -111,6 +123,9 @@ public class WordPressSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         return PLUGIN_NAME;
     }
 
+    /*
+     * Rejects streaming jobs because offset pagination has no incremental cursor.
+     */
     @Override
     public void setJobContext(JobContext context) {
         if (context.getJobMode() != JobMode.BATCH) {

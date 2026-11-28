@@ -20,7 +20,13 @@ package org.apache.seatunnel.connectors.seatunnel.wordpress.source;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-final class WordPressOptions {
+/**
+ * Stable configuration keys and limits for bounded public WordPress.com post reads. Source
+ * construction and factory validation both reference these same option definitions.
+ */
+final class WordPressSourceOptions {
+    private WordPressSourceOptions() {}
+
     static final Option<String> SITE =
             Options.key("site")
                     .stringType()
@@ -50,6 +56,4 @@ final class WordPressOptions {
                     .defaultValue(1000)
                     .withDescription(
                             "Fail instead of truncating when the result requires more pages.");
-
-    private WordPressOptions() {}
 }

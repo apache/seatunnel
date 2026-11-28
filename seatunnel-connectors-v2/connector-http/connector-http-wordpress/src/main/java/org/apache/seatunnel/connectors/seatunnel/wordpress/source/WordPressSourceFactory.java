@@ -40,10 +40,10 @@ public class WordPressSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        WordPressOptions.SITE,
-                        WordPressOptions.START_DATE,
-                        WordPressOptions.END_DATE)
-                .optional(WordPressOptions.PAGE_SIZE, WordPressOptions.MAX_PAGES)
+                        WordPressSourceOptions.SITE,
+                        WordPressSourceOptions.START_DATE,
+                        WordPressSourceOptions.END_DATE)
+                .optional(WordPressSourceOptions.PAGE_SIZE, WordPressSourceOptions.MAX_PAGES)
                 .build();
     }
 
