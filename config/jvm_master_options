@@ -60,9 +60,23 @@
 # JVM Dump
 -XX:+HeapDumpOnOutOfMemoryError
 -XX:HeapDumpPath=/tmp/seatunnel/dump/zeta-server
+# Exit once the dump has been written. A member whose heap is exhausted cannot serve
+# tasks, but it keeps heartbeating and keeps receiving work, so the cluster sees a
+# healthy node that never finishes anything. Exiting hands recovery to the supervisor
+# and to the job failover path instead.
+-XX:+ExitOnOutOfMemoryError
 
 # Metaspace
+# Raise the initial high-water mark. The JVM default is about 20 MB, so the first
+# class loading burst here (engine startup plus connector plugin loading, which is
+# amplified by classloader-cache-mode) trips a metadata GC cycle before the node has
+# done any real work.
+-XX:MetaspaceSize=256m
 -XX:MaxMetaspaceSize=2g
 
 # G1GC
 -XX:+UseG1GC
+# Netty (direct buffer cleanup), RMI and some JDBC drivers call System.gc() from time
+# to time. The default reaction is a stop-the-world full GC; on a multi-gigabyte heap
+# that is a minutes-long pause. Convert those calls into a concurrent cycle instead.
+-XX:+ExplicitGCInvokesConcurrent

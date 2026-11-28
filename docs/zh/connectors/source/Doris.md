@@ -48,9 +48,9 @@ import ChangeLog from '../changelog/connector-doris.md';
 | TINYINT                              | TINYINT                                                                                                                                             |
 | SMALLINT                             | SMALLINT                                                                                                                                            |
 | BIGINT                               | BIGINT                                                                                                                                              |
-| LARGEINT                             | STRING                                                                                                                                              |
+| LARGEINT                             | DECIMAL(20,0)                                                                                                                                       |
 | BOOLEAN                              | BOOLEAN                                                                                                                                             |
-| DECIMAL                              | DECIMAL((Get the designated column's specified column size)+1,<br/>(Gets the designated column's number of digits to right of the decimal point.))) |
+| DECIMAL                              | DECIMAL(p, s)，其中 `p` 为列精度、`s` 为列小数位数；当列未定义时使用 DECIMAL(38, 10)。在 Doris 1.2.x 上，定义了 0 位小数位数时同样回退为 10。                              |
 | FLOAT                                | FLOAT                                                                                                                                               |
 | DOUBLE                               | DOUBLE                                                                                                                                              |
 | CHAR<br/>VARCHAR<br/>STRING<br/>TEXT | STRING                                                                                                                                              |
@@ -73,14 +73,17 @@ import ChangeLog from '../changelog/connector-doris.md';
 | username                         | string | yes      | -          | 用户名                                                                                               |
 | password                         | string | yes      | -          | 密码                                                                                                 |
 | doris.request.retries            | int    | no       | 3          | 请求Doris FE的重试次数                                                                                 |
-| doris.request.read.timeout.ms    | int    | no       | 30000      | 请求 Doris BE 的 socket 读取超时时间。                                                                 |
+| doris.request.read.timeout.ms    | int    | no       | 30000      | 请求 Doris FE 或 BE 的 socket 读取超时时间。                                                            |
 | doris.request.connect.timeout.ms | int    | no       | 30000      | 请求 Doris FE 或 BE 的连接超时时间。                                                                    |
 | query-port                       | int    | no       | 9030       | Doris 查询端口。                                                                                       |
 | doris.request.query.timeout.s    | int    | no       | 3600       | Doris扫描数据的超时时间，单位秒                                                                          |
 | doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | 每个 SeaTunnel split 包含的 Doris tablet 数量，最小值为 `1`。                                  |
 | doris.deserialize.arrow.async    | boolean | no      | false      | 是否异步反序列化 Arrow 数据。                                                                           |
 | doris.deserialize.queue.size     | int    | no       | 64         | 异步反序列化 Arrow 数据时使用的队列大小。                                                                |
+| database                         | string | yes      | -          | Doris 数据库名。未配置 `table_list` 时必须在 source 外层配置。                                     |
+| table                            | string | yes      | -          | Doris 表名。未配置 `table_list` 时必须在 source 外层配置。                                         |
 | table_list                       | Array  | no       | -           | 要读取的 Doris 表清单。                                                                                |
+| case_sensitive                   | boolean | no      | true        | 是否保留数据库名和表名的原始大小写。设置为 false 时，数据库名和表名将被转换为小写。仅在通过 `database` 和 `table` 配置单表时生效。 |
 
 表清单配置:
 
@@ -88,13 +91,13 @@ import ChangeLog from '../changelog/connector-doris.md';
 |----------------------------------|--------|----------|------------|-----------------------------------------------------------------------------------------------------|
 | database                         | string | yes      | -          | 数据库                                                                                               |
 | table                            | string | yes      | -          | 表名                                                                                                |
-| doris.read.field                 | string | no       | -          | 选择要读取的Doris表字段                                                                                |
-| doris.filter.query               | string | no       | -          | 数据过滤. 格式："字段 = 值", 例如：doris.filter.query = "F_ID > 2"                                       |
+| doris.read.field                 | string | no       | -          | 选择要读取的Doris表字段。列名会自动加引号，填写裸名即可。 |
+| doris.filter.query               | string | no       | -          | 数据过滤. 格式："字段 = 值", 例如：doris.filter.query = "F_ID > 2"。该值原样传给 Doris，关键字或特殊字符列名在这里必须用反引号括起，例如 ``doris.filter.query = "`from` > 1"``。 |
 | doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | 当前表每个 SeaTunnel split 包含的 Doris tablet 数量，最小值为 `1`。                              |
 | doris.batch.size                 | int    | no       | 1024       | 每次能够从BE中读取到的最大行数                                                                           |
 | doris.exec.mem.limit             | long   | no       | 2147483648 | 单个be扫描请求可以使用的最大内存。默认内存为2G（2147483648）                                                |
  
-注意: 当此配置对应于单个表时，您可以将table_list中的配置项展平到外层。如果不配置 `table_list`，必须在 source 外层配置 `database` 和 `table`。
+注意: 当此配置对应于单个表时，您可以将table_list中的配置项展平到外层。如果不配置 `table_list`，必须在 source 外层配置 `database` 和 `table`。`table_list` 中的每个 `database`.`table` 必须唯一，重复配置会在作业提交时被拒绝。
 
 ### 提示
 
@@ -158,7 +161,7 @@ sink {
 }
 ```
 
-使用`doris.filter.query`来过滤数据，参数值将作为过滤条件直接传递到doris：
+使用`doris.filter.query`来过滤数据，参数值将作为过滤条件直接传递到doris。关键字列名需用反引号括起，例如 ``doris.filter.query = "`from` > 1"``。
 
 ```
 env {

@@ -112,6 +112,10 @@ db.grantRolesToUser("<USER_NAME>", ["<ROLE_NAME>"])
 
 ## 源配置项
 
+> **注意：** MongoDB-CDC 复用 CDC 基础选项规则，因此少量面向 JDBC 的快照选项
+> （`snapshot.split.size`、`snapshot.fetch.size`、`enable_concurrent_read`）虽然能通过校验，
+> 但 MongoDB-CDC 并不会使用它们。快照分块大小由 `incremental.snapshot.chunk.size.mb` 控制。
+
 | 名称                               | 类型    | 必填 | 默认值  | 描述                                                                                                                       |
 |------------------------------------|---------|------|---------|----------------------------------------------------------------------------------------------------------------------------|
 | hosts                              | String  | 是   | -       | MongoDB 服务器的主机名和端口列表，也可以是使用 `mongodb://` 或 `mongodb+srv://` 的标准 MongoDB 连接 URI。例如：`localhost:27017,localhost:27018` 或 `mongodb+srv://cluster.example.net`。 |
@@ -584,15 +588,17 @@ sink {
 
 ## CDC 元数据字段
 
-MongoDB CDC 会提供以下元数据字段，可配合 `Metadata` 转换使用：
+MongoDB CDC 会提供以下元数据字段，可配合 `Metadata` 转换使用。
+
+字段名称区分大小写，必须与下表完全一致（例如写成 `Database` 而不是 `database`），否则作业会报“找不到元数据字段”的错误：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| database | STRING | 源数据库名称。 |
-| table | STRING | 源集合名称。 |
-| rowKind | STRING | 变更类型，例如 insert、update 或 delete。 |
-| ts_ms | LONG | 源事件时间，单位为毫秒。 |
-| delay | LONG | 事件时间和处理时间之间的延迟，单位为毫秒。 |
+| Database | STRING | 源数据库名称。 |
+| Table | STRING | 源集合名称。 |
+| RowKind | STRING | 变更类型，输出为 RowKind 短代码：`+I`（插入）、`+U`（更新后）、`-D`（删除）。 |
+| EventTime | LONG | 连接器读取并处理该事件的时间，单位为毫秒。 |
+| Delay | LONG | 源事件时间与连接器读取时间之间的延迟，单位为毫秒。 |
 
 示例：
 

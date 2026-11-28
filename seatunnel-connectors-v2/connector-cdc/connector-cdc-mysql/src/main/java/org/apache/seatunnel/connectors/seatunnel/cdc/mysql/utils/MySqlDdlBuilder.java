@@ -47,12 +47,17 @@ public class MySqlDdlBuilder {
     public String generateDdl() {
         String columnDefinitions =
                 columns.stream().map(Column::generateDdl).collect(Collectors.joining(", "));
-        String keyDefinitions =
-                primaryKeys.stream()
-                        .map(MySqlUtils::quote)
-                        .collect(Collectors.joining(", ", "PRIMARY KEY (", ")"));
-        return String.format(
-                "CREATE TABLE %s (%s, %s)", tableId.table(), columnDefinitions, keyDefinitions);
+        StringBuilder ddl =
+                new StringBuilder(
+                        String.format("CREATE TABLE %s (%s", tableId.table(), columnDefinitions));
+        if (!primaryKeys.isEmpty()) {
+            ddl.append(", ")
+                    .append(
+                            primaryKeys.stream()
+                                    .map(MySqlUtils::quote)
+                                    .collect(Collectors.joining(", ", "PRIMARY KEY (", ")")));
+        }
+        return ddl.append(")").toString();
     }
 
     @Getter

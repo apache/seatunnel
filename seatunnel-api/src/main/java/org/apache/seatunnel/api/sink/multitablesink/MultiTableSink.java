@@ -163,7 +163,8 @@ public class MultiTableSink
                         getJobMode(),
                         initialFailedTables,
                         tableRetryTimes,
-                        tableRetryIntervalSeconds);
+                        tableRetryIntervalSeconds,
+                        getSupportedSchemaChangeTypesByTable());
         registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
         return writer;
     }
@@ -231,7 +232,8 @@ public class MultiTableSink
                         getJobMode(),
                         effectiveFailedTables,
                         tableRetryTimes,
-                        tableRetryIntervalSeconds);
+                        tableRetryIntervalSeconds,
+                        getSupportedSchemaChangeTypesByTable());
 
         registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
         return writer;
@@ -259,8 +261,9 @@ public class MultiTableSink
      * Registers an aggregated flush action on the parent context if any sub-writer registered a
      * flush action via its {@link SinkContextProxy}.
      *
-     * <p>The registered action drains all blocking queues and then calls each sub-writer's flush
-     * action under the corresponding lock, ensuring safe execution from the engine timer thread.
+     * <p>The sink task invokes the action when it consumes a flush signal. The action drains
+     * pending writes and flushes independent queues in parallel, with child writers serialized
+     * under their queue lock.
      */
     private void registerAggregatedFlushIfNeeded(
             SinkWriter.Context context,
@@ -434,6 +437,24 @@ public class MultiTableSink
             return ((SupportSchemaEvolutionSink) firstSink).supports();
         }
         return Collections.emptyList();
+    }
+
+    private Map<String, List<SchemaChangeType>> getSupportedSchemaChangeTypesByTable() {
+        Map<String, List<SchemaChangeType>> supportedTypesByTable = new HashMap<>();
+        sinks.forEach(
+                (tablePath, sink) -> {
+                    List<SchemaChangeType> supportedTypes = null;
+                    if (sink instanceof SupportSchemaEvolutionSink) {
+                        supportedTypes = ((SupportSchemaEvolutionSink) sink).supports();
+                        if (supportedTypes == null) {
+                            supportedTypes = Collections.emptyList();
+                        }
+                    }
+                    // Null preserves only unadvertised legacy writers; an empty modern list is
+                    // strict.
+                    supportedTypesByTable.put(tablePath.toString(), supportedTypes);
+                });
+        return supportedTypesByTable;
     }
 
     private JobMode getJobMode() {
