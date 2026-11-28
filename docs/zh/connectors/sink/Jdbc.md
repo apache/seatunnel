@@ -227,6 +227,7 @@ Exactly-once 依赖 XA 事务，因此数据库和 JDBC 驱动都必须支持 XA
 | tablePrefix                               | String  | 否    | -                            |
 | tableSuffix                               | String  | 否    | -                            |
 | primary_keys                              | Array   | 否    | -                            |
+| multi_table_config                        | Object  | 否    | -                            |
 | multi_table_sink_replica                  | Int     | 否    | 1                            |
 | connection_check_timeout_sec              | Int     | 否    | 30                           |
 | connect_timeout_ms                        | Int     | 否    | 86400000                     |
@@ -361,6 +362,64 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 生成数据库原生 UPSERT、UPDATE 和 DELETE 语句时使用的目标键列。未配置时，SeaTunnel 会尝试从上游 catalog 元数据继承主键或第一组唯一键；仍无可用键时，自动生成的 SQL 退回普通 INSERT。
 
 当 `multi_table_sink_replica` 大于 1 且 `is_exactly_once = false` 时，Sink 按表主键的第一列把每一行发往该表的某个写入器；表没有主键时，按 `primary_keys`（配置的，或从唯一键继承的）的第一列发送。这样同一个键的变更会按顺序到达同一个写入器。当该键列是二进制类型（SeaTunnel 类型 `BYTES`，例如 `BINARY`、`VARBINARY` 或 `BYTEA`）时，写入器按每一行键值对象的标识而不是内容选择，因此同一个键的变更仍可能到达不同的写入器；对于这类表，请将 `multi_table_sink_replica` 保持为 1。没有这类键的表的行，以及 `is_exactly_once = true` 时的所有行，会不考虑键地分散到各写入器。修改键值的更新可能把该记录移到另一个写入器，不同写入器中的行之间没有顺序。
+
+### multi_table_config [object]
+
+用于多表自动生成 SQL 场景的按表主键映射，优先级高于顶层 `primary_keys` 选项：当上游表名匹配到 `primary_keys` 下声明的某个模式时，使用该映射；否则回退到现有 `primary_keys` / catalog 元数据逻辑。
+
+配置结构如下：
+
+```hocon
+multi_table_config {
+  primary_keys {
+    "<表名正则>" = ["key1", "key2"]
+  }
+}
+```
+
+- 一旦配置了 `multi_table_config`，就必须配置 `primary_keys`。若缺失、为空或不是 map，任务会在选项校验阶段直接失败，而不会回退到顶层 `primary_keys` / catalog 逻辑。
+- 每个 key 是匹配上游表名的 Java 正则表达式，使用全匹配语义（`tableName.matches(pattern)`）。例如使用 `"^t_nova_.*$"` 或 `"t_nova_.*"`，不要使用 `"t_nova_*"` 这类 glob 写法。
+- 每个 value 是列名列表。仅在该选项内支持 `${primary_key}` 和 `${unique_key}` 占位符，且可与静态列混用。`${primary_key}` 展开为上游主键列，`${unique_key}` 展开为上游第一组唯一键列。
+- 若一张表同时匹配多个模式，按声明顺序取第一个匹配。
+- 若命中的表使用了 `${primary_key}`（或 `${unique_key}`）但上游没有主键（或唯一键），任务会以清晰错误信息失败。
+- 两个占位符替换阶段的顺序是固定的：引擎层的表占位符替换先执行，且不会修改该选项（它只处理顶层的 `String` 值和单元素 `String` 列表）；随后由 JDBC Sink 在创建每个表时展开 `multi_table_config.primary_keys` 中的 `${primary_key}` / `${unique_key}`。通用规则见 [Sink 占位符说明](../../introduction/configuration/sink-options-placeholders.md)。
+- 所有提交方式都支持正则 key：配置文件，以及 REST submit-job 接口的 JSON body 和 HOCON body。
+
+示例：为表名以 `t_nova_` 开头的表，使用上游主键加上共享的 `DATA_SOURCE` 列作为复合主键。
+
+```hocon
+sink {
+  jdbc {
+    url = "jdbc:mysql://localhost:3306/test"
+    driver = "com.mysql.cj.jdbc.Driver"
+    generate_sink_sql = true
+    multi_table_config {
+      primary_keys {
+        "^t_nova_.*$" = ["${primary_key}", "DATA_SOURCE"]
+      }
+    }
+  }
+}
+```
+
+示例：`multi_table_config` 与顶层 `primary_keys` 混用。被映射命中的表使用映射值，未命中的表回退到 `primary_keys = ["merchant_id"]`。
+
+```hocon
+sink {
+  jdbc {
+    url = "jdbc:mysql://localhost:3306/test"
+    driver = "com.mysql.cj.jdbc.Driver"
+    generate_sink_sql = true
+    primary_keys = ["merchant_id"]
+    multi_table_config {
+      primary_keys {
+        "t_tyuen_txn_ext.*"          = ["id_txn_ctrl", "DATA_SOURCE"]
+        "t_nova_merge_settle_serial" = ["${primary_key}", "DATA_SOURCE"]
+      }
+    }
+  }
+}
+```
 
 ### connection_check_timeout_sec [int]
 
