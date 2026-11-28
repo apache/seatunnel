@@ -19,6 +19,7 @@ package org.apache.seatunnel.core.starter.seatunnel.command;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.SupportSinkDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -36,6 +37,16 @@ public class DryRunTestSinkFactory
     static final Option<Boolean> FAIL_VALIDATION =
             Options.key("fail_validation").booleanType().defaultValue(false);
 
+    private static final Option<Boolean> SINGLE_INPUT =
+            Options.key("single_input").booleanType().defaultValue(false);
+
+    @Override
+    public void validateInputTableCount(ReadonlyConfig options, int inputTableCount) {
+        if (options.get(SINGLE_INPUT) && inputTableCount > 1) {
+            throw new IllegalArgumentException("Test sink requires a single input table");
+        }
+    }
+
     @Override
     public String factoryIdentifier() {
         return "DryRunTestSink";
@@ -43,7 +54,7 @@ public class DryRunTestSinkFactory
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().optional(FAIL_VALIDATION).build();
+        return OptionRule.builder().optional(FAIL_VALIDATION, SINGLE_INPUT).build();
     }
 
     @Override

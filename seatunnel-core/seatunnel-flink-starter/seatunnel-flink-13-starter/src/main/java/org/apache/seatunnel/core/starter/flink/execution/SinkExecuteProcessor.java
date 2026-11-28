@@ -138,13 +138,20 @@ public class SinkExecuteProcessor
                     fromSourceTable(sinkConfig, upstreamDataStreams).orElse(input);
             Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
             List<MultiTableFailedTable> currentSkippedTables = new ArrayList<>();
+            ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(sinkConfig);
+            factory.filter(TableSinkFactory.class::isInstance)
+                    .map(TableSinkFactory.class::cast)
+                    .ifPresent(
+                            sinkFactory ->
+                                    sinkFactory.validateInputTableCount(
+                                            readonlyConfig, stream.getCatalogTables().size()));
             for (CatalogTable catalogTable : stream.getCatalogTables()) {
                 SeaTunnelSink sink;
                 try {
                     sink =
                             FactoryUtil.createAndPrepareSink(
                                     catalogTable,
-                                    ReadonlyConfig.fromConfig(sinkConfig),
+                                    readonlyConfig,
                                     classLoader,
                                     sinkConfig.getString(PLUGIN_NAME.key()),
                                     fallbackCreateSink,
