@@ -48,6 +48,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -63,6 +64,10 @@ import java.util.stream.Collectors;
 public class DatabendSinkWriter
         implements SinkWriter<SeaTunnelRow, DatabendSinkCommitterInfo, Void>,
                 SupportSchemaEvolutionSinkWriter {
+
+    // Databend keeps a TIMESTAMP to the microsecond.
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER =
+            DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSSSS");
 
     private final Connection connection;
     private final Context context;
@@ -686,7 +691,19 @@ public class DatabendSinkWriter
                         i + 1,
                         field,
                         field.getClass().getSimpleName());
-                preparedStatement.setObject(i + 1, field);
+                if (field instanceof LocalTime) {
+                    // A TIME column is created as STRING, since Databend has no TIME type, and
+                    // databend-jdbc's setObject rejects a LocalTime. Write the time of day as text.
+                    preparedStatement.setString(
+                            i + 1, ((LocalTime) field).format(DateTimeFormatter.ISO_LOCAL_TIME));
+                } else if (field instanceof LocalDateTime) {
+                    // databend-jdbc's setObject also rejects a LocalDateTime, and its setTimestamp
+                    // keeps only milliseconds. Write the timestamp as text.
+                    preparedStatement.setString(
+                            i + 1, ((LocalDateTime) field).format(TIMESTAMP_FORMATTER));
+                } else {
+                    preparedStatement.setObject(i + 1, field);
+                }
             }
         }
         preparedStatement.addBatch();

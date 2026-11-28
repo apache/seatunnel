@@ -61,7 +61,11 @@ public final class ConfigShadeUtils {
                 "community",
                 "client_secret",
                 "security_token",
-                "connection_string"
+                "connection_string",
+                "dlf.access-key-id",
+                "dlf.access-key-secret",
+                "consumer_key",
+                "consumer_secret"
             };
 
     private static final Map<String, ConfigShade> CONFIG_SHADES = new HashMap<>();

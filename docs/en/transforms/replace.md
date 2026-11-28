@@ -10,7 +10,7 @@ Examines string value in given fields and replaces substring of the string value
 
 |     name      | type    | required | default value |
 |---------------|---------|----------|---------------|
-| replace_fields | array   | yes      |               |
+| replace_fields | array   | yes      | -             |
 | pattern       | string  | yes      | -             |
 | replacement   | string  | yes      | -             |
 | is_regex      | boolean | no       | false         |
@@ -59,7 +59,7 @@ A list of per-table rules. Each entry must contain `table_path` in the form `dat
 
 Controls what happens when several `table_transform` entries have the same `table_path`: `FIRST_MATCH` applies only the first matching entry, `ALL_MATCH` applies all matching entries in order. If not set, duplicate `table_path` entries are rejected.
 
-### common options [string]
+### common options
 
 Transform plugin common parameters, please refer to [Transform Plugin](common-options/common-options.md) for details
 

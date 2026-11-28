@@ -37,7 +37,8 @@ public class TestSparkDateTimeTransformIT extends TestSuiteBase {
     @TestTemplate
     public void testSparkDateTimeTransform(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/spark_date_time_transform.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/spark_date_time_transform/spark_date_time_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
