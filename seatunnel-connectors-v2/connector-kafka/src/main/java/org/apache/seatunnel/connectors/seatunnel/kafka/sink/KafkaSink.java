@@ -47,23 +47,42 @@ public class KafkaSink
     private final SeaTunnelRowType seaTunnelRowType;
     private final CatalogTable catalogTable;
 
+    /** Job-level prefix chosen once and serialized with the sink execution graph. */
+    private final String transactionPrefix;
+
+    /** Generation token shared by all writers and retained across task retries. */
+    private final String writerNamespaceGeneration;
+
     public KafkaSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
         this.pluginConfig = pluginConfig;
         this.catalogTable = catalogTable;
         this.seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
+        this.transactionPrefix = KafkaSinkWriter.resolveTransactionPrefix(pluginConfig);
+        this.writerNamespaceGeneration = KafkaSinkWriter.generateWriterNamespaceGeneration();
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> createWriter(
             SinkWriter.Context context) {
         return new KafkaSinkWriter(
-                context, seaTunnelRowType, pluginConfig, Collections.emptyList());
+                context,
+                seaTunnelRowType,
+                pluginConfig,
+                Collections.emptyList(),
+                transactionPrefix,
+                writerNamespaceGeneration);
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> restoreWriter(
             SinkWriter.Context context, List<KafkaSinkState> states) {
-        return new KafkaSinkWriter(context, seaTunnelRowType, pluginConfig, states);
+        return new KafkaSinkWriter(
+                context,
+                seaTunnelRowType,
+                pluginConfig,
+                states,
+                transactionPrefix,
+                writerNamespaceGeneration);
     }
 
     @Override
