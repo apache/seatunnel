@@ -39,9 +39,9 @@ import com.hazelcast.map.IMap;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -83,8 +83,24 @@ public class PhysicalPlan {
 
     private EngineConfig engineConfig;
 
+    /**
+     * Pre-applied slot futures for this job, keyed by task group.
+     *
+     * <p>Concurrent by contract. {@code stateProcess()} is synchronized per {@link SubPlan}, but
+     * each pipeline is a different {@code SubPlan} instance, so two pipelines of the same job can
+     * restore at the same time and replace their own entries from their own threads, while {@link
+     * ResourceUtils} reads an entry for a third pipeline and {@code PendingDiagnosticsCollector}
+     * copies the whole map from a REST thread.
+     *
+     * <p>The keys are installed once, by the whole-job pre-apply before the job runs, and nothing
+     * removes them, so a restoring pipeline only ever replaces values. That makes the hazard here
+     * <em>visibility</em>, not structure: an unsynchronized {@code HashMap} gives a reader on
+     * another thread no happens-before guarantee, so it may still observe the future a restore has
+     * already replaced. That stale future carries the slot profile the restore released, so the
+     * pipeline can be handed a slot that is no longer held.
+     */
     private Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =
-            new HashMap<>();
+            new ConcurrentHashMap<>();
 
     /** Whether we make the job end when pipeline turn to end state. */
     private boolean makeJobEndWhenPipelineEnded = true;
@@ -455,6 +471,14 @@ public class PhysicalPlan {
 
     public void setPreApplyResourceFutures(
             Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures) {
-        this.preApplyResourceFutures = preApplyResourceFutures;
+        // Copied into a concurrent map rather than stored as handed over.
+        // Callers build this locally with a plain HashMap, and a pipeline that
+        // restores later merges into whatever map is stored here, from its own
+        // thread. Storing the caller's map as-is would silently put a
+        // HashMap back in place and undo the concurrency contract above.
+        this.preApplyResourceFutures =
+                preApplyResourceFutures == null
+                        ? new ConcurrentHashMap<>()
+                        : new ConcurrentHashMap<>(preApplyResourceFutures);
     }
 }

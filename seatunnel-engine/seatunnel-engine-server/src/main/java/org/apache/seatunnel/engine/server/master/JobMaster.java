@@ -179,7 +179,19 @@ public class JobMaster {
 
     private final IMap<Long, JobInfo> runningJobInfoIMap;
 
-    @Getter private final Set<ExecutionAddress> historyExecutionAddress = new HashSet<>();
+    /**
+     * Workers this job has run task groups on, accumulated across restores.
+     *
+     * <p>Concurrent because the restore path is. Every restoring pipeline calls {@code add()} on
+     * this from its own thread in {@link #preApplyResources(SubPlan)}, holding only its own {@code
+     * SubPlan} monitor, and a restore that lands on a worker not seen before inserts a new element.
+     * Unlike the pre-applied futures map, whose keys are all installed before the job runs, this
+     * really does grow structurally under concurrent writers, which is the case an unsynchronized
+     * hash collection cannot survive. It is also read while that happens, by {@code DAGUtils}
+     * through the generated getter.
+     */
+    @Getter
+    private final Set<ExecutionAddress> historyExecutionAddress = ConcurrentHashMap.newKeySet();
 
     /** If the job or pipeline cancel by user, needRestore will be false */
     @Getter private volatile boolean needRestore = true;
