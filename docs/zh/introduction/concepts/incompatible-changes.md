@@ -8,6 +8,13 @@
 
 配置 `dynamic-slot: false` 的 Worker 会发送紧凑心跳。请同时升级或回退集群中所有 Zeta Master 和 Worker，旧版 Master 无法解析新版 Worker 的固定 slot 心跳。此改动保持作业配置和 checkpoint 格式兼容。
 
+### 文件连接器：ORC ZSTD 输出需要兼容的读取器
+
+- **影响组件**：`connector-file-base` 及使用其 ORC 读写实现的文件连接器。
+- **变更说明**：`orc-core:nohive` 从 1.5.6 升级为 1.8.7，共享 ORC sink 配置规则接受 ZSTD，并将 ZSTD 映射为 ORC `CompressionKind.ZSTD`。现在可以读取 ZSTD 压缩的 ORC 文件，且 `compress_codec = "zstd"` 会实际生成 ZSTD 压缩文件，而不是映射为 NONE。此前，文件工厂会在配置校验阶段拒绝 ORC/ZSTD；绕过该规则的调用路径则可能静默生成未压缩文件。
+- **兼容性影响**：新生成的 ZSTD 文件要求下游读取器支持 ORC ZSTD。保留 ORC 文件版本 0.12 并不能让旧读取器支持该压缩格式。已有文件不会被重写，默认压缩仍为 NONE。
+- **迁移指南**：启用 ORC ZSTD 前先验证或升级下游读取器。分阶段升级期间，可显式保留双方均支持的 SNAPPY 或 ZLIB 等压缩格式。 (#13084)
+
 ### HBase sink：DELETE 行删除映射的数据
 
 `DELETE` 行现在会删除本 sink 映射列簇中不晚于该变更时间戳的所有单元格版本。此前这些行会将旧值作为 Put 写入，未映射列簇仍不受影响。仅投影 rowkey 和版本列时，没有映射列簇，sink 会拒绝 DELETE 行。请在投影中包含目标列簇的至少一个数据列。
@@ -187,6 +194,27 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
   - **影响**：使用默认配置时，时间戳写成 `yyyy-MM-dd HH:mm:ss`（`T` 改为空格，丢弃小数秒），时间写成 `HH:mm:ss`。依赖原 ISO 格式的下游需要调整。
   - **迁移指南**：如需保留 ISO 格式，请在 Sink 上配置 `datetime_format`，例如 `YYYY_MM_DD_HH_MM_SS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss`），或使用 `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss.SSS`）保留毫秒，并在读取时为 Source 配置对应的 `datetime_format`。
 
+### 条件选项规则按 AND 优先于 OR 的顺序求值
+
+SeaTunnel 使用 `Condition` 校验条件选项规则，并通过 Zeta REST API 和元数据导出 CLI 描述这些规则。3.1.0 中已废弃的 `Expression` 类及相关公共构造器、工厂方法、getter 和校验方法仍可供已有插件 jar 调用。
+
+升级后，运行时会将旧表达式展开为一条条件链，按 AND 优先于 OR 的顺序求值。这个变化也适用于已编译的插件。例如，3.1.0 将 `A.and(B).or(C)` 求值为 `A && (B || C)`，现在则是 `(A && B) || C`。当 A、B 为假且 C 为真时，现在会触发必填校验。多个旧表达式节点内部的分组边界也会被展开。如果规则依赖原有分组，请明确改写，例如将 `A && (B || C)` 写成 `(A && B) || (A && C)`。
+
+新规则可使用 `conditional(trigger, requiredOptions...)` 添加条件必填项，或使用 `conditionalRule(trigger, nestedRule)` 添加嵌套规则。先声明触发条件引用的选项，再通过 `getCondition()` 读取触发条件。旧的 `getExpression()` 返回独立副本。每个 OR 分支对应一个外层节点，分支内的 AND 条件保存在该节点中。如需修改规则，请使用新的触发条件重新构建。
+
+```java
+Condition<?> trigger = Condition.of(MODE, "snapshot").or(REPLAY, true);
+OptionRule rule = OptionRule.builder()
+        .optional(MODE, REPLAY)
+        .conditional(trigger, START_TIME)
+        .conditionalRule(trigger, OptionRule.builder().bundled(USERNAME, PASSWORD).build())
+        .build();
+```
+
+依赖校验报错或导出元数据的工具，请按 AND 优先于 OR 的规则解读表达式文本。遍历条件规则导出的触发条件树时，请读取表达式节点上的 `operator` 和 `next`。每个节点的 `condition` 描述一个谓词。
+
+`Condition.equals` 和 `hashCode` 会计入每个节点的 `ConditionExtension`。如果工厂要求等价规则比较相等，可以复用扩展实例，或为扩展实现按值比较的 `equals` 和 `hashCode`。
+
 ### 原生 CLI 帮助退出码
 
 `seatunnel.sh -h` 现在以 `0` 而非 `234` 退出。
@@ -205,6 +233,12 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
 - **行为变更**：使用 `decoding.plugin.name = "pgoutput"` 的流式作业会从源表结构中排除 PostgreSQL 发布未发布的列，包括 PostgreSQL 18 之前的生成列、虚拟生成列以及发布列列表中省略的列。仅快照作业和其他解码插件不受影响。
 - **影响**：下次启动或恢复作业时，快照和自动创建的目标表将不再包含未发布的非主键列。依赖这些列的现有目标表和下游使用方可能需要调整表结构或字段映射；此前流式更新可能将这些列写为 NULL，或因表结构不匹配而失败。如果必需的主键未发布（包括仅发布 INSERT 的发布），作业现在会在启动时失败，而不是保留该列并在流式同步中输出 NULL 主键。
 - **迁移指南**：升级前检查发布配置及下游表结构。在 PostgreSQL 18 中，设置 `publish_generated_columns = stored` 的发布可以保留存储生成列；虚拟生成列仍不会发布。使用发布列列表时，请加入所有必需主键列（包括 `table-names-config.primaryKeys` 配置的主键）和其他必需列。发布 UPDATE/DELETE 时，PostgreSQL 还要求包含副本标识列。请调整目标表结构和下游映射，移除其他未发布的列；没有显式列列表的发布仍遵循生成列规则。
+
+### PostgreSQL CDC：新增用户自定义枚举和范围类型列
+
+- **行为变更**：使用 `decoding.plugin.name = "pgoutput"` 并开启 Schema 变更时，用户自定义枚举、范围或多范围类型的新增列，类型名改为 `format_type(oid, NULL)` 的结果：需要时加引号，类型所在 schema 不在源连接 `search_path` 中时带上 schema。此前下游收到的是不带引号和 schema 的 `pg_type.typname`。
+- **影响**：PostgreSQL JDBC Sink 现在执行的是类似 `ALTER TABLE ... ADD c inv.mood` 的语句，而不是 `ADD c mood`。如果 Sink 此前把不带 schema 的类型名解析为另一个 schema 中的同名类型，现在会在 Sink 端失败。如果无法从源端 `pg_type` 读取列类型名，作业会以 `POSTGRES-05` 失败。
+- **迁移指南**：升级前，请在 Sink 数据库中按源端相同的 schema 创建新增列用到的用户自定义类型。
 
 ### Markdown File Source 的 `child_ids` 数组
 

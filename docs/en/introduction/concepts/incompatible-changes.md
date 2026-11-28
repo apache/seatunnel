@@ -9,6 +9,13 @@ You need to check this document before you upgrade to related version.
 
 Workers configured with `dynamic-slot: false` send compact heartbeats. Upgrade or roll back all Zeta masters and workers together. An older master cannot decode a fixed-slot heartbeat from a newer worker. Existing job configuration and checkpoint formats remain compatible with this change.
 
+### File connectors: ORC ZSTD output requires compatible readers
+
+- **Affected component**: `connector-file-base` and file connectors using its ORC reader/writer.
+- **Description**: Upgrade `orc-core:nohive` from 1.5.6 to 1.8.7, accept ZSTD in the shared ORC sink configuration rule, and map ZSTD to ORC `CompressionKind.ZSTD`. ZSTD-compressed ORC files can be read, and ORC output configured with `compress_codec = "zstd"` is actually ZSTD-compressed instead of mapping to NONE. Previously, file factories rejected ORC/ZSTD during validation, while paths bypassing that rule could silently write uncompressed output.
+- **Impact**: Newly generated ZSTD files require readers supporting ORC ZSTD. Retaining ORC file version 0.12 does not provide codec support to older readers. Existing files are not rewritten, and the default compression remains NONE.
+- **Migration Guide**: Verify or upgrade downstream readers before enabling ORC ZSTD. During a staged upgrade, explicitly retain a mutually supported codec such as SNAPPY or ZLIB. (#13084)
+
 ### HBase sink: DELETE rows remove mapped data
 
 `DELETE` rows now remove all cell versions up to the mutation timestamp in the column families
@@ -211,6 +218,27 @@ The same strictness applies wherever the shared JSON-to-row conversion is used w
   - **Impact**: With the defaults, timestamps are written as `yyyy-MM-dd HH:mm:ss` (a space instead of `T`, fractional seconds dropped) and times as `HH:mm:ss`. Readers that expect the previous ISO layout must be adjusted.
   - **Migration Guide**: To keep an ISO layout, set `datetime_format` on the sink, for example `YYYY_MM_DD_HH_MM_SS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss`) or `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss.SSS`) to keep milliseconds, and read the files with the matching source `datetime_format`.
 
+### Conditional option rules use AND-before-OR precedence
+
+SeaTunnel uses `Condition` to validate conditional option rules and to describe them in the Zeta REST API and metadata export CLI. The deprecated public `Expression` class, constructor, factories, getters and validator method from 3.1.0 remain available to existing plugin jars.
+
+On upgrade, the runtime flattens a legacy expression into a chain of conditions and evaluates AND before OR. This applies to precompiled plugins too. For example, 3.1.0 evaluated `A.and(B).or(C)` as `A && (B || C)`. It now means `(A && B) || C`. With A and B false and C true, the required option is enforced. Group boundaries inside a chain of legacy expression nodes also disappear. If your rule depends on grouping, rewrite it explicitly, for example `A && (B || C)` as `(A && B) || (A && C)`.
+
+New rules can pass a trigger to `conditional(trigger, requiredOptions...)` or `conditionalRule(trigger, nestedRule)`. Declare the referenced options first and read the trigger with `getCondition()`. Legacy `getExpression()` returns a detached view with one outer node per OR alternative. Each node holds its AND conditions. To change a rule, construct it with the new trigger.
+
+```java
+Condition<?> trigger = Condition.of(MODE, "snapshot").or(REPLAY, true);
+OptionRule rule = OptionRule.builder()
+        .optional(MODE, REPLAY)
+        .conditional(trigger, START_TIME)
+        .conditionalRule(trigger, OptionRule.builder().bundled(USERNAME, PASSWORD).build())
+        .build();
+```
+
+Tools that consume validation messages or metadata should expect AND-before-OR grouping in the rendered text. In a conditional rule's exported trigger tree, follow `operator` and `next` on the expression nodes. Each node's `condition` describes one predicate.
+
+`Condition.equals` and `hashCode` include each node's `ConditionExtension`. Factories that need equivalent rules to compare equal can reuse an extension instance or give it value-based `equals` and `hashCode` implementations.
+
 ### Native CLI help exit code
 
 `seatunnel.sh -h` now exits with `0` instead of `234`.
@@ -229,6 +257,12 @@ protocol still uses `234`; its wrapper scripts continue to translate help to exi
 - **Behavior change**: For streaming jobs using `decoding.plugin.name = "pgoutput"`, columns not published by the PostgreSQL publication are excluded from the source schema. This includes generated columns before PostgreSQL 18, virtual generated columns, and columns omitted by a publication column list. Snapshot-only jobs and other decoding plugins are unchanged.
 - **Impact**: On the next job start or restore, snapshots and auto-created sink tables no longer include unpublished non-key columns. Existing sinks and downstream consumers that expect them may need schema or mapping changes; previously, streamed updates could write NULL into those columns or fail on a schema mismatch. If a required primary key column is unpublished, including in an INSERT-only publication, startup now fails instead of retaining the column and streaming NULL keys.
 - **Migration Guide**: Check the publication and downstream schema before upgrading. On PostgreSQL 18, a publication with `publish_generated_columns = stored` can retain stored generated columns; virtual generated columns remain unpublished. For a column-list publication, include every required primary key column (including configured `table-names-config.primaryKeys`) and all other required columns. PostgreSQL also requires replica identity columns when publishing UPDATE/DELETE. Update sink schemas and downstream mappings to omit other unpublished columns; publications without an explicit column list still follow the generated-column rules.
+
+### PostgreSQL CDC: ADD COLUMN of user-defined enum and range types
+
+- **Behavior change**: With `decoding.plugin.name = "pgoutput"` and schema changes enabled, an added column of a user-defined enum, range or multirange type carries the type name from `format_type(oid, NULL)`: quoted when needed and schema-qualified when the type's schema is not on the source connection's `search_path`. Previously the bare `pg_type.typname` was sent downstream.
+- **Impact**: A PostgreSQL JDBC sink now runs, for example, `ALTER TABLE ... ADD c inv.mood` instead of `ADD c mood`. A job whose sink resolved the bare name to a same-named type in another schema now fails in the sink. If the column type names cannot be read from the source `pg_type`, the job fails with `POSTGRES-05`.
+- **Migration Guide**: Before upgrading, create each user-defined type used by added columns in the sink database under the same schema as on the source.
 
 ### Markdown file source `child_ids` array
 
