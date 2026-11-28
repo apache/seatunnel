@@ -29,6 +29,8 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.server.CoordinatorService;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
 import org.awaitility.Awaitility;
@@ -40,6 +42,7 @@ import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -48,6 +51,8 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 /**
  * End-to-end coverage for the admission contract of a job id that is submitted more than once at
@@ -148,6 +153,7 @@ public class ConcurrentDuplicateSubmissionIT {
             seaTunnelConfig.getEngineConfig().getSlotServiceConfig().setDynamicSlot(true);
 
             node = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+            final HazelcastInstanceImpl testNode = node;
 
             FileUtils.createNewDir(targetDir);
             Map<String, String> values = new HashMap<>();
@@ -299,5 +305,194 @@ public class ConcurrentDuplicateSubmissionIT {
             FileUtils.deleteFile(targetDir);
             FileUtils.deleteFile(generatedConf);
         }
+    }
+
+    /**
+     * Pins the window the concurrent test above cannot reach deterministically: the duplicate has
+     * already passed the "job is running" check, is delayed, and only claims the job id after the
+     * owner published its {@code JobMaster} and released its claim.
+     *
+     * <p>Without the post-claim visibility recheck the delayed caller takes the now free claim and
+     * starts a second admission for the same job id, so the job never reaches a terminal state. The
+     * test parks the second entrant in the test-only claim gate, waits until the owner's admission
+     * is published and its claim is released, and only then lets the duplicate continue.
+     */
+    @Test
+    public void testDelayedDuplicateAfterOwnerPublishedIsNotAdmittedAgain() throws Exception {
+        String testClusterName =
+                "ConcurrentDuplicateSubmissionIT_testDelayedDuplicateAfterOwnerPublished";
+
+        HazelcastInstanceImpl node = null;
+        SeaTunnelClient engineClient = null;
+        String targetDir = "/tmp/hive/warehouse/" + testClusterName;
+        String generatedConf =
+                System.getProperty("user.dir")
+                        + File.separator
+                        + "target"
+                        + File.separator
+                        + "delayed-duplicate-submission.conf";
+        CountDownLatch duplicateParked = new CountDownLatch(1);
+        CountDownLatch releaseDuplicate = new CountDownLatch(1);
+        AtomicInteger claimAttempts = new AtomicInteger();
+
+        try {
+            SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+            seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
+            seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
+            seaTunnelConfig.getEngineConfig().getSlotServiceConfig().setDynamicSlot(true);
+
+            node = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+            final HazelcastInstanceImpl testNode = node;
+
+            FileUtils.createNewDir(targetDir);
+            Map<String, String> values = new HashMap<>();
+            values.put("dynamic_test_case_name", targetDir);
+            TestUtils.createTestConfigFileFromTemplate(TEMPLATE_CONF, values, generatedConf);
+
+            Common.setDeployMode(DeployMode.CLIENT);
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(testClusterName);
+            engineClient = new SeaTunnelClient(clientConfig);
+
+            final long jobId = JobIdGenerator.newJobId();
+            // Park whichever caller arrives second: the first one is the owner that publishes the
+            // JobMaster, the second one is the delayed duplicate this test is about.
+            setSubmissionClaimGate(
+                    id -> {
+                        if (id != jobId) {
+                            return;
+                        }
+                        if (claimAttempts.incrementAndGet() == 2) {
+                            duplicateParked.countDown();
+                            try {
+                                releaseDuplicate.await(120, TimeUnit.SECONDS);
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                            }
+                        }
+                    });
+
+            final SeaTunnelClient sharedClient = engineClient;
+            final CountDownLatch startSubmitting = new CountDownLatch(1);
+            final List<ClientJobProxy> proxies = Collections.synchronizedList(new ArrayList<>());
+            final List<Throwable> submissionErrors =
+                    Collections.synchronizedList(new ArrayList<>());
+            List<Thread> submitters = new ArrayList<>();
+            for (int i = 0; i < 2; i++) {
+                Thread submitter =
+                        new Thread(
+                                () -> {
+                                    try {
+                                        JobConfig jobConfig = new JobConfig();
+                                        jobConfig.setName("delayed_duplicate_submission");
+                                        ClientJobExecutionEnvironment environment =
+                                                sharedClient.createExecutionContext(
+                                                        generatedConf,
+                                                        null,
+                                                        jobConfig,
+                                                        seaTunnelConfig,
+                                                        jobId);
+                                        startSubmitting.await();
+                                        proxies.add(environment.execute());
+                                    } catch (Throwable e) {
+                                        submissionErrors.add(e);
+                                    }
+                                },
+                                "delayed-duplicate-submitter");
+                submitter.start();
+                submitters.add(submitter);
+            }
+            startSubmitting.countDown();
+
+            // The owner's admission must be complete before the duplicate resumes: published
+            // JobMaster and no in-flight claim left for this job id.
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .pollInterval(50, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertNotNull(
+                                            coordinatorService(testNode).getJobMaster(jobId),
+                                            "The owner submission must publish its JobMaster"));
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .pollInterval(50, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            inFlightSubmissions(testNode).containsKey(jobId),
+                                            "The owner submission must release its claim before "
+                                                    + "the delayed duplicate continues"));
+            Assertions.assertTrue(
+                    duplicateParked.await(60, TimeUnit.SECONDS),
+                    "The delayed duplicate must be parked at the claim gate");
+
+            releaseDuplicate.countDown();
+            for (Thread submitter : submitters) {
+                submitter.join(TimeUnit.SECONDS.toMillis(120));
+                Assertions.assertFalse(
+                        submitter.isAlive(), "A duplicate submission did not return in 120 seconds");
+            }
+
+            Assertions.assertTrue(
+                    submissionErrors.isEmpty(),
+                    "The delayed duplicate must resolve with the already accepted job instead of "
+                            + "failing, but got: "
+                            + submissionErrors);
+            Assertions.assertEquals(
+                    2, proxies.size(), "Both submitters must receive a job proxy for the job id");
+            for (ClientJobProxy proxy : proxies) {
+                Assertions.assertEquals(jobId, proxy.getJobId());
+            }
+            Assertions.assertEquals(
+                    2,
+                    claimAttempts.get(),
+                    "Both submissions must have reached the claim point; otherwise this test does "
+                            + "not exercise the delayed-duplicate window");
+
+            ClientJobProxy observer = proxies.get(0);
+            Awaitility.await()
+                    .atMost(JOB_FINISH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.FINISHED,
+                                            observer.getJobStatus(),
+                                            "A delayed duplicate must not start a second admission; "
+                                                    + "a second admission leaves the job RUNNING"));
+            Assertions.assertEquals(
+                    ROW_NUM,
+                    FileUtils.getFileLineNumberFromDir(targetDir),
+                    "Exactly one execution may be admitted for one job id");
+        } finally {
+            setSubmissionClaimGate(null);
+            releaseDuplicate.countDown();
+            if (engineClient != null) {
+                engineClient.close();
+            }
+            if (node != null) {
+                node.shutdown();
+            }
+            FileUtils.deleteFile(targetDir);
+            FileUtils.deleteFile(generatedConf);
+        }
+    }
+
+    private static CoordinatorService coordinatorService(HazelcastInstanceImpl node) {
+        SeaTunnelServer server = node.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        return server.getCoordinatorService();
+    }
+
+    private static Map<?, ?> inFlightSubmissions(HazelcastInstanceImpl node) throws Exception {
+        Field field = CoordinatorService.class.getDeclaredField("submittingJobFutures");
+        field.setAccessible(true);
+        return (Map<?, ?>) field.get(coordinatorService(node));
+    }
+
+    private static void setSubmissionClaimGate(Consumer<Long> gate) throws Exception {
+        Field field = CoordinatorService.class.getDeclaredField("submissionClaimGate");
+        field.setAccessible(true);
+        field.set(null, gate);
     }
 }

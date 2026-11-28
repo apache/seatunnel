@@ -124,6 +124,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.options.EnvCommonOptions.CHECKPOINT_INTERVAL;
@@ -206,6 +207,15 @@ public class CoordinatorService {
      */
     private final Map<Long, CompletableFuture<Void>> submittingJobFutures =
             new ConcurrentHashMap<>();
+
+    /**
+     * Test-only gate invoked after the "job already known" check and before the job id is claimed
+     * in {@link #submittingJobFutures}.
+     *
+     * <p>It exists so a regression test can hold a duplicate submission inside the window where the
+     * job is not visible yet but the claim has not been taken. Production code never installs it.
+     */
+    @VisibleForTesting static volatile Consumer<Long> submissionClaimGate;
 
     private final PeekBlockingQueue<PendingJobInfo> pendingJobQueue =
             new PeekBlockingQueue<>(PendingJobInfo::getJobId);
@@ -1469,6 +1479,10 @@ public class CoordinatorService {
         // atomically here and let concurrent duplicates share the owner's future; otherwise both
         // callers build a JobMaster and the duplicate state machines corrupt the job's terminal
         // state.
+        Consumer<Long> claimGate = submissionClaimGate;
+        if (claimGate != null) {
+            claimGate.accept(jobId);
+        }
         CompletableFuture<Void> inFlightSubmission =
                 submittingJobFutures.putIfAbsent(jobId, jobSubmitFuture);
         if (inFlightSubmission != null) {
@@ -1477,6 +1491,20 @@ public class CoordinatorService {
                             "The job %s is currently being submitted; no need to submit again.",
                             jobId));
             return new PassiveCompletableFuture<>(inFlightSubmission);
+        }
+        // The claim above only serializes callers that overlap with an in-flight admission. A
+        // caller that passed the running-job check, was delayed, and arrives after the owner
+        // published its JobMaster and released the claim would take a free slot while the job is
+        // already known, and start a second admission for the same id. Recheck visibility after
+        // the claim: if the job is already published, release the claim and resolve like the
+        // already-running case instead of admitting it again.
+        if (getJobMaster(jobId) != null) {
+            submittingJobFutures.remove(jobId, jobSubmitFuture);
+            logger.warning(
+                    String.format(
+                            "The job %s is currently running; no need to submit again.", jobId));
+            jobSubmitFuture.complete(null);
+            return new PassiveCompletableFuture<>(jobSubmitFuture);
         }
 
         MDCExecutorService mdcExecutorService = MDCTracer.tracing(jobId, executorService);
