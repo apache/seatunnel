@@ -316,6 +316,9 @@ If the `dialect` option is not set and no dialect matches the url, SeaTunnel use
 | DSQL      |              |          |
 | YashanDB  | CockroachDB  |          |
 | DuckDB    |              |          |
+
+SeaTunnel `TIMESTAMP_TZ` values are written to existing native timezone-aware columns through JDBC `setObject` with `java.time.OffsetDateTime`. The Db2 catalog can create tables, but it cannot generate a column definition for SeaTunnel `TIMESTAMP_TZ`. For Db2 for z/OS, pre-create the target table with a `TIMESTAMP WITH TIME ZONE` column. If a driver rejects `setObject(OffsetDateTime)`, the existing fallback uses `setTimestamp` with a UTC calendar. That path represents the instant but does not guarantee retaining the original offset; validate the target driver and column semantics.
+
 ### database [string]
 
 The target database or catalog used in generated SQL mode. This option is required when `generate_sink_sql = true` and must not be combined with `query`.

@@ -62,6 +62,7 @@ Read data from DB2 through JDBC. DB2 requires the IBM `db2jcc` driver; SeaTunnel
 | DATE                                                                                                 | DATE                |
 | TIME                                                                                                 | TIME                |
 | TIMESTAMP                                                                                            | TIMESTAMP           |
+| TIMESTAMP WITH TIME ZONE (Db2 for z/OS; fractional digits after the ninth are truncated) | TIMESTAMP_TZ |
 | ROWID                                                                                                | Not supported yet   |
 
 ## Source Options

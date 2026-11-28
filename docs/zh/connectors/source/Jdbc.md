@@ -330,6 +330,14 @@ numeric_special_value_as_null = true
 达梦 `NCHAR` 源字段会映射为 SeaTunnel `STRING`。
 达梦 `TIMESTAMP WITH LOCAL TIME ZONE` 源字段会映射为 `TIMESTAMP_TZ`，`INTERVAL` 源字段会映射为 `STRING`。
 
+#### 带时区时间戳
+
+共享 JDBC 元数据回退路径现在把 JDBC 类型 2014（`TIMESTAMP_WITH_TIMEZONE`）映射为 `TIMESTAMP_TZ`（`OffsetDateTime`），不再映射为 `TIMESTAMP`（`LocalDateTime`）。原生类型名 `TIMESTAMPTZ` 或 `TIMESTAMP[(p)] WITH TIME ZONE` 优先于驱动报告的 JDBC 类型编号。例如，驱动同时报告类型 93（`TIMESTAMP`）和原生类型名 `TIMESTAMPTZ` 时，映射结果现在会保留偏移量。编号同为 93 的普通 `TIMESTAMP` 不受影响。
+
+Presto 和 Trino 的 `query` 作业也可能受影响：过去，类型映射器会丢弃精度后面的类型名，将 `timestamp(3) with time zone` 结果列映射为 `TIMESTAMP`；现在映射为 `TIMESTAMP_TZ`。升级前请核对下游转换、显式类型转换和目标列。若需保留无时区的字段类型，请在源查询中先确定转换使用的时区，再显式投影为不带时区的时间戳。配置和 checkpoint 格式不变。
+
+JDBC 中原生包含时区语义的列会映射为 SeaTunnel `TIMESTAMP_TZ`。支持 JDBC 4.2 `TIMESTAMP_WITH_TIMEZONE`，以及 Db2 for z/OS 和 Teradata `TIMESTAMP WITH TIME ZONE`、Presto `timestamp(p) with time zone`、Vertica `TIMESTAMPTZ` 等方言类型。运行时值使用 `java.time.OffsetDateTime` 表示。Db2 LUW 不提供这种原生列类型。Db2 for z/OS 最多支持 12 位小数秒，超出 SeaTunnel 纳秒精度的位数会被截断。
+
 ### CockroachDB
 
 使用现有 PostgreSQL JDBC 驱动，并显式配置 `dialect = "CockroachDB"`。未配置该选项时，`jdbc:postgresql:` URL 仍然选择 PostgreSQL 方言，不影响现有作业。

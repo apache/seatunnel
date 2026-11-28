@@ -18,6 +18,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.utils;
 
 import javax.annotation.Nullable;
 
+import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.ResultSet;
@@ -35,8 +36,31 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.Calendar;
 import java.util.TimeZone;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class JdbcFieldTypeUtils {
+
+    // IBM JDBC type returned for Db2 for z/OS TIMESTAMP WITH TIME ZONE columns.
+    private static final String DB2_TIMESTAMP_CLASS_NAME = "com.ibm.db2.jcc.DBTimestamp";
+
+    // Cache the driver method per class without pinning a connector's class loader.
+    private static final ClassValue<Method> DB2_RENDER_TIMESTAMP =
+            new ClassValue<Method>() {
+                @Override
+                protected Method computeValue(Class<?> type) {
+                    try {
+                        return type.getMethod("toDBString", boolean.class);
+                    } catch (NoSuchMethodException e) {
+                        throw new IllegalStateException("Db2 driver has no toDBString(boolean)", e);
+                    }
+                }
+            };
+
+    // Db2 external timestamp form: yyyy-mm-dd-hh.mm.ss.ffffffffffff+hh:mm.
+    private static final Pattern DB2_TIMESTAMP_WITH_TIME_ZONE_PATTERN =
+            Pattern.compile(
+                    "^(\\d{4}-\\d{2}-\\d{2})-(\\d{2})\\.(\\d{2})\\.(\\d{2})(\\.\\d+)?([+-]\\d{2}:\\d{2})$");
 
     private JdbcFieldTypeUtils() {}
 
@@ -262,6 +286,31 @@ public final class JdbcFieldTypeUtils {
             return ((Instant) obj).atOffset(ZoneOffset.UTC);
         }
 
+        // DBTimestamp extends Timestamp, so handle it before the generic Timestamp branch.
+        // ResultSet.getString() removes its offset, while toDBString(true) preserves it.
+        if (DB2_TIMESTAMP_CLASS_NAME.equals(obj.getClass().getName())) {
+            try {
+                Method toDBString = DB2_RENDER_TIMESTAMP.get(obj.getClass());
+                String db2Value = (String) toDBString.invoke(obj, true);
+                if (db2Value != null) {
+                    OffsetDateTime parsed = parseOffsetDateTimeFromString(db2Value);
+                    if (parsed != null) {
+                        return parsed;
+                    }
+                }
+            } catch (DateTimeParseException e) {
+                // Parsing exceptions contain the raw column value; do not propagate that value.
+            } catch (ReflectiveOperationException
+                    | IllegalStateException
+                    | SecurityException
+                    | ClassCastException e) {
+                throw new SQLException(
+                        "Cannot read " + DB2_TIMESTAMP_CLASS_NAME + " at column " + columnIndex, e);
+            }
+            throw new SQLException(
+                    "Invalid " + DB2_TIMESTAMP_CLASS_NAME + " value at column " + columnIndex);
+        }
+
         // Handle java.sql.Timestamp
         // Avoid using Timestamp.toInstant() directly because the Timestamp was constructed
         // with JVM-default-timezone semantics, which would shift the value by the JVM offset.
@@ -328,6 +377,9 @@ public final class JdbcFieldTypeUtils {
         if (trimmed.isEmpty()) {
             return null;
         }
+        // Db2 can carry 12 fractional digits, while java.time supports nanoseconds. Truncate the
+        // excess digits without rounding so that the represented instant is never advanced.
+        trimmed = normalizeDb2OffsetDateTimeString(trimmed);
         // Try parsing as standard ISO-8601 OffsetDateTime
         OffsetDateTime directParsed = tryParseOffsetDateTime(trimmed);
         if (directParsed != null) {
@@ -384,6 +436,30 @@ public final class JdbcFieldTypeUtils {
                             + normalized.substring(normalized.length() - 2);
         }
         return normalized;
+    }
+
+    /**
+     * Converts Db2's date-time separators and truncates fractional digits beyond nanoseconds. Other
+     * representations pass through unchanged for the existing parsers to handle.
+     */
+    private static String normalizeDb2OffsetDateTimeString(String value) {
+        Matcher matcher = DB2_TIMESTAMP_WITH_TIME_ZONE_PATTERN.matcher(value);
+        if (!matcher.matches()) {
+            return value;
+        }
+        String fraction = matcher.group(5) == null ? "" : matcher.group(5);
+        if (fraction.length() > 10) {
+            fraction = fraction.substring(0, 10);
+        }
+        return matcher.group(1)
+                + "T"
+                + matcher.group(2)
+                + ":"
+                + matcher.group(3)
+                + ":"
+                + matcher.group(4)
+                + fraction
+                + matcher.group(6);
     }
 
     private static <T> T getNullableValue(

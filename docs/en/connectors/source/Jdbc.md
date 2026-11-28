@@ -329,6 +329,14 @@ If the `dialect` option is not set and no dialect matches the url, SeaTunnel use
 Dameng `NCHAR` source columns are mapped to SeaTunnel `STRING`.
 Dameng `TIMESTAMP WITH LOCAL TIME ZONE` source columns are mapped to `TIMESTAMP_TZ`, and `INTERVAL` source columns are mapped to `STRING`.
 
+#### Timestamp with time zone
+
+In the shared JDBC metadata fallback, JDBC type 2014 (`TIMESTAMP_WITH_TIMEZONE`) now produces `TIMESTAMP_TZ` (`OffsetDateTime`), not `TIMESTAMP` (`LocalDateTime`). A native type name of `TIMESTAMPTZ` or `TIMESTAMP[(p)] WITH TIME ZONE` takes precedence over the driver’s numeric type code. For example, a column reported as JDBC type 93 (`TIMESTAMP`) with native type `TIMESTAMPTZ` now retains its offset. An ordinary `TIMESTAMP` reported as type 93 is unchanged.
+
+Presto and Trino `query` jobs are also affected: a result column reported as `timestamp(3) with time zone` previously mapped to `TIMESTAMP` because the mapper discarded the type suffix after the precision. It now maps to `TIMESTAMP_TZ`. Check downstream casts, transforms and target columns before upgrading. To keep a timezone-less contract, explicitly project a timestamp without time zone in the source query, choosing the intended time zone before discarding the offset. Configuration and checkpoint formats are unchanged.
+
+JDBC columns that natively carry timezone semantics are mapped to SeaTunnel `TIMESTAMP_TZ`. This includes the JDBC 4.2 `TIMESTAMP_WITH_TIMEZONE` type and dialect-specific types such as Db2 for z/OS and Teradata `TIMESTAMP WITH TIME ZONE`, Presto `timestamp(p) with time zone`, and Vertica `TIMESTAMPTZ`. The runtime value is represented by `java.time.OffsetDateTime`. Db2 LUW does not provide this native column type. Db2 for z/OS supports up to 12 fractional digits; digits beyond SeaTunnel's nanosecond precision are truncated.
+
 ### CockroachDB
 
 Use the existing PostgreSQL JDBC driver with `dialect = "CockroachDB"`. The dialect must be explicit: a `jdbc:postgresql:` URL without it continues to select PostgreSQL.

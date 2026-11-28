@@ -316,6 +316,8 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 | YashanDB  | CockroachDB |          |
 | DuckDB    |              |          |
 
+SeaTunnel `TIMESTAMP_TZ` 值通过 JDBC `setObject` 和 `java.time.OffsetDateTime` 写入已有的原生带时区列。Db2 Catalog 能自动创建表，但不能为 SeaTunnel 的 `TIMESTAMP_TZ` 生成列定义。写入 Db2 for z/OS 时，请先创建含 `TIMESTAMP WITH TIME ZONE` 列的目标表。如果驱动拒绝 `setObject(OffsetDateTime)`，现有回退会使用 UTC Calendar 调用 `setTimestamp`。该路径表达同一时间点，但不保证保留原始时区偏移；请验证目标驱动及列类型的实际语义。
+
 ### database [string]
 
 自动生成 SQL 模式下的目标 database 或 catalog。`generate_sink_sql = true` 时必填，不能与 `query` 同时使用。

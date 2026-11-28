@@ -613,6 +613,12 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **影响**：按旧文案匹配的告警或日志解析不再命中；运行时行为和集群生命周期不变。
   - **迁移指南**：改为匹配新文案，或按前后生命周期事件判断，而不要匹配具体字符串。
 
+### JDBC 带时区时间戳发现
+
+共享 JDBC 元数据回退路径现在把 JDBC 类型 2014（`TIMESTAMP_WITH_TIMEZONE`）映射为 `TIMESTAMP_TZ`（`OffsetDateTime`），不再映射为 `TIMESTAMP`（`LocalDateTime`）。原生类型名 `TIMESTAMPTZ` 或 `TIMESTAMP[(p)] WITH TIME ZONE` 优先于驱动报告的 JDBC 类型编号。例如，驱动同时报告类型 93（`TIMESTAMP`）和原生类型名 `TIMESTAMPTZ` 时，映射结果现在会保留偏移量。编号同为 93 的普通 `TIMESTAMP` 不受影响。
+
+Presto 和 Trino 的 `query` 作业也可能受影响：过去，类型映射器会丢弃精度后面的类型名，将 `timestamp(3) with time zone` 结果列映射为 `TIMESTAMP`；现在映射为 `TIMESTAMP_TZ`。升级前请核对下游转换、显式类型转换和目标列。若需保留无时区的字段类型，请在源查询中先确定转换使用的时区，再显式投影为不带时区的时间戳。配置和 checkpoint 格式不变。 如果驱动拒绝 `setObject(OffsetDateTime)`，JDBC Sink 仍回退到使用 UTC 的 `setTimestamp`，不保证保留原始偏移量。
+
 ### 依赖升级
 
 ## 3.0.0

@@ -72,6 +72,8 @@ public class DB2TypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String DB2_DATE = "DATE";
     public static final String DB2_TIME = "TIME";
     public static final String DB2_TIMESTAMP = "TIMESTAMP";
+    /* Db2 for z/OS timestamp type that preserves an explicit UTC offset. */
+    public static final String DB2_TIMESTAMP_WITH_TIME_ZONE = "TIMESTAMP WITH TIME ZONE";
     // ------------------------------blob-------------------------
     public static final String DB2_BLOB = "BLOB";
     // other
@@ -217,6 +219,13 @@ public class DB2TypeConverter implements TypeConverter<BasicTypeDefine> {
             case DB2_TIMESTAMP:
                 builder.sourceType(String.format("%s(%d)", DB2_TIMESTAMP, typeDefine.getScale()));
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                builder.scale(typeDefine.getScale());
+                break;
+            case DB2_TIMESTAMP_WITH_TIME_ZONE:
+                builder.sourceType(
+                        String.format(
+                                "%s(%d) WITH TIME ZONE", DB2_TIMESTAMP, typeDefine.getScale()));
+                builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
                 builder.scale(typeDefine.getScale());
                 break;
             default:

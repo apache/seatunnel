@@ -728,6 +728,12 @@ or state format migration is required.
   - **Migration Guide**: Match the new messages, or key on the surrounding lifecycle events instead
     of the exact text.
 
+### JDBC timezone timestamp discovery
+
+In the shared JDBC metadata fallback, JDBC type 2014 (`TIMESTAMP_WITH_TIMEZONE`) now produces `TIMESTAMP_TZ` (`OffsetDateTime`), not `TIMESTAMP` (`LocalDateTime`). A native type name of `TIMESTAMPTZ` or `TIMESTAMP[(p)] WITH TIME ZONE` takes precedence over the driver’s numeric type code. For example, a column reported as JDBC type 93 (`TIMESTAMP`) with native type `TIMESTAMPTZ` now retains its offset. An ordinary `TIMESTAMP` reported as type 93 is unchanged.
+
+Presto and Trino `query` jobs are also affected: a result column reported as `timestamp(3) with time zone` previously mapped to `TIMESTAMP` because the mapper discarded the type suffix after the precision. It now maps to `TIMESTAMP_TZ`. Check downstream casts, transforms and target columns before upgrading. To keep a timezone-less contract, explicitly project a timestamp without time zone in the source query, choosing the intended time zone before discarding the offset. Configuration and checkpoint formats are unchanged. The JDBC sink falls back to UTC `setTimestamp` when a driver rejects `setObject(OffsetDateTime)`; this does not guarantee preservation of the original offset.
+
 ### Dependency Upgrades
 
 ## 3.0.0
