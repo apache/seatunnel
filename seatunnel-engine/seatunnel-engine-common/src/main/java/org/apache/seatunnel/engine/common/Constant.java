@@ -22,6 +22,9 @@ public class Constant {
 
     public static final String SEATUNNEL_ID_GENERATOR_NAME = "SeaTunnelIdGenerator";
 
+    public static final String SEATUNNEL_AUTOSCALER_EPOCH_GENERATOR_NAME =
+            "SeaTunnelAutoscalerEpochGenerator";
+
     public static final String DEFAULT_SEATUNNEL_CLUSTER_NAME = "seatunnel";
 
     public static final String REST_SUBMIT_JOBS_PARAMS = "params";
