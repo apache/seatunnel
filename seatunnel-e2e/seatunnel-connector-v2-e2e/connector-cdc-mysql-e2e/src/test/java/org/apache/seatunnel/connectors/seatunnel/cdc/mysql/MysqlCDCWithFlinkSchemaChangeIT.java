@@ -25,6 +25,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.flink.AbstractTestFlinkContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
@@ -36,6 +37,7 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -48,10 +50,14 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -84,13 +90,20 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
     private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table_with_schema_change";
     private static final String SINK_TABLE2 =
             "mysql_cdc_e2e_sink_table_with_schema_change_exactly_once";
+    private static final String RECOVERY_JOB_CONFIG =
+            "/mysqlcdc_to_mysql_with_flink_schema_change_recovery.conf";
+    private static final String SINK_TABLE_IGNORE =
+            "mysql_cdc_e2e_sink_table_with_schema_change_ignore";
     private static final String MYSQL_HOST = "mysql_cdc_e2e";
     private static final String MYSQL_USER_NAME = "mysqluser";
     private static final String MYSQL_USER_PASSWORD = "mysqlpw";
+    private static final String MYSQL_SOURCE_USER_NAME = "st_user_source";
 
     private static final String DESC = "desc %s.%s";
+    private static final String QUERY = "select * from %s.%s";
     private static final String PROJECTION_QUERY =
             "select id,name,description,weight,add_column1,add_column2,add_column3 from %s.%s order by id;";
+    private static final String RECOVERY_COLUMN = "recovery_column";
 
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
 
@@ -182,12 +195,207 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
         assertSchemaEvolution(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE2);
     }
 
+    @Order(3)
+    @TestTemplate
+    public void testSchemaEvolutionRecoversAfterTaskManagerFailureBeforeNextCheckpoint(
+            TestContainer container) throws Exception {
+        resetDatabaseToInitialState();
+        AbstractTestFlinkContainer flinkContainer = asFlinkContainer(container);
+        String jobId =
+                flinkContainer.submitDetachedJob(
+                        RECOVERY_JOB_CONFIG, recoveryVariables(5, 5, 30_000L, true));
+        try {
+            assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE2);
+
+            // Let a checkpoint persist the incremental split before entering the schema recovery
+            // window. Otherwise this test can fail in the independent snapshot-to-incremental
+            // split-assignment window instead of exercising the schema protocol.
+            applyRecoverySchemaChange();
+            await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                    .pollInterval(100, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            getColumnNames(MYSQL_DATABASE, SINK_TABLE2)
+                                                    .contains(RECOVERY_COLUMN)));
+
+            // Submit with only the primary TaskManager first so the running tasks are guaranteed
+            // to be located on the TaskManager that will fail. Start a second TaskManager as
+            // standby only after the external DDL is visible, then fail the primary before the
+            // following checkpoint can persist the gate's applied sequence.
+            flinkContainer.startAdditionalTaskManager();
+            await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, flinkContainer.getRegisteredTaskManagerCount()));
+
+            // The DDL is emitted from notifyCheckpointComplete, so with a 30-second interval the
+            // next checkpoint cannot yet contain the gate's applied sequence. Stop only the
+            // primary TaskManager here and let the second TaskManager recover the job across that
+            // external-DDL/checkpoint gap. The recovery config deliberately enables JDBC XA, so
+            // this also exercises writer rollback/recovery and global-committer restoration.
+            flinkContainer.stopTaskManager();
+            await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            1, flinkContainer.getRegisteredTaskManagerCount()));
+
+            assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE2);
+            applyRecoveryDropColumn();
+            assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE2);
+        } finally {
+            try {
+                cancelFlinkJobIgnoringAlreadyTerminated(flinkContainer, jobId);
+            } finally {
+                flinkContainer.stopAdditionalTaskManagers();
+            }
+        }
+    }
+
+    @Order(4)
+    @TestTemplate
+    public void testPendingSchemaEvolutionStateRestoresAfterRescale(TestContainer container)
+            throws Exception {
+        resetDatabaseToInitialState();
+        AbstractTestFlinkContainer flinkContainer = asFlinkContainer(container);
+        String jobId =
+                flinkContainer.submitDetachedJob(
+                        RECOVERY_JOB_CONFIG, recoveryVariables(5, 5, 30_000L, false));
+        String activeJobId = jobId;
+        try {
+            assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE2);
+            int logOffset = container.getServerLogs().length();
+
+            // The initial assertion returns immediately after a periodic checkpoint makes the
+            // snapshot visible. Inject the DDL next, then capture its pending queue in a savepoint
+            // well before the following 30-second periodic checkpoint can release it.
+            applyRecoverySchemaChange();
+            awaitSchemaChangeDetected(container, logOffset);
+            String savepointPath = flinkContainer.triggerSavepoint(jobId);
+            flinkContainer.cancelFlinkJob(jobId);
+
+            activeJobId =
+                    flinkContainer.submitDetachedJob(
+                            RECOVERY_JOB_CONFIG,
+                            recoveryVariables(3, 3, 5_000L, false),
+                            savepointPath);
+
+            assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE2);
+            applyRecoveryDropColumn();
+            assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE2);
+        } finally {
+            cancelFlinkJobIgnoringAlreadyTerminated(flinkContainer, activeJobId);
+        }
+    }
+
+    private List<String> recoveryVariables(
+            int parallelism,
+            int sinkParallelism,
+            long checkpointInterval,
+            boolean unalignedCheckpoint) {
+        return Arrays.asList(
+                "test_parallelism=" + parallelism,
+                "test_sink_parallelism=" + sinkParallelism,
+                "test_checkpoint_interval=" + checkpointInterval,
+                "test_unaligned_checkpoint=" + unalignedCheckpoint);
+    }
+
+    private void awaitSchemaChangeDetected(TestContainer container, int logOffset) {
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .pollInterval(100, TimeUnit.MILLISECONDS)
+                .until(
+                        () -> {
+                            String logs = container.getServerLogs();
+                            return logs.length() > logOffset
+                                    && logs.substring(logOffset)
+                                            .contains(
+                                                    "Schema change detected for table .shop.products");
+                        });
+    }
+
+    private AbstractTestFlinkContainer asFlinkContainer(TestContainer container) {
+        Assertions.assertInstanceOf(AbstractTestFlinkContainer.class, container);
+        return (AbstractTestFlinkContainer) container;
+    }
+
+    private void cancelFlinkJobIgnoringAlreadyTerminated(
+            AbstractTestFlinkContainer container, String jobId) {
+        if (jobId == null) {
+            return;
+        }
+        try {
+            container.cancelFlinkJob(jobId);
+        } catch (Exception e) {
+            log.info("Flink job {} was already terminated: {}", jobId, e.getMessage());
+        }
+    }
+
+    @Order(5)
+    @TestTemplate
+    public void testStrictSchemaChangeBehaviorFailsOnSchemaChange(TestContainer container) {
+        resetDatabaseToInitialState();
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () ->
+                                executeJob(
+                                        container,
+                                        "/mysqlcdc_to_mysql_with_flink_schema_change_strict.conf"));
+
+        awaitBinlogReaderStarted(jobFuture);
+        if (!jobFuture.isDone()) {
+            shopDatabase.setTemplateName("add_columns").createAndInitialize();
+        }
+
+        Container.ExecResult result = awaitJobFinished(jobFuture);
+        Assertions.assertNotEquals(
+                0,
+                result.getExitCode(),
+                "strict schema change behavior should fail when a schema change event is observed");
+        Assertions.assertTrue(
+                result.getStderr().contains("Schema change behavior is STRICT")
+                        || result.getStdout().contains("Schema change behavior is STRICT"),
+                "strict failure should report the schema change behavior contract");
+    }
+
+    @Order(6)
+    @TestTemplate
+    public void testIgnoreSchemaChangeBehaviorDropsCommentOnlySchemaChange(
+            TestContainer container) {
+        resetDatabaseToInitialState();
+        CompletableFuture.runAsync(
+                () ->
+                        executeJob(
+                                container,
+                                "/mysqlcdc_to_mysql_with_flink_schema_change_ignore.conf"));
+
+        awaitInitialSnapshot(SINK_TABLE_IGNORE);
+        awaitIncrementalStreamingReady(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE_IGNORE);
+        shopDatabase.setTemplateName("comment_only_changes").createAndInitialize();
+
+        assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE_IGNORE);
+        assertSourceTableComment(
+                MYSQL_DATABASE, SOURCE_TABLE, "Ignored product catalog comment updated");
+        // Rows inserted after the final comment DDL must arrive before checking the unchanged sink.
+        Assertions.assertFalse(
+                query(
+                                "select id from "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + SINK_TABLE_IGNORE
+                                        + " where id = 114")
+                        .isEmpty());
+        assertSourceTableComment(MYSQL_DATABASE, SINK_TABLE_IGNORE, "");
+    }
+
     private void assertSchemaEvolution(String database, String sourceTable, String sinkTable) {
         await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertTableDataEqualsBySourceColumnOrder(
                                         database, sourceTable, sinkTable, null));
+
         awaitIncrementalStreamingReady(database, sourceTable, sinkTable);
 
         // case1 add columns with cdc data at same time
@@ -273,6 +481,7 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                         () ->
                                 assertTableDataEqualsBySourceColumnOrder(
                                         database, sourceTable, sinkTable, null));
+
         awaitIncrementalStreamingReady(database, sourceTable, sinkTable);
 
         // case1 add columns with cdc data at same time
@@ -336,6 +545,59 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                                         database, sourceTable, sinkTable, null));
     }
 
+    private void awaitInitialSnapshot(String sinkTable) {
+        await().atMost(180000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(String.format(QUERY, MYSQL_DATABASE, SOURCE_TABLE)),
+                                        query(String.format(QUERY, MYSQL_DATABASE, sinkTable))));
+    }
+
+    private void awaitBinlogReaderStarted(CompletableFuture<Container.ExecResult> jobFuture) {
+        await().atMost(180000, TimeUnit.MILLISECONDS)
+                .until(() -> jobFuture.isDone() || binlogReaderStarted());
+    }
+
+    private boolean binlogReaderStarted() {
+        try {
+            return query(
+                            "select COMMAND from information_schema.processlist where USER = '"
+                                    + MYSQL_SOURCE_USER_NAME
+                                    + "'")
+                    .stream()
+                    .flatMap(List::stream)
+                    .filter(command -> command != null)
+                    .map(command -> command.toString().toLowerCase(Locale.ROOT))
+                    .anyMatch(command -> command.contains("binlog dump"));
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private Container.ExecResult executeJob(TestContainer container, String jobConfigFile) {
+        try {
+            return container.executeJob(jobConfigFile);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Container.ExecResult awaitJobFinished(
+            CompletableFuture<Container.ExecResult> jobFuture) {
+        try {
+            return jobFuture.get(180, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        } catch (TimeoutException e) {
+            throw new RuntimeException(
+                    "Timed out waiting for schema change policy job to finish", e);
+        }
+    }
+
     /**
      * Waits until the incremental binlog reader is active before issuing schema changes.
      *
@@ -364,6 +626,36 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                         () ->
                                 assertTableDataEqualsBySourceColumnOrder(
                                         database, sourceTable, sinkTable, "id = 100"));
+    }
+
+    private void applyRecoverySchemaChange() throws SQLException {
+        executeSourceStatement(
+                "ALTER TABLE products ADD COLUMN " + RECOVERY_COLUMN + " INT NOT NULL DEFAULT 7");
+        executeSourceStatement(
+                "INSERT INTO products (id, name, description, weight, "
+                        + RECOVERY_COLUMN
+                        + ") VALUES (190, 'recovery-row', 'after schema change', 1.9, 9)");
+    }
+
+    private void applyRecoveryDropColumn() throws SQLException {
+        executeSourceStatement("ALTER TABLE products DROP COLUMN " + RECOVERY_COLUMN);
+        executeSourceStatement("UPDATE products SET name = 'after-recovery' WHERE id = 190");
+    }
+
+    private void executeSourceStatement(String sql) throws SQLException {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        }
+    }
+
+    private void executeUpdate(String sql) {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.executeUpdate(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private Connection getJdbcConnection() throws SQLException {
@@ -481,15 +773,6 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                     expectedComment,
                     rs.getString("TABLE_COMMENT"),
                     "Source table comment should have been updated by the ALTER TABLE COMMENT DDL");
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void executeUpdate(String sql) {
-        try (Connection connection = getJdbcConnection();
-                Statement statement = connection.createStatement()) {
-            statement.executeUpdate(sql);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }

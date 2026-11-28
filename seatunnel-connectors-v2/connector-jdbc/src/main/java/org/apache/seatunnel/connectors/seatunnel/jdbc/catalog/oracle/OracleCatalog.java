@@ -112,12 +112,23 @@ public class OracleCatalog extends AbstractJdbcCatalog {
         this.handleBlobAsString = handleBlobAsString;
     }
 
+    /**
+     * Existence check behind {@link #tableExists} and {@link #getTable(TablePath)}: a table or a
+     * view. {@code ALL_TABLES} has no views, so a source {@code table_path} naming a view used to
+     * fail with {@code TableNotExistException} although the view is readable and {@code
+     * ALL_TAB_COLUMNS} lists its columns. {@link #listTables} still lists tables only.
+     */
     @Override
     protected String getTableWithConditionSql(TablePath tablePath) {
         return getListTableSql(tablePath.getDatabaseName())
                 + "  and  OWNER = '"
                 + tablePath.getSchemaName()
                 + "' and table_name = '"
+                + tablePath.getTableName()
+                + "'"
+                + " UNION ALL SELECT OWNER, VIEW_NAME FROM ALL_VIEWS WHERE OWNER = '"
+                + tablePath.getSchemaName()
+                + "' and VIEW_NAME = '"
                 + tablePath.getTableName()
                 + "'";
     }

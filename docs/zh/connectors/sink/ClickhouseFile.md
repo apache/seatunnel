@@ -32,10 +32,10 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | sharding_key           | string  | no   | -                                      |
 | copy_method            | string  | no   | scp                                    |
 | node_free_password     | boolean | no   | false                                  |
-| node_pass              | list    | no   | -                                      |
-| node_pass.node_address | string  | no   | -                                      |
+| node_pass              | list    | yes   | -                                      |
+| node_pass.node_address | string  | yes   | -                                      |
 | node_pass.username     | string  | no   | "root"                                 |
-| node_pass.password     | string  | no   | -                                      |
+| node_pass.password     | string  | yes   | -                                      |
 | compatible_mode        | boolean | no   | false                                  |
 | file_fields_delimiter  | string  | no   | "\t"                                   |
 | file_temp_path         | string  | no   | "/tmp/seatunnel/clickhouse-local/file" |
@@ -84,9 +84,11 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 
 用来保存所有clickhouse服务器地址及其对应的访问密码。
 
+注意: `node_pass` 为列表结构，每一个条目中都必须包含 `node_address` 和 `password` 两个属性（`username` 不配置时默认为 `root`），缺少任何一个都会导致任务初始化失败。
+
 ### node_pass.node_address [string]
 
-clickhouse服务器节点地址。
+clickhouse服务器节点地址。在 `node_pass` 每个条目中必填。
 
 ### node_pass.username [string]
 

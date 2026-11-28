@@ -150,7 +150,7 @@ source {
 - Use the `Jdbc` plugin name for Snowflake jobs and set `driver = "net.snowflake.client.jdbc.SnowflakeDriver"`.
 - Place the Snowflake JDBC driver jar in `$SEATUNNEL_HOME/plugins/jdbc/lib/` before running the job.
 - When reading in parallel, `partition_column`, `partition_lower_bound`, `partition_upper_bound`, and `partition_num` must describe the same numeric column range.
-- Snowflake geospatial columns are mapped to the SeaTunnel `STRING` type.
+- Snowflake `GEOGRAPHY`/`GEOMETRY` columns are always mapped to the SeaTunnel `STRING` type; the returned text representation depends on Snowflake JDBC URL parameters such as `GEOGRAPHY_OUTPUT_FORMAT`.
 
 ## Changelog
 

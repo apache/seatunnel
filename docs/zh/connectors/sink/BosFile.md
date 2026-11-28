@@ -78,12 +78,24 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 | compress_codec                        | string  | 否   | none                                       | 压缩格式 |
 | xml_root_tag                          | string  | 否   | RECORDS                                    | xml 格式使用 |
 | xml_row_tag                           | string  | 否   | RECORD                                     | xml 格式使用 |
-| xml_use_attr_format                   | boolean | 否   | -                                          | xml 格式使用 |
+| xml_use_attr_format                   | boolean | 条件必填   | -                                          | `file_format_type` 为 `xml` 时必填。 |
 | single_file_mode                      | boolean | 否   | false                                      | 每个并行度只输出一个文件 |
 | create_empty_file_when_no_data        | boolean | 否   | false                                      | 上游无数据时仍生成空文件 |
 | parquet_avro_write_timestamp_as_int96 | boolean | 否   | false                                      | parquet 格式使用 |
 | parquet_avro_write_fixed_as_int96     | array   | 否   | -                                          | parquet 格式使用 |
 | encoding                              | string  | 否   | "UTF-8"                                    | json/text/csv/xml 格式使用 |
+| max_rows_in_memory                    | int     | 否   | -                                          | 仅在 file_format_type 为 excel 时使用。 |
+| sheet_max_rows                        | int     | 否   | 1048576                                    | 仅在 file_format_type 为 excel 时使用。 |
+| sheet_name                            | string  | 否   | Sheet0                                     | 仅在 file_format_type 为 excel 时使用。 |
+| csv_string_quote_mode                 | enum    | 否   | MINIMAL                                    | 仅在文件格式为 CSV 时使用。 |
+| enable_header_write                   | boolean | 否   | false                                      | 仅在 file_format_type 为 text,csv 时使用。<br/> false:不写入表头,true:写入表头。 |
+| date_format                           | string  | 否   | yyyy-MM-dd                                 | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。日期类型格式，用于告知 connector 如何写出 date 值。支持格式（示例）：`yyyy-MM-dd`、`yyyy.MM.dd`、`yyyy/MM/dd`。 |
+| datetime_format                       | string  | 否   | yyyy-MM-dd HH:mm:ss                        | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间戳类型格式，用于告知 connector 如何写出 datetime 值。支持格式：`yyyy-MM-dd HH:mm:ss`、`yyyy.MM.dd HH:mm:ss`、`yyyy/MM/dd HH:mm:ss`、`yyyyMMddHHmmss`。 |
+| time_format                           | string  | 否   | HH:mm:ss                                   | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间类型格式，用于告知 connector 如何写出 time 值。支持格式（示例）：`HH:mm:ss`、`HH:mm:ss.SSS`。 |
+| merge_update_event                    | boolean | 否   | false                                      | 仅当 file_format_type 为 canal_json、debezium_json 或 maxwell_json 时使用。设为 true 时，UPDATE_AFTER 和 UPDATE_BEFORE 事件会合并为 UPDATE 事件数据 |
+| schema_evolution_enabled              | boolean | 否   | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
+| schema_save_mode                      | string  | 否   | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方式 |
+| data_save_mode                        | string  | 否   | APPEND_DATA                                | 现有数据处理方式 |
 | common-options                        | object  | 否   | -                                          | Sink 插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) |
 
 ## 示例

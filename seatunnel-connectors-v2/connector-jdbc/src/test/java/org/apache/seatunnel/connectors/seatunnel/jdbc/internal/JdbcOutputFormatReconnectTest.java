@@ -372,20 +372,51 @@ public class JdbcOutputFormatReconnectTest {
     }
 
     @Test
-    public void testFlushShouldRetryRolledBackBatchWhenNothingIsPending() throws Exception {
+    public void testCheckpointOwnedConflictFailsFastEvenWhenNothingIsPending() throws Exception {
         JdbcConnectionProvider provider = manualCommitProvider();
         Mockito.when(provider.isConnectionValid()).thenReturn(true);
+        Connection connection = provider.getConnection();
         TrackingJdbcBatchExecutor executor =
                 new TrackingJdbcBatchExecutor(new SQLException("deadlock detected", "40001"), 1);
         JdbcOutputFormat<SeaTunnelRow, TrackingJdbcBatchExecutor> outputFormat =
                 new JdbcOutputFormat<>(provider, buildConnectionConfig(), () -> executor);
         outputFormat.open();
 
-        // Nothing was flushed into the transaction yet, so the deadlock discarded only this batch
-        // and re-sending it is safe.
+        // Nothing was flushed into the transaction yet, but this flush does not own its commit
+        // boundary (checkpoint-owned) and the executor cannot replay its records, so the local
+        // retry is rejected: re-running executeBatch() would continue inside an already aborted
+        // transaction. The conflict fails fast for checkpoint recovery instead.
+        outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
+        Assertions.assertThrows(JdbcConnectorException.class, outputFormat::flush);
+
+        Assertions.assertEquals(1, executor.executeBatchCalls);
+        Mockito.verify(connection, Mockito.never()).rollback();
+        // The failed batch was never recorded as flushed, so no shared uncommitted work is lost.
+        Assertions.assertDoesNotThrow(
+                () -> outputFormat.checkUncommittedBatchesOn(provider.getConnection()));
+    }
+
+    @Test
+    public void testFlushOwnedConflictReplaysBatchWithReplayCapableExecutor() throws Exception {
+        JdbcConnectionProvider provider = manualCommitProvider();
+        Mockito.when(provider.isConnectionValid()).thenReturn(true);
+        Connection connection = provider.getConnection();
+        TrackingJdbcBatchExecutor executor =
+                new TrackingJdbcBatchExecutor(
+                        new SQLException("deadlock detected", "40001"), 1, true);
+        NoSleepJdbcOutputFormat<SeaTunnelRow, TrackingJdbcBatchExecutor> outputFormat =
+                new NoSleepJdbcOutputFormat<>(
+                        provider, buildConnectionConfig(), () -> executor, true);
+        outputFormat.open();
+
+        // This flush owns its commit boundary and the executor retains its logical records while
+        // clearing only the driver batch, so the conflict is rolled back and the whole flush is
+        // replayed on the same executor.
         outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
         outputFormat.flush();
 
+        Mockito.verify(connection, Mockito.times(1)).rollback();
+        Assertions.assertEquals(1, executor.resetCalls);
         Assertions.assertEquals(2, executor.executeBatchCalls);
         Assertions.assertDoesNotThrow(
                 () -> outputFormat.checkUncommittedBatchesOn(provider.getConnection()));
@@ -542,18 +573,26 @@ public class JdbcOutputFormatReconnectTest {
             implements JdbcBatchStatementExecutor<SeaTunnelRow> {
         private final SQLException firstFailure;
         private final int failOnCall;
+        private final boolean replayCapable;
         private boolean failedOnce;
         private int prepareStatementsCalls;
         private int executeBatchCalls;
         private int closeStatementsCalls;
+        private int resetCalls;
 
         private TrackingJdbcBatchExecutor(SQLException firstFailure) {
             this(firstFailure, 1);
         }
 
         private TrackingJdbcBatchExecutor(SQLException firstFailure, int failOnCall) {
+            this(firstFailure, failOnCall, false);
+        }
+
+        private TrackingJdbcBatchExecutor(
+                SQLException firstFailure, int failOnCall, boolean replayCapable) {
             this.firstFailure = firstFailure;
             this.failOnCall = failOnCall;
+            this.replayCapable = replayCapable;
         }
 
         @Override
@@ -574,8 +613,37 @@ public class JdbcOutputFormatReconnectTest {
         }
 
         @Override
+        public boolean supportsTransactionConflictRetry() {
+            return replayCapable;
+        }
+
+        @Override
+        public void resetForTransactionConflictRetry() {
+            resetCalls++;
+        }
+
+        @Override
         public void closeStatements() {
             closeStatementsCalls++;
         }
+    }
+
+    /** A format without retry backoff sleep, so conflict-retry tests stay fast. */
+    private static class NoSleepJdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
+            extends JdbcOutputFormat<I, E> {
+        private NoSleepJdbcOutputFormat(
+                JdbcConnectionProvider connectionProvider,
+                JdbcConnectionConfig jdbcConnectionConfig,
+                StatementExecutorFactory<E> statementExecutorFactory,
+                boolean commitOnFlush) {
+            super(
+                    connectionProvider,
+                    jdbcConnectionConfig,
+                    statementExecutorFactory,
+                    commitOnFlush);
+        }
+
+        @Override
+        protected void sleepBeforeFlushRetry(long sleepMs) throws InterruptedException {}
     }
 }

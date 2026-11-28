@@ -135,6 +135,9 @@ transform {
 |      参数名       | 类型 | 是否必填 | 默认值 | 说明       |
 |:---------------:|------|:--------:|:-------------:|-------------------|
 | metadata_fields | map  |    是     |   -   | 元数据字段与输出字段的映射关系，格式为 `元数据Key = 输出字段名`。至少需要配置一个映射项。 |
+| table_match_regex | string |    否    |     `.*`      | 转换级别规则所适用的表路径的正则表达式。 |
+| table_transform | array |    否    |       -       | 针对单表的规则，参见 [多表转换](transform-multi-table.md)。 |
+| rule_match_mode | string |    否    | `FIRST_MATCH` | 当多个 `table_transform` 条目的 `table_path` 相同时，决定它们的匹配方式。 |
 
 ### metadata_fields [map]
 

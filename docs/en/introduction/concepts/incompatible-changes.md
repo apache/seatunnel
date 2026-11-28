@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### File connectors: ORC ZSTD output requires compatible readers
+
+- **Affected component**: `connector-file-base` and file connectors using its ORC reader/writer.
+- **Description**: Upgrade `orc-core:nohive` from 1.5.6 to 1.8.7, accept ZSTD in the shared ORC sink configuration rule, and map ZSTD to ORC `CompressionKind.ZSTD`. ZSTD-compressed ORC files can be read, and ORC output configured with `compress_codec = "zstd"` is actually ZSTD-compressed instead of mapping to NONE. Previously, file factories rejected ORC/ZSTD during validation, while paths bypassing that rule could silently write uncompressed output.
+- **Impact**: Newly generated ZSTD files require readers supporting ORC ZSTD. Retaining ORC file version 0.12 does not provide codec support to older readers. Existing files are not rewritten, and the default compression remains NONE.
+- **Migration Guide**: Verify or upgrade downstream readers before enabling ORC ZSTD. During a staged upgrade, explicitly retain a mutually supported codec such as SNAPPY or ZLIB. (#13084)
+
 ### HBase sink: DELETE rows remove mapped data
 
 `DELETE` rows now remove all cell versions up to the mutation timestamp in the column families
@@ -55,6 +62,13 @@ for connector requirements and the restrictions on shared physical destinations.
   - **Description**: With `array_mode = true`, the Http sink added each serialized row to the request array as a string, so the body was `["{\"id\":1}","{\"id\":2}"]` instead of the documented JSON array of rows. It now sends `[{"id":1},{"id":2}]`. Every version since 2.3.11 sent the array of strings. `array_mode = false` is not affected.
   - **Impact**: An endpoint that rejected the old body with an error now accepts it. A receiver written for the old body, which decodes each element as a JSON string, now receives objects and has to be changed.
   - **Migration Guide**: No configuration change is needed. If a receiver decodes each array element from a string, change it to use the element directly.
+
+### Doris source: `case_sensitive = false` now lowercases a single-table `database`/`table`
+
+- **Behavior change: a single-table Doris source configured with `case_sensitive = false` resolves the `database` and `table` names in lowercase**
+  - **Description**: The `case_sensitive` option was introduced for the Doris source in 2.3.11, but the lowercase conversion was applied to an intermediate object that was then discarded, so the option never took effect and the configured spelling reached the query-plan requests unchanged. The conversion now applies to the table configuration the source actually uses. The option only affects a single table configured through `database` and `table`; `table_list` entries and the default (`true`) keep their behavior.
+  - **Impact**: A job that sets `case_sensitive = false` with mixed-case names now resolves `TestDB.TestTable` to `testdb.testtable`. On a cluster whose name matching is case-sensitive this selects a different object, or the lookup fails. A saved checkpoint from an earlier version can also hold splits with the original mixed-case names: restored into a source that now keys its tables by the lowercase names, the reader fails with `the table 'TestDB.TestTable' cannot be found in table_list of job configuration` instead of reading the split.
+  - **Migration Guide**: To keep the historical spelling, set `case_sensitive = true` or remove the option (the default is `true`). To keep using `case_sensitive = false`, restart the job from a new checkpoint after the upgrade instead of restoring an old one; saved splits are not rewritten, so an old mixed-case checkpoint cannot serve a job whose identifiers are now lowercase.
 
 ### Lance sink: BIGINT columns are created as int64
 
@@ -200,6 +214,27 @@ The same strictness applies wherever the shared JSON-to-row conversion is used w
   - **Impact**: With the defaults, timestamps are written as `yyyy-MM-dd HH:mm:ss` (a space instead of `T`, fractional seconds dropped) and times as `HH:mm:ss`. Readers that expect the previous ISO layout must be adjusted.
   - **Migration Guide**: To keep an ISO layout, set `datetime_format` on the sink, for example `YYYY_MM_DD_HH_MM_SS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss`) or `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss.SSS`) to keep milliseconds, and read the files with the matching source `datetime_format`.
 
+### Conditional option rules use AND-before-OR precedence
+
+SeaTunnel uses `Condition` to validate conditional option rules and to describe them in the Zeta REST API and metadata export CLI. The deprecated public `Expression` class, constructor, factories, getters and validator method from 3.1.0 remain available to existing plugin jars.
+
+On upgrade, the runtime flattens a legacy expression into a chain of conditions and evaluates AND before OR. This applies to precompiled plugins too. For example, 3.1.0 evaluated `A.and(B).or(C)` as `A && (B || C)`. It now means `(A && B) || C`. With A and B false and C true, the required option is enforced. Group boundaries inside a chain of legacy expression nodes also disappear. If your rule depends on grouping, rewrite it explicitly, for example `A && (B || C)` as `(A && B) || (A && C)`.
+
+New rules can pass a trigger to `conditional(trigger, requiredOptions...)` or `conditionalRule(trigger, nestedRule)`. Declare the referenced options first and read the trigger with `getCondition()`. Legacy `getExpression()` returns a detached view with one outer node per OR alternative. Each node holds its AND conditions. To change a rule, construct it with the new trigger.
+
+```java
+Condition<?> trigger = Condition.of(MODE, "snapshot").or(REPLAY, true);
+OptionRule rule = OptionRule.builder()
+        .optional(MODE, REPLAY)
+        .conditional(trigger, START_TIME)
+        .conditionalRule(trigger, OptionRule.builder().bundled(USERNAME, PASSWORD).build())
+        .build();
+```
+
+Tools that consume validation messages or metadata should expect AND-before-OR grouping in the rendered text. In a conditional rule's exported trigger tree, follow `operator` and `next` on the expression nodes. Each node's `condition` describes one predicate.
+
+`Condition.equals` and `hashCode` include each node's `ConditionExtension`. Factories that need equivalent rules to compare equal can reuse an extension instance or give it value-based `equals` and `hashCode` implementations.
+
 ### Native CLI help exit code
 
 `seatunnel.sh -h` now exits with `0` instead of `234`.
@@ -218,6 +253,12 @@ protocol still uses `234`; its wrapper scripts continue to translate help to exi
 - **Behavior change**: For streaming jobs using `decoding.plugin.name = "pgoutput"`, columns not published by the PostgreSQL publication are excluded from the source schema. This includes generated columns before PostgreSQL 18, virtual generated columns, and columns omitted by a publication column list. Snapshot-only jobs and other decoding plugins are unchanged.
 - **Impact**: On the next job start or restore, snapshots and auto-created sink tables no longer include unpublished non-key columns. Existing sinks and downstream consumers that expect them may need schema or mapping changes; previously, streamed updates could write NULL into those columns or fail on a schema mismatch. If a required primary key column is unpublished, including in an INSERT-only publication, startup now fails instead of retaining the column and streaming NULL keys.
 - **Migration Guide**: Check the publication and downstream schema before upgrading. On PostgreSQL 18, a publication with `publish_generated_columns = stored` can retain stored generated columns; virtual generated columns remain unpublished. For a column-list publication, include every required primary key column (including configured `table-names-config.primaryKeys`) and all other required columns. PostgreSQL also requires replica identity columns when publishing UPDATE/DELETE. Update sink schemas and downstream mappings to omit other unpublished columns; publications without an explicit column list still follow the generated-column rules.
+
+### PostgreSQL CDC: ADD COLUMN of user-defined enum and range types
+
+- **Behavior change**: With `decoding.plugin.name = "pgoutput"` and schema changes enabled, an added column of a user-defined enum, range or multirange type carries the type name from `format_type(oid, NULL)`: quoted when needed and schema-qualified when the type's schema is not on the source connection's `search_path`. Previously the bare `pg_type.typname` was sent downstream.
+- **Impact**: A PostgreSQL JDBC sink now runs, for example, `ALTER TABLE ... ADD c inv.mood` instead of `ADD c mood`. A job whose sink resolved the bare name to a same-named type in another schema now fails in the sink. If the column type names cannot be read from the source `pg_type`, the job fails with `POSTGRES-05`.
+- **Migration Guide**: Before upgrading, create each user-defined type used by added columns in the sink database under the same schema as on the source.
 
 ### Markdown file source `child_ids` array
 
@@ -850,6 +891,14 @@ Presto and Trino `query` jobs are also affected: a result column reported as `ti
   - **Description**: The XML reader previously parsed user-supplied files with a default dom4j `SAXReader`, leaving DTD processing and external entity resolution at their JAXP defaults. A crafted `DOCTYPE`/external-entity payload could disclose local worker-node files, trigger SSRF-style fetches, or exhaust memory via entity expansion ("billion laughs"). `XmlReadStrategy` now routes every parse through a hardened reader that enables JAXP secure processing, rejects any `<!DOCTYPE ...>` declaration outright, disables external general/parameter entities and external DTD loading, and installs a deny-all `EntityResolver` as a parser-agnostic backstop.
   - **Impact**: XML files that previously parsed successfully only because they carried a `<!DOCTYPE ...>` declaration — even a benign one with no external `SYSTEM`/`PUBLIC` reference — now fail with `FileConnectorException(FILE_READ_FAILED)`. There is no configuration option to opt back into the previous behavior.
   - **Migration Guide**: Remove the `DOCTYPE` declaration from XML files before ingesting them with SeaTunnel, or pre-process/re-export the file without it. Well-formed XML without a `DOCTYPE` declaration is unaffected. (#11250)
+
+### CDC Connector Changes
+
+- **Deprecation: inherited CDC sink schema-change no-op will be rejected after the compatibility window**
+  - **Affected component**: CDC jobs with `schema-changes.enabled = true` and a sink writer that does not implement `SupportSchemaEvolutionSinkWriter`
+  - **Description**: In `evolve` mode, both supported Flink sink paths prefer `SupportSchemaEvolutionSinkWriter` and retain explicitly overridden deprecated `SinkWriter.applySchemaChange` with a warning. For one release, a writer that inherits the default no-op also logs a warning and drops the event. This fallback will be removed in the next release. (#11162)
+  - **Impact**: Existing CDC jobs whose writer only inherits the deprecated no-op keep running during the compatibility window, but still do not evolve the sink schema and will fail after the fallback is removed.
+  - **Migration Guide**: Implement an idempotent `SupportSchemaEvolutionSinkWriter` for end-to-end evolution. Alternatively disable `schema-changes.enabled`, or exclude event types the sink should not receive. Use `schema-changes.behavior = ignore` only for comment-only changes; it does not suppress row-layout changes.
 
 ### Transform Changes
 
