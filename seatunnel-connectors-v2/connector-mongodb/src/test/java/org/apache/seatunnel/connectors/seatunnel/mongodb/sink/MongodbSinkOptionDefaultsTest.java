@@ -45,6 +45,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -72,6 +73,14 @@ class MongodbSinkOptionDefaultsTest {
 
     /** A last-write time in the future: the interval threshold can never be reached. */
     private static final long INTERVAL_NEVER_REACHED = Long.MAX_VALUE / 2;
+
+    /**
+     * How much shorter than the requested sleep a measured back-off may be. The writer waits with
+     * {@code TimeUnit.MILLISECONDS.sleep}, which is only as precise as the system timer, so the gap
+     * seen through {@code System.nanoTime()} can be slightly shorter (49 ms for 50 ms on Windows
+     * CI). One Windows timer tick (15.6 ms) is allowed.
+     */
+    private static final long TIMER_TOLERANCE_MS = 16;
 
     @Test
     void omittedMaxRowsUsesDeclaredDefault() throws Exception {
@@ -228,16 +237,13 @@ class MongodbSinkOptionDefaultsTest {
     }
 
     private static void assertBackOffAtLeast(List<Long> attempts, int retry, long minMs) {
-        long gapMs = (attempts.get(retry + 1) - attempts.get(retry)) / 1_000_000;
+        long gapNanos = attempts.get(retry + 1) - attempts.get(retry);
         Assertions.assertTrue(
-                gapMs >= minMs,
-                "expected a back-off of at least "
-                        + minMs
-                        + " ms before retry "
-                        + (retry + 1)
-                        + ", got "
-                        + gapMs
-                        + " ms");
+                gapNanos >= TimeUnit.MILLISECONDS.toNanos(minMs - TIMER_TOLERANCE_MS),
+                String.format(
+                        "expected a back-off of at least %d ms (less %d ms for timer precision)"
+                                + " before retry %d, got %.3f ms",
+                        minMs, TIMER_TOLERANCE_MS, retry + 1, gapNanos / 1_000_000.0));
     }
 
     @SuppressWarnings("unchecked")
