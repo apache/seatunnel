@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 
 import java.util.Arrays;
+import java.util.List;
 
 public class MySqlIncrementalSourceOptions extends JdbcSourceOptions implements CatalogOptions {
 
@@ -58,6 +59,14 @@ public class MySqlIncrementalSourceOptions extends JdbcSourceOptions implements 
                     .withDescription(
                             "Optional number of rows to skip after the specific startup offset.");
 
+    public static final Option<List<String>> STARTUP_SNAPSHOT_TABLE_NAMES =
+            Options.key("startup.snapshot-table-names")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Tables that are initialized with a snapshot when startup.mode is mixed. "
+                                    + "Every other configured table starts from startup.specific-offset.*.");
+
     public static final SingleChoiceOption<StartupMode> STARTUP_MODE =
             Options.key(SourceOptions.STARTUP_MODE_KEY)
                     .singleChoice(
@@ -68,12 +77,13 @@ public class MySqlIncrementalSourceOptions extends JdbcSourceOptions implements 
                                     StartupMode.LATEST,
                                     StartupMode.SPECIFIC,
                                     StartupMode.TIMESTAMP,
+                                    StartupMode.MIXED,
                                     StartupMode.SNAPSHOT_ONLY))
                     .defaultValue(StartupMode.INITIAL)
                     .withDescription(
                             "Optional startup mode for CDC source, valid enumerations are "
-                                    + "\"initial\", \"earliest\", \"latest\" , \"specific\", \"timestamp\" "
-                                    + "or \"snapshot-only\". \"snapshot-only\" reads snapshot data only and then "
+                                    + "\"initial\", \"earliest\", \"latest\" , \"specific\", \"timestamp\""
+                                    + ", \"mixed\" or \"snapshot-only\". \"snapshot-only\" reads snapshot data only and then "
                                     + "finishes without entering continuous binlog streaming. It may "
                                     + "perform bounded binlog backfill during the snapshot phase when "
                                     + "exactly_once is enabled.");
