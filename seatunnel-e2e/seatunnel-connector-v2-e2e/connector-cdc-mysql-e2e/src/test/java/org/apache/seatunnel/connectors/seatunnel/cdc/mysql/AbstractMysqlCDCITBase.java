@@ -285,12 +285,18 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                 // restarts; clamp the offset so a shorter log is treated as
                                 // "no match yet" instead of throwing
                                 // StringIndexOutOfBoundsException and aborting the wait.
+                                String failureLogs =
+                                        serverLogs.substring(
+                                                Math.min(logOffset, serverLogs.length()));
                                 Assertions.assertTrue(
-                                        serverLogs
-                                                .substring(Math.min(logOffset, serverLogs.length()))
-                                                .contains("injected sink failure"),
+                                        failureLogs.contains("injected sink failure"),
                                         "injected sink failure was not observed in the "
                                                 + "engine logs after the f_bigint=20000 update");
+                                Assertions.assertTrue(
+                                        failureLogs.contains(
+                                                "for table " + MYSQL_DATABASE + "." + SINK_TABLE),
+                                        "sink failure should identify the target table, but was: "
+                                                + failureLogs);
                             });
         } finally {
             executeSql("DROP TRIGGER IF EXISTS " + MYSQL_DATABASE + "." + triggerName);

@@ -29,6 +29,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatc
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.sql.Connection;
@@ -58,6 +60,9 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     private final JdbcConnectionConfig jdbcConnectionConfig;
     private final StatementExecutorFactory<E> statementExecutorFactory;
     private final boolean commitOnFlush;
+    // Target table used only to add database/table context to flush failures. Null when the
+    // builder cannot resolve it, in which case the messages stay unchanged.
+    @Nullable private final String tableIdentifier;
 
     private transient E jdbcStatementExecutor;
     private transient int batchCount = 0;
@@ -78,7 +83,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
             JdbcConnectionProvider connectionProvider,
             JdbcConnectionConfig jdbcConnectionConfig,
             StatementExecutorFactory<E> statementExecutorFactory) {
-        this(connectionProvider, jdbcConnectionConfig, statementExecutorFactory, false);
+        this(connectionProvider, jdbcConnectionConfig, statementExecutorFactory, false, null);
     }
 
     public JdbcOutputFormat(
@@ -86,10 +91,54 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
             JdbcConnectionConfig jdbcConnectionConfig,
             StatementExecutorFactory<E> statementExecutorFactory,
             boolean commitOnFlush) {
+        this(
+                connectionProvider,
+                jdbcConnectionConfig,
+                statementExecutorFactory,
+                commitOnFlush,
+                null);
+    }
+
+    /**
+     * Creates an output format with an optional target-table label.
+     *
+     * <p>The label is diagnostic only: it is appended to flush and commit failure messages so a
+     * multi-table job can identify the failing {@code database.table}. It does not affect the
+     * generated SQL or route records to another table. Passing {@code null} (as the compatibility
+     * constructors do) keeps the previous messages unchanged.
+     *
+     * @param tableIdentifier {@code database.table} label for failure messages, or {@code null}
+     */
+    public JdbcOutputFormat(
+            JdbcConnectionProvider connectionProvider,
+            JdbcConnectionConfig jdbcConnectionConfig,
+            StatementExecutorFactory<E> statementExecutorFactory,
+            boolean commitOnFlush,
+            @Nullable String tableIdentifier) {
         this.connectionProvider = checkNotNull(connectionProvider);
         this.jdbcConnectionConfig = checkNotNull(jdbcConnectionConfig);
         this.statementExecutorFactory = checkNotNull(statementExecutorFactory);
         this.commitOnFlush = commitOnFlush;
+        this.tableIdentifier = tableIdentifier;
+    }
+
+    /** Adds the target table to a failure message when it is known. */
+    private String tableSuffix() {
+        return tableIdentifier == null ? "" : " for table " + tableIdentifier;
+    }
+
+    /**
+     * Builds the exception for a batch failure. With a known target the message names the table;
+     * without one, the cause-only constructor preserves the legacy message exactly.
+     */
+    private JdbcConnectorException batchFlushFailed(SQLException cause) {
+        if (tableIdentifier == null) {
+            return new JdbcConnectorException(CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, cause);
+        }
+        return new JdbcConnectorException(
+                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                "JDBC batch flush failed" + tableSuffix() + ".",
+                cause);
     }
 
     /** Opens the connection and initializes statements and the transaction state. */
@@ -131,7 +180,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         if (flushException != null) {
             throw new JdbcConnectorException(
                     CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                    "Writing records to JDBC failed.",
+                    "Writing records to JDBC failed" + tableSuffix() + ".",
                     flushException);
         }
     }
@@ -153,7 +202,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         } catch (Exception e) {
             throw new JdbcConnectorException(
                     CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
-                    "Writing records to JDBC failed.",
+                    "Writing records to JDBC failed" + tableSuffix() + ".",
                     e);
         }
     }
@@ -173,7 +222,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         } catch (SQLException e) {
             throw new JdbcConnectorException(
                     CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
-                    "Failed to clear JDBC batch after row-level error.",
+                    "Failed to clear JDBC batch after row-level error" + tableSuffix() + ".",
                     e);
         }
     }
@@ -249,8 +298,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 }
                 // Row-error mode delegates failed data batches to the writer for rollback.
                 if (failFastOnRowLevelSqlState && isRowLevelSqlState(e)) {
-                    throw new JdbcConnectorException(
-                            CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
+                    throw batchFlushFailed(e);
                 }
 
                 boolean retryableTransactionConflict =
@@ -311,14 +359,12 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                                 nonRetryableDataException.getSQLState(),
                                 nonRetryableDataException.getErrorCode(),
                                 e);
-                        throw new JdbcConnectorException(
-                                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
+                        throw batchFlushFailed(e);
                     }
                 }
 
                 if (i >= jdbcConnectionConfig.getMaxRetries()) {
-                    throw new JdbcConnectorException(
-                            CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
+                    throw batchFlushFailed(e);
                 }
                 if (transactionStateManager.hasPendingOrLostWork()) {
                     // A retry would re-send only the current batch. Earlier batches live only in
@@ -330,7 +376,9 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                     // so re-sending it is safe.
                     throw new JdbcConnectorException(
                             CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                            "JDBC flush failed while the open transaction may hold earlier"
+                            "JDBC flush failed"
+                                    + tableSuffix()
+                                    + " while the open transaction may hold earlier"
                                     + " flushed, uncommitted batches. Not retrying only the"
                                     + " current batch, because those batches may already be"
                                     + " rolled back. The job will recover from the last"
@@ -364,7 +412,9 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                     Thread.currentThread().interrupt();
                     throw new JdbcConnectorException(
                             CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                            "unable to flush; interrupted while doing another attempt",
+                            "unable to flush"
+                                    + tableSuffix()
+                                    + "; interrupted while doing another attempt",
                             e);
                 }
             }
@@ -398,7 +448,9 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 recordFlushException(e);
                 throw new JdbcConnectorException(
                         CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                        "JDBC commit after flush failed. The batch commit result is unknown, so"
+                        "JDBC commit after flush failed"
+                                + tableSuffix()
+                                + ". The batch commit result is unknown, so"
                                 + " the writer will not retry this batch silently.",
                         e);
             }
@@ -560,7 +612,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 flushException =
                         new JdbcConnectorException(
                                 CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                                "Writing records to JDBC failed.",
+                                "Writing records to JDBC failed" + tableSuffix() + ".",
                                 e);
             }
         } else if (batchCount > 0) {
@@ -598,7 +650,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                         ? e
                         : new JdbcConnectorException(
                                 CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                                "Writing records to JDBC failed.",
+                                "Writing records to JDBC failed" + tableSuffix() + ".",
                                 e);
     }
 
