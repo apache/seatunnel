@@ -17,9 +17,15 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
+import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
+import org.apache.seatunnel.engine.server.checkpoint.StateRestoreException;
+import org.apache.seatunnel.engine.server.checkpoint.StateRestoreExceptionTest;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
@@ -232,6 +238,34 @@ public class SinkAggregatedCommitterTaskTest {
 
         Assertions.assertTrue(checkpointCommitInfoMap.containsKey(2L));
         Assertions.assertTrue(checkpointCommitInfoMap.containsKey(3L));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testRestoreStateNamesTheActionWhenCommitInfoIsUnreadable() throws Exception {
+        SeaTunnelSink<SeaTunnelRow, ?, String, String> sink = Mockito.mock(SeaTunnelSink.class);
+        Mockito.when(sink.getPluginName()).thenReturn("FakeSink");
+        Mockito.when(mockSinkAction.getName()).thenReturn("Sink[0]-Fake");
+        Mockito.when(mockSinkAction.getSink()).thenReturn((SeaTunnelSink) sink);
+        Field serializerField =
+                SinkAggregatedCommitterTask.class.getDeclaredField(
+                        "aggregatedCommitInfoSerializer");
+        serializerField.setAccessible(true);
+        serializerField.set(task, new DefaultSerializer<>());
+        ActionSubtaskState state =
+                new ActionSubtaskState(
+                        new ActionStateKey("ActionStateKey - Sink[0]-Fake"),
+                        -1,
+                        Collections.singletonList(
+                                StateRestoreExceptionTest.stateWrittenByAnOlderVersion()));
+
+        StateRestoreException e =
+                Assertions.assertThrows(
+                        StateRestoreException.class,
+                        () -> task.restoreState(Collections.singletonList(state)));
+
+        StateRestoreExceptionTest.assertUpgradeFailure(e, "Sink[0]-Fake", "FakeSink", 1L, 1);
+        Mockito.verify(mockAggregatedCommitter, Mockito.never()).restoreCommit(Mockito.anyList());
     }
 
     @SuppressWarnings("unchecked")
