@@ -61,4 +61,26 @@ public class JdbcSourceTable implements Serializable {
                 .catalogTable(this.catalogTable)
                 .build();
     }
+
+    /**
+     * Returns a copy of this table with its catalog table replaced by {@code catalogTable},
+     * preserving every other field. Used by the {@code handle_json_as_string} opt-out to swap the
+     * inferred schema for its legacy STRING form without touching split metadata.
+     *
+     * <p>NOTE: keep this manual copy-constructor in sync whenever a new field is added to this
+     * class, otherwise the new field will be silently lost in the copy.
+     */
+    public JdbcSourceTable withCatalogTable(CatalogTable catalogTable) {
+        return JdbcSourceTable.builder()
+                .tablePath(this.tablePath)
+                .query(this.query)
+                .partitionColumn(this.partitionColumn)
+                .partitionNumber(this.partitionNumber)
+                .partitionStart(this.partitionStart)
+                .partitionEnd(this.partitionEnd)
+                .useSelectCount(this.useSelectCount)
+                .skipAnalyze(this.skipAnalyze)
+                .catalogTable(catalogTable)
+                .build();
+    }
 }

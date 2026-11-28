@@ -88,6 +88,17 @@ public class JsonToRowConverters implements Serializable {
 
     /** Creates a runtime converter which is null safe. */
     public JsonToObjectConverter createConverter(SeaTunnelDataType<?> type) {
+        if (type.getSqlType() == SqlType.JSON) {
+            return new JsonToObjectConverter() {
+                @Override
+                public Object convert(JsonNode jsonNode, String fieldName) {
+                    if (jsonNode == null || jsonNode.isMissingNode()) {
+                        return null;
+                    }
+                    return jsonNode.toString();
+                }
+            };
+        }
         return wrapIntoNullableConverter(createNotNullConverter(type));
     }
 

@@ -169,6 +169,7 @@ public class StarRocksSaveModeUtil extends CatalogUtil {
                         "Decimal(%d, %d)", decimalType.getPrecision(), decimalType.getScale());
             case MAP:
             case ROW:
+            case JSON:
                 return "JSON";
             default:
         }

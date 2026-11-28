@@ -198,6 +198,7 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
                 }
                 return fieldValue;
             case STRING:
+            case JSON:
                 if (fieldValue instanceof byte[]) {
                     return new String((byte[]) fieldValue);
                 } else if (fieldValue instanceof Text) {

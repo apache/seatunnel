@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.doris.config.DorisSinkOptions;
 import org.apache.seatunnel.connectors.doris.config.DorisSourceConfig;
 import org.apache.seatunnel.connectors.doris.config.DorisSourceOptions;
 import org.apache.seatunnel.connectors.doris.config.DorisTableConfig;
+import org.apache.seatunnel.connectors.seatunnel.common.util.LegacyJsonTypeUtil;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
@@ -75,6 +76,7 @@ public class DorisSourceFactory implements TableSourceFactory {
                 .optional(DorisSourceOptions.QUERY_PORT)
                 .optional(DorisSourceOptions.DORIS_BATCH_SIZE)
                 .optional(DorisSourceOptions.DORIS_EXEC_MEM_LIMIT)
+                .optional(DorisSourceOptions.HANDLE_JSON_AS_STRING)
                 .optional(DorisSinkOptions.CASE_SENSITIVE)
                 .build();
     }
@@ -110,6 +112,12 @@ public class DorisSourceFactory implements TableSourceFactory {
                     }
 
                     table = catalog.getTable(tablePath, readFiledList);
+                    if (dorisSourceConfig.isHandleJsonAsString()) {
+                        // Opt-out for the JSON logical type: expose Doris JSON/JSONB columns as
+                        // STRING again, which is what the Arrow reader produced before the JSON
+                        // logical type existed.
+                        table = LegacyJsonTypeUtil.mapJsonColumnsToString(table);
+                    }
                 } catch (Exception e) {
                     log.error("create source error");
                     throw e;

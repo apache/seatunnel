@@ -133,6 +133,7 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
         switch (dataType.getSqlType()) {
             case BOOLEAN:
             case STRING:
+            case JSON:
             case TINYINT:
             case SMALLINT:
             case INT:
