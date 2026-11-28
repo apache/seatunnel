@@ -23,6 +23,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorExc
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Savepoint;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
@@ -36,7 +38,7 @@ import java.util.Map;
  * {@code ConnectionPoolManager}, or the provider of a single writer), so every writer on that
  * connection sees the same state.
  *
- * <p>It records two facts:
+ * <p>It records three facts:
  *
  * <ul>
  *   <li>the connection whose open transaction holds flushed but uncommitted work, and which owner
@@ -46,7 +48,13 @@ import java.util.Map;
  *       ("poisoned"), no writer may commit, because a commit would report a checkpoint as complete
  *       while rows of some table are missing. The job has to fail and recover from the last
  *       checkpoint. A successful commit cannot happen while poisoned, so the flag stays set for the
- *       rest of this writer's life.
+ *       rest of this writer's life;
+ *   <li>the savepoint boundary of row-level error handling: the latest savepoint that a writer took
+ *       after its rows were written. A savepoint belongs to the whole transaction, not to the
+ *       writer that took it: a commit or full rollback ends it, a rollback to an earlier savepoint
+ *       destroys it, and in databases such as SQLite and PostgreSQL releasing an earlier savepoint
+ *       destroys it too. So the writers of a connection share one boundary instead of each keeping
+ *       its own savepoint, which another writer could destroy.
  * </ul>
  *
  * <p>Owners are compared by identity. A writer uses its connection provider as owner, because the
@@ -62,6 +70,10 @@ public class JdbcTransactionStateManager {
     // These values can be observed independently; compound state changes use this state's monitor.
     private volatile long flushSequence;
     private volatile String lostWorkReason;
+    // The shared savepoint boundary, the connection it was taken on, and the flush sequence then.
+    private Savepoint boundary;
+    private Connection boundaryConnection;
+    private long boundarySequence;
 
     /**
      * Creates transaction state for a single writer whose connection is not shared through the
@@ -95,15 +107,6 @@ public class JdbcTransactionStateManager {
         }
         connection = flushConnection;
         lastFlushByOwner.put(owner, ++flushSequence);
-    }
-
-    /**
-     * Returns the sequence number of the latest recorded flush.
-     *
-     * @return the sequence to record when creating a savepoint
-     */
-    public long currentFlushSequence() {
-        return flushSequence;
     }
 
     /**
@@ -168,6 +171,10 @@ public class JdbcTransactionStateManager {
         if (connection == committedConnection) {
             clearPendingWork();
         }
+        if (boundaryConnection == committedConnection) {
+            // The commit ended the transaction and every savepoint in it.
+            clearBoundary();
+        }
     }
 
     /**
@@ -184,6 +191,10 @@ public class JdbcTransactionStateManager {
      */
     public synchronized void markRolledBack(
             Object owner, Connection rollbackConnection, boolean ownWorkReported) {
+        if (boundaryConnection == rollbackConnection) {
+            // The rollback ended the transaction and every savepoint in it.
+            clearBoundary();
+        }
         if (connection == null) {
             return;
         }
@@ -203,13 +214,77 @@ public class JdbcTransactionStateManager {
     }
 
     /**
+     * Replaces the savepoint boundary with a new savepoint at the current end of the transaction of
+     * {@code connection}.
+     *
+     * <p>The previous boundary is released first. Releasing a savepoint destroys the savepoints
+     * taken after it in some databases, so releasing it after taking the new one would destroy the
+     * new one too. No other savepoint of row-level error handling is taken after the boundary, so
+     * the release destroys nothing that is still used.
+     *
+     * @param connection the connection whose transaction gets the new boundary
+     * @throws SQLException if the new savepoint cannot be set
+     */
+    public synchronized void moveBoundary(Connection connection) throws SQLException {
+        Savepoint previous = boundary;
+        Connection previousConnection = boundaryConnection;
+        clearBoundary();
+        if (previous != null && previousConnection == connection) {
+            try {
+                connection.releaseSavepoint(previous);
+            } catch (SQLException | RuntimeException e) {
+                // The previous boundary is no longer used; the commit releases it anyway.
+                log.debug("Release JDBC savepoint failed.", e);
+            }
+        }
+        boundary = connection.setSavepoint();
+        boundaryConnection = connection;
+        boundarySequence = flushSequence;
+    }
+
+    /**
+     * Rolls {@code connection} back to the savepoint boundary, if it has one, and clears the
+     * boundary. The work flushed before the boundary stays in the open transaction. If a writer
+     * other than {@code owner} flushed after the boundary, its batch was discarded too, so the
+     * interval is poisoned.
+     *
+     * @param owner the writer that rolls back
+     * @param connection the connection to roll back
+     * @return false when {@code connection} has no boundary and nothing was rolled back
+     * @throws SQLException if the rollback fails
+     */
+    public synchronized boolean rollbackToBoundary(Object owner, Connection connection)
+            throws SQLException {
+        if (boundary == null || boundaryConnection != connection) {
+            clearBoundary();
+            return false;
+        }
+        Savepoint savepoint = boundary;
+        long savepointSequence = boundarySequence;
+        // A consecutive row error without a new boundary rolls back the whole transaction.
+        clearBoundary();
+        connection.rollback(savepoint);
+        markRolledBackToSavepoint(owner, savepointSequence);
+        return true;
+    }
+
+    /**
+     * Whether a savepoint boundary is set.
+     *
+     * @return whether a row-level error can roll back to a boundary
+     */
+    public synchronized boolean hasBoundary() {
+        return boundary != null;
+    }
+
+    /**
      * Called after {@code owner} rolled back to a savepoint it took at {@code savepointSequence}.
      *
      * <p>The work flushed before the savepoint stays in the open transaction, so the pending state
      * is kept. If another writer flushed after the savepoint, its batch was discarded too, so the
      * interval is poisoned.
      */
-    public synchronized void markRolledBackToSavepoint(Object owner, long savepointSequence) {
+    private void markRolledBackToSavepoint(Object owner, long savepointSequence) {
         for (Map.Entry<Object, Long> entry : lastFlushByOwner.entrySet()) {
             if (entry.getKey() != owner && entry.getValue() > savepointSequence) {
                 poison(
@@ -238,5 +313,12 @@ public class JdbcTransactionStateManager {
     private void clearPendingWork() {
         connection = null;
         lastFlushByOwner.clear();
+        clearBoundary();
+    }
+
+    // Called under this state's monitor.
+    private void clearBoundary() {
+        boundary = null;
+        boundaryConnection = null;
     }
 }

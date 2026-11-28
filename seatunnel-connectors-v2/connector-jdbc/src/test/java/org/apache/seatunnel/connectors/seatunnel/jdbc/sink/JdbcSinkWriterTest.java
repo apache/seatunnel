@@ -36,6 +36,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionValidationUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcTransactionStateManager;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -51,6 +52,7 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.sql.BatchUpdateException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.Driver;
@@ -60,14 +62,24 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Savepoint;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -154,7 +166,7 @@ class JdbcSinkWriterTest {
 
         verify(fixture.connection, times(1)).rollback(fixture.savepoint);
         verify(fixture.connection, never()).rollback();
-        Assertions.assertNull(getLastSuccessfulBatchSavepoint(writer));
+        Assertions.assertFalse(hasSavepointBoundary(writer));
     }
 
     @Test
@@ -170,7 +182,7 @@ class JdbcSinkWriterTest {
         invokeCommitIfNeeded(writer);
 
         verify(fixture.connection, times(1)).commit();
-        Assertions.assertNull(getLastSuccessfulBatchSavepoint(writer));
+        Assertions.assertFalse(hasSavepointBoundary(writer));
     }
 
     @Test
@@ -220,6 +232,206 @@ class JdbcSinkWriterTest {
 
         Assertions.assertSame(rowLevelError, thrown);
         verify(outputFormat, never()).clearBatchSilently();
+    }
+
+    /**
+     * A batch with a valid row, a duplicate key and another valid row fails at close. On a
+     * manual-commit connection with savepoints, the batch is rolled back and written again row by
+     * row: only the duplicate is reported, and both valid rows are committed.
+     */
+    @Test
+    void testRowErrorReplayWritesTheValidRowsOfAFailedBatchAtClose() throws Exception {
+        ReplayFixture fixture = createReplayFixture(false, true, true, 100);
+        fixture.writer.write(row(1, "ok1"));
+        fixture.writer.write(row(1, "dup1"));
+        fixture.writer.write(row(2, "ok2"));
+
+        fixture.writer.close();
+
+        Assertions.assertEquals(Arrays.asList("1 ok1", "2 ok2"), fixture.table.committed());
+        Assertions.assertEquals(
+                Collections.singletonList("CLOSE 1 dup1 23000"), fixture.reportedErrors());
+        Assertions.assertEquals(Arrays.asList("1 ok1", "2 ok2"), fixture.reportedWrites());
+        // The failed batch is rolled back whole, then only the duplicate row to its savepoint.
+        verify(fixture.table.connection, times(1)).rollback();
+        verify(fixture.table.connection, times(1)).rollback(any(Savepoint.class));
+        verify(fixture.table.connection, times(1)).commit();
+    }
+
+    /**
+     * Without checkpointing every flush commits, so each replayed row is committed on its own and a
+     * failing row is rolled back alone without a savepoint.
+     */
+    @Test
+    void testRowErrorReplayCommitsEachRowWhenCheckpointingIsDisabled() throws Exception {
+        ReplayFixture fixture = createReplayFixture(false, true, false, 100);
+        fixture.writer.write(row(1, "ok1"));
+        fixture.writer.write(row(1, "dup1"));
+        fixture.writer.write(row(2, "ok2"));
+
+        fixture.writer.close();
+
+        Assertions.assertEquals(Arrays.asList("1 ok1", "2 ok2"), fixture.table.committed());
+        Assertions.assertEquals(
+                Collections.singletonList("CLOSE 1 dup1 23000"), fixture.reportedErrors());
+        Assertions.assertEquals(Arrays.asList("1 ok1", "2 ok2"), fixture.reportedWrites());
+        verify(fixture.table.connection, never()).setSavepoint();
+    }
+
+    /**
+     * A batch that fails during write() is rolled back to the savepoint of the previous batch,
+     * which stays in the transaction. The replayed rows get a new savepoint boundary, and the
+     * checkpoint commits all valid rows.
+     */
+    @Test
+    void testRowErrorReplayKeepsTheEarlierBatchBehindItsSavepoint() throws Exception {
+        ReplayFixture fixture = createReplayFixture(false, true, true, 2);
+        fixture.writer.write(row(1, "a"));
+        fixture.writer.write(row(2, "b"));
+        fixture.writer.write(row(3, "c"));
+        fixture.writer.write(row(1, "dup"));
+        fixture.writer.write(row(4, "d"));
+
+        fixture.writer.prepareCommit(1L);
+
+        Assertions.assertEquals(
+                Arrays.asList("1 a", "2 b", "3 c", "4 d"), fixture.table.committed());
+        Assertions.assertEquals(
+                Collections.singletonList("WRITE 1 dup 23000"), fixture.reportedErrors());
+        Assertions.assertEquals(
+                Arrays.asList("1 a", "2 b", "3 c", "4 d"), fixture.reportedWrites());
+        verify(fixture.table.connection, never()).rollback();
+        verify(fixture.table.connection, times(2)).rollback(any(Savepoint.class));
+    }
+
+    /**
+     * Two batches fail in one checkpoint interval. The second rollback must stop at the boundary
+     * taken after the first replay, so the rows written by the first replay, already reported as
+     * written, stay in the transaction.
+     */
+    @Test
+    void testSecondFailedBatchKeepsTheRowsOfTheFirstReplay() throws Exception {
+        ReplayFixture fixture = createReplayFixture(false, true, true, 3);
+        fixture.writer.write(row(1, "a"));
+        fixture.writer.write(row(1, "dup1"));
+        fixture.writer.write(row(2, "b"));
+        fixture.writer.write(row(3, "c"));
+        fixture.writer.write(row(3, "dup3"));
+        fixture.writer.write(row(4, "d"));
+
+        fixture.writer.prepareCommit(1L);
+
+        Assertions.assertEquals(
+                Arrays.asList("1 a", "2 b", "3 c", "4 d"), fixture.table.committed());
+        Assertions.assertEquals(
+                Arrays.asList("WRITE 1 dup1 23000", "WRITE 3 dup3 23000"),
+                fixture.reportedErrors());
+        Assertions.assertEquals(
+                Arrays.asList("1 a", "2 b", "3 c", "4 d"), fixture.reportedWrites());
+    }
+
+    /**
+     * With auto-commit, the rows before the failing statement can already be committed, so the
+     * batch is not written again: every row is reported as before, including a row that is in the
+     * table.
+     */
+    @Test
+    void testAutoCommitBatchFailureIsReportedWholeAndNotReplayed() throws Exception {
+        ReplayFixture fixture = createReplayFixture(true, true, true, 100);
+        fixture.writer.write(row(1, "ok1"));
+        fixture.writer.write(row(1, "dup1"));
+        fixture.writer.write(row(2, "ok2"));
+
+        fixture.writer.close();
+
+        Assertions.assertEquals(Collections.singletonList("1 ok1"), fixture.table.committed());
+        Assertions.assertEquals(
+                Arrays.asList("CLOSE 1 ok1 23000", "CLOSE 1 dup1 23000", "CLOSE 2 ok2 23000"),
+                fixture.reportedErrors());
+        Assertions.assertTrue(fixture.reportedWrites().isEmpty());
+        verify(fixture.table.statement, times(1)).executeBatch();
+    }
+
+    /** Without savepoints one failing row cannot be undone alone, so the batch is not replayed. */
+    @Test
+    void testBatchFailureIsNotReplayedWithoutSavepointSupport() throws Exception {
+        ReplayFixture fixture = createReplayFixture(false, false, true, 100);
+        fixture.writer.write(row(1, "ok1"));
+        fixture.writer.write(row(1, "dup1"));
+        fixture.writer.write(row(2, "ok2"));
+
+        fixture.writer.close();
+
+        Assertions.assertTrue(fixture.table.committed().isEmpty());
+        Assertions.assertEquals(
+                Arrays.asList("CLOSE 1 ok1 23000", "CLOSE 1 dup1 23000", "CLOSE 2 ok2 23000"),
+                fixture.reportedErrors());
+        verify(fixture.table.statement, times(1)).executeBatch();
+    }
+
+    /**
+     * When the rollback also discarded a batch that another writer flushed on the shared
+     * connection, the interval cannot commit any more, so the batch is not written again and the
+     * writer fails as before.
+     */
+    @Test
+    void testBatchFailureIsNotReplayedAfterAnotherWritersBatchWasRolledBack() throws Exception {
+        JdbcTransactionStateManager sharedState = new JdbcTransactionStateManager();
+        ReplayFixture fixture = createReplayFixture(false, true, true, 100, sharedState, true);
+        sharedState.recordFlush(new Object(), fixture.table.connection);
+        fixture.writer.write(row(1, "ok1"));
+        fixture.writer.write(row(1, "dup1"));
+        fixture.writer.write(row(2, "ok2"));
+
+        Assertions.assertThrows(IOException.class, fixture.writer::close);
+
+        Assertions.assertTrue(fixture.table.committed().isEmpty());
+        Assertions.assertEquals(
+                Arrays.asList("CLOSE 1 ok1 23000", "CLOSE 1 dup1 23000", "CLOSE 2 ok2 23000"),
+                fixture.reportedErrors());
+        verify(fixture.table.statement, times(1)).executeBatch();
+        verify(fixture.table.connection, never()).commit();
+    }
+
+    /** Without an error handler a row-level error still fails the writer, with nothing written. */
+    @Test
+    void testBatchFailureWithoutErrorHandlerStillFailsTheWriter() throws Exception {
+        ReplayFixture fixture =
+                createReplayFixture(
+                        false, true, true, 100, new JdbcTransactionStateManager(), false);
+        fixture.writer.write(row(1, "ok1"));
+        fixture.writer.write(row(1, "dup1"));
+        fixture.writer.write(row(2, "ok2"));
+
+        Assertions.assertThrows(JdbcConnectorException.class, fixture.writer::close);
+
+        Assertions.assertTrue(fixture.table.committed().isEmpty());
+        verify(fixture.table.statement, times(1)).executeBatch();
+        verify(fixture.table.connection, times(1)).rollback();
+        verify(fixture.table.connection, never()).commit();
+    }
+
+    /**
+     * A replayed row that fails with an error other than a row-level data error rolls back the
+     * transaction and fails the writer, so no part of the batch is committed.
+     */
+    @Test
+    void testReplayFailureThatIsNotARowErrorRollsBackAndFailsTheWriter() throws Exception {
+        ReplayFixture fixture = createReplayFixture(false, true, true, 100);
+        fixture.table.systemErrorIds.add(2);
+        fixture.writer.write(row(1, "ok1"));
+        fixture.writer.write(row(1, "dup1"));
+        fixture.writer.write(row(2, "boom"));
+
+        // The output format's close() rethrows the stored flush failure of the replayed row.
+        Exception thrown = Assertions.assertThrows(Exception.class, fixture.writer::close);
+        Assertions.assertEquals("HY000", sqlStateOf(thrown));
+
+        Assertions.assertTrue(fixture.table.committed().isEmpty());
+        Assertions.assertEquals(
+                Collections.singletonList("CLOSE 1 dup1 23000"), fixture.reportedErrors());
+        Assertions.assertTrue(fixture.reportedWrites().isEmpty());
+        verify(fixture.table.connection, never()).commit();
     }
 
     /** Verifies that Xugu pools use a validation query compatible with the driver. */
@@ -680,6 +892,311 @@ class JdbcSinkWriterTest {
                 null);
     }
 
+    private static ReplayFixture createReplayFixture(
+            boolean autoCommit,
+            boolean supportsSavepoints,
+            boolean checkpointEnabled,
+            int batchSize)
+            throws Exception {
+        return createReplayFixture(
+                autoCommit,
+                supportsSavepoints,
+                checkpointEnabled,
+                batchSize,
+                new JdbcTransactionStateManager(),
+                true);
+    }
+
+    /**
+     * Builds a real writer, output format and statement executor on a {@link FakeTable}. Only the
+     * dialect, the connection provider and the row converter are mocked.
+     */
+    private static ReplayFixture createReplayFixture(
+            boolean autoCommit,
+            boolean supportsSavepoints,
+            boolean checkpointEnabled,
+            int batchSize,
+            JdbcTransactionStateManager transactionState,
+            boolean withErrorHandler)
+            throws Exception {
+        FakeTable table = new FakeTable(autoCommit, supportsSavepoints);
+        JdbcConnectionConfig connectionConfig =
+                JdbcConnectionConfig.builder()
+                        .batchSize(batchSize)
+                        .autoCommit(autoCommit)
+                        .maxRetries(0)
+                        .build();
+        JdbcSinkConfig sinkConfig =
+                JdbcSinkConfig.builder()
+                        .jdbcConnectionConfig(connectionConfig)
+                        .database("test_db")
+                        .table("test_table")
+                        .build();
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.INT_TYPE, 10L, false, null, ""))
+                        .column(
+                                PhysicalColumn.of(
+                                        "name", BasicType.STRING_TYPE, 10L, true, null, ""))
+                        .build();
+        JdbcDialect dialect = mock(JdbcDialect.class);
+        JdbcConnectionProvider connectionProvider = mock(JdbcConnectionProvider.class);
+        JdbcRowConverter rowConverter = mock(JdbcRowConverter.class);
+        when(dialect.getJdbcConnectionProvider(any())).thenReturn(connectionProvider);
+        when(dialect.getRowConverter()).thenReturn(rowConverter);
+        when(dialect.getInsertIntoStatement(anyString(), anyString(), any()))
+                .thenReturn("INSERT INTO test_table (id, name) VALUES (:id, :name)");
+        when(connectionProvider.getConnection()).thenReturn(table.connection);
+        when(connectionProvider.getOrEstablishConnection()).thenReturn(table.connection);
+        when(connectionProvider.isConnectionValid()).thenReturn(true);
+        when(connectionProvider.getTransactionStateManager())
+                .thenReturn(Optional.of(transactionState));
+        when(rowConverter.toExternal(any(), any(), any(SeaTunnelRow.class), any()))
+                .thenAnswer(
+                        invocation -> {
+                            SeaTunnelRow row = invocation.getArgument(2);
+                            PreparedStatement statement = invocation.getArgument(3);
+                            for (int i = 0; i < row.getArity(); i++) {
+                                statement.setObject(i + 1, row.getField(i));
+                            }
+                            return statement;
+                        });
+
+        List<RowErrorEvent> errors = new ArrayList<>();
+        List<SeaTunnelRow> writes = new ArrayList<>();
+        SinkWriter.Context context = null;
+        if (withErrorHandler) {
+            context = mock(SinkWriter.Context.class);
+            RowErrorCollector collector =
+                    new RowErrorCollector() {
+                        @Override
+                        public void collect(RowErrorEvent event) {
+                            errors.add(event);
+                        }
+
+                        @Override
+                        public void collectWriteSuccess(SeaTunnelRow row) {
+                            writes.add(row);
+                        }
+                    };
+            when(context.getRowErrorCollector()).thenReturn(Optional.of(collector));
+        }
+        JdbcSinkWriter writer =
+                new JdbcSinkWriter(
+                        TablePath.of("test_db", "test_table"),
+                        context,
+                        dialect,
+                        sinkConfig,
+                        schema,
+                        schema,
+                        null,
+                        checkpointEnabled);
+        return new ReplayFixture(writer, table, errors, writes);
+    }
+
+    private static SeaTunnelRow row(int id, String name) {
+        return new SeaTunnelRow(new Object[] {id, name});
+    }
+
+    private static String describe(Object[] fields) {
+        return fields[0] + " " + fields[1];
+    }
+
+    private static String sqlStateOf(Throwable error) {
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause instanceof SQLException && ((SQLException) cause).getSQLState() != null) {
+                return ((SQLException) cause).getSQLState();
+            }
+        }
+        return null;
+    }
+
+    private static final class ReplayFixture {
+        private final JdbcSinkWriter writer;
+        private final FakeTable table;
+        private final List<RowErrorEvent> errors;
+        private final List<SeaTunnelRow> writes;
+
+        private ReplayFixture(
+                JdbcSinkWriter writer,
+                FakeTable table,
+                List<RowErrorEvent> errors,
+                List<SeaTunnelRow> writes) {
+            this.writer = writer;
+            this.table = table;
+            this.errors = errors;
+            this.writes = writes;
+        }
+
+        /** Each reported row error as "phase id name SQLState". */
+        private List<String> reportedErrors() {
+            return errors.stream()
+                    .map(
+                            event ->
+                                    event.getPhase()
+                                            + " "
+                                            + describe(event.getRow().getFields())
+                                            + " "
+                                            + sqlStateOf(event.getError()))
+                    .collect(Collectors.toList());
+        }
+
+        /** Each row reported as written, as "id name". */
+        private List<String> reportedWrites() {
+            return writes.stream()
+                    .map(row -> describe(row.getFields()))
+                    .collect(Collectors.toList());
+        }
+    }
+
+    /**
+     * One table with a primary key on {@code id} and {@code name} limited to 10 characters, with
+     * transactions and savepoints. Like MySQL Connector/J without batch rewriting, a batch is
+     * applied statement by statement, and the statements before a failing one stay applied: in the
+     * open transaction, or committed in auto-commit mode. Savepoints behave as in SQLite and
+     * PostgreSQL: a rollback to a savepoint destroys the savepoints taken after it, and releasing a
+     * savepoint also destroys them.
+     */
+    private static final class FakeTable {
+        private final List<Object[]> committedRows = new ArrayList<>();
+        private final List<Object[]> transactionRows = new ArrayList<>();
+        // In creation order; mocks compare by identity.
+        private final Map<Savepoint, Integer> savepoints = new LinkedHashMap<>();
+        private final List<Object[]> batch = new ArrayList<>();
+        private final Object[] parameters = new Object[2];
+        // Ids whose statement fails with an error that is not a row-level data error.
+        private final Set<Integer> systemErrorIds = new HashSet<>();
+        private final Connection connection = mock(Connection.class);
+        private final PreparedStatement statement = mock(PreparedStatement.class);
+        private final boolean autoCommit;
+
+        private FakeTable(boolean autoCommit, boolean supportsSavepoints) throws SQLException {
+            this.autoCommit = autoCommit;
+            DatabaseMetaData metaData = mock(DatabaseMetaData.class);
+            when(metaData.supportsSavepoints()).thenReturn(supportsSavepoints);
+            when(connection.getMetaData()).thenReturn(metaData);
+            when(connection.getAutoCommit()).thenReturn(autoCommit);
+            when(connection.prepareStatement(anyString())).thenReturn(statement);
+            when(connection.setSavepoint())
+                    .thenAnswer(
+                            invocation -> {
+                                Savepoint savepoint = mock(Savepoint.class);
+                                savepoints.put(savepoint, transactionRows.size());
+                                return savepoint;
+                            });
+            doAnswer(
+                            invocation -> {
+                                committedRows.addAll(transactionRows);
+                                transactionRows.clear();
+                                savepoints.clear();
+                                return null;
+                            })
+                    .when(connection)
+                    .commit();
+            doAnswer(
+                            invocation -> {
+                                transactionRows.clear();
+                                savepoints.clear();
+                                return null;
+                            })
+                    .when(connection)
+                    .rollback();
+            doAnswer(
+                            invocation -> {
+                                Savepoint savepoint = invocation.getArgument(0);
+                                int size = dropSavepointsAfter(savepoint);
+                                transactionRows.subList(size, transactionRows.size()).clear();
+                                return null;
+                            })
+                    .when(connection)
+                    .rollback(any(Savepoint.class));
+            doAnswer(
+                            invocation -> {
+                                Savepoint savepoint = invocation.getArgument(0);
+                                dropSavepointsAfter(savepoint);
+                                savepoints.remove(savepoint);
+                                return null;
+                            })
+                    .when(connection)
+                    .releaseSavepoint(any(Savepoint.class));
+            doAnswer(
+                            invocation -> {
+                                parameters[(int) invocation.getArgument(0) - 1] =
+                                        invocation.getArgument(1);
+                                return null;
+                            })
+                    .when(statement)
+                    .setObject(anyInt(), any());
+            doAnswer(invocation -> batch.add(parameters.clone())).when(statement).addBatch();
+            doAnswer(
+                            invocation -> {
+                                batch.clear();
+                                return null;
+                            })
+                    .when(statement)
+                    .clearBatch();
+            when(statement.executeBatch()).thenAnswer(invocation -> executeBatch());
+        }
+
+        /** Destroys the savepoints taken after {@code savepoint} and returns its row count. */
+        private int dropSavepointsAfter(Savepoint savepoint) throws SQLException {
+            Integer size = savepoints.get(savepoint);
+            if (size == null) {
+                throw new SQLException("savepoint does not exist", "3B001");
+            }
+            boolean after = false;
+            Iterator<Savepoint> iterator = savepoints.keySet().iterator();
+            while (iterator.hasNext()) {
+                Savepoint current = iterator.next();
+                if (after) {
+                    iterator.remove();
+                }
+                after |= current == savepoint;
+            }
+            return size;
+        }
+
+        private int[] executeBatch() throws SQLException {
+            List<Object[]> rows = new ArrayList<>(batch);
+            batch.clear();
+            for (int i = 0; i < rows.size(); i++) {
+                Object[] row = rows.get(i);
+                SQLException error = check(row);
+                if (error != null) {
+                    throw new BatchUpdateException(
+                            error.getMessage(), error.getSQLState(), 0, new int[i], error);
+                }
+                (autoCommit ? committedRows : transactionRows).add(row);
+            }
+            return new int[rows.size()];
+        }
+
+        private SQLException check(Object[] row) {
+            if (systemErrorIds.contains(row[0])) {
+                return new SQLException("Lock wait timeout exceeded", "HY000");
+            }
+            if (((String) row[1]).length() > 10) {
+                return new SQLException("Data too long for column 'name'", "22001");
+            }
+            List<Object[]> existingRows = new ArrayList<>(committedRows);
+            existingRows.addAll(transactionRows);
+            for (Object[] existing : existingRows) {
+                if (existing[0].equals(row[0])) {
+                    return new SQLException(
+                            "Duplicate entry '" + row[0] + "' for key 'PRIMARY'", "23000");
+                }
+            }
+            return null;
+        }
+
+        /** The committed rows as "id name", in commit order. */
+        private List<String> committed() {
+            return committedRows.stream()
+                    .map(JdbcSinkWriterTest::describe)
+                    .collect(Collectors.toList());
+        }
+    }
+
     private static final class WriterFixture {
         private final JdbcSinkWriter writer;
         private final Connection connection;
@@ -742,10 +1259,12 @@ class JdbcSinkWriterTest {
         return (List<SeaTunnelRow>) field.get(writer);
     }
 
-    private static Savepoint getLastSuccessfulBatchSavepoint(JdbcSinkWriter writer)
-            throws Exception {
-        Field field = JdbcSinkWriter.class.getDeclaredField("lastSuccessfulBatchSavepoint");
-        field.setAccessible(true);
-        return (Savepoint) field.get(writer);
+    private static boolean hasSavepointBoundary(JdbcSinkWriter writer) throws Exception {
+        Field outputFormatField = AbstractJdbcSinkWriter.class.getDeclaredField("outputFormat");
+        outputFormatField.setAccessible(true);
+        Object outputFormat = outputFormatField.get(writer);
+        Field stateField = JdbcOutputFormat.class.getDeclaredField("transactionStateManager");
+        stateField.setAccessible(true);
+        return ((JdbcTransactionStateManager) stateField.get(outputFormat)).hasBoundary();
     }
 }
