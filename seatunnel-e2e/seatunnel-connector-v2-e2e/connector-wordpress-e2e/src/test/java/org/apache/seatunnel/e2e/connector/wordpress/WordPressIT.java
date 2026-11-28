@@ -46,6 +46,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 
 import static org.awaitility.Awaitility.await;
 
@@ -182,6 +183,105 @@ class WordPressIT extends TestSuiteBase {
                 engine.tearDown();
             }
         }
+    }
+
+    @Test
+    void checkpointsDecodedThrottledPageAndRetainsFullWindowReplay(@TempDir Path tmp)
+            throws Exception {
+        Path serverPem = tmp.resolve("wordpress-fixture.pem");
+        Path truststore = tmp.resolve("wordpress-trust.p12");
+        createFixtureCertificate(tmp, serverPem, truststore);
+        String config = "/wordpress_to_console_throttled.conf";
+        try (GenericContainer<?> fixture =
+                fixture(serverPem).withEnv("WORDPRESS_DECODED_PAGE", "1")) {
+            fixture.start();
+            SeaTunnelContainer engine = engine(truststore);
+            try {
+                engine.startUp();
+                String jobId = String.valueOf(JobIdGenerator.newJobId());
+                CompletableFuture<Container.ExecResult> job =
+                        CompletableFuture.supplyAsync(
+                                () -> {
+                                    try {
+                                        return engine.executeJob(config, jobId);
+                                    } catch (InterruptedException e) {
+                                        Thread.currentThread().interrupt();
+                                        throw new CompletionException(e);
+                                    } catch (IOException e) {
+                                        throw new CompletionException(e);
+                                    }
+                                });
+                await().atMost(15, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () -> {
+                                    int count = decodedIds(engine.getServerLogs()).size();
+                                    Assertions.assertTrue(count >= 5 && count < 100);
+                                });
+                long completedBefore = completedCheckpoints(engine.getServerLogs(), jobId);
+                await().atMost(5, TimeUnit.SECONDS)
+                        .until(
+                                () ->
+                                        completedCheckpoints(engine.getServerLogs(), jobId)
+                                                > completedBefore);
+                Assertions.assertFalse(job.isDone());
+                Assertions.assertTrue(decodedIds(engine.getServerLogs()).size() < 100);
+                Assertions.assertEquals(
+                        1,
+                        fixture.getLogs()
+                                .lines()
+                                .filter(
+                                        line ->
+                                                line.equals(
+                                                        "verified decoded WordPress fixture page"))
+                                .count());
+                engine.stopJob(jobId);
+                job.get(30, TimeUnit.SECONDS);
+                await().atMost(15, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () ->
+                                        Assertions.assertEquals(
+                                                "CANCELED", engine.getJobStatus(jobId)));
+                Assertions.assertTrue(decodedIds(engine.getServerLogs()).size() < 100);
+
+                // Null split checkpoints deliberately replay the complete publication window.
+                // Console output is an acceptance trace, not a transactional commit receipt.
+                int logOffset = engine.getServerLogs().length();
+                String restoredId = String.valueOf(JobIdGenerator.newJobId());
+                Container.ExecResult restored =
+                        engine.restoreJobWithCheckpoint(config, jobId, restoredId);
+                Assertions.assertEquals(
+                        0, restored.getExitCode(), restored.getStdout() + restored.getStderr());
+                await().atMost(15, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () ->
+                                        Assertions.assertEquals(
+                                                "FINISHED", engine.getJobStatus(restoredId)));
+                String logs = engine.getServerLogs();
+                Assertions.assertEquals(
+                        LongStream.range(1000, 1100).boxed().collect(Collectors.toList()),
+                        decodedIds(logs.substring(logOffset)));
+                Assertions.assertEquals(
+                        2,
+                        fixture.getLogs()
+                                .lines()
+                                .filter(
+                                        line ->
+                                                line.equals(
+                                                        "verified decoded WordPress fixture page"))
+                                .count());
+            } finally {
+                engine.tearDown();
+            }
+        }
+    }
+
+    private static List<Long> decodedIds(String logs) {
+        String marker = "SeaTunnelRow#tableId=posts SeaTunnelRow#kind=INSERT : ";
+        return logs.lines()
+                .filter(line -> line.contains(marker) && line.contains(", decoded-"))
+                .map(line -> line.substring(line.indexOf(marker) + marker.length()))
+                .map(line -> Long.parseLong(line.substring(0, line.indexOf(','))))
+                .collect(Collectors.toList());
     }
 
     private static long completedCheckpoints(String logs, String jobId) {

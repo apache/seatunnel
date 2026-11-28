@@ -172,6 +172,28 @@ class WordPressReaderTest {
     }
 
     @Test
+    void yieldsBetweenValidatedRowsWithoutChangingNullSplitReplay() throws Exception {
+        reply = query -> page(2, post(7) + "," + post(11));
+        try (WordPressReader reader = reader(2, 1)) {
+            reader.open();
+            reader.pollNext(collector);
+            assertEquals(1, calls.get());
+            assertEquals(1, rows.size());
+            assertEquals(7L, rows.get(0).getField(0));
+            assertEquals(0, completions.get());
+            assertNull(reader.snapshotState(1).get(0).getState());
+            reader.pollNext(collector);
+            assertEquals(1, calls.get());
+            assertEquals(2, rows.size());
+            assertEquals(11L, rows.get(1).getField(0));
+            assertEquals(1, completions.get());
+            assertNull(reader.snapshotState(2).get(0).getState());
+            reader.pollNext(collector);
+            assertEquals(1, calls.get());
+        }
+    }
+
+    @Test
     void failsBeforeEmittingWhenPageLimitWouldTruncate() throws Exception {
         reply = query -> page(2, post(1));
         assertFailure("max_pages", 1, 1);

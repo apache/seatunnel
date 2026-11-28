@@ -76,6 +76,8 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private int total = -1;
     private int offset;
     private long previousId;
+    // A validated page stays reader-local; inherited checkpoints still replay the full window.
+    private PreparedPage prepared;
     /*
      * Tracks the dispatched request so cancellation can abort I/O without taking lifecycleLock.
      */
@@ -166,8 +168,8 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     /**
-     * Fetches and validates one page outside the checkpoint monitor, then emits it under that
-     * monitor. Returning between pages lets the engine inject checkpoints during a long scan.
+     * Fetches and validates one page outside the checkpoint monitor, then emits at most one row.
+     * Returning between rows reaches the engine's checkpoint handoff even with output throttling.
      * Earlier pages may already be emitted when a later page fails; this is not a snapshot.
      */
     @Override
@@ -176,6 +178,63 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             return;
         }
         requireOpenResources();
+        if (prepared == null) {
+            prepared = preparePage();
+        }
+        synchronized (output.getCheckpointLock()) {
+            requireOpenResources();
+            PreparedPage page = prepared;
+            if (page.index < page.rows.size()) {
+                output.collect(page.rows.get(page.index));
+                page.index++;
+            }
+            if (page.index == page.rows.size()) {
+                total = page.total;
+                previousId = page.lastId;
+                offset += page.rows.size();
+                prepared = null;
+                if (offset >= total) {
+                    requireOpenResources();
+                    context.signalNoMoreElement();
+                    noMoreSplits = true;
+                }
+            }
+        }
+    }
+
+    /*
+     * Permanently marks cancellation and aborts any published request without locking.
+     */
+    @Override
+    public void cancel() {
+        cancelled = true;
+        HttpGet request = activeRequest.get();
+        if (request != null) {
+            request.abort();
+        }
+    }
+
+    /*
+     * Detaches resources once under lifecycleLock, then shuts them down outside the lock.
+     */
+    @Override
+    public void close() throws IOException {
+        cancel();
+        ClientResources closing;
+        synchronized (lifecycleLock) {
+            closing = resources;
+            resources = null;
+        }
+        if (closing != null) {
+            closing.close();
+        }
+    }
+
+    /**
+     * Validates every row before the first output, preserving whole-page failure atomicity. The
+     * transient page keeps the next offset unpublished until its final row is accepted.
+     */
+    private PreparedPage preparePage() throws Exception {
         JsonNode page = readPage(offset);
         JsonNode found = page.path("found");
         JsonNode posts = page.path("posts");
@@ -225,49 +284,7 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             row.setTableId(table.getTableId().toTablePath().toString());
             rows.add(row);
         }
-        synchronized (output.getCheckpointLock()) {
-            requireOpenResources();
-            for (SeaTunnelRow row : rows) {
-                requireOpenResources();
-                output.collect(row);
-            }
-            total = pageTotal;
-            previousId = pagePreviousId;
-            offset += rows.size();
-            if (offset >= total) {
-                requireOpenResources();
-                context.signalNoMoreElement();
-                noMoreSplits = true;
-            }
-        }
-    }
-
-    /*
-     * Permanently marks cancellation and aborts any published request without locking.
-     */
-    @Override
-    public void cancel() {
-        cancelled = true;
-        HttpGet request = activeRequest.get();
-        if (request != null) {
-            request.abort();
-        }
-    }
-
-    /*
-     * Detaches resources once under lifecycleLock, then shuts them down outside the lock.
-     */
-    @Override
-    public void close() throws IOException {
-        cancel();
-        ClientResources closing;
-        synchronized (lifecycleLock) {
-            closing = resources;
-            resources = null;
-        }
-        if (closing != null) {
-            closing.close();
-        }
+        return new PreparedPage(rows, pageTotal, pagePreviousId);
     }
 
     /**
@@ -384,6 +401,23 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private static IllegalStateException failure(String message) {
         return new IllegalStateException("WordPress: " + message);
+    }
+
+    /**
+     * Holds one fully validated page between poll calls. Only the polling thread changes index;
+     * checkpoints retain the inherited null split and restore the original full-window replay.
+     */
+    private static final class PreparedPage {
+        private final List<SeaTunnelRow> rows;
+        private final int total;
+        private final long lastId;
+        private int index;
+
+        private PreparedPage(List<SeaTunnelRow> rows, int total, long lastId) {
+            this.rows = rows;
+            this.total = total;
+            this.lastId = lastId;
+        }
     }
 
     /**

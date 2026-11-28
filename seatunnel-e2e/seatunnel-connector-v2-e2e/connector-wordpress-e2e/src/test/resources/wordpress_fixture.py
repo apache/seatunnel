@@ -81,8 +81,34 @@ class Fixture(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
+class DecodedPageFixture(BaseHTTPRequestHandler):
+    """Returns a complete small page on every scan, including null-split restore replay."""
+
+    def do_GET(self):
+        url = urlsplit(self.path)
+        params = parse_qs(url.query)
+        expected = dict(PARAMETERS, number=["100"], offset=["0"])
+        if (url.path != "/rest/v1/sites/fixture.wordpress.com/posts/"
+                or params != expected
+                or self.headers.get("Host") != "public-api.wordpress.com"
+                or self.headers.get("Accept") != "application/json"
+                or self.headers.get("Authorization") is not None):
+            self.send_error(400, "unexpected decoded-page request")
+            return
+        posts = [dict(POSTS[0], ID=1000 + index, slug="decoded-" + str(index))
+                 for index in range(100)]
+        body = json.dumps({"found": len(posts), "posts": posts}).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+        print("verified decoded WordPress fixture page", flush=True)
+
+
 if __name__ == "__main__":
-    server = HTTPServer(("0.0.0.0", 443), Fixture)
+    handler = DecodedPageFixture if os.environ.get("WORDPRESS_DECODED_PAGE") == "1" else Fixture
+    server = HTTPServer(("0.0.0.0", 443), handler)
     server.offsets = []
     tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     tls.load_cert_chain("/tmp/wordpress-fixture.pem")
