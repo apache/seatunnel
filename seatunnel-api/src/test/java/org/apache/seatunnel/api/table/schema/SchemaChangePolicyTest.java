@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
+import org.apache.seatunnel.api.table.schema.event.CreateTableEvent;
 import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaChangePolicyException;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -42,6 +43,26 @@ import java.util.Collections;
  * when one child is metadata-only.
  */
 public class SchemaChangePolicyTest {
+
+    @Test
+    void runtimeCreateRequiresAnExplicitCapability() {
+        TableIdentifier id = TableIdentifier.of("catalog", "database", "new_table");
+        CatalogTable table =
+                CatalogTable.of(
+                        id,
+                        TableSchema.builder().build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null);
+        CreateTableEvent event = new CreateTableEvent(id, table);
+        Assertions.assertTrue(
+                SchemaChangePolicy.isSupported(
+                        event, Collections.singletonList(SchemaChangeType.CREATE_TABLE)));
+        Assertions.assertFalse(
+                SchemaChangePolicy.isSupported(
+                        event, Collections.singletonList(SchemaChangeType.ADD_COLUMN)));
+        Assertions.assertFalse(SchemaChangePolicy.isSafeToIgnore(event));
+    }
 
     @Test
     void testRestoreSchemaReplaysAcceptedMetadataForEveryBehavior() {

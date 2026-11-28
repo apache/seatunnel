@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableNameEvent;
+import org.apache.seatunnel.api.table.schema.event.CreateTableEvent;
 import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 
@@ -73,6 +74,8 @@ public class TableSchemaChangeEventDispatcher implements TableSchemaChangeEventH
         Map<Class, TableSchemaChangeEventHandler> handlers = new HashMap<>();
 
         AlterTableSchemaEventHandler alterTableEventHandler = new AlterTableSchemaEventHandler();
+        CreateTableEventHandler createTableEventHandler = new CreateTableEventHandler();
+        handlers.put(CreateTableEvent.class, createTableEventHandler);
         handlers.put(AlterTableEvent.class, alterTableEventHandler);
         handlers.put(AlterTableNameEvent.class, alterTableEventHandler);
         handlers.put(AlterTableColumnsEvent.class, alterTableEventHandler);

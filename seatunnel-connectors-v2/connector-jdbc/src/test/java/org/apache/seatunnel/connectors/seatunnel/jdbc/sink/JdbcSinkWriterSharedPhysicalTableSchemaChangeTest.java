@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -97,6 +98,9 @@ class JdbcSinkWriterSharedPhysicalTableSchemaChangeTest {
                         schemaBeforeDrop,
                         schemaBeforeDrop,
                         null,
+                        // baseConfig only feeds runtime sink-table resolution, which this
+                        // schema-change case never reaches. An empty config keeps it non-null.
+                        ReadonlyConfig.fromMap(new LinkedHashMap<>()),
                         true);
         JdbcSinkWriter writerB =
                 new JdbcSinkWriter(
@@ -107,6 +111,9 @@ class JdbcSinkWriterSharedPhysicalTableSchemaChangeTest {
                         schemaBeforeDrop,
                         schemaBeforeDrop,
                         null,
+                        // baseConfig only feeds runtime sink-table resolution, which this
+                        // schema-change case never reaches. An empty config keeps it non-null.
+                        ReadonlyConfig.fromMap(new LinkedHashMap<>()),
                         true);
 
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new LinkedHashMap<>();

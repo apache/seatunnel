@@ -159,6 +159,8 @@ public final class SchemaChangePolicy {
             return false;
         }
         switch (event.getEventType()) {
+            case SCHEMA_CHANGE_CREATE_TABLE:
+                return supportedTypes.contains(SchemaChangeType.CREATE_TABLE);
             case SCHEMA_CHANGE_ADD_COLUMN:
                 return supportedTypes.contains(SchemaChangeType.ADD_COLUMN);
             case SCHEMA_CHANGE_DROP_COLUMN:

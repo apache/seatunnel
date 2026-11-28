@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.schema.event.CreateTableEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventDispatcher;
 import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventHandler;
@@ -78,6 +79,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
             new DataTypeChangeEventDispatcher();
     private Map<String, SeaTunnelRowType> rowTypeMap = new HashMap<>();
     private SeaTunnelDataType rowType;
+    private final String startupSingleTableId;
     private FlowControlGate flowControlGate;
 
     private final long sourceTaskId;
@@ -207,6 +209,10 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
         this.checkpointLock = checkpointLock;
         this.outputs = outputs;
         this.rowType = rowType;
+        this.startupSingleTableId =
+                rowType instanceof SeaTunnelRowType && tablePaths != null && tablePaths.size() == 1
+                        ? tablePaths.get(0).toString()
+                        : null;
         this.currentTimeMillisSupplier =
                 currentTimeMillisSupplier != null
                         ? currentTimeMillisSupplier
@@ -329,20 +335,41 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     @Override
     public void collect(SchemaChangeEvent event) {
         try {
-            if (rowType instanceof SeaTunnelRowType) {
+            if (rowType instanceof SeaTunnelRowType && event instanceof CreateTableEvent) {
+                String tableId = event.tablePath().toString();
+                if (startupSingleTableId == null) {
+                    throw new SeaTunnelEngineException(
+                            "Cannot register runtime table "
+                                    + tableId
+                                    + " without the startup table identifier");
+                }
+                if (!startupSingleTableId.equals(tableId)) {
+                    // The catalog produces a single row type when one table matches at startup.
+                    // Retain its current type when switching to table-keyed dispatch.
+                    SeaTunnelRowType createdRowType = getCreatedRowType((CreateTableEvent) event);
+                    rowTypeMap.put(startupSingleTableId, (SeaTunnelRowType) rowType);
+                    rowTypeMap.put(tableId, createdRowType);
+                    rowType = new MultipleRowType(rowTypeMap);
+                }
+            } else if (rowType instanceof SeaTunnelRowType) {
                 rowType = dataTypeChangeEventHandler.reset((SeaTunnelRowType) rowType).apply(event);
             } else if (rowType instanceof MultipleRowType) {
                 String tableId = event.tablePath().toString();
                 SeaTunnelRowType currentRowType = rowTypeMap.get(tableId);
                 if (currentRowType == null) {
-                    log.warn(
-                            "Ignore schema change event for unknown table {}, current table ids: {}",
-                            tableId,
-                            rowTypeMap.keySet());
-                    return;
+                    if (event instanceof CreateTableEvent) {
+                        rowTypeMap.put(tableId, getCreatedRowType((CreateTableEvent) event));
+                    } else {
+                        log.warn(
+                                "Ignore schema change event for unknown table {}, current table ids: {}",
+                                tableId,
+                                rowTypeMap.keySet());
+                        return;
+                    }
+                } else {
+                    rowTypeMap.put(
+                            tableId, dataTypeChangeEventHandler.reset(currentRowType).apply(event));
                 }
-                rowTypeMap.put(
-                        tableId, dataTypeChangeEventHandler.reset(currentRowType).apply(event));
             } else {
                 throw new SeaTunnelEngineException(
                         "Unsupported row type: " + rowType.getClass().getName());
@@ -351,6 +378,15 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static SeaTunnelRowType getCreatedRowType(CreateTableEvent event) {
+        if (event.getChangeAfter() == null) {
+            throw new SeaTunnelEngineException(
+                    "CreateTableEvent changeAfter cannot be null for newly added table "
+                            + event.tablePath());
+        }
+        return event.getChangeAfter().getSeaTunnelRowType();
     }
 
     @Override

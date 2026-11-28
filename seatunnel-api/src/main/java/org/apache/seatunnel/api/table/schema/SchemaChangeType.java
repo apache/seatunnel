@@ -29,5 +29,7 @@ public enum SchemaChangeType {
     /** Alter table comment. */
     ALTER_TABLE_COMMENT,
     /** Alter column comment. */
-    ALTER_COLUMN_COMMENT;
+    ALTER_COLUMN_COMMENT,
+    /** Create table in downstream. Appended to preserve existing schema-change ordinals. */
+    CREATE_TABLE;
 }
