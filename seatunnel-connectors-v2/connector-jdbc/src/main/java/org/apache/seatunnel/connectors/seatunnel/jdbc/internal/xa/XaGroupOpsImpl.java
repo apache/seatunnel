@@ -137,11 +137,14 @@ public class XaGroupOpsImpl implements XaGroupOps {
         }
         LOG.warn("rollback {} recovered transactions", recovered.size());
         for (Xid xid : recovered) {
-            if (xidGenerator.belongsToSubtask(xid, context, sinkContext)) {
+            if (xidGenerator.canRollback(xid, context, sinkContext)) {
                 try {
                     xaFacade.rollback(xid);
                 } catch (Exception e) {
-                    LOG.info("unable to rollback recovered transaction, xid={}", xid, e);
+                    throw new JdbcConnectorException(
+                            JdbcConnectorErrorCode.XA_OPERATION_FAILED,
+                            "Unable to roll back recovered writer transaction " + xid,
+                            e);
                 }
             }
         }
