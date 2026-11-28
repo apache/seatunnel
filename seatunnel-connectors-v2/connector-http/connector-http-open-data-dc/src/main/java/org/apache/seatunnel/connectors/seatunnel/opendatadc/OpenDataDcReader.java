@@ -33,8 +33,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Scans ascending OBJECTIDs up to the first observed maximum, committing one page at a time. The
- * upper bound excludes later IDs but does not freeze updates or deletions of existing rows.
+ * Scans ascending OBJECTIDs up to the first observed maximum. Each complete page is validated
+ * before emission; accepted rows commit individually so checkpoint injectors can run between polls.
+ * The upper bound excludes later IDs but does not freeze updates or deletions of existing rows.
  */
 final class OpenDataDcReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final SingleSplitReaderContext context;
@@ -47,13 +48,17 @@ final class OpenDataDcReader extends AbstractSingleSplitReader<SeaTunnelRow> {
      */
     private long upperBound = -1L;
     /*
-     * Checkpoint field 2: last OBJECTID emitted with a fully committed page.
+     * Checkpoint field 2: last accepted OBJECTID; restored queries resume strictly after this key.
      */
     private long lastId;
     /*
      * Checkpoint field 3: emitted rows, retained across restore to enforce max_rows.
      */
     private long rowCount;
+    // Poller-owned, bounded page data is transient and never enters the three-long checkpoint.
+    private List<SeaTunnelRow> prepared;
+    private int preparedIndex;
+    private long preparedBound;
 
     OpenDataDcReader(
             SingleSplitReaderContext context,
@@ -88,8 +93,8 @@ final class OpenDataDcReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     /**
-     * Polls a page without holding the checkpoint lock during network I/O. A cancellation-induced
-     * I/O error is not reported as a failed request or normal completion.
+     * Fetches a page or accepts one prepared row, with network I/O outside the monitor. A
+     * cancellation-induced I/O error is not reported as a failed request or normal completion.
      */
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws IOException {
@@ -109,7 +114,7 @@ final class OpenDataDcReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     /**
      * Serializes exactly 24 bytes: big-endian upperBound, lastId and rowCount longs. The engine
-     * checkpoint lock coordinates this state with the page commit in pollPage.
+     * checkpoint lock coordinates these longs with each accepted row in pollPage.
      */
     @Override
     protected byte[] snapshotStateToBytes(long checkpointId) {
@@ -132,11 +137,48 @@ final class OpenDataDcReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     /**
-     * Fetches and validates the full ordered page before taking the checkpoint lock. Emission,
-     * upper bound, cursor and row count commit together under that lock. Short nonempty pages
-     * continue by key; only an empty page, bound or row cap ends the scan.
+     * Accepts at most one row and commits its key/count under the collector monitor, then returns
+     * so the engine can hand that monitor to an announced checkpoint or savepoint injector.
      */
     private void pollPage(Collector<SeaTunnelRow> output) throws IOException {
+        if (prepared == null) {
+            preparePage();
+        }
+        synchronized (output.getCheckpointLock()) {
+            if (api.isCancelled()) {
+                return;
+            }
+            if (preparedIndex < prepared.size()) {
+                SeaTunnelRow row = prepared.get(preparedIndex);
+                long acceptedId = (Long) row.getField(0);
+                output.collect(row);
+                upperBound = preparedBound;
+                lastId = acceptedId;
+                rowCount++;
+                preparedIndex++;
+            } else {
+                // Empty pages still commit the discovered bound before signalling completion.
+                upperBound = preparedBound;
+            }
+            if (preparedIndex == prepared.size()) {
+                boolean empty = prepared.isEmpty();
+                prepared = null;
+                if (empty || lastId == upperBound || (maxRows > 0 && rowCount == maxRows)) {
+                    noMoreSplits = true;
+                    if (!api.isCancelled()) {
+                        context.signalNoMoreElement();
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Fetches and validates the entire ordered projected page outside the checkpoint monitor. No
+     * accepted progress changes until collection succeeds; restore uses the same saved key
+     * predicate.
+     */
+    private void preparePage() throws IOException {
         final long bound = upperBound < 0 ? api.readUpperBound() : upperBound;
         final int size = maxRows == 0 ? pageSize : (int) Math.min(pageSize, maxRows - rowCount);
         long pageLastId = lastId;
@@ -159,27 +201,9 @@ final class OpenDataDcReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 rows.add(toRow(id, attributes));
             }
         }
-        synchronized (output.getCheckpointLock()) {
-            // Do not publish a fetched page if cancellation won before the commit. Once emission
-            // starts, keep the page and its cursor update atomic with respect to a checkpoint.
-            if (api.isCancelled()) {
-                return;
-            }
-            for (SeaTunnelRow row : rows) {
-                output.collect(row);
-            }
-            upperBound = bound;
-            lastId = pageLastId;
-            rowCount += rows.size();
-            // Short ArcGIS pages are allowed; continue by key until an empty page or the scan
-            // bound.
-            if (rows.isEmpty() || lastId == bound || (maxRows > 0 && rowCount == maxRows)) {
-                noMoreSplits = true;
-                if (!api.isCancelled()) {
-                    context.signalNoMoreElement();
-                }
-            }
-        }
+        prepared = rows;
+        preparedIndex = 0;
+        preparedBound = bound;
     }
 
     /**

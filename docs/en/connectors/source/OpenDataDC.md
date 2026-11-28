@@ -47,7 +47,7 @@ The source captures the highest available `OBJECTID` at scan start and reads in 
 empty page with more results available, it advances the offset by a full requested window for that same query.
 After a nonempty page it resumes keyset pagination. The source fails rather than silently truncating after 32
 additional empty windows.
-Checkpoint state records the scan bound, last emitted key and row count. This provides a bounded scan, not a transactional
+Each page is fully validated before output. The reader accepts at most one row per poll, atomically saving its key and count with collection so explicitly enabled checkpoints can progress during throttled output. Checkpoint state remains exactly 24 bytes: the scan bound, last accepted key and row count as three big-endian longs. Restore refetches strictly after that accepted key under the saved bound; a transient prepared page is not saved and committed rows are not replayed by this source. This provides a bounded scan, not a transactional
 snapshot: published rows can be updated or removed during a run, and the City may regenerate object IDs between runs.
 Treat `OBJECTID` as the pagination key for one scan, not a durable business identifier.
 If an HTTP error triggers a job retry without a recoverable checkpoint, earlier rows can be replayed. Configure an idempotent sink if duplicates are unacceptable.

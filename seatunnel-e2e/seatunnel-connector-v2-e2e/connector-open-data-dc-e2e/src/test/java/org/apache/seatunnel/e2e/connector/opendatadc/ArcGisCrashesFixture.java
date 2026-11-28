@@ -54,11 +54,13 @@ final class ArcGisCrashesFixture implements AutoCloseable {
         THROTTLE_EXHAUST,
         EMPTY_EXHAUST,
         REDIRECT,
-        OVERSIZED_RESPONSE
+        OVERSIZED_RESPONSE,
+        CHECKPOINT_ROWS
     }
 
     private Mode mode;
     private int throttleAttempts;
+    private final List<String> checkpointQueries = new ArrayList<>();
 
     ArcGisCrashesFixture() throws IOException {
         server = HttpServer.create(new InetSocketAddress(0), 0);
@@ -77,10 +79,15 @@ final class ArcGisCrashesFixture implements AutoCloseable {
         this.mode = mode;
         throttleAttempts = 0;
         queries.clear();
+        checkpointQueries.clear();
     }
 
     synchronized List<String> getQueries() {
         return new ArrayList<>(queries);
+    }
+
+    synchronized List<String> getCheckpointQueries() {
+        return new ArrayList<>(checkpointQueries);
     }
 
     @Override
@@ -103,6 +110,10 @@ final class ArcGisCrashesFixture implements AutoCloseable {
                 return;
             }
 
+            if (mode == Mode.CHECKPOINT_ROWS) {
+                checkpointPage(exchange, params);
+                return;
+            }
             String body;
             if ("1=1".equals(where) && queryMatches(params, "OBJECTID", "OBJECTID DESC", "1")) {
                 if (mode == Mode.OVERSIZED_RESPONSE) {
@@ -176,6 +187,51 @@ final class ArcGisCrashesFixture implements AutoCloseable {
         } finally {
             exchange.close();
         }
+    }
+
+    /**
+     * Serves one normal-sized page slowly collected by Zeta, then validates the restored key, bound
+     * and remaining row cap through the actual next HTTP query rather than engine-private state.
+     */
+    private void checkpointPage(HttpExchange exchange, Map<String, String> params)
+            throws IOException {
+        String where = params.get("where");
+        String size = params.get("resultRecordCount");
+        checkpointQueries.add(where + " @" + params.get("resultOffset") + " #" + size);
+        String body;
+        if ("1=1".equals(where) && queryMatches(params, "OBJECTID", "OBJECTID DESC", "1")) {
+            body = "{\"features\":[{\"attributes\":{\"OBJECTID\":1000}}]}";
+        } else {
+            if (!where.matches("OBJECTID > [0-9]+ AND OBJECTID <= 1000")
+                    || !"0".equals(params.get("resultOffset"))) {
+                exchange.sendResponseHeaders(400, -1);
+                return;
+            }
+            long last = Long.parseLong(where.split(" ")[2]);
+            int count = Integer.parseInt(size);
+            if (last >= 400
+                    || count != 400 - last
+                    || !queryMatches(params, PROJECTION, "OBJECTID ASC", size)) {
+                exchange.sendResponseHeaders(400, -1);
+                return;
+            }
+            StringBuilder rows = new StringBuilder("{\"features\":[");
+            for (long id = last + 1; id <= 400; id++) {
+                if (id > last + 1) {
+                    rows.append(',');
+                }
+                rows.append("{\"attributes\":{\"OBJECTID\":")
+                        .append(id)
+                        .append(
+                                ",\"CCN\":\"00123456\",\"REPORTDATE\":1000,\"WARD\":\"Ward 1\","
+                                        + "\"TOTAL_VEHICLES\":2,\"LATITUDE\":38.9,\"LONGITUDE\":null}}");
+            }
+            body = rows.append("]}").toString();
+        }
+        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().set("Content-Type", "application/json");
+        exchange.sendResponseHeaders(200, bytes.length);
+        exchange.getResponseBody().write(bytes);
     }
 
     private static Map<String, String> queryParams(HttpExchange exchange) throws IOException {

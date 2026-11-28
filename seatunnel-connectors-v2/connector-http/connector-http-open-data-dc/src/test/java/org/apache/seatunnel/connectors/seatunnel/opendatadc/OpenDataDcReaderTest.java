@@ -58,7 +58,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Verifies page commits, checkpoint restore, response budgets and cancellation with local fixtures.
+ * Verifies accepted-row commits, checkpoint restore, response budgets and cancellation with local
+ * fixtures.
  */
 class OpenDataDcReaderTest {
     @Test
@@ -133,6 +134,7 @@ class OpenDataDcReaderTest {
         List<SingleSplit> snapshot;
         try {
             original.open();
+            original.pollNext(before);
             original.pollNext(before);
             Future<?> poll =
                     workers.submit(
@@ -565,6 +567,77 @@ class OpenDataDcReaderTest {
                 () -> CrashesApi.retryDelayMillis("Sat, 21 Nov 2026 08:00:06 GMT", now, 500));
     }
 
+    @Test
+    void restoresAcceptedKeyAndCountInsideAValidatedPageWithoutChangingTheStateLayout()
+            throws Exception {
+        RecordingContext originalContext = new RecordingContext();
+        CrashesApi first =
+                new CrashesApi() {
+                    @Override
+                    long readUpperBound() {
+                        return 19;
+                    }
+
+                    @Override
+                    JsonNode readPage(long lastId, long bound, int size) throws IOException {
+                        assertEquals(0L, lastId);
+                        assertEquals(19L, bound);
+                        assertEquals(2, size);
+                        return page(2, 7);
+                    }
+                };
+        Rows before = new Rows();
+        List<SingleSplit> snapshot;
+        try (CrashesApi api = first) {
+            OpenDataDcReader original = new OpenDataDcReader(originalContext, api, 2, 3, "crashes");
+            original.pollNext(before);
+            snapshot = original.snapshotState(1);
+            assertEquals(24, snapshot.get(0).getState().length);
+            ByteBuffer state = ByteBuffer.wrap(snapshot.get(0).getState());
+            assertEquals(19L, state.getLong());
+            assertEquals(2L, state.getLong());
+            assertEquals(1L, state.getLong());
+            original.cancel();
+            original.pollNext(before);
+            assertEquals(Arrays.asList(2L), ids(before));
+            assertEquals(0, originalContext.signals);
+        }
+        RecordingContext restoredContext = new RecordingContext();
+        AtomicInteger calls = new AtomicInteger();
+        try (CrashesApi api =
+                new CrashesApi() {
+                    @Override
+                    long readUpperBound() {
+                        throw new AssertionError("Restore must retain the original bound");
+                    }
+
+                    @Override
+                    JsonNode readPage(long lastId, long bound, int size) throws IOException {
+                        assertEquals(2L, lastId);
+                        assertEquals(19L, bound);
+                        assertEquals(2, size);
+                        calls.incrementAndGet();
+                        return page(7, 12);
+                    }
+                }) {
+            OpenDataDcReader restored = new OpenDataDcReader(restoredContext, api, 2, 3, "crashes");
+            restored.addSplits(snapshot);
+            Rows after = new Rows();
+            restored.pollNext(after);
+            restored.pollNext(after);
+            restored.pollNext(after);
+            List<Long> all = new ArrayList<>(ids(before));
+            all.addAll(ids(after));
+            assertEquals(Arrays.asList(2L, 7L, 12L), all);
+            assertEquals(1, calls.get());
+            assertEquals(1, restoredContext.signals);
+            ByteBuffer saved = ByteBuffer.wrap(restored.snapshotState(2).get(0).getState());
+            assertEquals(19L, saved.getLong());
+            assertEquals(12L, saved.getLong());
+            assertEquals(3L, saved.getLong());
+        }
+    }
+
     private static void assertCancelsWithoutEmitting(
             CountDownLatch atCancellationPoint,
             HttpHandler handler,
@@ -660,7 +733,7 @@ class OpenDataDcReaderTest {
 
     /**
      * Collects emitted rows in encounter order and exposes one checkpoint monitor. Polling and
-     * snapshot test threads use that same monitor to verify page/state commit boundaries.
+     * snapshot test threads use that same monitor to verify accepted-row/state commit boundaries.
      */
     private static class Rows implements Collector<SeaTunnelRow> {
         private final List<SeaTunnelRow> values = new ArrayList<>();

@@ -27,6 +27,12 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-file-local</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-http-open-data-dc</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
