@@ -510,6 +510,11 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         }
     }
 
+    /**
+     * Logs file, position, and GTID diagnostics using the status statement negotiated for this
+     * server. Empty results and SQL failures are reported without replacing the original task
+     * failure; this best-effort query never changes the reader's offset or replication state.
+     */
     static void logMySqlBinaryLogStatus(MySqlConnection connection) {
         final String statement = connection.binaryLogStatusStatement();
         try {

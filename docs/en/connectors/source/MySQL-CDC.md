@@ -151,7 +151,6 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
      
 ```
 
-
 ### Notes
 
 #### Setting up MySQL session timeouts
@@ -164,8 +163,13 @@ When an initial consistent snapshot is made for large databases, your establishe
 
 ## Data Type Mapping
 
+> `VECTOR` (MySQL 9.0+) is delivered as `BYTES` holding the stored value: little-endian 4-byte floats, 4 bytes per dimension. It is not converted to a SeaTunnel float vector type.
+
+> With Connector/J 8.0.28, `VECTOR` snapshot reads support text results only. Set `useServerPrepStmts=false` in the source JDBC URL, for example `jdbc:mysql://host:3306/db?useServerPrepStmts=false`. Server-side prepared statements (`useServerPrepStmts=true`) use a binary result format that this driver cannot decode for MySQL type 242, before the connector can read the bytes. The MySQL CDC VECTOR integration case covers the text-result path; standalone JDBC VECTOR reads and other driver/protocol combinations are not verified by that case.
+
 |                                        Mysql Data Type                                         | SeaTunnel Data Type |
 |------------------------------------------------------------------------------------------------|---------------------|
+| VECTOR | BYTES |
 | BIT(1)<br/>TINYINT(1)                                                                          | BOOLEAN             |
 | TINYINT                                                                                        | TINYINT             |
 | TINYINT UNSIGNED<br/>SMALLINT                                                                  | SMALLINT            |
@@ -179,9 +183,7 @@ When an initial consistent snapshot is made for large databases, your establishe
 | DATE                                                                                           | DATE                |
 | TIME(s)                                                                                        | TIME(s)             |
 | DATETIME<br/>TIMESTAMP(s)                                                                      | TIMESTAMP(s)        |
-| BINARY<br/>VARBINAR<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB <br/>GEOMETRY<br/>VECTOR | BYTES               |
-
-> `VECTOR` (MySQL 9.0+) is delivered as `BYTES` holding the stored value: little-endian 4-byte floats, 4 bytes per dimension. It is not converted to a SeaTunnel float vector type.
+| BINARY<br/>VARBINARY<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB <br/>GEOMETRY | BYTES               |
 
 ## Source Options
 

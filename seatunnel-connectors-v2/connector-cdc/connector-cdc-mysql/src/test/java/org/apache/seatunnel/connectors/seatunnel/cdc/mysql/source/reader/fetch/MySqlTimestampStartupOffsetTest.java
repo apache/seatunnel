@@ -22,6 +22,14 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.state.IncrementalSplitState;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.Logger;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.Property;
+import org.apache.logging.log4j.core.layout.PatternLayout;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -31,8 +39,15 @@ import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 
 import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
+/**
+ * Covers timestamp bootstrap versus restored offsets, and the actual failure diagnostics retained
+ * when MySQL negotiates a different binary-log status statement.
+ */
 public class MySqlTimestampStartupOffsetTest {
 
     @Test
@@ -46,6 +61,10 @@ public class MySqlTimestampStartupOffsetTest {
             ResultSet status = Mockito.mock(ResultSet.class);
             Mockito.when(connection.binaryLogStatusStatement()).thenReturn(statement);
             Mockito.when(status.next()).thenReturn(true);
+            Mockito.when(status.getString("File")).thenReturn("mysql-bin.000042");
+            Mockito.when(status.getString("Position")).thenReturn("4096");
+            Mockito.when(status.getString("Executed_Gtid_Set"))
+                    .thenReturn("24bc7850-2c16-11e6-a073-0242ac110002:1-17");
             Mockito.when(connection.query(Mockito.eq(statement), Mockito.any()))
                     .thenAnswer(
                             invocation -> {
@@ -55,13 +74,48 @@ public class MySqlTimestampStartupOffsetTest {
                                 return connection;
                             });
 
-            MySqlSourceFetchTaskContext.logMySqlBinaryLogStatus(connection);
+            Assertions.assertEquals(
+                    Collections.singletonList(
+                            "MySQL-CDC diagnostic: binary log status file=mysql-bin.000042, "
+                                    + "position=4096, executed_gtid_set="
+                                    + "24bc7850-2c16-11e6-a073-0242ac110002:1-17"),
+                    collectBinaryLogDiagnostics(connection));
 
             Mockito.verify(connection).query(Mockito.eq(statement), Mockito.any());
             Mockito.verify(status).getString("File");
             Mockito.verify(status).getString("Position");
             Mockito.verify(status).getString("Executed_Gtid_Set");
         }
+    }
+
+    @Test
+    public void testBinlogDiagnosticsReportEmptyAndFailedQueries() throws Exception {
+        MySqlConnection connection = Mockito.mock(MySqlConnection.class);
+        String statement = MySqlConnection.BINARY_LOG_STATUS_STATEMENT;
+        Mockito.when(connection.binaryLogStatusStatement()).thenReturn(statement);
+        ResultSet status = Mockito.mock(ResultSet.class);
+        Mockito.when(status.next()).thenReturn(false);
+        Mockito.when(connection.query(Mockito.eq(statement), Mockito.any()))
+                .thenAnswer(
+                        invocation -> {
+                            JdbcConnection.ResultSetConsumer consumer = invocation.getArgument(1);
+                            consumer.accept(status);
+                            return connection;
+                        });
+        Assertions.assertEquals(
+                Collections.singletonList(
+                        "MySQL-CDC diagnostic: " + statement + " returned empty result"),
+                collectBinaryLogDiagnostics(connection));
+
+        Mockito.doThrow(new SQLException("status unavailable"))
+                .when(connection)
+                .query(Mockito.eq(statement), Mockito.any());
+        Assertions.assertEquals(
+                Collections.singletonList(
+                        "MySQL-CDC diagnostic: failed to query "
+                                + statement
+                                + ": status unavailable"),
+                collectBinaryLogDiagnostics(connection));
     }
 
     @Test
@@ -98,5 +152,37 @@ public class MySqlTimestampStartupOffsetTest {
         Assertions.assertFalse(
                 MySqlSourceFetchTaskContext.shouldResolveTimestampStartupOffset(
                         StartupMode.TIMESTAMP, restoredSplit.getStartupOffset()));
+    }
+
+    /**
+     * Captures formatted production log events and restores logger state even if the query fails.
+     */
+    private static List<String> collectBinaryLogDiagnostics(MySqlConnection connection) {
+        Logger logger = (Logger) LogManager.getLogger(MySqlSourceFetchTaskContext.class);
+        Level previousLevel = logger.getLevel();
+        List<String> messages = new ArrayList<>();
+        AbstractAppender appender =
+                new AbstractAppender(
+                        "mysql-binlog-diagnostics-test",
+                        null,
+                        PatternLayout.createDefaultLayout(),
+                        false,
+                        Property.EMPTY_ARRAY) {
+                    @Override
+                    public void append(LogEvent event) {
+                        messages.add(event.getMessage().getFormattedMessage());
+                    }
+                };
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(Level.WARN);
+        try {
+            MySqlSourceFetchTaskContext.logMySqlBinaryLogStatus(connection);
+            return messages;
+        } finally {
+            logger.removeAppender(appender);
+            logger.setLevel(previousLevel);
+            appender.stop();
+        }
     }
 }
