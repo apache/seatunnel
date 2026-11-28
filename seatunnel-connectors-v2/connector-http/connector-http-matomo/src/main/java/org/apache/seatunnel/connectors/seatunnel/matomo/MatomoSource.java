@@ -18,8 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.matomo;
 
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -41,37 +39,12 @@ import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Defines a bounded daily VisitsSummary report with a fixed five-column schema. Report dates use
+ * the Matomo site timezone and restoration replays the configured range.
+ */
 public final class MatomoSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     static final String IDENTIFIER = "Matomo";
-    static final Option<String> URL =
-            Options.key("url")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "HTTP(S) Matomo Reporting API URL, including index.php when needed");
-    static final Option<Integer> SITE_ID =
-            Options.key("site_id").intType().noDefaultValue().withDescription("Matomo website ID");
-    static final Option<String> START_DATE =
-            Options.key("start_date")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("First report date, inclusive, YYYY-MM-DD");
-    static final Option<String> END_DATE =
-            Options.key("end_date")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Last report date, inclusive, YYYY-MM-DD");
-    static final Option<String> TOKEN_AUTH =
-            Options.key("token")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Optional private Matomo token; only sent in an HTTPS form body");
-    static final Option<Integer> TIMEOUT_MS =
-            Options.key("timeout_ms")
-                    .intType()
-                    .defaultValue(15000)
-                    .withDescription("HTTP connect/read timeout, 1 to 120000 milliseconds");
 
     private static final TableSchema SCHEMA =
             TableSchema.builder()
@@ -101,10 +74,14 @@ public final class MatomoSource extends AbstractSingleSplitSource<SeaTunnelRow> 
                     Collections.emptyList(),
                     null);
 
+    /**
+     * Validates the endpoint, HTTPS token transport and an inclusive range of 1 to 366 days. Dates
+     * retain the Matomo site timezone; option values are not echoed in validation errors.
+     */
     public MatomoSource(ReadonlyConfig config) {
-        token = config.getOptional(TOKEN_AUTH).orElse(null);
+        token = config.getOptional(MatomoSourceOptions.TOKEN_AUTH).orElse(null);
         try {
-            endpoint = URI.create(config.get(URL));
+            endpoint = URI.create(config.get(MatomoSourceOptions.URL));
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Matomo url is not a valid HTTP(S) URL");
         }
@@ -120,20 +97,23 @@ public final class MatomoSource extends AbstractSingleSplitSource<SeaTunnelRow> 
         if (token != null && (token.isBlank() || !"https".equalsIgnoreCase(scheme))) {
             throw new IllegalArgumentException("Matomo token must be nonempty and requires HTTPS");
         }
-        siteId = config.get(SITE_ID);
-        timeoutMs = config.get(TIMEOUT_MS);
+        siteId = config.get(MatomoSourceOptions.SITE_ID);
+        timeoutMs = config.get(MatomoSourceOptions.TIMEOUT_MS);
         if (siteId < 1 || timeoutMs < 1 || timeoutMs > 120000) {
             throw new IllegalArgumentException(
                     "Matomo requires a positive site_id and timeout_ms between 1 and 120000");
         }
-        start = readDate(config.get(START_DATE));
-        end = readDate(config.get(END_DATE));
+        start = readDate(config.get(MatomoSourceOptions.START_DATE));
+        end = readDate(config.get(MatomoSourceOptions.END_DATE));
         long days = ChronoUnit.DAYS.between(start, end);
         if (days < 0 || days >= 366) {
             throw new IllegalArgumentException("Matomo report range must contain 1 to 366 days");
         }
     }
 
+    /*
+     * Accepts calendar dates in YYYY-MM-DD form without exposing submitted values.
+     */
     private static LocalDate readDate(String value) {
         try {
             if (value.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) {
@@ -150,11 +130,17 @@ public final class MatomoSource extends AbstractSingleSplitSource<SeaTunnelRow> 
         return IDENTIFIER;
     }
 
+    /*
+     * Retains the engine mode so getBoundedness can reject streaming execution.
+     */
     @Override
     public void setJobContext(JobContext jobContext) {
         this.jobContext = jobContext;
     }
 
+    /*
+     * Reports a finite batch and rejects a streaming context once supplied by the engine.
+     */
     @Override
     public Boundedness getBoundedness() {
         if (jobContext != null && JobMode.STREAMING.equals(jobContext.getJobMode())) {

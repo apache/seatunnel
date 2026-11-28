@@ -40,11 +40,11 @@ public final class MatomoSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        MatomoSource.URL,
-                        MatomoSource.SITE_ID,
-                        MatomoSource.START_DATE,
-                        MatomoSource.END_DATE)
-                .optional(MatomoSource.TOKEN_AUTH, MatomoSource.TIMEOUT_MS)
+                        MatomoSourceOptions.URL,
+                        MatomoSourceOptions.SITE_ID,
+                        MatomoSourceOptions.START_DATE,
+                        MatomoSourceOptions.END_DATE)
+                .optional(MatomoSourceOptions.TOKEN_AUTH, MatomoSourceOptions.TIMEOUT_MS)
                 .build();
     }
 

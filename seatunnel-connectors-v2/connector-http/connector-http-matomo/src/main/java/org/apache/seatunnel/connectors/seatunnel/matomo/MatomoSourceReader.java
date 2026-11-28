@@ -48,6 +48,10 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * Reads and validates one bounded daily report before collecting rows. No remote cursor is
+ * checkpointed; restoration replays the configured report interval.
+ */
 final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private static final int MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
     private final URI endpoint;
@@ -58,8 +62,18 @@ final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final int timeoutMs;
     private final SingleSplitReaderContext context;
     private final String tableId;
+    /**
+     * Sticky cancellation prevents dispatch and terminal signaling. open() closes a client
+     * published after cancellation rather than retaining it.
+     */
     private final AtomicBoolean cancelled = new AtomicBoolean();
+    /*
+     * CAS publishes one client; getAndSet detaches it for exactly one close owner.
+     */
     private final AtomicReference<CloseableHttpClient> client = new AtomicReference<>();
+    /*
+     * Publishes the request before a cancellation recheck so cancel cannot miss dispatch.
+     */
     private final AtomicReference<HttpRequestBase> activeRequest = new AtomicReference<>();
 
     MatomoSourceReader(
@@ -81,6 +95,9 @@ final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         this.tableId = tableId;
     }
 
+    /*
+     * Publishes at most one client and closes losing or post-cancellation clients.
+     */
     @Override
     public void open() throws IOException {
         if (cancelled.get() || client.get() != null) {
@@ -106,6 +123,9 @@ final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
+    /*
+     * Permanently marks cancellation and aborts the request currently owned by this reader.
+     */
     @Override
     public void cancel() {
         cancelled.set(true);
@@ -115,12 +135,18 @@ final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
+    /*
+     * Cancels I/O, then atomically detaches and closes the client.
+     */
     @Override
     public void close() throws IOException {
         cancel();
         closeClient();
     }
 
+    /*
+     * Transfers close ownership atomically so concurrent lifecycle calls do not close twice.
+     */
     private void closeClient() throws IOException {
         CloseableHttpClient current = client.getAndSet(null);
         if (current != null) {
@@ -128,6 +154,10 @@ final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
+    /**
+     * Fetches and validates outside the checkpoint lock, then collects under that lock. Marks
+     * completion with collection and signals end afterwards unless cancellation wins.
+     */
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         if (noMoreSplits || cancelled.get()) {
@@ -160,6 +190,10 @@ final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
+    /**
+     * Uses anonymous GET or an HTTPS form POST containing token_auth. Claims the single
+     * active-request slot and clears it even on cancellation or HTTP failure.
+     */
     List<SeaTunnelRow> readRows() throws Exception {
         checkCancelled();
         CloseableHttpClient current = client.get();
@@ -202,6 +236,9 @@ final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
+    /*
+     * Rejects failed, missing or decoded responses over 2 MiB before converting any rows.
+     */
     private List<SeaTunnelRow> execute(CloseableHttpClient current, HttpRequestBase request)
             throws IOException {
         try (CloseableHttpResponse response = current.execute(request)) {
@@ -233,6 +270,10 @@ final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
+    /**
+     * Validates every requested day before returning rows. Only an explicit empty array means no
+     * report; a missing day or API error fails the entire response.
+     */
     List<SeaTunnelRow> decode(String json) throws IOException {
         final JsonNode root;
         try {
@@ -279,6 +320,10 @@ final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         rows.add(row);
     }
 
+    /**
+     * Accepts nonnegative integral JSON numbers or digit strings that fit BIGINT. Only optional
+     * unique visitors may be missing or null; visits and actions are required.
+     */
     private static Long readCount(JsonNode data, String name, boolean nullable) throws IOException {
         JsonNode field = data.get(name);
         if (field == null || field.isNull()) {
