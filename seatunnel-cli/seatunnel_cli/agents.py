@@ -670,6 +670,28 @@ def _find_seatunnel_sh() -> str | None:
     return None
 
 
+def _engine_rejection(dryrun: dict) -> str | None:
+    """Return the engine's own error when `--check` rejected the config.
+
+    `phase2_check` has four shapes and they do not mean the same thing:
+
+      ``None``                  no engine on this host, nothing was checked
+      ``"PASS"``                the engine loaded the config
+      ``"FAIL: <stderr>"``      the engine rejected the config
+      ``"TIMEOUT (30s)"`` /
+      ``"ERROR: <exc>"``        the check could not be completed
+
+    Only the explicit ``FAIL`` is a rejection. Treating everything that is not
+    ``PASS`` as one would push a perfectly good config into a rewrite because
+    a subprocess timed out or the engine was missing, which is the opposite of
+    what the engine check is for.
+    """
+    check = dryrun.get("phase2_check")
+    if isinstance(check, str) and check.startswith("FAIL:"):
+        return check
+    return None
+
+
 def dry_run_config(config_str: str) -> dict:
     """Perform dry-run validation of a SeaTunnel HOCON config.
 
@@ -1632,6 +1654,10 @@ class Orchestrator:
         # Phase 3: Validation loop (max 3 rounds)
         config = config_result["config"]
         explanation = config_result.get("explanation", "")
+        # Carried out of the loop so the best-effort return can say what is
+        # still wrong, rather than calling an unresolved failure a warning.
+        last_validation = ""
+        last_dryrun: dict | None = None
 
         for round_num in range(3):
             self.on_status("validating", f"Validating config (round {round_num + 1})...")
@@ -1661,30 +1687,48 @@ class Orchestrator:
                 # Phase 4: Dry-run validation (engine-level)
                 self.on_status("validating", "Running dry-run check...")
                 dryrun = dry_run_config(config)
-                dryrun_note = ""
-                if dryrun["phase2_check"] and dryrun["phase2_check"] != "PASS":
-                    dryrun_note = f"\n\n**Dry-run note:** {dryrun['phase2_check']}"
-                elif dryrun["valid"]:
-                    dryrun_note = "\n\n**Dry-run:** PASSED"
+                last_dryrun = dryrun
+                rejection = _engine_rejection(dryrun)
+                if rejection:
+                    # The engine is the authority on whether a config loads, so
+                    # its rejection goes to the repair step. Before this it was
+                    # appended to the explanation as a footnote and the config
+                    # was returned as a normal result, which meant the one check
+                    # that had actually executed the config could not influence
+                    # the outcome, and repair never saw an engine error at all.
+                    validation = (
+                        "FAIL: the engine rejected this config during --check\n"
+                        + rejection
+                    )
+                else:
+                    dryrun_note = ""
+                    if dryrun["phase2_check"] and dryrun["phase2_check"] != "PASS":
+                        # Reached only for TIMEOUT/ERROR now: the check did not
+                        # complete, which is worth showing but is not a verdict
+                        # on the config.
+                        dryrun_note = f"\n\n**Dry-run note:** {dryrun['phase2_check']}"
+                    elif dryrun["valid"]:
+                        dryrun_note = "\n\n**Dry-run:** PASSED"
 
-                # The requirement has been served, so the next message starts a
-                # new one rather than adding to this.
-                self._reset_exchange()
+                    # The requirement has been served, so the next message starts a
+                    # new one rather than adding to this.
+                    self._reset_exchange()
 
-                # Add assistant message to history
-                self.conversation_history.append({
-                    "role": "assistant",
-                    "content": [{"text": f"Here is the generated config:\n```hocon\n{config}\n```\n\n{explanation}"}],
-                })
-                return {
-                    "type": "config",
-                    "content": validation,
-                    "config": config,
-                    "explanation": explanation + dryrun_note,
-                    "dry_run": dryrun,
-                }
+                    # Add assistant message to history
+                    self.conversation_history.append({
+                        "role": "assistant",
+                        "content": [{"text": f"Here is the generated config:\n```hocon\n{config}\n```\n\n{explanation}"}],
+                    })
+                    return {
+                        "type": "config",
+                        "content": validation,
+                        "config": config,
+                        "explanation": explanation + dryrun_note,
+                        "dry_run": dryrun,
+                    }
 
             # Validation failed — try to fix
+            last_validation = validation
             self.on_status("fixing", f"Fixing issues (round {round_num + 1})...")
             fix_result = self._run_fix(
                 config, validation,
@@ -1698,18 +1742,46 @@ class Orchestrator:
             else:
                 break
 
-        # Return best effort after max rounds
+        # Return best effort after max rounds. The config is still handed back,
+        # because a config that needs one edit is more use than nothing, but
+        # the reason it did not pass is reported instead of being summarised as
+        # a warning -- the repair budget running out on an engine rejection is
+        # not the same thing as a style note.
         self._reset_exchange()
         self.conversation_history.append({
             "role": "assistant",
             "content": [{"text": f"Here is the generated config:\n```hocon\n{config}\n```\n\n{explanation}"}],
         })
-        return {
+        unresolved = (
+            last_validation
+            if last_validation and not last_validation.startswith("PASS")
+            else None
+        )
+        content = "Config generated (validation had warnings)"
+        if unresolved:
+            content = (
+                "Config generated, but validation did not pass within the "
+                f"repair budget:\n{unresolved}"
+            )
+        result = {
             "type": "config",
-            "content": "Config generated (validation had warnings)",
+            "content": content,
             "config": config,
             "explanation": explanation,
         }
+        if unresolved:
+            # A separate field rather than only `content`, because the caller
+            # that renders a config result does not display `content`. Without
+            # something it already looks at, a config the engine rejected
+            # reaches the user styled exactly like one that passed.
+            result["validation_failure"] = unresolved
+        if last_dryrun is not None:
+            # Describes the last config that reached the engine, not
+            # necessarily the one returned, so it is reported as the last known
+            # engine result rather than a verdict on this config. The renderer
+            # must not present it as this config's dry-run.
+            result["last_dry_run"] = last_dryrun
+        return result
 
     def _run_planner(self) -> dict:
         """Run the planner agent with tool use loop (streaming)."""

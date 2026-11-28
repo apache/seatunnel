@@ -1041,16 +1041,36 @@ class SeaTunnelCLI:
         elif result["type"] == "config":
             config = result["config"]
             explanation = result.get("explanation", "")
+            # Set when the repair budget ran out with the config still failing
+            # validation -- most often an engine `--check` rejection. It is
+            # still handed over, because a config needing one edit beats
+            # nothing, but it must not be presented as a finished one.
+            validation_failure = result.get("validation_failure")
 
             self.console.print()
             self.console.print(
                 Panel(
                     Syntax(config, "properties", theme="monokai", line_numbers=True),
-                    title="📋 Generated SeaTunnel Config",
-                    border_style="green",
+                    title=(
+                        "⚠ Generated SeaTunnel Config (did not pass validation)"
+                        if validation_failure
+                        else "📋 Generated SeaTunnel Config"
+                    ),
+                    border_style="yellow" if validation_failure else "green",
                     padding=(1, 2),
                 )
             )
+
+            if validation_failure:
+                self.console.print()
+                self.console.print(
+                    Panel(
+                        validation_failure,
+                        title="⚠ Unresolved validation failure",
+                        border_style="yellow",
+                        padding=(1, 2),
+                    )
+                )
 
             if explanation:
                 self.console.print()
