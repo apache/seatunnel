@@ -39,7 +39,8 @@ public class TestDefineSinkTypeIT extends TestSuiteBase {
     @TestTemplate
     public void testDefineSinkType(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/define_sink_type_transform.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/define_sink_type_transform/define_sink_type_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -47,7 +48,8 @@ public class TestDefineSinkTypeIT extends TestSuiteBase {
     public void testDefineSinkTypeMultiTable(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/define_sink_type_multi_table.conf");
+                container.executeJob(
+                        "/define_sink_type_transform/define_sink_type_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -56,7 +58,8 @@ public class TestDefineSinkTypeIT extends TestSuiteBase {
     public void testDefineSinkTypeTableTransformOnly(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/define_sink_type_table_transform_only.conf");
+                container.executeJob(
+                        "/define_sink_type_transform/define_sink_type_table_transform_only.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
