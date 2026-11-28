@@ -319,6 +319,18 @@ public class SapHanaCatalog extends AbstractJdbcCatalog {
         return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, new SapHanaTypeMapper());
     }
 
+    /**
+     * Skips the single-physical-table verification and the query-only metadata merge: this catalog
+     * maps {@link TablePath} databaseName to the HANA schema while the generic verification fills
+     * databaseName from {@code ResultSetMetaData.getCatalogName} and schemaName from {@code
+     * getSchemaName}, so a verified origin path could load a same-named table from the wrong
+     * schema. Align the namespace mapping before enabling the merge for HANA.
+     */
+    @Override
+    public QueryTableResolution resolveQueryTable(String sqlQuery) throws SQLException {
+        return new QueryTableResolution(getTable(sqlQuery), Optional.empty());
+    }
+
     @Override
     protected String getTruncateTableSql(TablePath tablePath) {
         return String.format(
