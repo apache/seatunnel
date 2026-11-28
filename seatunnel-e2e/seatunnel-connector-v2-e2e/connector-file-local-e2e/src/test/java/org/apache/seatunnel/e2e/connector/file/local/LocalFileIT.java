@@ -400,6 +400,13 @@ public class LocalFileIT extends TestSuiteBase {
     }
 
     @TestTemplate
+    public void testLocalFileCsvWithHeaderAndFileSplit(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/csv/csv_with_header_enable_split_to_assert.conf");
+    }
+
+    @TestTemplate
     public void testLocalFileCsvWithPreamble(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);

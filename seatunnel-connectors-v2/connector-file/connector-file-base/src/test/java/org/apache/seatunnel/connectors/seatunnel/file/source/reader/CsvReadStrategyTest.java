@@ -33,11 +33,15 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.AccordingToSplitSizeSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategyFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -47,6 +51,8 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -167,6 +173,65 @@ public class CsvReadStrategyTest {
                     Collections.emptyMap(),
                     "split.csv");
             assertSimpleRows(collector.getRows());
+        }
+    }
+
+    @Test
+    public void testHeaderMapsColumnsByNameWhenFileIsSplit(@TempDir Path dir) throws Exception {
+        StringBuilder content = new StringBuilder("name,id,age\n");
+        int rowCount = 20;
+        for (int i = 1; i <= rowCount; i++) {
+            content.append("user").append(i).append(',').append(i).append(',').append(i + 10);
+            content.append('\n');
+        }
+        Path file = dir.resolve("header_split.csv");
+        Files.write(file, content.toString().getBytes(StandardCharsets.UTF_8));
+
+        Map<String, Object> options = new HashMap<>();
+        options.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "csv");
+        options.put(FileBaseSourceOptions.CSV_USE_HEADER_LINE.key(), true);
+        options.put(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key(), true);
+        options.put(FileBaseSourceOptions.FILE_SPLIT_SIZE.key(), 48L);
+        options.put(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH.key(), false);
+        Config config = ConfigFactory.parseMap(options);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+
+        FileSplitStrategy splitStrategy =
+                FileSplitStrategyFactory.initFileSplitStrategy(
+                        ReadonlyConfig.fromConfig(config), localConf);
+        Assertions.assertInstanceOf(AccordingToSplitSizeSplitStrategy.class, splitStrategy);
+        List<FileSourceSplit> splits;
+        try (AccordingToSplitSizeSplitStrategy closeable =
+                (AccordingToSplitSizeSplitStrategy) splitStrategy) {
+            splits = closeable.split("test", file.toString());
+        }
+        Assertions.assertTrue(splits.size() > 2, "the file should be read as several splits");
+
+        TestCollector collector = new TestCollector();
+        try (CsvReadStrategy strategy = new CsvReadStrategy()) {
+            strategy.init(localConf);
+            strategy.setPluginConfig(config);
+            strategy.setCatalogTable(
+                    CatalogTableUtil.getCatalogTable(
+                            "test",
+                            new SeaTunnelRowType(
+                                    new String[] {"id", "name", "age"},
+                                    new SeaTunnelDataType[] {
+                                        BasicType.INT_TYPE,
+                                        BasicType.STRING_TYPE,
+                                        BasicType.INT_TYPE
+                                    })));
+            for (FileSourceSplit split : splits) {
+                strategy.read(split, collector);
+            }
+        }
+
+        List<SeaTunnelRow> rows = collector.getRows();
+        Assertions.assertEquals(rowCount, rows.size());
+        for (int i = 1; i <= rowCount; i++) {
+            Assertions.assertArrayEquals(
+                    new Object[] {i, "user" + i, i + 10}, rows.get(i - 1).getFields());
         }
     }
 
