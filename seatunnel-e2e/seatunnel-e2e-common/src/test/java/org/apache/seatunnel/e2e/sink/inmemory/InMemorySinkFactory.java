@@ -70,6 +70,25 @@ public class InMemorySinkFactory
     public static final Option<List<String>> THROW_RUNTIME_EXCEPTION_LIST =
             Options.key("throw_runtime_exception_list").listType().noDefaultValue();
 
+    /**
+     * Test fixture: the 1-based number of the {@code write} call, counted per writer instance, at
+     * which this writer should fail exactly once. It must be combined with {@link
+     * #FAIL_AT_WRITE_MARKER}, which makes the injection one-shot: the failing writer creates the
+     * marker file before throwing, so the writer created by the next pipeline attempt sees the
+     * marker and writes normally instead of failing again.
+     *
+     * <p>This is deliberately not a counter in static state: a job can be redeployed with a fresh
+     * classloader on every restore, which would reset any in-memory counter and turn a one-shot
+     * failure into an endless restore loop. A file survives redeployment regardless of classloader
+     * caching, and it also makes the injected failure visible to the test that observes it.
+     */
+    public static final Option<Long> FAIL_AT_WRITE =
+            Options.key("fail_at_write").longType().noDefaultValue();
+
+    /** Marker file used by {@link #FAIL_AT_WRITE} to make the injected write failure one-shot. */
+    public static final Option<String> FAIL_AT_WRITE_MARKER =
+            Options.key("fail_at_write_marker").stringType().noDefaultValue();
+
     @Override
     public String factoryIdentifier() {
         return "InMemory";
@@ -85,6 +104,8 @@ public class InMemorySinkFactory
                         WRITE_DELAY_MS,
                         CHECKPOINT_SLEEP,
                         THROW_EXCEPTION_OF_COMMITTER,
+                        FAIL_AT_WRITE,
+                        FAIL_AT_WRITE_MARKER,
                         ASSERT_OPTIONS_KEY,
                         ASSERT_OPTIONS_VALUE,
                         MULTI_TABLE_SINK_REPLICA)

@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
+import org.apache.seatunnel.engine.server.diagnostic.JobRuntimeDiagnostics;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 import org.apache.seatunnel.engine.server.rest.service.LogService;
 
@@ -50,6 +51,7 @@ import com.hazelcast.instance.impl.Node;
 import io.restassured.common.mapper.TypeRef;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -63,7 +65,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -103,6 +109,34 @@ public class RestApiIT {
     private static Map<Integer, Integer> ports;
 
     private static CheckpointMonitorService checkpointMonitorService;
+
+    /**
+     * The write (1-based, per writer instance) that the InMemory sink fixture fails. The source
+     * fixture emits two records every 20 ms, so this lands roughly six seconds after the job
+     * starts. A one-second checkpoint interval therefore completes several checkpoints before the
+     * failure, which makes the restore a checkpoint restore rather than a restart from scratch.
+     */
+    private static final long FAIL_AT_WRITE = 600L;
+
+    private static final String DYNAMIC_FAIL_AT_WRITE = "dynamic_fail_at_write";
+
+    private static final String DYNAMIC_FAIL_AT_WRITE_MARKER = "dynamic_fail_at_write_marker";
+
+    /** Part of the message thrown by the InMemory sink fixture; must survive into the cause. */
+    private static final String INJECTED_FAILURE_TEXT =
+            "InMemory sink injected one-shot write failure at record";
+
+    /**
+     * Placeholder {@code SubPlan#retainRestoreCause} stores when no error was captured. Seeing it
+     * here would mean the real failure text was lost during the restore.
+     */
+    private static final String NO_ERROR_RECORDED_PLACEHOLDER = "no error was recorded";
+
+    /**
+     * Deadline for the best-effort cancellation of the restore diagnostics job. It must stay far
+     * below the scenario's own bounds so a canceling job can never decide how long teardown takes.
+     */
+    private static final long CANCEL_TIMEOUT_SECONDS = 30;
 
     @BeforeEach
     void beforeClass() throws Exception {
@@ -936,6 +970,250 @@ public class RestApiIT {
                                         "diagnostics.pipelines[0].stateTimestamps.RUNNING",
                                         notNullValue())
                                 .body("diagnostics.totalPipelineRestoreCount", equalTo(0)));
+    }
+
+    /**
+     * Verifies that a pipeline which really fails and restores is explained by the REST job
+     * diagnostics, not only counted.
+     *
+     * <p>{@code SubPlan#restoreCauses} retains why each earlier run of a pipeline ended, because
+     * {@code errorByPhysicalVertex} only describes the current attempt and the next attempt's
+     * initialization replaces it. The cause therefore has to be captured while the failed run is
+     * still visible, and it has to reach {@code diagnostics.pipelines[].restoreCauses} of {@code
+     * /job-info} on every member. The retention and the JSON rendering each have unit tests, but no
+     * test exercises the whole path: a task fails, the pipeline restores from a checkpoint, the job
+     * keeps running, and the REST response explains the restore.
+     *
+     * <p>The failure is injected deterministically instead of by killing a node: the InMemory sink
+     * fails exactly one configured write after periodic checkpoints have had time to complete, and
+     * creates a marker file before throwing so the retried attempt cannot fail the same way again.
+     * The assertions are the diagnostics contract: one retained cause per restore, oldest first,
+     * the first cause is the sink's own failure text rather than the "no error was recorded"
+     * placeholder, causes stay unchanged while the restored pipeline completes more checkpoints,
+     * and both members report the same list.
+     */
+    @Test
+    public void testJobDiagnosticsExplainPipelineRestore() throws Exception {
+        Path markerDirectory = Files.createTempDirectory("seatunnel-restore-cause-");
+        Path marker = markerDirectory.resolve("fail-once.marker");
+        Path confFile =
+                Paths.get(
+                        System.getProperty("java.io.tmpdir"),
+                        "seatunnel-restore-cause-" + System.nanoTime() + ".conf");
+        ClientJobProxy restoredJob = null;
+        try {
+            Map<String, String> values = new HashMap<>();
+            values.put(DYNAMIC_FAIL_AT_WRITE, String.valueOf(FAIL_AT_WRITE));
+            values.put(
+                    DYNAMIC_FAIL_AT_WRITE_MARKER,
+                    marker.toAbsolutePath().toString().replace("\\", "\\\\"));
+            TestUtils.createTestConfigFileFromTemplate(
+                    "restore-cause/stream_checkpointable_to_inmemory_fail_once_template.conf",
+                    values,
+                    confFile.toString());
+
+            JobConfig jobConfig = new JobConfig();
+            jobConfig.setName("restore-cause-diagnostics");
+            restoredJob =
+                    engineClient
+                            .createExecutionContext(confFile.toString(), jobConfig, node1Config)
+                            .execute();
+            final long jobId = restoredJob.getJobId();
+
+            AtomicReference<Map<String, Object>> diagnostics = new AtomicReference<>();
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Map<String, Object> jobInfo =
+                                        getJobInfoJson(jobId, httpPort(node1));
+                                Map<String, Object> pipeline = firstPipeline(jobInfo);
+                                Assertions.assertTrue(
+                                        getInt(pipeline, JobRuntimeDiagnostics.RESTORE_COUNT) >= 1,
+                                        "Waiting for the injected sink failure to trigger a "
+                                                + "pipeline restore, job info: "
+                                                + jobInfo);
+                                Assertions.assertEquals(
+                                        "RUNNING",
+                                        pipeline.get(JobRuntimeDiagnostics.PIPELINE_STATUS),
+                                        "Waiting for the restored pipeline to run again, job "
+                                                + "info: "
+                                                + jobInfo);
+                                diagnostics.set(castMap(jobInfo.get(RestConstant.DIAGNOSTICS)));
+                            });
+
+            Map<String, Object> restoredDiagnostics = diagnostics.get();
+            Map<String, Object> restoredPipeline = firstPipeline(diagnostics.get());
+            int restoreCount = getInt(restoredPipeline, JobRuntimeDiagnostics.RESTORE_COUNT);
+            Assertions.assertEquals(
+                    restoreCount,
+                    getInt(restoredDiagnostics, JobRuntimeDiagnostics.TOTAL_PIPELINE_RESTORE_COUNT),
+                    "The single pipeline of this job must account for every restore");
+            List<String> causes =
+                    castStringList(restoredPipeline.get(JobRuntimeDiagnostics.RESTORE_CAUSES));
+            Assertions.assertEquals(
+                    restoreCount,
+                    causes.size(),
+                    "Every restore must retain exactly one cause, restored diagnostics: "
+                            + restoredDiagnostics);
+            for (int i = 0; i < causes.size(); i++) {
+                Assertions.assertTrue(
+                        causes.get(i).startsWith("restore " + (i + 1) + ": "),
+                        "Causes must be retained oldest first with their attempt number, but entry "
+                                + i
+                                + " was: "
+                                + causes.get(i));
+            }
+            Assertions.assertTrue(
+                    causes.get(0).contains(INJECTED_FAILURE_TEXT),
+                    "The first cause must be the sink failure that triggered the restore, not a "
+                            + "placeholder, but was: "
+                            + causes.get(0));
+            Assertions.assertFalse(
+                    causes.get(0).contains(NO_ERROR_RECORDED_PLACEHOLDER),
+                    "The failure text was lost before the restore captured it: " + causes.get(0));
+
+            // The cause list must describe earlier runs only: a successful retry must not clear it,
+            // and must not append anything either. Several checkpoint intervals are observed so a
+            // regression that clears the list when the new attempt makes progress is caught.
+            long observationDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(8);
+            while (System.nanoTime() < observationDeadline) {
+                Map<String, Object> jobInfo = getJobInfoJson(jobId, httpPort(node1));
+                Map<String, Object> pipeline = firstPipeline(jobInfo);
+                Assertions.assertEquals(
+                        "RUNNING",
+                        pipeline.get(JobRuntimeDiagnostics.PIPELINE_STATUS),
+                        "The restored job must keep running, job info: " + jobInfo);
+                Assertions.assertEquals(
+                        restoreCount,
+                        getInt(pipeline, JobRuntimeDiagnostics.RESTORE_COUNT),
+                        "The restore count must not change after the pipeline recovered, job info: "
+                                + jobInfo);
+                Assertions.assertEquals(
+                        causes,
+                        castStringList(pipeline.get(JobRuntimeDiagnostics.RESTORE_CAUSES)),
+                        "Restore causes must survive the successful retry, job info: " + jobInfo);
+                Thread.sleep(500L);
+            }
+
+            // Diagnostics are built by the active master and fetched through it from any member, so
+            // both members must report the same restore history.
+            Map<String, Object> otherMemberDiagnostics =
+                    castMap(getJobInfoJson(jobId, httpPort(node2)).get(RestConstant.DIAGNOSTICS));
+            Map<String, Object> otherMemberPipeline = firstPipeline(otherMemberDiagnostics);
+            Assertions.assertEquals(
+                    restoreCount,
+                    getInt(otherMemberPipeline, JobRuntimeDiagnostics.RESTORE_COUNT),
+                    "The other member must report the same restore count: "
+                            + otherMemberDiagnostics);
+            Assertions.assertEquals(
+                    causes,
+                    castStringList(otherMemberPipeline.get(JobRuntimeDiagnostics.RESTORE_CAUSES)),
+                    "The other member must report the same restore causes: "
+                            + otherMemberDiagnostics);
+        } finally {
+            // Best-effort cancellation runs first, under a bounded deadline: {@code
+            // ClientJobProxy#cancelJob} joins a remote future that rejects cancel and has no
+            // caller-controlled timeout, so an unacknowledged cancel must not be able to keep this
+            // method from returning and the @AfterEach client/node teardown from ever running.
+            try {
+                cancelRestoredJobQuietly(restoredJob);
+            } finally {
+                // Temporary files are cleaned up whatever happened above, and a cleanup failure is
+                // logged instead of replacing this scenario's primary failure.
+                deleteTemporaryFilesQuietly(confFile, marker, markerDirectory);
+            }
+        }
+    }
+
+    /**
+     * Cancels the restored job from a test-owned daemon executor with a bounded wait.
+     *
+     * <p>{@link ClientJobProxy#cancelJob()} joins a remote future without a caller-controlled
+     * timeout, and that future rejects {@code cancel}, so {@link Future#cancel} cannot interrupt
+     * the join. Running the call on a daemon worker and waiting with a deadline therefore keeps a
+     * lifecycle regression from turning this scenario's cleanup into an unbounded hang, and lets
+     * the caller always reach the temporary-file cleanup and the {@code @AfterEach} teardown.
+     *
+     * @param restoredJob job to cancel; {@code null} when the job was never created
+     */
+    private static void cancelRestoredJobQuietly(ClientJobProxy restoredJob) {
+        if (restoredJob == null) {
+            return;
+        }
+        ExecutorService cancelExecutor =
+                Executors.newSingleThreadExecutor(
+                        runnable -> {
+                            Thread thread = new Thread(runnable, "restore-cause-cancel");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
+        try {
+            Future<?> cancel = cancelExecutor.submit(restoredJob::cancelJob);
+            cancel.get(CANCEL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (TimeoutException timeout) {
+            log.warn(
+                    "Cancelling restored job {} did not acknowledge within {}s, continuing with"
+                            + " cleanup",
+                    restoredJob.getJobId(),
+                    CANCEL_TIMEOUT_SECONDS);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            log.warn(
+                    "Interrupted while cancelling restored job {} during cleanup",
+                    restoredJob.getJobId(),
+                    interrupted);
+        } catch (Throwable cancelFailure) {
+            log.warn(
+                    "Could not cancel restored job {} during cleanup",
+                    restoredJob.getJobId(),
+                    cancelFailure);
+        } finally {
+            // The remote join is not interruptible through Future#cancel, so the daemon-backed
+            // executor is abandoned after this bounded wait instead of being awaited again.
+            cancelExecutor.shutdownNow();
+        }
+    }
+
+    /** Deletes this scenario's temporary paths without masking the scenario's own failure. */
+    private static void deleteTemporaryFilesQuietly(Path... paths) {
+        for (Path path : paths) {
+            try {
+                Files.deleteIfExists(path);
+            } catch (IOException cleanupFailure) {
+                log.warn("Could not delete temporary restore-cause path {}", path, cleanupFailure);
+            }
+        }
+    }
+
+    private Map<String, Object> getJobInfoJson(long jobId, int httpPort) {
+        return given().get(
+                        buildHttpBaseUrl(httpPort) + RestConstant.REST_URL_JOB_INFO + "/" + jobId)
+                .then()
+                .statusCode(200)
+                .extract()
+                .as(new TypeRef<Map<String, Object>>() {});
+    }
+
+    private Map<String, Object> firstPipeline(Map<String, Object> jobInfoOrDiagnostics) {
+        Map<String, Object> diagnostics =
+                jobInfoOrDiagnostics.containsKey(RestConstant.DIAGNOSTICS)
+                        ? castMap(jobInfoOrDiagnostics.get(RestConstant.DIAGNOSTICS))
+                        : jobInfoOrDiagnostics;
+        List<Map<String, Object>> pipelines = castList(diagnostics.get("pipelines"));
+        Assertions.assertFalse(
+                pipelines == null || pipelines.isEmpty(),
+                "No pipeline diagnostics in: " + jobInfoOrDiagnostics);
+        return pipelines.get(0);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> castStringList(Object value) {
+        if (value == null) {
+            return Collections.emptyList();
+        }
+        return (List<String>) value;
     }
 
     @Test

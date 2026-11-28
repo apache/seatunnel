@@ -24,6 +24,10 @@ import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -71,6 +75,9 @@ public class InMemorySinkWriter
 
     private ReadonlyConfig config;
 
+    /** Number of records this writer instance has been asked to write, 1-based while in use. */
+    private long writtenRecords;
+
     public InMemorySinkWriter(ReadonlyConfig config) {
         this.config = config;
     }
@@ -79,6 +86,8 @@ public class InMemorySinkWriter
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
+        injectOneShotWriteFailureIfConfigured();
+
         if (config.get(InMemorySinkFactory.WRITER_SLEEP)) {
             try {
                 Thread.sleep(999999999L);
@@ -109,6 +118,53 @@ public class InMemorySinkWriter
             throw new RuntimeException(
                     config.get(InMemorySinkFactory.THROW_RUNTIME_EXCEPTION_LIST).get(restoreCount));
         }
+    }
+
+    /**
+     * Fails the configured write exactly once, creating the marker file first so the retried
+     * pipeline attempt does not fail again.
+     *
+     * <p>See {@link InMemorySinkFactory#FAIL_AT_WRITE} for why the one-shot state is a file instead
+     * of a static field. When either option is absent this method is a no-op, so every existing
+     * test using this sink keeps its behavior.
+     */
+    private void injectOneShotWriteFailureIfConfigured() throws IOException {
+        Optional<Long> failAtWrite = config.getOptional(InMemorySinkFactory.FAIL_AT_WRITE);
+        Optional<String> marker = config.getOptional(InMemorySinkFactory.FAIL_AT_WRITE_MARKER);
+        if (!failAtWrite.isPresent() || !marker.isPresent()) {
+            return;
+        }
+        writtenRecords++;
+        if (writtenRecords != failAtWrite.get()) {
+            return;
+        }
+        Path markerPath = Paths.get(marker.get());
+        if (Files.exists(markerPath)) {
+            return;
+        }
+        try {
+            Path parent = markerPath.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            Files.write(
+                    markerPath,
+                    ("injected one-shot write failure at record " + writtenRecords)
+                            .getBytes(StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            throw new RuntimeException(
+                    "Failed to create the one-shot write failure marker " + markerPath, e);
+        }
+        // Throw an IOException, not a RuntimeException: MultiTableSinkWriter collapses a
+        // RuntimeException from a per-table writer into a generic "sink throw error" message
+        // without the original text, while an IOException is propagated as is. The retained
+        // restore cause must name the injected failure for the assertion to mean anything.
+        throw new IOException(
+                "InMemory sink injected one-shot write failure at record "
+                        + writtenRecords
+                        + " (marker "
+                        + markerPath
+                        + ")");
     }
 
     @Override
