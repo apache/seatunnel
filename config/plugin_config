@@ -119,6 +119,7 @@ connector-s3-redshift
 connector-sentry
 connector-slack
 connector-socket
+connector-coap
 connector-syslog
 connector-edge-socket
 connector-starrocks
