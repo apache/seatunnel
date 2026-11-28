@@ -22,7 +22,8 @@ import org.apache.seatunnel.transform.sql.zeta.functions.udf.DESUtil;
 import com.google.auto.service.AutoService;
 
 /**
- * DES encryption UDF. Password must be at least 8 characters. Returns Base64-encoded ciphertext.
+ * DES encryption UDF. Password must be at least 8 characters. Returns versioned ciphertext
+ * containing the IV.
  *
  * <p>Usage: {@code DES_ENCRYPT(password, data)}
  */
