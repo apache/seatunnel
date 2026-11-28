@@ -30,7 +30,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-/** Stable typed schemas and decoders for the supported datagram formats. */
+/**
+ * Owns fixed output schemas and complete-datagram conversion for the selected wire formats.
+ *
+ * <p>Expansion limits are checked before any decoded row is exposed to the collector.
+ */
 enum UdpPacketFormat {
     TEXT(columns("payload", BasicType.STRING_TYPE)),
     BINARY(columns("payload", PrimitiveByteArrayType.INSTANCE)),
@@ -120,6 +124,21 @@ enum UdpPacketFormat {
         return rows;
     }
 
+    static String text(ByteBuffer data) throws InvalidDatagram {
+        try {
+            return StandardCharsets.UTF_8.newDecoder().decode(data).toString();
+        } catch (CharacterCodingException e) {
+            throw new InvalidDatagram("invalid UTF-8");
+        }
+    }
+
+    static void append(List<Object[]> rows, Object[] values, int limit) throws InvalidDatagram {
+        if (rows.size() >= limit) {
+            throw new InvalidDatagram("record count exceeds max_records_per_datagram");
+        }
+        rows.add(values);
+    }
+
     private void decodeRaw(
             ByteBuffer data, byte[] separator, int[] prefix, List<Object[]> rows, int limit)
             throws InvalidDatagram {
@@ -164,21 +183,6 @@ enum UdpPacketFormat {
         return new Object[] {bytes};
     }
 
-    static String text(ByteBuffer data) throws InvalidDatagram {
-        try {
-            return StandardCharsets.UTF_8.newDecoder().decode(data).toString();
-        } catch (CharacterCodingException e) {
-            throw new InvalidDatagram("invalid UTF-8");
-        }
-    }
-
-    static void append(List<Object[]> rows, Object[] values, int limit) throws InvalidDatagram {
-        if (rows.size() >= limit) {
-            throw new InvalidDatagram("record count exceeds max_records_per_datagram");
-        }
-        rows.add(values);
-    }
-
     private static SeaTunnelRowType columns(String names, SeaTunnelDataType<?>... types) {
         String[] fields = names.split(" ");
         int size = fields.length;
@@ -196,7 +200,12 @@ enum UdpPacketFormat {
         return new SeaTunnelRowType(allFields, allTypes);
     }
 
-    /** Network payload validation error that never includes untrusted payload bytes. */
+    /**
+     * Carries a local validation reason for atomic datagram rejection, without retaining input
+     * bytes.
+     *
+     * <p>DROP counts the failure; FAIL may expose only this safe reason through the job error.
+     */
     static final class InvalidDatagram extends Exception {
         private static final long serialVersionUID = 1L;
 

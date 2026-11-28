@@ -47,6 +47,10 @@ final class UdpCollectd {
 
     private UdpCollectd() {}
 
+    /*
+     * Reset metadata for each packet and validate every part before the caller emits any rows.
+     * Unknown well-framed parts are skipped, while protected/notification packets fail explicitly.
+     */
     static void decode(ByteBuffer data, List<Object[]> rows, int maxRecords)
             throws InvalidDatagram {
         Metadata metadata = new Metadata();
@@ -194,7 +198,10 @@ final class UdpCollectd {
         return value == null || value.isEmpty();
     }
 
-    /** Packet-local metadata carried forward until overwritten by another part. */
+    /**
+     * Carries metadata between parts of one packet until a later part replaces it. A new instance
+     * for each datagram prevents one sender from inheriting another packet's host or timestamp.
+     */
     private static final class Metadata {
         String host;
         Long time;

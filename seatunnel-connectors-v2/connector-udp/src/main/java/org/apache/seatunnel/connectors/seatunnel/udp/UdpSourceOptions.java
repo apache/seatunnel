@@ -22,7 +22,12 @@ import org.apache.seatunnel.api.configuration.Options;
 
 import java.util.List;
 
-/** User-facing listener, datagram format and resource limits. */
+/**
+ * Defines the listener identity, selected datagram format and finite per-reader resource limits.
+ *
+ * <p>Factory validation and worker configuration reference these same user-facing option
+ * definitions.
+ */
 public final class UdpSourceOptions {
     public static final Option<List<Integer>> PORTS =
             Options.key("ports")

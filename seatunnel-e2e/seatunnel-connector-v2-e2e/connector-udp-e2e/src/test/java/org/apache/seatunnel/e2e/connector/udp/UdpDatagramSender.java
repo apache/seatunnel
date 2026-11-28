@@ -22,7 +22,12 @@ import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.util.Base64;
 
-/** Starts a separate JVM in the Zeta network namespace to send exact UDP byte sequences. */
+/**
+ * Sends exact datagram bytes from an independent JVM in the test engine network namespace.
+ *
+ * <p>Exclusive local binding also probes actual listener release rather than inferring it from
+ * logs.
+ */
 public final class UdpDatagramSender {
     private UdpDatagramSender() {}
 

@@ -42,7 +42,8 @@ import static org.apache.seatunnel.connectors.seatunnel.udp.UdpSourceOptions.REC
 import static org.apache.seatunnel.connectors.seatunnel.udp.UdpSourceOptions.SEPARATOR;
 
 /**
- * Validated source configuration shared by the coordinator and worker. Contains no open resources.
+ * Validates serializable listener settings before coordinator or worker resources are created.
+ * Sorted port identities are stable across assignments and checkpoint restoration.
  */
 final class UdpConfig implements Serializable {
     private static final long serialVersionUID = 1L;
@@ -100,6 +101,10 @@ final class UdpConfig implements Serializable {
         failMalformed = "FAIL".equalsIgnoreCase(malformed);
     }
 
+    static IllegalArgumentException invalid(String message) {
+        return new IllegalArgumentException("UDP source: " + message);
+    }
+
     private static InetAddress address(String value) {
         // Numeric bind addresses keep DNS resolution outside the worker lifecycle.
         boolean ipv4 = value.matches("[0-9]{1,3}(\\.[0-9]{1,3}){3}");
@@ -133,9 +138,5 @@ final class UdpConfig implements Serializable {
             throw invalid(option.key() + " must be between " + minimum + " and " + maximum);
         }
         return value;
-    }
-
-    static IllegalArgumentException invalid(String message) {
-        return new IllegalArgumentException("UDP source: " + message);
     }
 }

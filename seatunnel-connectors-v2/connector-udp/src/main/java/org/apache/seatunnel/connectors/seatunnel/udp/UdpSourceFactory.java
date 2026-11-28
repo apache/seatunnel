@@ -40,7 +40,12 @@ import static org.apache.seatunnel.connectors.seatunnel.udp.UdpSourceOptions.POR
 import static org.apache.seatunnel.connectors.seatunnel.udp.UdpSourceOptions.RECEIVE_BUFFER_BYTES;
 import static org.apache.seatunnel.connectors.seatunnel.udp.UdpSourceOptions.SEPARATOR;
 
-/** Creates a UDP listener source and exposes its configuration through the Factory SPI. */
+/**
+ * Registers the dedicated UDP Source and its actual option definitions through Factory SPI.
+ *
+ * <p>Configuration validation happens before listener creation; socket ownership stays with
+ * readers.
+ */
 @AutoService(Factory.class)
 public final class UdpSourceFactory implements TableSourceFactory {
     @Override

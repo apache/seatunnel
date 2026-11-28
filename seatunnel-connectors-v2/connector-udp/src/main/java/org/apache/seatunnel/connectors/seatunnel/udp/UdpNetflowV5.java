@@ -22,14 +22,24 @@ import java.util.List;
 
 import static org.apache.seatunnel.connectors.seatunnel.udp.UdpPacketFormat.InvalidDatagram;
 
-/** Decoder for Cisco NetFlow v5 fixed-length, network-byte-order export packets. */
+/**
+ * Decodes only the fixed-length NetFlow v5 layout after validating its complete declared size.
+ *
+ * <p>Unsigned network fields remain unsigned in the output rather than narrowing to signed
+ * integers.
+ */
 final class UdpNetflowV5 {
     private static final int HEADER_BYTES = 24;
     private static final int RECORD_BYTES = 48;
 
     private UdpNetflowV5() {}
 
-    /** Require the exact packet size up front. Unsigned network counters are preserved as longs. */
+    /**
+     * Require the entire fixed-size packet before reading records, including a bounded flow count.
+     *
+     * <p>A malformed later record rejects the datagram without exposing rows already decoded
+     * locally.
+     */
     static void decode(ByteBuffer data, List<Object[]> rows, int limit) throws InvalidDatagram {
         if (data.remaining() < HEADER_BYTES || u16(data) != 5) {
             throw new InvalidDatagram("expected NetFlow v5 packet header");

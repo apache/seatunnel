@@ -31,7 +31,12 @@ import org.apache.seatunnel.common.constants.JobMode;
 import java.util.Collections;
 import java.util.List;
 
-/** An incoming UDP source with independently assigned listening ports. */
+/**
+ * Exposes independently assigned UDP listener ports through the existing Source and state APIs.
+ *
+ * <p>A positive inactivity setting permits batch completion but does not make network delivery
+ * reliable.
+ */
 public final class UdpSource
         implements SeaTunnelSource<SeaTunnelRow, UdpSplit, UdpEnumerator.State>,
                 SupportParallelism {

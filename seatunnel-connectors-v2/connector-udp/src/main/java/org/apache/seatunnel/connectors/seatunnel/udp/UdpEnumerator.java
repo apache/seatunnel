@@ -27,11 +27,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Assigns one exclusive port to exactly one reader. No datagram offsets exist to checkpoint. */
+/**
+ * Assigns each configured port to one reader and retains only coordinator-owned pending splits.
+ *
+ * <p>Late restored terminal flags participate in assignment accounting before no-more-split
+ * signalling.
+ */
 final class UdpEnumerator implements SourceSplitEnumerator<UdpSplit, UdpEnumerator.State> {
     private final Context<UdpSplit> context;
     private final List<Integer> ports;
+    // Coordinator-owned until assignSplit returns; reader snapshots then retain port progress.
     private final Map<Integer, UdpSplit> pending = new LinkedHashMap<>();
+    // Tracks delivered ports so an early run cannot signal completion before late restored splits.
     private final Set<Integer> accounted = new HashSet<>();
     private final Set<Integer> signaled = new HashSet<>();
     private boolean running;
@@ -66,7 +73,12 @@ final class UdpEnumerator implements SourceSplitEnumerator<UdpSplit, UdpEnumerat
         running = false;
     }
 
-    /** Only restored reader states carry terminal flags. They can arrive after run starts. */
+    /**
+     * Merge restored reader ownership without discarding a previously terminal port. Reader states
+     *
+     * <p>can arrive after coordinator startup, so completion signalling waits for all expected
+     * ports.
+     */
     @Override
     public synchronized void addSplitsBack(List<UdpSplit> splits, int subtaskId) {
         for (UdpSplit split : splits) {
@@ -144,7 +156,13 @@ final class UdpEnumerator implements SourceSplitEnumerator<UdpSplit, UdpEnumerat
         }
     }
 
-    /** Ports always retain their configured identity across restoration, including pending ones. */
+    /**
+     * Stores the configured port identities and coordinator-owned pending assignments for
+     * restoration.
+     *
+     * <p>Assigned listeners are checkpointed by readers; this state contains no packets or replay
+     * offset.
+     */
     static final class State implements Serializable {
         private static final long serialVersionUID = 1L;
         private final List<Integer> ports;

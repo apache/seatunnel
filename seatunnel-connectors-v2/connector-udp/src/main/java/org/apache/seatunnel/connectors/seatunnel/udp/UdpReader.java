@@ -66,7 +66,9 @@ final class UdpReader implements SourceReader<SeaTunnelRow, UdpSplit> {
     private final Map<Integer, DatagramChannel> channels = new ConcurrentHashMap<>();
     private final AtomicBoolean cancelled = new AtomicBoolean();
     private volatile boolean noMoreSplits;
+    // Poller-owned terminal signal; late assignments cannot complete before the expected count.
     private boolean signaledEof;
+    // Delivered by the enumerator with each split, including restored terminal ports.
     private int expectedPorts;
     private int nextChannel;
 
@@ -126,7 +128,11 @@ final class UdpReader implements SourceReader<SeaTunnelRow, UdpSplit> {
         }
     }
 
-    /** Pending assignment state is included once delivered, even before the first socket bind. */
+    /**
+     * Capture both bound listener progress and assignments delivered before their first poll.
+     *
+     * <p>The engine holds the collector monitor so transitions cannot race a checkpoint snapshot.
+     */
     @Override
     public List<UdpSplit> snapshotState(long checkpointId) {
         Map<Integer, UdpSplit> state = new LinkedHashMap<>();
@@ -149,7 +155,12 @@ final class UdpReader implements SourceReader<SeaTunnelRow, UdpSplit> {
         noMoreSplits = true;
     }
 
-    /** Sticky cancellation can close every listener even while an engine collector is busy. */
+    /**
+     * Close the published channel registry independently of the collector monitor. The sticky flag
+     *
+     * <p>also makes a concurrent listener publication close itself instead of surviving
+     * cancellation.
+     */
     @Override
     public void cancel() {
         if (cancelled.compareAndSet(false, true)) {
@@ -310,7 +321,12 @@ final class UdpReader implements SourceReader<SeaTunnelRow, UdpSplit> {
         return prefix;
     }
 
-    /** Tracks socket lifetime and inactivity for one port. Only the poller mutates this state. */
+    /**
+     * Tracks one port and its inactivity/terminal state on the polling thread. Socket closure is
+     *
+     * <p>independently visible through the concurrent registry, so cancellation need not own this
+     * object.
+     */
     private static final class Listener {
         final int port;
         final DatagramChannel channel;

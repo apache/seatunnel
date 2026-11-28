@@ -25,7 +25,12 @@ import java.util.regex.Pattern;
 
 import static org.apache.seatunnel.connectors.seatunnel.udp.UdpPacketFormat.InvalidDatagram;
 
-/** Parses one RFC 5424 or common BSD RFC 3164 message from a validated UTF-8 datagram. */
+/**
+ * Parses the selected RFC 5424 or common BSD RFC 3164 message layout from strict UTF-8 input.
+ *
+ * <p>Structured data remains raw text, and legacy timestamps do not acquire an invented year or
+ * zone.
+ */
 final class UdpSyslog {
     private static final Pattern PRIORITY = Pattern.compile("^<([0-9]{1,3})>");
     private static final Pattern VERSION = Pattern.compile("^[1-9][0-9]{0,2} ");
@@ -41,7 +46,12 @@ final class UdpSyslog {
 
     private UdpSyslog() {}
 
-    /** Preserve raw structured data and legacy local timestamps without assuming a zone or year. */
+    /**
+     * Select the supported header variant after validating the numeric priority. Preserve raw
+     *
+     * <p>structured data and legacy local timestamps without inventing a timezone, year or remote
+     * identity.
+     */
     static Object[] decode(String packet) throws InvalidDatagram {
         Matcher prefix = PRIORITY.matcher(packet);
         if (!prefix.find()) {

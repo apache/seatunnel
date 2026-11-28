@@ -580,7 +580,12 @@ class UdpSourceIT extends TestSuiteBase {
         return Long.toString(ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE));
     }
 
-    /** Submission handle and isolated observation window for one job. */
+    /**
+     * Keeps one submitted job identity, output directory and log observation window together.
+     *
+     * <p>Concurrent bind-conflict jobs must not accidentally inspect another submission as their
+     * result.
+     */
     private static final class Job {
         final String id;
         final String output;

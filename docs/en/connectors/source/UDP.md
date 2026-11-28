@@ -52,6 +52,8 @@ All formats append `sender_host` (numeric IP string), `sender_port` (integer), `
 
 ## Delivery and shutdown
 
+The inactivity interval is not a total run deadline. Every received datagram, including one later discarded as malformed or oversized, resets that port's inactivity clock; continuing traffic can keep a BATCH job running.
+
 UDP provides best-effort delivery without acknowledgements. Packets may arrive out of order, be duplicated upstream, or be dropped. When downstream blocks, incoming packets wait in the OS receive buffer. The OS drops packets if it runs out of space. Source counters `udpMalformedDatagrams` and `udpOversizedDatagrams` report locally rejected packets. They cannot count packets the OS dropped before delivery. A discarded datagram emits no partial records.
 
 A checkpoint saves port ownership and whether each listener has finished. It carries neither incoming packets nor replay offsets. After restore, live ports bind again with a fresh inactivity interval. Finished ports stay closed. Keep the configured port list fixed when restoring. The source emits a datagram at most once per reception and cannot suppress duplicates presented by the sender or network.

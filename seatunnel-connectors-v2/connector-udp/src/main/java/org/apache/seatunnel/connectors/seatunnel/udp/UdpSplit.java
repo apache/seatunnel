@@ -19,7 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.udp;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 
-/** Exclusive ownership of one configured listener. A terminal split must never bind on restore. */
+/**
+ * Carries one exclusive listener identity and its terminal flag through checkpoint assignment.
+ *
+ * <p>The reader-port count controls completion accounting; a terminal split must not bind on
+ * restore.
+ */
 final class UdpSplit implements SourceSplit {
     private static final long serialVersionUID = 1L;
 
