@@ -30,6 +30,8 @@ SeaTunnel 还支持将 SeaTunnel 中的 INSERT/UPDATE/DELETE 消息编码为 Max
 
 :::
 
+当 `maxwell_json.ignore-parse-errors` 为 `true` 时，JSON 无法解析的 Maxwell 消息会被跳过，不产生任何行，并继续处理后续消息。
+
 # 如何使用 Maxwell 格式
 
 ## Kafka 使用示例

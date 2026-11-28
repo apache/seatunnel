@@ -31,6 +31,8 @@ errors. The `maxwell_json.database.include` / `maxwell_json.table.include` filte
 
 :::
 
+When `maxwell_json.ignore-parse-errors` is `true`, Maxwell messages whose JSON cannot be parsed are skipped without emitting a row, and processing continues with the next message.
+
 # How To Use MaxWell format
 
 ## Kafka Uses Example

@@ -35,13 +35,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class MaxWellJsonSerDeSchemaTest {
 
@@ -51,6 +54,13 @@ public class MaxWellJsonSerDeSchemaTest {
                     new SeaTunnelDataType[] {INT_TYPE, STRING_TYPE, STRING_TYPE, FLOAT_TYPE});
     private static final CatalogTable catalogTables =
             CatalogTableUtil.getCatalogTable("", "", "", "test", SEATUNNEL_ROW_TYPE);
+
+    private static final String MALFORMED_PAYLOAD = "{oops";
+
+    private static final String VALID_INSERT_PAYLOAD =
+            "{\"database\":\"\",\"table\":\"test\",\"type\":\"insert\",\"ts\":1596684883,"
+                    + "\"data\":{\"id\":101,\"name\":\"scooter\","
+                    + "\"description\":\"Small 2-wheel scooter\",\"weight\":3.14}}";
 
     @Test
     public void testFilteringTables() throws Exception {
@@ -71,6 +81,52 @@ public class MaxWellJsonSerDeSchemaTest {
 
         deserializationSchema.deserialize(null, collector);
         assertEquals(0, collector.list.size());
+    }
+
+    /**
+     * A message that cannot be parsed must be skipped when {@code ignoreParseErrors} is enabled,
+     * the same way the Canal / Ogg / Debezium JSON deserialization schemas behave.
+     */
+    @Test
+    public void testSkipMalformedRowWhenIgnoreParseErrorsEnabled() throws Exception {
+        MaxWellJsonDeserializationSchema deserializationSchema =
+                createMaxWellJsonDeserializationSchema(true);
+        SimpleCollector collector = new SimpleCollector();
+
+        // control: the same schema still converts well-formed messages
+        deserializationSchema.deserialize(
+                VALID_INSERT_PAYLOAD.getBytes(StandardCharsets.UTF_8), collector);
+        assertEquals(
+                Collections.singletonList(
+                        "SeaTunnelRow{tableId=..test, kind=+I, fields=[101, scooter, Small 2-wheel scooter, 3.14]}"),
+                toStrings(collector));
+
+        // the malformed message is dropped instead of failing the task
+        assertDoesNotThrow(
+                () ->
+                        deserializationSchema.deserialize(
+                                MALFORMED_PAYLOAD.getBytes(StandardCharsets.UTF_8), collector));
+        assertEquals(1, collector.list.size());
+    }
+
+    /** Strict parsing must reject malformed messages without emitting a row. */
+    @Test
+    public void testMalformedRowRejectedWhenIgnoreParseErrorsDisabled() throws Exception {
+        MaxWellJsonDeserializationSchema deserializationSchema =
+                createMaxWellJsonDeserializationSchema(false);
+        SimpleCollector collector = new SimpleCollector();
+
+        // control: the same schema still converts well-formed messages
+        deserializationSchema.deserialize(
+                VALID_INSERT_PAYLOAD.getBytes(StandardCharsets.UTF_8), collector);
+        assertEquals(1, collector.list.size());
+
+        assertThrows(
+                RuntimeException.class,
+                () ->
+                        deserializationSchema.deserialize(
+                                MALFORMED_PAYLOAD.getBytes(StandardCharsets.UTF_8), collector));
+        assertEquals(1, collector.list.size());
     }
 
     public void runTest(List<String> lines, MaxWellJsonDeserializationSchema deserializationSchema)
@@ -196,6 +252,17 @@ public class MaxWellJsonSerDeSchemaTest {
                 .setTable(table)
                 .setIgnoreParseErrors(false)
                 .build();
+    }
+
+    private MaxWellJsonDeserializationSchema createMaxWellJsonDeserializationSchema(
+            boolean ignoreParseErrors) {
+        return MaxWellJsonDeserializationSchema.builder(catalogTables)
+                .setIgnoreParseErrors(ignoreParseErrors)
+                .build();
+    }
+
+    private static List<String> toStrings(SimpleCollector collector) {
+        return collector.list.stream().map(Object::toString).collect(Collectors.toList());
     }
 
     private static List<String> readLines(String resource) throws IOException {
