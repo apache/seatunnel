@@ -1,3 +1,18 @@
+<!--
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements. See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to You under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License. You may obtain a copy of the License at
+http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
 import ChangeLog from '../changelog/connector-http-cbs-statline.md';
 
 # CBS StatLine
@@ -9,7 +24,7 @@ The `CbsStatLine` source reads the `Observations` entity of one public Statistic
 ## Supported features
 
 - Bounded batch read with source parallelism `1`.
-- Server-driven pagination via `@odata.nextLink`. Redirects and continuation URLs outside the configured dataset endpoint are rejected.
+- Server-driven pagination via `@odata.nextLink`, with a maximum of 10,000 pages per run. Repeated continuation URLs, redirects and continuation URLs outside the configured dataset endpoint are rejected.
 - No incremental reads, deletes, consistent point-in-time snapshot or exactly-once replay. A rerun starts at the first page. To replace a dataset, choose replacement or staging-and-swap behavior in the downstream sink.
 - Only observations are read. Measure and dimension dictionaries require a separate fetch.
 
@@ -18,7 +33,7 @@ The `CbsStatLine` source reads the `Observations` entity of one public Statistic
 | Name | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `dataset_id` | String | Yes | — | StatLine dataset identifier, as shown in the OData URL. |
-| `max_rows` | Integer | No | `0` | Positive values cap the output and send the initial OData `$top` query. Zero reads all available pages. |
+| `max_rows` | Integer | No | `0` | Positive values cap the output and send the initial OData `$top` query. Zero reads available pages up to the 10,000-page safety limit. Exceeding that limit fails the job. |
 | `base_url` | String | No | `https://datasets.cbs.nl` | Origin serving the same API. Use HTTPS outside controlled test networks. |
 
 ## Output

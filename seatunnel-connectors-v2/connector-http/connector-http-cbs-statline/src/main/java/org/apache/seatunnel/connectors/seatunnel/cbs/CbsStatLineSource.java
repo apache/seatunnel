@@ -36,11 +36,15 @@ import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 
-import static org.apache.seatunnel.connectors.seatunnel.cbs.CbsStatLineSourceFactory.BASE_URL;
-import static org.apache.seatunnel.connectors.seatunnel.cbs.CbsStatLineSourceFactory.DATASET;
 import static org.apache.seatunnel.connectors.seatunnel.cbs.CbsStatLineSourceFactory.IDENTIFIER;
-import static org.apache.seatunnel.connectors.seatunnel.cbs.CbsStatLineSourceFactory.MAX_ROWS;
+import static org.apache.seatunnel.connectors.seatunnel.cbs.CbsStatLineSourceOptions.BASE_URL;
+import static org.apache.seatunnel.connectors.seatunnel.cbs.CbsStatLineSourceOptions.DATASET;
+import static org.apache.seatunnel.connectors.seatunnel.cbs.CbsStatLineSourceOptions.MAX_ROWS;
 
+/**
+ * Configures one bounded StatLine observations read with a fixed schema and raw dimension JSON. The
+ * row cap limits output; it does not create a consistent or resumable remote snapshot.
+ */
 final class CbsStatLineSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     private final String dataset;
     private final URI observations;
@@ -112,6 +116,10 @@ final class CbsStatLineSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                         null);
     }
 
+    /*
+     * Accepts an HTTP(S) origin and dataset identifier, never credentials or an arbitrary API path.
+     * A positive row cap adds an initial $top while local emission enforces the final output bound.
+     */
     static URI observationsUri(String baseUrl, String dataset, int maxRows) {
         if (dataset == null || !dataset.matches("[A-Za-z0-9_-]+")) {
             throw new IllegalArgumentException(
@@ -151,6 +159,9 @@ final class CbsStatLineSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         return IDENTIFIER;
     }
 
+    /*
+     * Rejects streaming mode because continuation pages form a finite, non-resumable batch.
+     */
     @Override
     public void setJobContext(JobContext context) {
         if (context.getJobMode() != JobMode.BATCH) {

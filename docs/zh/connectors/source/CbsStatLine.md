@@ -1,3 +1,18 @@
+<!--
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements. See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to You under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License. You may obtain a copy of the License at
+http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
 import ChangeLog from '../changelog/connector-http-cbs-statline.md';
 
 # CBS StatLine
@@ -9,7 +24,7 @@ import ChangeLog from '../changelog/connector-http-cbs-statline.md';
 ## 支持的特性
 
 - 有界批量读取，源并行度为 `1`。
-- 按服务端返回的 `@odata.nextLink` 翻页。不跟随重定向或离开当前数据集端点的翻页链接。
+- 按服务端返回的 `@odata.nextLink` 翻页，每次运行最多读取 10,000 页；重复翻页链接、重定向或离开当前数据集端点的链接会使任务失败。
 - 不支持增量读取、删除捕获、一致性时间点快照或精确一次回放。重跑从第一页开始。下游如需替换数据集，请在目标端选择覆盖或暂存后切换。
 - 仅同步观测值。指标和维度的字典需要单独获取。
 
@@ -18,7 +33,7 @@ import ChangeLog from '../changelog/connector-http-cbs-statline.md';
 | 名称 | 类型 | 必填 | 默认值 | 说明 |
 | --- | --- | --- | --- | --- |
 | `dataset_id` | String | 是 | — | OData URL 中的 StatLine 数据集标识。 |
-| `max_rows` | Integer | 否 | `0` | 正数限制输出行数，并为首次请求设置 OData `$top`；零表示读取全部可用页。 |
+| `max_rows` | Integer | 否 | `0` | 正数限制输出行数，并为首次请求设置 OData `$top`；零表示读取可用页，但仍受 10,000 页安全上限约束；超过上限会使任务失败。 |
 | `base_url` | String | 否 | `https://datasets.cbs.nl` | 提供相同 API 的源地址。测试网络之外请使用 HTTPS。 |
 
 ## 输出字段

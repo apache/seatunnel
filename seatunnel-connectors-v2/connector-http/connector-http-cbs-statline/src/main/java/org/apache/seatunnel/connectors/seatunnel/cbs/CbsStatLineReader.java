@@ -40,6 +40,10 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * Streams observations one at a time and follows opaque same-dataset continuation URLs. Inherited
+ * polling holds the checkpoint lock for the traversal; a restored split starts over.
+ */
 final class CbsStatLineReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private static final int HTTP_TIMEOUT_MS = 30_000;
     private static final int MAX_PAGES = 10_000;
@@ -50,9 +54,21 @@ final class CbsStatLineReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final String dataset;
     private final int maxRows;
     private final SingleSplitReaderContext context;
+    /*
+     * Published before checking sticky cancellation so cancel either aborts or prevents dispatch.
+     */
     private final AtomicReference<HttpGet> inFlight = new AtomicReference<>();
+    /*
+     * Sticky lifecycle flag checked by traversal and after abort-induced I/O errors.
+     */
     private volatile boolean cancelled;
+    /*
+     * Reader-owned transport created by open and closed by close under the normal engine lifecycle.
+     */
     private CloseableHttpClient client;
+    /*
+     * Counts emitted rows across pages for the output cap; this counter is not checkpointed.
+     */
     private long emitted;
 
     CbsStatLineReader(URI start, String dataset, int maxRows, SingleSplitReaderContext context) {
@@ -62,6 +78,9 @@ final class CbsStatLineReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         this.context = context;
     }
 
+    /*
+     * Creates the owned HTTP client with finite inactivity timeouts and no redirects or retries.
+     */
     @Override
     public void open() {
         client =
@@ -78,6 +97,9 @@ final class CbsStatLineReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                         .build();
     }
 
+    /*
+     * Permanently marks cancellation and aborts the currently published page request.
+     */
     @Override
     public void cancel() {
         cancelled = true;
@@ -87,6 +109,9 @@ final class CbsStatLineReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
+    /*
+     * Aborts active I/O before releasing the owned HTTP client.
+     */
     @Override
     public void close() throws IOException {
         cancel();
@@ -95,6 +120,10 @@ final class CbsStatLineReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
+    /*
+     * Traverses under the inherited checkpoint lock with a 10,000-page and repeated-URI guard.
+     * No continuation state is checkpointed; reaching max_rows intentionally ends a prefix read.
+     */
     @Override
     public void internalPollNext(Collector<SeaTunnelRow> output) throws IOException {
         URI next = start;
@@ -114,6 +143,10 @@ final class CbsStatLineReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         return maxRows > 0 && emitted >= maxRows;
     }
 
+    /*
+     * Publishes the current request before checking cancellation and always detaches it.
+     * Non-cancellation HTTP/parser failures propagate even when earlier rows have already been emitted.
+     */
     private URI fetchPage(URI page, Collector<SeaTunnelRow> output) throws IOException {
         HttpGet request = new HttpGet(page);
         request.setHeader("Accept", "application/json");
@@ -142,6 +175,10 @@ final class CbsStatLineReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
+    /*
+     * Streams each observation without buffering a whole page. A later envelope error can fail after output.
+     * At max_rows only the emitted prefix is validated; the unread suffix and nextLink are not consumed.
+     */
     private URI parsePage(URI page, JsonParser parser, Collector<SeaTunnelRow> output)
             throws IOException {
         if (parser.nextToken() != JsonToken.START_OBJECT) {
@@ -187,6 +224,10 @@ final class CbsStatLineReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         return next;
     }
 
+    /*
+     * Validates required fields and retains numeric text via BIG_DECIMAL parsing, optional text spaces
+     * and all dimension fields in raw observation JSON before incrementing the local output count.
+     */
     private void emit(JsonNode observation, Collector<SeaTunnelRow> output) throws IOException {
         JsonNode id = observation.path("Id");
         JsonNode measure = observation.path("Measure");
@@ -222,6 +263,10 @@ final class CbsStatLineReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         return value.textValue();
     }
 
+    /*
+     * Resolves opaque continuation links, including query-only references, without decoding their cursors.
+     * The target must retain the current scheme, host, port and dataset path, without user info or fragments.
+     */
     static URI continuation(URI current, String value) throws IOException {
         final URI link;
         try {

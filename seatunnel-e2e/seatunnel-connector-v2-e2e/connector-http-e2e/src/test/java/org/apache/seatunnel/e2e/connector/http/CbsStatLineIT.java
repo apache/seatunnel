@@ -31,6 +31,10 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
+/**
+ * Checks installed connector output against fixed HTTP fixtures, including exact typed values. A
+ * malformed row, lost nested field or changed numeric/text mapping must fail the Assert sink.
+ */
 class CbsStatLineIT extends TestSuiteBase implements TestResource {
     private GenericContainer<?> fixture;
 
@@ -57,6 +61,9 @@ class CbsStatLineIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    /*
+     * The job retains the two-row bound and checks every fixture value through contract_ok.
+     */
     @TestTemplate
     void readsTwoObservationPages(TestContainer container) throws Exception {
         Container.ExecResult result = container.executeJob("/cbs_statline_to_assert.conf");

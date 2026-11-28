@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cbs;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -34,21 +32,6 @@ import java.io.Serializable;
 @AutoService(Factory.class)
 public class CbsStatLineSourceFactory implements TableSourceFactory {
     static final String IDENTIFIER = "CbsStatLine";
-    static final Option<String> DATASET =
-            Options.key("dataset_id")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("CBS StatLine OData v4 dataset identifier.");
-    static final Option<String> BASE_URL =
-            Options.key("base_url")
-                    .stringType()
-                    .defaultValue("https://datasets.cbs.nl")
-                    .withDescription("CBS OData server origin (without a path).");
-    static final Option<Integer> MAX_ROWS =
-            Options.key("max_rows")
-                    .intType()
-                    .defaultValue(0)
-                    .withDescription("Maximum rows; zero reads the entire dataset.");
 
     @Override
     public String factoryIdentifier() {
@@ -70,6 +53,9 @@ public class CbsStatLineSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(DATASET).optional(BASE_URL, MAX_ROWS).build();
+        return OptionRule.builder()
+                .required(CbsStatLineSourceOptions.DATASET)
+                .optional(CbsStatLineSourceOptions.BASE_URL, CbsStatLineSourceOptions.MAX_ROWS)
+                .build();
     }
 }
