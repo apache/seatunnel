@@ -21,10 +21,20 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLParser;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormatBuilder;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
@@ -45,6 +55,7 @@ import org.testcontainers.utility.MountableFile;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.Statement;
@@ -54,6 +65,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -207,6 +219,293 @@ public class JdbcOracleIT extends AbstractJdbcIT {
         Container.ExecResult execResult =
                 container.executeJob("/jdbc_oracle_fake_source_to_sink_with_lob.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    /** Real-driver coverage for generated statements across short/long LOB and null transitions. */
+    @Test
+    public void testGeneratedDmlWithLobNullTransitions() throws Exception {
+        String table = "E2E_LOB_NULL_TRANSITIONS";
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate(
+                    "CREATE TABLE " + table + " (ID NUMBER PRIMARY KEY, C CLOB, N NCLOB, B BLOB)");
+        }
+        try {
+            for (String mode : Arrays.asList("insert", "merge", "fallback")) {
+                try (Statement statement = connection.createStatement()) {
+                    statement.executeUpdate("TRUNCATE TABLE " + table);
+                }
+                writeAndCheckLobNullRows(table, mode, 0);
+                if (!"insert".equals(mode)) {
+                    writeAndCheckLobNullRows(table, mode, 1);
+                }
+            }
+        } finally {
+            try (Statement statement = connection.createStatement()) {
+                statement.executeUpdate("DROP TABLE " + table);
+            }
+        }
+    }
+
+    /** Detects driver batch fragmentation without depending on wall-clock timing. */
+    @Test
+    public void testSparseLobNullsKeepRoundTripsBatchScaled() throws Exception {
+        String table = "E2E_LOB_BATCH_ROUNDTRIPS";
+        int rows = 1000;
+        int batchSize = 100;
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate(
+                    "CREATE TABLE " + table + " (ID NUMBER PRIMARY KEY, C CLOB, N NCLOB, B BLOB)");
+        }
+        try {
+            JdbcConnectionConfig connectionConfig = lobNullConnectionConfig(batchSize);
+            JdbcSinkConfig config =
+                    JdbcSinkConfig.builder()
+                            .jdbcConnectionConfig(connectionConfig)
+                            .table(table)
+                            .build();
+            SimpleJdbcConnectionProvider provider =
+                    new SimpleJdbcConnectionProvider(connectionConfig);
+            TableSchema schema = lobNullSchema();
+            JdbcOutputFormat format =
+                    new JdbcOutputFormatBuilder(
+                                    new OracleDialect(), provider, config, schema, schema)
+                            .commitOnFlush(true)
+                            .build();
+            format.open();
+            try {
+                long before = oracleRoundTrips(provider.getConnection());
+                for (int id = 1; id <= rows; id++) {
+                    boolean isNull = id % 17 == 0;
+                    format.writeRecord(
+                            new SeaTunnelRow(
+                                    new Object[] {
+                                        (long) id,
+                                        isNull ? null : "row-\u4e2d\uD83D\uDE00",
+                                        isNull ? null : "row-\u4e2d\uD83D\uDE00",
+                                        isNull ? null : new byte[] {1, 2, (byte) id}
+                                    }));
+                }
+                format.flush();
+                long roundTrips = oracleRoundTrips(provider.getConnection()) - before;
+                int batches = (rows + batchSize - 1) / batchSize;
+                // Allow execution, commit and diagnostic overhead, but not per-null batch splits.
+                Assertions.assertTrue(
+                        roundTrips <= 4L * batches + 20,
+                        "LOB NULLs fragmented driver batches: "
+                                + roundTrips
+                                + " round trips for "
+                                + batches
+                                + " batches");
+            } finally {
+                format.close();
+            }
+            try (Statement statement = connection.createStatement();
+                    ResultSet result = statement.executeQuery("SELECT COUNT(*) FROM " + table)) {
+                Assertions.assertTrue(result.next());
+                Assertions.assertEquals(rows, result.getLong(1));
+            }
+        } finally {
+            try (Statement statement = connection.createStatement()) {
+                statement.executeUpdate("DROP TABLE " + table);
+            }
+        }
+    }
+
+    private static long oracleRoundTrips(Connection writerConnection) throws Exception {
+        // The existing Oracle IT initialization grants DBA to its isolated TESTUSER.
+        try (Statement statement = writerConnection.createStatement();
+                ResultSet result =
+                        statement.executeQuery(
+                                "SELECT m.value FROM v$mystat m JOIN v$statname n ON n.statistic#=m.statistic# "
+                                        + "WHERE n.name='SQL*Net roundtrips to/from client'")) {
+            Assertions.assertTrue(result.next());
+            return result.getLong(1);
+        }
+    }
+
+    /** A typed CLOB null must still select the CLOB overload in unrestricted custom SQL. */
+    @Test
+    public void testCustomSqlPreservesLobNullOverload() throws Exception {
+        String table = "E2E_LOB_CUSTOM_NULL";
+        String dispatch = "E2E_LOB_NULL_DISPATCH";
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate(
+                    "CREATE TABLE " + table + " (ID NUMBER PRIMARY KEY, C CLOB, N NCLOB, B BLOB)");
+            statement.executeUpdate(
+                    "CREATE OR REPLACE PACKAGE "
+                            + dispatch
+                            + " AS FUNCTION PICK(P VARCHAR2) RETURN VARCHAR2; FUNCTION PICK(P CLOB) RETURN VARCHAR2; END;");
+            statement.executeUpdate(
+                    "CREATE OR REPLACE PACKAGE BODY "
+                            + dispatch
+                            + " AS FUNCTION PICK(P VARCHAR2) RETURN VARCHAR2 IS BEGIN RETURN 'VARCHAR'; END;"
+                            + " FUNCTION PICK(P CLOB) RETURN VARCHAR2 IS BEGIN RETURN 'CLOB'; END; END;");
+        }
+        try {
+            JdbcConnectionConfig connectionConfig = lobNullConnectionConfig(17);
+            JdbcSinkConfig config =
+                    JdbcSinkConfig.builder()
+                            .jdbcConnectionConfig(connectionConfig)
+                            .table(table)
+                            .simpleSql(
+                                    "INSERT INTO "
+                                            + table
+                                            + " (ID,C,N,B) VALUES (:ID,"
+                                            + dispatch
+                                            + ".PICK(:C),:N,:B)")
+                            .build();
+            TableSchema schema = lobNullSchema();
+            JdbcOutputFormat format =
+                    new JdbcOutputFormatBuilder(
+                                    new OracleDialect(),
+                                    new SimpleJdbcConnectionProvider(connectionConfig),
+                                    config,
+                                    schema,
+                                    schema)
+                            .commitOnFlush(true)
+                            .build();
+            format.open();
+            try {
+                format.writeRecord(new SeaTunnelRow(new Object[] {1L, null, null, null}));
+                format.flush();
+            } finally {
+                format.close();
+            }
+            try (Statement statement = connection.createStatement();
+                    ResultSet result = statement.executeQuery("SELECT C,N,B FROM " + table)) {
+                Assertions.assertTrue(result.next());
+                Assertions.assertEquals("CLOB", result.getString(1));
+                Assertions.assertNull(result.getString(2));
+                Assertions.assertNull(result.getBytes(3));
+                Assertions.assertFalse(result.next());
+            }
+        } finally {
+            try (Statement statement = connection.createStatement()) {
+                statement.executeUpdate("DROP TABLE " + table);
+                statement.executeUpdate("DROP PACKAGE " + dispatch);
+            }
+        }
+    }
+
+    private void writeAndCheckLobNullRows(String table, String mode, int phase) throws Exception {
+        TableSchema schema = lobNullSchema();
+        JdbcConnectionConfig connectionConfig = lobNullConnectionConfig(17);
+        JdbcSinkConfig sinkConfig =
+                JdbcSinkConfig.builder()
+                        .jdbcConnectionConfig(connectionConfig)
+                        .table(table)
+                        .primaryKeys("insert".equals(mode) ? null : Collections.singletonList("ID"))
+                        .enableUpsert("merge".equals(mode))
+                        .build();
+        JdbcOutputFormat format =
+                new JdbcOutputFormatBuilder(
+                                new OracleDialect(),
+                                new SimpleJdbcConnectionProvider(connectionConfig),
+                                sinkConfig,
+                                schema,
+                                schema)
+                        .commitOnFlush(true)
+                        .build();
+        format.open();
+        try {
+            for (int id = 1; id <= 144; id++) {
+                SeaTunnelRow row =
+                        new SeaTunnelRow(lobNullValues(id, phase, !"merge".equals(mode)));
+                if (phase == 1) {
+                    row.setRowKind(RowKind.UPDATE_AFTER);
+                }
+                format.writeRecord(row);
+            }
+            format.flush();
+        } finally {
+            format.close();
+        }
+        try (Statement statement = connection.createStatement();
+                ResultSet result =
+                        statement.executeQuery("SELECT ID,C,N,B FROM " + table + " ORDER BY ID")) {
+            for (int id = 1; id <= 144; id++) {
+                Object[] expected = lobNullValues(id, phase, !"merge".equals(mode));
+                Assertions.assertTrue(result.next(), "Missing LOB row " + id);
+                Assertions.assertEquals(id, result.getLong(1));
+                String text = (String) expected[1];
+                // Oracle maps zero-length character/binary stream binds to SQL NULL.
+                String expectedText = text != null && text.isEmpty() ? null : text;
+                byte[] binary = (byte[]) expected[3];
+                byte[] expectedBinary = binary != null && binary.length == 0 ? null : binary;
+                Assertions.assertEquals(expectedText, result.getString(2), "CLOB row " + id);
+                Assertions.assertEquals(expectedText, result.getString(3), "NCLOB row " + id);
+                Assertions.assertArrayEquals(expectedBinary, result.getBytes(4), "BLOB row " + id);
+            }
+            Assertions.assertFalse(result.next(), "Unexpected extra LOB row");
+        }
+    }
+
+    private static TableSchema lobNullSchema() {
+        return TableSchema.builder()
+                .column(
+                        PhysicalColumn.builder()
+                                .name("ID")
+                                .dataType(BasicType.LONG_TYPE)
+                                .nullable(false)
+                                .sourceType("NUMBER")
+                                .build())
+                .column(
+                        PhysicalColumn.builder()
+                                .name("C")
+                                .dataType(BasicType.STRING_TYPE)
+                                .sourceType("CLOB")
+                                .build())
+                .column(
+                        PhysicalColumn.builder()
+                                .name("N")
+                                .dataType(BasicType.STRING_TYPE)
+                                .sourceType("NCLOB")
+                                .build())
+                .column(
+                        PhysicalColumn.builder()
+                                .name("B")
+                                .dataType(PrimitiveByteArrayType.INSTANCE)
+                                .sourceType("BLOB")
+                                .build())
+                .build();
+    }
+
+    private JdbcConnectionConfig lobNullConnectionConfig(int batchSize) {
+        return JdbcConnectionConfig.builder()
+                .url(jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost()))
+                .driverName(DRIVER_CLASS)
+                .username(jdbcCase.getUserName())
+                .password(jdbcCase.getPassword())
+                .autoCommit(false)
+                .batchSize(batchSize)
+                .batchIntervalMs(0)
+                .maxRetries(0)
+                .build();
+    }
+
+    private static Object[] lobNullValues(int id, int phase, boolean longValues) {
+        // Older Oracle/driver versions cannot MERGE long LOB binds through SELECT FROM DUAL.
+        // Exercise long values with INSERT and UPDATE, and the supported short MERGE path.
+        int[] lengths =
+                longValues
+                        ? new int[] {
+                            -1, 0, 1, 1333, 1334, 2000, 2001, 4000, 4001, 32767, 32768, 65536
+                        }
+                        : new int[] {-1, 0, 1, 128};
+        int length = lengths[(id + phase) % lengths.length];
+        // Start with a complete null-only batch, including NCLOB's national-character form.
+        if (id <= 17 || length < 0) {
+            return new Object[] {(long) id, null, null, null};
+        }
+        String text = ("\u4e2d\uD83D\uDE00\u00e9".repeat((length + 3) / 4)).substring(0, length);
+        if (!text.isEmpty() && Character.isHighSurrogate(text.charAt(text.length() - 1))) {
+            text = text.substring(0, text.length() - 1) + "x";
+        }
+        byte[] binary = new byte[length];
+        for (int i = 0; i < length; i++) {
+            binary[i] = (byte) (i + id + phase);
+        }
+        return new Object[] {(long) id, text, text, binary};
     }
 
     @TestTemplate

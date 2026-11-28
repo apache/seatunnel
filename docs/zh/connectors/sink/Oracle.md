@@ -66,6 +66,12 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | TIMESTAMP WITH TIME ZONE<br/>TIMESTAMP WITH LOCAL TIME ZONE                          | TIMESTAMP_TZ        |
 | BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                                                  | BYTES               |
 
+## LOB 批量写入
+
+对于 SeaTunnel 自动生成的 Oracle SQL，CLOB、NCLOB 和 BLOB 列的 NULL 值使用与短字符流或二进制流兼容的绑定方式，避免短 LOB 值与 NULL 交替时被驱动拆分批次。非 NULL 的 LOB 值继续通过流写入，包括长值，不采用字符长度阈值。
+
+自定义 `query` SQL 保留 LOB 类型的 NULL 绑定，因为参数类型会影响语句中重载函数的选择。此优化不应用于 OceanBase Oracle 模式及其他 Oracle 方言子类。
+
 ## 参数
 
 | 名称                           |  类型   | 是否必填 |           默认值            |                                                                                                                  描述                                                                                                                   |

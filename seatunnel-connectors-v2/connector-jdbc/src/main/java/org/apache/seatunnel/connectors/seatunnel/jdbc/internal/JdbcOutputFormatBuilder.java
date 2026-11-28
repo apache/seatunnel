@@ -27,6 +27,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcCo
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleDmlRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.BufferReducedBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.BufferedBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.CopyManagerBatchStatementExecutor;
@@ -122,6 +124,15 @@ public class JdbcOutputFormatBuilder {
                 commitOnFlush);
     }
 
+    /** Uses short-value-compatible Oracle LOB nulls only for generated statements. */
+    private static JdbcRowConverter getGeneratedDmlRowConverter(JdbcDialect dialect) {
+        // Custom SQL can depend on typed LOB parameters (for example, overloaded functions).
+        // Subclasses such as OceanBaseOracleDialect retain their existing conversion contract.
+        return dialect.getClass() == OracleDialect.class
+                ? new OracleDmlRowConverter()
+                : dialect.getRowConverter();
+    }
+
     private static JdbcBatchStatementExecutor<SeaTunnelRow> createSimpleBufferedExecutor(
             JdbcDialect dialect,
             JdbcSinkConfig jdbcSinkConfig,
@@ -133,7 +144,7 @@ public class JdbcOutputFormatBuilder {
                 dialect.getInsertIntoStatement(database, table, tableSchema.getFieldNames());
         insertSQL = applyOracleAppendValuesHintIfNeeded(jdbcSinkConfig, insertSQL);
         return createSimpleBufferedExecutor(
-                insertSQL, tableSchema, databaseTableSchema, dialect.getRowConverter());
+                insertSQL, tableSchema, databaseTableSchema, getGeneratedDmlRowConverter(dialect));
     }
 
     private static JdbcBatchStatementExecutor<SeaTunnelRow> createSimpleBufferedExecutor(
@@ -215,7 +226,7 @@ public class JdbcOutputFormatBuilder {
                         upsertSQL.get(),
                         tableSchema,
                         databaseTableSchema,
-                        dialect.getRowConverter());
+                        getGeneratedDmlRowConverter(dialect));
             }
             return createInsertOrUpdateByQueryExecutor(
                     dialect,
@@ -269,7 +280,7 @@ public class JdbcOutputFormatBuilder {
                                 tableSchema.getFieldNames()),
                 tableSchema,
                 databaseTableSchema,
-                dialect.getRowConverter());
+                getGeneratedDmlRowConverter(dialect));
     }
 
     private static JdbcBatchStatementExecutor<SeaTunnelRow> createInsertOrUpdateExecutor(
@@ -300,7 +311,7 @@ public class JdbcOutputFormatBuilder {
                                 tableSchema.getFieldNames()),
                 tableSchema,
                 databaseTableSchema,
-                dialect.getRowConverter());
+                getGeneratedDmlRowConverter(dialect));
     }
 
     private static JdbcBatchStatementExecutor<SeaTunnelRow> createInsertOrUpdateByQueryExecutor(
@@ -339,7 +350,7 @@ public class JdbcOutputFormatBuilder {
                 keyExtractor,
                 tableSchema,
                 databaseTableSchema,
-                dialect.getRowConverter());
+                getGeneratedDmlRowConverter(dialect));
     }
 
     private static JdbcBatchStatementExecutor<SeaTunnelRow> createDeleteExecutor(
