@@ -48,8 +48,11 @@ Read external data source data through JDBC.
 
 ## Data Type Mapping
 
+> With Connector/J 8.0.28, `VECTOR` snapshot reads support text results only. Set `useServerPrepStmts=false` in the source JDBC URL, for example `jdbc:mysql://host:3306/db?useServerPrepStmts=false`. Server-side prepared statements (`useServerPrepStmts=true`) use a binary result format that this driver cannot decode for MySQL type 242, before the connector can read the bytes. The MySQL CDC VECTOR integration case covers the text-result path; standalone JDBC VECTOR reads and other driver/protocol combinations are not verified by that case.
+
 |                                        Mysql Data Type                                        |                                                                 SeaTunnel Data Type                                                                |
 |-----------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
+| VECTOR | BYTES |
 | BIT(1)<br/>TINYINT(1)                                                                         | BOOLEAN                                                                                                                                            |
 | TINYINT                                                                                       | BYTE                                                                                                                                               |
 | TINYINT UNSIGNED<br/>SMALLINT                                                                 | SMALLINT                                                                                                                                           |

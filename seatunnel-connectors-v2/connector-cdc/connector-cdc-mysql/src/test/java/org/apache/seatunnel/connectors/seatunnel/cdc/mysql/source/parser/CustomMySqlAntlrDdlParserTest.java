@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 
@@ -32,10 +33,14 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import io.debezium.antlr.AntlrDdlParserListener;
+import io.debezium.connector.mysql.antlr.MySqlAntlrDdlParser;
 import io.debezium.ddl.parser.mysql.generated.MySqlParserBaseListener;
+import io.debezium.relational.Table;
+import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
 import io.debezium.text.ParsingException;
 
+import java.sql.Types;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -80,6 +85,83 @@ public class CustomMySqlAntlrDdlParserTest {
                 secondDatabaseEvents.get(0).getTableIdentifier().getDatabaseName());
         Assertions.assertEquals(
                 "products", secondDatabaseEvents.get(0).getTablePath().getTableName());
+    }
+
+    /**
+     * The Debezium 1.9.8 grammar has no VECTOR token, so without the lexer retyping these
+     * statements fail to parse. Comments between VECTOR and its dimension or attributes are valid
+     * MySQL and must be skipped the way the grammar skips them. Names that only spell "vector" must
+     * stay names, or valid DDL on non-vector tables would break. CREATE is checked through the base
+     * parser, whose listener populates table metadata; the custom parser only handles ALTER.
+     */
+    @Test
+    void testParseVectorColumnTypeWithoutCapturingVectorNames() {
+        MySqlAntlrDdlParser parser = new MySqlAntlrDdlParser();
+        parser.setCurrentDatabase("test_db");
+        Tables tables = new Tables();
+
+        parser.parse(
+                "CREATE TABLE vector (id INT PRIMARY KEY, vector VECTOR /* dimension */ (3) NOT NULL,"
+                        + " f_bare VECTOR -- no dimension\n DEFAULT NULL,"
+                        + " `f_quoted` vector(8) COMMENT 'c')",
+                tables);
+        Table vectorTable = tables.forTable(new TableId("test_db", null, "vector"));
+        Assertions.assertEquals("VECTOR", vectorTable.columnWithName("vector").typeName());
+        Assertions.assertEquals(Types.VARBINARY, vectorTable.columnWithName("vector").jdbcType());
+        Assertions.assertEquals(3, vectorTable.columnWithName("vector").length());
+        Assertions.assertEquals("VECTOR", vectorTable.columnWithName("f_bare").typeName());
+        Assertions.assertEquals(8, vectorTable.columnWithName("f_quoted").length());
+
+        parser.parse("CREATE TABLE names (vector INT, name VARCHAR(8), KEY vector (name))", tables);
+        Assertions.assertEquals(
+                "INT",
+                tables.forTable(new TableId("test_db", null, "names"))
+                        .columnWithName("vector")
+                        .typeName());
+
+        // Valid DDL on any MySQL version that uses vector only as a name, in expressions and
+        // after clause keywords, must keep parsing and keep the column an INT.
+        parser.parse("ALTER TABLE names ADD COLUMN doubled INT AS (vector * 2)", tables);
+        parser.parse("ALTER TABLE names ADD CONSTRAINT ck CHECK (vector > 0)", tables);
+        parser.parse("ALTER TABLE names ORDER BY vector", tables);
+        parser.parse("CREATE DATABASE vector", tables);
+        Table namesTable = tables.forTable(new TableId("test_db", null, "names"));
+        Assertions.assertEquals("INT", namesTable.columnWithName("vector").typeName());
+        Assertions.assertEquals("INT", namesTable.columnWithName("doubled").typeName());
+        parser.parse("ALTER TABLE names ADD COLUMN extra INT, DROP vector", tables);
+        namesTable = tables.forTable(new TableId("test_db", null, "names"));
+        Assertions.assertNull(namesTable.columnWithName("vector"));
+        Assertions.assertEquals("INT", namesTable.columnWithName("extra").typeName());
+
+        // A VECTOR column next to a column named vector that is used in an expression.
+        parser.parse("CREATE TABLE mixed (vector INT, v VECTOR(2), CHECK (vector > 0))", tables);
+        Table mixedTable = tables.forTable(new TableId("test_db", null, "mixed"));
+        Assertions.assertEquals("INT", mixedTable.columnWithName("vector").typeName());
+        Assertions.assertEquals("VECTOR", mixedTable.columnWithName("v").typeName());
+        Assertions.assertEquals(2, mixedTable.columnWithName("v").length());
+    }
+
+    /** ALTER must deliver the stored byte length, not the dimension the DDL declares. */
+    @Test
+    void testAlterAddVectorColumnMapsToBytesOfStoredLength() {
+        MySqlSourceConfigFactory factory = new MySqlSourceConfigFactory();
+        factory.hostname("localhost");
+        factory.username("test");
+        factory.password("test");
+        CustomMySqlAntlrDdlParser parser =
+                new CustomMySqlAntlrDdlParser(factory.create(0).getDbzConnectorConfig());
+        parser.setCurrentDatabase("test_db");
+
+        parser.parse(
+                "ALTER TABLE products ADD COLUMN f_vector VECTOR /* dimension */ (4)",
+                new Tables());
+
+        List<AlterTableColumnEvent> events = parser.getAndClearParsedColumnEvents();
+        Assertions.assertEquals(1, events.size());
+        Column added = ((AlterTableAddColumnEvent) events.get(0)).getColumn();
+        Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, added.getDataType());
+        Assertions.assertEquals(16L, added.getColumnLength());
+        Assertions.assertEquals("VECTOR(4)", added.getSourceType());
     }
 
     @Test

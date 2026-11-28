@@ -48,8 +48,11 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 数据类型映射
 
+> 使用 Connector/J 8.0.28 读取 `VECTOR` 快照时，仅支持文本结果协议。请在源端 JDBC URL 中设置 `useServerPrepStmts=false`，例如 `jdbc:mysql://host:3306/db?useServerPrepStmts=false`。服务端预编译语句（`useServerPrepStmts=true`）使用二进制结果协议，该驱动无法解码 MySQL 类型 242，连接器读取字节前即会失败。MySQL CDC 的 VECTOR 集成用例覆盖文本结果协议；该用例未验证独立 JDBC VECTOR 读取或其他驱动、协议组合。
+
 | Mysql 数据类型                                                                                  |                                                                 SeaTunnel 数据类型                                                             |
 |---------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
+| VECTOR | BYTES |
 | BIT(1)<br/>TINYINT(1)                                                                       | BOOLEAN                                                                                                                                         |
 | TINYINT                                                                                     | BYTE                                                                                                                                            |
 | TINYINT UNSIGNED<br/>SMALLINT                                                               | SMALLINT                                                                                                                                        |
@@ -116,7 +119,6 @@ int_type_narrowing = false
 | MySQL      | SeaTunnel |
 |------------|-----------|
 | TINYINT(1) | TINYINT   |
-
 
 ## 并行读取器
 

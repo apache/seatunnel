@@ -26,6 +26,8 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateTableSqlBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
@@ -33,7 +35,9 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MyS
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
+import java.sql.ResultSet;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -69,5 +73,29 @@ public class TiDBTableOptionsTest {
         Assertions.assertTrue(createTableSql.contains("ENGINE = InnoDB"));
         Assertions.assertTrue(createTableSql.contains("DEFAULT CHARSET = utf8mb4"));
         Assertions.assertTrue(createTableSql.contains("COLLATE = utf8mb4_unicode_ci"));
+    }
+
+    /**
+     * TiDB inherits the MySQL catalog, whose converter now accepts MySQL 9.0 VECTOR. A TiDB VECTOR
+     * column must still be rejected rather than read as MySQL-layout bytes.
+     */
+    @Test
+    void testTiDBCatalogStillRejectsVectorColumn() throws Exception {
+        TiDBCatalog catalog =
+                new TiDBCatalog(
+                        DatabaseIdentifier.TIDB,
+                        "root",
+                        "",
+                        JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:4000/test"),
+                        "com.mysql.cj.jdbc.Driver");
+        ResultSet column = Mockito.mock(ResultSet.class);
+        Mockito.when(column.getString("DATA_TYPE")).thenReturn("vector");
+        Mockito.when(column.getString("COLUMN_NAME")).thenReturn("embedding");
+
+        SeaTunnelRuntimeException error =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class, () -> catalog.buildColumn(column));
+        Assertions.assertTrue(error.getMessage().contains("embedding"), error.getMessage());
+        Assertions.assertTrue(error.getMessage().contains(DatabaseIdentifier.TIDB));
     }
 }

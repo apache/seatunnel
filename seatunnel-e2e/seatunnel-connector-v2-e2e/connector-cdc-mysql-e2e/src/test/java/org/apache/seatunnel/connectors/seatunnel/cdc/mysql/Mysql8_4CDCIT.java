@@ -20,12 +20,17 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import io.debezium.config.Configuration;
+import io.debezium.connector.mysql.MySqlConnection;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -41,6 +46,31 @@ public class Mysql8_4CDCIT extends AbstractMysqlCDCITBase {
         this.inventoryDatabase =
                 new UniqueDatabase(
                         MYSQL_CONTAINER, MYSQL_DATABASE, "mysqluser", "mysqlpw", MYSQL_DATABASE);
+    }
+
+    @Test
+    public void testNegotiatedBinlogStatusHasDiagnosticFields() throws Exception {
+        Configuration configuration =
+                Configuration.create()
+                        .with("database.hostname", MYSQL_CONTAINER.getHost())
+                        .with("database.port", MYSQL_CONTAINER.getMappedPort(3306))
+                        .with("database.user", MYSQL_USER_NAME)
+                        .with("database.password", MYSQL_USER_PASSWORD)
+                        .build();
+        try (MySqlConnection connection =
+                MySqlConnectionUtils.createMySqlConnection(configuration)) {
+            Assertions.assertEquals(
+                    MySqlConnection.BINARY_LOG_STATUS_STATEMENT,
+                    connection.binaryLogStatusStatement());
+            connection.query(
+                    connection.binaryLogStatusStatement(),
+                    result -> {
+                        Assertions.assertTrue(result.next());
+                        Assertions.assertFalse(result.getString("File").isEmpty());
+                        Assertions.assertTrue(result.getLong("Position") > 0);
+                        Assertions.assertNotNull(result.getString("Executed_Gtid_Set"));
+                    });
+        }
     }
 
     @Override

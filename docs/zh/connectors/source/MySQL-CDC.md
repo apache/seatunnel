@@ -27,7 +27,7 @@ MySQL CDC连接器允许从MySQL数据库读取快照和增量数据. 本文档�
 
 | 数据源 |                                                                  支持的版本                                                                  |          Driver          |               Url                |                                Maven                                 |
 |------------|------------------------------------------------------------------------------------------------------------------------------------|--------------------------|----------------------------------|----------------------------------------------------------------------|
-| MySQL      | <li> [MySQL](https://dev.mysql.com/doc): 5.5, 5.6, 5.7, 8.0.x </li><li> [RDS MySQL](https://help.aliyun.com/zh/rds/apsaradb-rds-for-mysql/): 5.6, 5.7, 8.0.x </li> | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306/test | https://mvnrepository.com/artifact/mysql/mysql-connector-java/8.0.28 |
+| MySQL      | <li> [MySQL](https://dev.mysql.com/doc): 5.5, 5.6, 5.7, 8.0.x, 8.4.x, 9.0.x </li><li> [RDS MySQL](https://help.aliyun.com/zh/rds/apsaradb-rds-for-mysql/): 5.6, 5.7, 8.0.x </li> | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306/test | https://mvnrepository.com/artifact/mysql/mysql-connector-java/8.0.28 |
 
 ## 依赖
 
@@ -151,7 +151,6 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
      
 ```
 
-
 ### 提示
 
 #### 配置MySQL session超时时长
@@ -164,8 +163,13 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 
 ## 数据类型映射
 
+> `VECTOR`（MySQL 9.0+）以 `BYTES` 形式输出，内容为存储的原始值：小端序 4 字节浮点数，每个维度 4 字节，不会转换为 SeaTunnel 的浮点向量类型。
+
+> 使用 Connector/J 8.0.28 读取 `VECTOR` 快照时，仅支持文本结果协议。请在源端 JDBC URL 中设置 `useServerPrepStmts=false`，例如 `jdbc:mysql://host:3306/db?useServerPrepStmts=false`。服务端预编译语句（`useServerPrepStmts=true`）使用二进制结果协议，该驱动无法解码 MySQL 类型 242，连接器读取字节前即会失败。MySQL CDC 的 VECTOR 集成用例覆盖文本结果协议；该用例未验证独立 JDBC VECTOR 读取或其他驱动、协议组合。
+
 |                                        Mysql数据类型                                         | SeaTunnel数据类型 |
 |------------------------------------------------------------------------------------------------|---------------|
+| VECTOR | BYTES |
 | BIT(1)<br/>TINYINT(1)                                                                          | BOOLEAN       |
 | TINYINT                                                                                        | TINYINT       |
 | TINYINT UNSIGNED<br/>SMALLINT                                                                  | SMALLINT      |

@@ -633,6 +633,32 @@ public class MySqlTypeConverterTest {
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
     }
 
+    /** The catalog path must accept VECTOR, or a MySQL 9.0 table fails before the job starts. */
+    @Test
+    public void testConvertVector() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("vector(3)")
+                        .dataType("vector")
+                        .length(12L)
+                        .build();
+        Column column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
+        Assertions.assertEquals(12, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("vector")
+                        .dataType("vector")
+                        .build();
+        column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
+        Assertions.assertEquals(8192, column.getColumnLength());
+    }
+
     @Test
     public void testConvertBlob() {
         BasicTypeDefine<Object> typeDefine =

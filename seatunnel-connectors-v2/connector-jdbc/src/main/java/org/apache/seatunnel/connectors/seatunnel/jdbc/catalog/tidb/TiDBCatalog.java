@@ -17,8 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.tidb;
 
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
 
 public class TiDBCatalog extends MySqlCatalog {
 
@@ -29,5 +36,22 @@ public class TiDBCatalog extends MySqlCatalog {
             JdbcUrlUtil.UrlInfo urlInfo,
             String driverClass) {
         super(catalogName, username, pwd, urlInfo, driverClass);
+    }
+
+    /**
+     * Keeps TiDB VECTOR columns unsupported, as they were before MySQL 9.0 VECTOR support.
+     *
+     * <p>{@link MySqlTypeConverter} now maps VECTOR to raw bytes in MySQL 9.0's little-endian float
+     * layout. TiDB has its own VECTOR type whose wire format is not verified to match, so it must
+     * keep failing fast here instead of silently delivering bytes of a different meaning.
+     */
+    @Override
+    protected Column buildColumn(ResultSet resultSet) throws SQLException {
+        String dataType = resultSet.getString("DATA_TYPE");
+        if (MySqlTypeConverter.MYSQL_VECTOR.equalsIgnoreCase(dataType)) {
+            throw CommonError.convertToSeaTunnelTypeError(
+                    DatabaseIdentifier.TIDB, dataType, resultSet.getString("COLUMN_NAME"));
+        }
+        return super.buildColumn(resultSet);
     }
 }
