@@ -52,6 +52,7 @@
         <module>connector-http-linear</module>
         <module>connector-http-splunk</module>
         <module>connector-http-asana</module>
+        <module>connector-http-datadog</module>
         <module>connector-http-intercom</module>
         <module>connector-http-typeform</module>
         <module>connector-http-mailchimp</module>
