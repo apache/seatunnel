@@ -74,11 +74,11 @@ class CrashesApi implements Closeable {
     private static final int MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
     private static final int MAX_JSON_TOKENS = 200000;
     private static final int REQUEST_TIMEOUT_MS = 30000;
+    // Settings template only: response-local copies own parser names, while interning stays off.
     private static final ObjectMapper MAPPER =
             new ObjectMapper(
                             new JsonFactoryBuilder()
                                     .disable(JsonFactory.Feature.INTERN_FIELD_NAMES)
-                                    .disable(JsonFactory.Feature.CANONICALIZE_FIELD_NAMES)
                                     .streamReadConstraints(
                                             StreamReadConstraints.builder()
                                                     .maxNestingDepth(64)
@@ -437,9 +437,12 @@ class CrashesApi implements Closeable {
         }
         byte[] bytes = body.toByteArray();
         // Both passes read the same bounded bytes; tree allocation cannot bypass the preflight.
+        // Keep the strict byte parser and its encoding detection without retaining names between
+        // responses. Disabling canonicalization would select a replacement-decoding Reader path.
+        ObjectMapper responseMapper = MAPPER.copy();
         JsonNode result;
         try {
-            try (JsonParser parser = MAPPER.getFactory().createParser(bytes)) {
+            try (JsonParser parser = responseMapper.getFactory().createParser(bytes)) {
                 int tokens = 0;
                 JsonToken token;
                 while ((token = parser.nextToken()) != null) {
@@ -452,7 +455,7 @@ class CrashesApi implements Closeable {
                     }
                 }
             }
-            result = MAPPER.readTree(bytes);
+            result = responseMapper.readTree(bytes);
         } catch (JsonProcessingException e) {
             throw new IOException(
                     "Open Data DC returned invalid or oversized JSON ("

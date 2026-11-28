@@ -410,6 +410,32 @@ class OpenDataDcReaderTest {
     }
 
     @Test
+    void rejectsMalformedUtf8AndPreservesJsonByteEncodingDetection() throws IOException {
+        String malformed = "{\"features\":[],\"note\":\"private-X(\"}";
+        byte[] bytes = malformed.getBytes(StandardCharsets.UTF_8);
+        // C3 followed by ASCII '(' is invalid UTF-8, but a replacement-decoding Reader accepts it.
+        bytes[malformed.indexOf('X')] = (byte) 0xc3;
+        IOException invalid =
+                assertThrows(
+                        IOException.class, () -> CrashesApi.parse(new ByteArrayInputStream(bytes)));
+        assertTrue(invalid.getMessage().contains("invalid or oversized JSON"));
+
+        String valid = "{\"features\":[],\"label\":\"雪é\"}";
+        JsonNode expected = parse(valid);
+        assertEquals(
+                expected,
+                CrashesApi.parse(
+                        new ByteArrayInputStream(valid.getBytes(StandardCharsets.UTF_16))));
+        byte[] utf8 = valid.getBytes(StandardCharsets.UTF_8);
+        byte[] withBom = new byte[utf8.length + 3];
+        withBom[0] = (byte) 0xef;
+        withBom[1] = (byte) 0xbb;
+        withBom[2] = (byte) 0xbf;
+        System.arraycopy(utf8, 0, withBom, 3, utf8.length);
+        assertEquals(expected, CrashesApi.parse(new ByteArrayInputStream(withBom)));
+    }
+
+    @Test
     void rejectsOversizedChunkedBodyAndHeadersThroughTheHttpClient() throws Exception {
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         AtomicInteger calls = new AtomicInteger();
