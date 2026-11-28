@@ -42,6 +42,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Buffers bounded replacement or exact-ID delete operations on the engine-owned writer thread. Only
+ * acknowledged updates leave the buffer; commit boundaries and close have separate effects.
+ */
 final class SolrSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private static final int MAX_DOCUMENT_BYTES = 1024 * 1024;
     private static final int MAX_BATCH_BYTES = 4 * 1024 * 1024;
@@ -55,10 +59,15 @@ final class SolrSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private final boolean enableDelete;
     private final int batchSize;
     private final CommitMode commitMode;
+    // Writer-thread owned; documents are removed only after the complete update acknowledgement.
     private final List<byte[]> pending;
+    // Conservative command/separator envelope included before accepting another encoded document.
     private int batchBytes = ENVELOPE_BYTES;
+    // Switching operation kind flushes the preceding group to preserve this writer's input order.
     private boolean deleting;
+    // Writer-local validation against the existing core, performed before the first mutation.
     private boolean schemaVerified;
+    // Acknowledged updates awaiting this writer's next selected commit boundary.
     private boolean dirty;
 
     SolrSinkWriter(
@@ -79,7 +88,11 @@ final class SolrSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         this.pending = new ArrayList<>(batchSize);
     }
 
-    /** Serialize and queue one operation, preserving the order across operation changes. */
+    /**
+     * Encodes one bounded operation before buffering it and preserves order across operation
+     * changes. A failed update leaves pending data intact for task failure rather than silently
+     * discarding it.
+     */
     @Override
     public void write(SeaTunnelRow row) throws IOException {
         RowKind kind = row.getRowKind();
@@ -111,6 +124,38 @@ final class SolrSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
     }
 
+    /**
+     * Flushes pending updates before requesting the selected commit for acknowledged work. A commit
+     * affects the core, including other writers; it is not part of an engine checkpoint
+     * transaction.
+     */
+    void flushAndCommit() throws IOException {
+        flushUpdates();
+        if (dirty && commitMode != CommitMode.NONE) {
+            byte[] command =
+                    ("{\"commit\":{\"softCommit\":"
+                                    + (commitMode == CommitMode.SOFT)
+                                    + ",\"waitSearcher\":true}}")
+                            .getBytes(StandardCharsets.US_ASCII);
+            client.update("commit", command);
+        }
+        dirty = false;
+    }
+
+    /* Flush/commit before checkpoint acknowledgement or final preparation exposes source progress. */
+    @Override
+    public Optional<Void> prepareCommit(long checkpointId) throws IOException {
+        flushAndCommit();
+        return Optional.empty();
+    }
+
+    /* Abort resources only; teardown never sends buffered operations or issues a core rollback. */
+    @Override
+    public void close() {
+        client.close();
+    }
+
+    /* Stream directly to a checked output instead of allocating a complete unbounded JSON tree. */
     private byte[] encode(SeaTunnelRow row, Object key, boolean delete) throws IOException {
         DocumentOutput output = new DocumentOutput();
         try (JsonGenerator generator = JSON.createGenerator(output)) {
@@ -216,6 +261,7 @@ final class SolrSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         out.writeString(value);
     }
 
+    /* Verify the target key once, preserve operation order, then clear only acknowledged data. */
     private void flushUpdates() throws IOException {
         if (pending.isEmpty()) {
             return;
@@ -242,35 +288,14 @@ final class SolrSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         dirty = true;
     }
 
-    /** Commit only work acknowledged by this writer and only at a successful flush boundary. */
-    void flushAndCommit() throws IOException {
-        flushUpdates();
-        if (dirty && commitMode != CommitMode.NONE) {
-            byte[] command =
-                    ("{\"commit\":{\"softCommit\":"
-                                    + (commitMode == CommitMode.SOFT)
-                                    + ",\"waitSearcher\":true}}")
-                            .getBytes(StandardCharsets.US_ASCII);
-            client.update("commit", command);
-        }
-        dirty = false;
-    }
-
-    @Override
-    public Optional<Void> prepareCommit(long checkpointId) throws IOException {
-        flushAndCommit();
-        return Optional.empty();
-    }
-
-    @Override
-    public void close() {
-        client.close();
-    }
-
     private static PayloadFailure invalid(String reason) {
         return new PayloadFailure("Solr Sink " + reason);
     }
 
+    /**
+     * Reports a connector-owned encoding/admission failure without rejected values or native
+     * formatter causes, so malformed row contents cannot escape through the failure chain.
+     */
     private static final class PayloadFailure extends IOException {
         private static final long serialVersionUID = 1L;
 
@@ -279,6 +304,11 @@ final class SolrSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
     }
 
+    /**
+     * Enforces the encoded document limit before buffer growth, including escaping and base64
+     * bytes. The generator may buffer internally, but its output cannot grow this document beyond
+     * the cap.
+     */
     private static final class DocumentOutput extends OutputStream {
         private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 

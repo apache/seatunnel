@@ -37,6 +37,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+/**
+ * Validates the target origin, mapped scalar schema and unique-key contract for one Solr writer.
+ * Writers own independent transport resources and flush actions; no shared commit state is created.
+ */
 final class SolrSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private final CatalogTable catalog;
     private final URI origin;
@@ -49,6 +53,10 @@ final class SolrSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private final CommitMode commitMode;
     private final int timeoutMillis;
 
+    /*
+     * Validate configuration before worker resources are created; rejected values never enter
+     * diagnostics because endpoint text and authentication options can contain private information.
+     */
     SolrSink(ReadonlyConfig config, CatalogTable catalog) {
         this.catalog = catalog;
         this.origin =
@@ -107,6 +115,37 @@ final class SolrSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
         this.keyIndex = index;
     }
 
+    @Override
+    public String getPluginName() {
+        return "Solr";
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.of(catalog);
+    }
+
+    /*
+     * Keep timer flushes on the ordinary writer path. The created writer owns its client and
+     * commits only through flush/prepare boundaries, rather than sending abandoned rows on close.
+     */
+    @Override
+    public SolrSinkWriter createWriter(SinkWriter.Context context) {
+        SolrClient client = new SolrClient(origin, corePath, authorization, timeoutMillis);
+        SolrSinkWriter writer =
+                new SolrSinkWriter(
+                        client,
+                        catalog.getSeaTunnelRowType(),
+                        fieldNames,
+                        keyIndex,
+                        enableDelete,
+                        batchSize,
+                        commitMode);
+        context.enableDeferredTerminalWriteOutcomes();
+        context.registerFlushAction(writer::flushAndCommit);
+        return writer;
+    }
+
     private static boolean identityType(SqlType type) {
         return type == SqlType.STRING
                 || type == SqlType.TINYINT
@@ -150,6 +189,7 @@ final class SolrSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
                 && !"_route_".equals(field);
     }
 
+    /* Only a trusted origin is accepted; a user-supplied path/query cannot redirect credentials. */
     private static URI origin(String value, boolean allowHttp) {
         try {
             URI uri = new URI(value);
@@ -205,32 +245,5 @@ final class SolrSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     private static IllegalArgumentException invalid(String reason) {
         return new IllegalArgumentException("Solr Sink " + reason);
-    }
-
-    @Override
-    public String getPluginName() {
-        return "Solr";
-    }
-
-    @Override
-    public Optional<CatalogTable> getWriteCatalogTable() {
-        return Optional.of(catalog);
-    }
-
-    @Override
-    public SolrSinkWriter createWriter(SinkWriter.Context context) {
-        SolrClient client = new SolrClient(origin, corePath, authorization, timeoutMillis);
-        SolrSinkWriter writer =
-                new SolrSinkWriter(
-                        client,
-                        catalog.getSeaTunnelRowType(),
-                        fieldNames,
-                        keyIndex,
-                        enableDelete,
-                        batchSize,
-                        commitMode);
-        context.enableDeferredTerminalWriteOutcomes();
-        context.registerFlushAction(writer::flushAndCommit);
-        return writer;
     }
 }

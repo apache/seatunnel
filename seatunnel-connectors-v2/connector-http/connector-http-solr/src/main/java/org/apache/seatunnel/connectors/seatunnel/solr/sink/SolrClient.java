@@ -61,7 +61,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.zip.GZIPInputStream;
 
-/** One direct, quiet HTTP exchange per operation, with no implicit redirects or retries. */
+/**
+ * Owns one direct, non-logging HTTP exchange at a time under an absolute operation deadline. Close
+ * independently aborts the published Future/socket; uncertain mutations fail without replay.
+ */
 final class SolrClient implements AutoCloseable {
     private static final int MAX_RESPONSE_BYTES = 256 * 1024;
     private static final ObjectMapper JSON =
@@ -96,8 +99,12 @@ final class SolrClient implements AutoCloseable {
                         return thread;
                     });
 
+    // Guarded by this monitor; publication/close never holds it across connect, TLS or exchange
+    // I/O.
     private boolean closed;
+    // Guarded by this monitor; only one submitted operation may own the worker at a time.
     private Future<JsonNode> activeRequest;
+    // Guarded by this monitor and published before connect so close can abort active I/O.
     private Socket activeSocket;
 
     SolrClient(URI origin, String corePath, String authorization, int timeoutMillis) {
@@ -107,6 +114,7 @@ final class SolrClient implements AutoCloseable {
         this.timeoutMillis = timeoutMillis;
     }
 
+    /* Verify the schema contract before the writer sends its first update, without changing it. */
     void verifyUniqueKey(String expected) throws IOException {
         JsonNode response = request("schema", "/schema/uniquekey?wt=json&omitHeader=false", null);
         JsonNode uniqueKey = response.path("uniqueKey");
@@ -115,10 +123,35 @@ final class SolrClient implements AutoCloseable {
         }
     }
 
+    /* Mutation results must be acknowledged completely; the caller owns pending data on failure. */
     void update(String operation, byte[] body) throws IOException {
         request(operation, "/update?wt=json&omitHeader=false&overwrite=true", body);
     }
 
+    /* Abort abandoned work without flushing, retrying or rolling back any core updates. */
+    @Override
+    public synchronized void close() {
+        if (closed) {
+            return;
+        }
+        closed = true;
+        if (activeRequest != null) {
+            activeRequest.cancel(true);
+        }
+        worker.shutdownNow();
+        if (activeSocket != null) {
+            try {
+                activeSocket.close();
+            } catch (IOException ignored) {
+                // The exchange also owns the socket.
+            }
+        }
+    }
+
+    /*
+     * One monotonic budget covers scheduling, transport, decoding and validation. The waiting
+     * caller can close the published socket independently of a blocked worker or slow response.
+     */
     private JsonNode request(String operation, String route, byte[] body) throws IOException {
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
         boolean mutating = body != null;
@@ -157,6 +190,7 @@ final class SolrClient implements AutoCloseable {
         }
     }
 
+    /* Publish the raw socket before connect/TLS; reject late registration after close. */
     private JsonNode connect(String operation, String path, byte[] body) throws IOException {
         boolean mutating = body != null;
         try (Socket socket = new Socket(Proxy.NO_PROXY)) {
@@ -198,6 +232,10 @@ final class SolrClient implements AutoCloseable {
         }
     }
 
+    /*
+     * The core connection does not log request headers or body. HTTP success is insufficient:
+     * bounded JSON must also contain a complete successful Solr acknowledgement.
+     */
     private JsonNode exchange(Socket socket, String operation, String path, byte[] body)
             throws IOException, HttpException {
         BasicHttpRequest request;
@@ -263,6 +301,7 @@ final class SolrClient implements AutoCloseable {
                 && (!node.isContainerNode() || !node.isEmpty());
     }
 
+    /* Bound both received and decompressed bytes before JSON tree construction. */
     private static byte[] decode(HttpResponse response, String operation, boolean mutating)
             throws IOException {
         String length = header(response, "Content-Length", operation, mutating);
@@ -324,25 +363,6 @@ final class SolrClient implements AutoCloseable {
         return out.toByteArray();
     }
 
-    @Override
-    public synchronized void close() {
-        if (closed) {
-            return;
-        }
-        closed = true;
-        if (activeRequest != null) {
-            activeRequest.cancel(true);
-        }
-        worker.shutdownNow();
-        if (activeSocket != null) {
-            try {
-                activeSocket.close();
-            } catch (IOException ignored) {
-                // The exchange also owns the socket.
-            }
-        }
-    }
-
     private static SolrFailure failure(String operation, String reason, boolean mutating) {
         return new SolrFailure(
                 "Solr Sink "
@@ -352,6 +372,10 @@ final class SolrClient implements AutoCloseable {
                         + (mutating ? "; Solr may have applied some changes" : ""));
     }
 
+    /**
+     * Carries only connector-owned operation diagnostics, without upstream response/parser causes
+     * or private payloads; mutating failures warn that Solr may already have applied changes.
+     */
     private static final class SolrFailure extends IOException {
         private static final long serialVersionUID = 1L;
 

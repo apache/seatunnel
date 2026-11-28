@@ -63,6 +63,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Runs real-engine jobs against a standalone Solr core and checks captured plus persisted records.
+ * A forwarding proxy injects protocol faults; those scenarios do not establish live cluster/TLS
+ * deployment acceptance, and fixture administration is separate from connector mutations.
+ */
 @Execution(ExecutionMode.SAME_THREAD)
 class SolrSinkIT extends TestSuiteBase implements TestResource {
     private static final String SOLR = "http://solr-fixture:8983";
@@ -75,6 +80,7 @@ class SolrSinkIT extends TestSuiteBase implements TestResource {
     private GenericContainer<?> solr;
     private GenericContainer<?> proxy;
 
+    /* Fixture setup owns the core/proxy resources and the isolated, deliberately untrusted TLS key. */
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -124,6 +130,7 @@ class SolrSinkIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    /* Close both owned containers even if one teardown fails. */
     @AfterAll
     @Override
     public void tearDown() {
@@ -603,6 +610,163 @@ class SolrSinkIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK})
+    void boundsEncodedDocumentsAndSplitsBatchesInInputOrder(TestContainer container)
+            throws Exception {
+        // Stored-only strings avoid Lucene's indexed-term limit masking the connector byte
+        // boundary.
+        addStoredOnlyField("large_store", "string");
+        ObjectNode schema =
+                JSON.createObjectNode().put("id", "string").put("large_store", "string");
+        int documentLimit = 1024 * 1024;
+        String prefix = "雪\"\\\n";
+        ObjectNode exact =
+                JSON.createObjectNode().put("id", "bound-exact").put("large_store", prefix);
+        int padding = documentLimit - JSON.writeValueAsBytes(exact).length;
+        char[] fill = new char[padding];
+        Arrays.fill(fill, 'a');
+        String payload = prefix + new String(fill);
+        exact.put("large_store", payload);
+        Assertions.assertEquals(documentLimit, JSON.writeValueAsBytes(exact).length);
+
+        reset(faults());
+        succeeds(
+                run(
+                        container,
+                        options(PROXY).put("batch_size", 500),
+                        schema,
+                        rows(row("INSERT", "bound-exact", payload))));
+        List<JsonNode> accepted = updates();
+        Assertions.assertEquals(2, accepted.size());
+        Assertions.assertEquals(exact, accepted.get(0).get(0));
+        Assertions.assertEquals(
+                documentLimit, JSON.writeValueAsBytes(accepted.get(0).get(0)).length);
+        Assertions.assertTrue(accepted.get(1).has("commit"));
+        Assertions.assertEquals(payload, document("bound-exact").path("large_store").asText());
+
+        reset(faults());
+        // The IDs have equal encoded length, so appending one ASCII byte exceeds the document cap.
+        Assertions.assertEquals("bound-exact".length(), "bound-extra".length());
+        fails(
+                container,
+                options(PROXY).put("batch_size", 500),
+                schema,
+                rows(row("INSERT", "bound-extra", payload + "a")),
+                "document exceeds 1 MiB");
+        Assertions.assertEquals(0, state().path("calls").size());
+        Assertions.assertNull(document("bound-extra"));
+        Assertions.assertEquals(payload, document("bound-exact").path("large_store").asText());
+
+        reset(faults());
+        String batchPayload = payload.substring(0, payload.length() - 128);
+        ArrayNode data = rows();
+        List<String> expectedIds = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            String id = "batch-bound-" + i;
+            expectedIds.add(id);
+            data.add(row("INSERT", id, batchPayload));
+        }
+        // Count500 cannot cause this split; four near1MiB documents fit, while the fifth does not.
+        succeeds(run(container, options(PROXY).put("batch_size", 500), schema, data));
+        List<JsonNode> batches = updates();
+        Assertions.assertEquals(3, batches.size());
+        Assertions.assertEquals(4, batches.get(0).size());
+        Assertions.assertEquals(1, batches.get(1).size());
+        Assertions.assertTrue(batches.get(2).has("commit"));
+        List<String> receivedIds = new ArrayList<>();
+        for (JsonNode call : state().path("calls")) {
+            if (!"POST".equals(call.path("method").asText())) {
+                continue;
+            }
+            String body = call.path("body").asText();
+            Assertions.assertTrue(body.getBytes(StandardCharsets.UTF_8).length <= 4 * 1024 * 1024);
+            JsonNode batch = JSON.readTree(body);
+            if (!batch.isArray()) {
+                continue;
+            }
+            for (JsonNode doc : batch) {
+                Assertions.assertTrue(JSON.writeValueAsBytes(doc).length <= documentLimit);
+                receivedIds.add(doc.path("id").asText());
+                Assertions.assertEquals(batchPayload, doc.path("large_store").asText());
+            }
+        }
+        Assertions.assertTrue(JSON.writeValueAsBytes(batches.get(0)).length > 3 * 1024 * 1024);
+        Assertions.assertEquals(expectedIds, receivedIds);
+        for (String id : expectedIds) {
+            Assertions.assertEquals(batchPayload, document(id).path("large_store").asText());
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK})
+    void preservesTemporalInstantsTimeTextAndBinaryBytes(TestContainer container) throws Exception {
+        addStoredOnlyField("day_store", "pdate");
+        addStoredOnlyField("local_store", "pdate");
+        addStoredOnlyField("offset_store", "pdate");
+        addStoredOnlyField("clock_store", "string");
+        addStoredOnlyField("bytes_store", "string");
+        ObjectNode schema =
+                JSON.createObjectNode()
+                        .put("id", "string")
+                        .put("day_store", "date")
+                        .put("local_store", "timestamp")
+                        .put("offset_store", "timestamp_tz")
+                        .put("clock_store", "time")
+                        .put("bytes_store", "bytes");
+        byte[] bytes = {0, 10, 13, 34, 92, -1};
+        String encoded = Base64.getEncoder().encodeToString(bytes);
+        reset(faults());
+        succeeds(
+                run(
+                        container,
+                        options(PROXY),
+                        schema,
+                        rows(
+                                row(
+                                        "INSERT",
+                                        "temporal-bytes",
+                                        "2026-11-27",
+                                        "2026-11-27T10:15:30.123",
+                                        "2026-11-27T10:15:30.123+02:00",
+                                        "10:15:30.123456",
+                                        encoded))));
+        List<JsonNode> requests = updates();
+        Assertions.assertEquals(2, requests.size());
+        Assertions.assertTrue(requests.get(1).has("commit"));
+        JsonNode captured = requests.get(0).get(0);
+        JsonNode persisted = document("temporal-bytes");
+        Assertions.assertNotNull(persisted);
+        for (JsonNode doc : Arrays.asList(captured, persisted)) {
+            Assertions.assertEquals("2026-11-27T00:00:00Z", doc.path("day_store").asText());
+            Assertions.assertEquals("2026-11-27T10:15:30.123Z", doc.path("local_store").asText());
+            Assertions.assertEquals("2026-11-27T08:15:30.123Z", doc.path("offset_store").asText());
+            Assertions.assertEquals("10:15:30.123456", doc.path("clock_store").asText());
+            Assertions.assertEquals(encoded, doc.path("bytes_store").asText());
+            Assertions.assertArrayEquals(
+                    bytes, Base64.getDecoder().decode(doc.path("bytes_store").asText()));
+        }
+    }
+
+    /* Schema administration is fixture-only; the connector itself never sends these commands. */
+    private void addStoredOnlyField(String name, String type) throws IOException {
+        ObjectNode schema = JSON.createObjectNode();
+        schema.putObject("add-field")
+                .put("name", name)
+                .put("type", type)
+                .put("stored", true)
+                .put("indexed", false)
+                .put("docValues", false)
+                .put("multiValued", false);
+        JsonNode result = request(solr, 8983, CORE + "/schema?wt=json", schema.toString(), 200);
+        Assertions.assertEquals(0, result.at("/responseHeader/status").asInt(-1));
+    }
+
+    /* Generate a short-lived self-signed fixture key; successful trust validation is not simulated. */
     private static void createFixtureCertificate(Path directory) throws Exception {
         Path keystore = directory.resolve("fixture.p12");
         Path keytool = Paths.get(System.getProperty("java.home"), "bin", "keytool");

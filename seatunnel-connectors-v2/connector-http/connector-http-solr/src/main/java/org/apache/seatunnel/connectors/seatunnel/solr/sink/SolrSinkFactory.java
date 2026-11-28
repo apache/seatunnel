@@ -25,6 +25,10 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 
 import com.google.auto.service.AutoService;
 
+/**
+ * Registers the Solr sink identity and its dedicated options while leaving target validation to the
+ * connector-owned sink, before any transport resources or external mutations are created.
+ */
 @AutoService(Factory.class)
 public class SolrSinkFactory implements TableSinkFactory {
     @Override

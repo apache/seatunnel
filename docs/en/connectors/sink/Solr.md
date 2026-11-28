@@ -45,6 +45,8 @@ Indexes documents in an existing Apache Solr core or SolrCloud collection over H
 | `request_timeout_ms` | Integer | No | 30000 | Absolute deadline per HTTP request, range 1–300000. |
 | common-options | | No | | [Sink common options](../common-options/sink-common-options.md). |
 
+Workers must connect directly to the configured origin. The transport does not discover JVM/SOCKS or standard HTTP-client proxy settings; proxy/CONNECT routing is outside this connector contract.
+
 ## Input and update semantics
 
 `INSERT` and `UPDATE_AFTER` write a complete document. Solr replaces an existing document with the same unique key. Unset and null fields are omitted, so a replacement removes previously stored values for those fields. `UPDATE_BEFORE` fails validation. For an opt-in `DELETE` row, the connector reads only the key value and issues a delete-by-ID.

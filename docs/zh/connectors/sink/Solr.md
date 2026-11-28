@@ -45,6 +45,8 @@ import ChangeLog from '../changelog/connector-http-solr.md';
 | `request_timeout_ms` | Integer | 否 | 30000 | 单次 HTTP 请求的总时限，范围 1–300000 毫秒。 |
 | common-options | | 否 | | [Sink 通用选项](../common-options/sink-common-options.md)。 |
 
+工作节点必须能够直接连接所配置的服务地址。传输层不会读取 JVM/SOCKS 或标准 HTTP 客户端代理配置；代理和 CONNECT 路由不属于本连接器的能力范围。
+
 ## 输入与更新语义
 
 `INSERT` 和 `UPDATE_AFTER` 将完整文档写入 Solr，同一唯一键的旧文档会被替换。未设置或为 null 的字段不写入，替换时这些字段的旧值随旧文档一起移除。`UPDATE_BEFORE` 会校验失败。启用 `DELETE` 后，连接器只读取唯一键值，并按 ID 删除指定文档。

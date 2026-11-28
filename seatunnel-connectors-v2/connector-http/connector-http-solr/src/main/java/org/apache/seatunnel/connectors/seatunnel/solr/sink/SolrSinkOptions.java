@@ -23,6 +23,10 @@ import org.apache.seatunnel.api.configuration.Options;
 import java.util.Collections;
 import java.util.Map;
 
+/**
+ * Defines options for existing-core HTTP updates, explicit delete permission and commit boundaries.
+ * No option creates a collection, changes its schema or enables automatic request replay.
+ */
 public final class SolrSinkOptions {
     public static final Option<String> BASE_URL =
             Options.key("base_url")
@@ -87,6 +91,10 @@ public final class SolrSinkOptions {
 
     private SolrSinkOptions() {}
 
+    /**
+     * Selects the core-wide commit requested after acknowledged writes; NONE leaves visibility and
+     * durability policy to Solr, and none of these modes creates an engine checkpoint transaction.
+     */
     public enum CommitMode {
         HARD,
         SOFT,
