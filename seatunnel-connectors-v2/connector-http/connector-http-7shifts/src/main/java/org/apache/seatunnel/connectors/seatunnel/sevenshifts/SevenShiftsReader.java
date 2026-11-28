@@ -25,8 +25,12 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -34,7 +38,10 @@ import java.util.Set;
 
 import static org.apache.seatunnel.connectors.seatunnel.sevenshifts.SevenShiftsHttp.failure;
 
-/** Walks company and user scopes, committing each complete page to the collector and split. */
+/**
+ * Walks company and user scopes with response validation outside checkpoint locks. Each poll
+ * accepts at most one prepared row and saves its prefix atomically before yielding to the engine.
+ */
 final class SevenShiftsReader implements SourceReader<SeaTunnelRow, SevenShiftsSplit> {
     private static final int MAX_RECORDS_PER_PAGE = 10000;
     private final SevenShiftsConfig config;
@@ -45,6 +52,7 @@ final class SevenShiftsReader implements SourceReader<SeaTunnelRow, SevenShiftsS
 
     private SevenShiftsSplit split;
     private PageRequest request;
+    private Page prepared;
     private volatile boolean cancelled;
     private boolean signaledDone;
 
@@ -58,7 +66,10 @@ final class SevenShiftsReader implements SourceReader<SeaTunnelRow, SevenShiftsS
     @Override
     public void open() {}
 
-    /** Waits briefly when the single asynchronous operation has no result yet. */
+    /**
+     * Network polling, complete-page validation and restore-prefix checks never hold the collector
+     * lock. One accepted row and its durable prefix share the same checkpoint boundary.
+     */
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         if (cancelled || signaledDone) {
@@ -69,7 +80,7 @@ final class SevenShiftsReader implements SourceReader<SeaTunnelRow, SevenShiftsS
         synchronized (stateLock) {
             waiting = split == null;
             finished = !waiting && split.step == SevenShiftsSplit.Step.DONE;
-            if (!waiting && !finished && request == null) {
+            if (!waiting && !finished && request == null && prepared == null) {
                 request = request(split);
                 http.start(request.resource, request.route);
                 return;
@@ -84,30 +95,102 @@ final class SevenShiftsReader implements SourceReader<SeaTunnelRow, SevenShiftsS
             Thread.sleep(10);
             return;
         }
-        JsonNode result = http.poll();
-        if (result == null) {
-            if (!cancelled) {
-                Thread.sleep(10);
+        if (prepared == null) {
+            JsonNode result = http.poll();
+            if (result == null) {
+                if (!cancelled) {
+                    Thread.sleep(10);
+                }
+                return;
+            }
+            Page page = decode(request, result);
+            SevenShiftsSplit position;
+            synchronized (stateLock) {
+                position = split.copy();
+            }
+            page.nextDigest = position.validateNext(request.resource, page.next);
+            if (request.discovery) {
+                // Parent discovery emits no rows. Publish one fully validated detached position;
+                // snapshots can observe either complete position without waiting for set traversal.
+                position.addParents(page.parents, config.resource);
+                position.advance(config.resource, page.next, page.nextDigest);
+                synchronized (stateLock) {
+                    if (!cancelled) {
+                        split = position;
+                        request = null;
+                    }
+                }
+            } else {
+                preparePrefix(page, position, request.resource);
+                synchronized (stateLock) {
+                    if (!cancelled) {
+                        prepared = page;
+                        request = null;
+                    }
+                }
             }
             return;
         }
-
-        Page page = decode(request, result);
         synchronized (output.getCheckpointLock()) {
             synchronized (stateLock) {
                 if (cancelled) {
                     return;
                 }
-                String digest = split.validateNext(request.resource, page.next);
-                if (request.discovery) {
-                    split.addParents(page.parents, config.resource);
-                } else {
-                    page.rows.forEach(output::collect);
+                Page page = prepared;
+                if (page.index < page.rows.size()) {
+                    output.collect(page.rows.get(page.index));
+                    split.acceptedHash = page.hashes.get(page.index++);
+                    split.acceptedCount = page.index;
                 }
-                split.advance(config.resource, page.next, digest);
-                request = null;
+                if (page.index == page.rows.size()) {
+                    // Includes empty/filtered pages and one-row grouped objects. Never expose a
+                    // checkpoint between the last accepted row and advancing its parent/cursor.
+                    split.advance(config.resource, page.next, page.nextDigest);
+                    prepared = null;
+                }
             }
         }
+    }
+
+    /**
+     * Copies the complete durable position, including a partial accepted prefix. An unassigned
+     * reader remains distinct from an assigned terminal split and cannot restart a completed scan.
+     */
+    @Override
+    public List<SevenShiftsSplit> snapshotState(long checkpointId) {
+        synchronized (stateLock) {
+            return split == null
+                    ? Collections.emptyList()
+                    : Collections.singletonList(split.copy());
+        }
+    }
+
+    @Override
+    public void addSplits(List<SevenShiftsSplit> splits) {
+        synchronized (stateLock) {
+            for (SevenShiftsSplit incoming : splits) {
+                if (split != null || !config.checkpointKey().equals(incoming.checkpointKey)) {
+                    throw SevenShiftsConfig.invalid("received an unexpected scan split");
+                }
+                split = incoming;
+            }
+        }
+    }
+
+    @Override
+    public void handleNoMoreSplits() {
+        // The assigned split itself identifies a completed scan, including on restore.
+    }
+
+    @Override
+    public void cancel() {
+        cancelled = true;
+        http.close();
+    }
+
+    @Override
+    public void close() {
+        cancel();
     }
 
     private PageRequest request(SevenShiftsSplit position) {
@@ -138,6 +221,72 @@ final class SevenShiftsReader implements SourceReader<SeaTunnelRow, SevenShiftsS
             route += "?" + String.join("&", query);
         }
         return new PageRequest(resource, route, discovery, companyId, userId);
+    }
+
+    /**
+     * Refetching is safe only when every already accepted output column is unchanged. Length-framed
+     * UTF-16 code units avoid conflating distinct strings through UTF-8 replacement characters.
+     */
+    private static void preparePrefix(
+            Page page, SevenShiftsSplit position, SevenShiftsResource resource)
+            throws SevenShiftsHttp.RequestFailure {
+        String previous = null;
+        for (SeaTunnelRow row : page.rows) {
+            previous = rowHash(previous, row);
+            page.hashes.add(previous);
+        }
+        if (position.acceptedCount < 0
+                || position.acceptedCount > page.rows.size()
+                || (position.acceptedCount == 0 && position.acceptedHash != null)
+                || (position.acceptedCount > 0
+                        && !page.hashes
+                                .get(position.acceptedCount - 1)
+                                .equals(position.acceptedHash))) {
+            throw failure(resource, "accepted page prefix changed since the checkpoint");
+        }
+        page.index = position.acceptedCount;
+    }
+
+    private static String rowHash(String previous, SeaTunnelRow row) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            if (previous != null) {
+                digest.update(previous.getBytes(StandardCharsets.US_ASCII));
+            }
+            hashString(digest, (String) row.getField(0));
+            hashLong(digest, (Long) row.getField(1));
+            hashLong(digest, (Long) row.getField(2));
+            hashString(digest, (String) row.getField(3));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(digest.digest());
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable", e);
+        }
+    }
+
+    private static void hashString(MessageDigest digest, String value) {
+        hashInt(digest, value == null ? -1 : value.length());
+        if (value != null) {
+            for (int i = 0; i < value.length(); i++) {
+                char unit = value.charAt(i);
+                digest.update((byte) (unit >>> 8));
+                digest.update((byte) unit);
+            }
+        }
+    }
+
+    private static void hashLong(MessageDigest digest, Long value) {
+        hashInt(digest, value == null ? -1 : Long.BYTES);
+        if (value != null) {
+            for (int shift = 56; shift >= 0; shift -= 8) {
+                digest.update((byte) (value >>> shift));
+            }
+        }
+    }
+
+    private static void hashInt(MessageDigest digest, int value) {
+        for (int shift = 24; shift >= 0; shift -= 8) {
+            digest.update((byte) (value >>> shift));
+        }
     }
 
     private Page decode(PageRequest current, JsonNode result)
@@ -283,44 +432,10 @@ final class SevenShiftsReader implements SourceReader<SeaTunnelRow, SevenShiftsS
         }
     }
 
-    /** An empty reader before assignment is distinct from an assigned terminal split. */
-    @Override
-    public List<SevenShiftsSplit> snapshotState(long checkpointId) {
-        synchronized (stateLock) {
-            return split == null
-                    ? Collections.emptyList()
-                    : Collections.singletonList(split.copy());
-        }
-    }
-
-    @Override
-    public void addSplits(List<SevenShiftsSplit> splits) {
-        synchronized (stateLock) {
-            for (SevenShiftsSplit incoming : splits) {
-                if (split != null || !config.checkpointKey().equals(incoming.checkpointKey)) {
-                    throw SevenShiftsConfig.invalid("received an unexpected scan split");
-                }
-                split = incoming;
-            }
-        }
-    }
-
-    @Override
-    public void handleNoMoreSplits() {
-        // The assigned split itself identifies a completed scan, including on restore.
-    }
-
-    @Override
-    public void cancel() {
-        cancelled = true;
-        http.close();
-    }
-
-    @Override
-    public void close() {
-        cancel();
-    }
-
+    /**
+     * Immutable request identity keeps authoritative parent IDs and discovery rules attached to the
+     * asynchronous response until its complete envelope has been validated.
+     */
     private static final class PageRequest {
         private final SevenShiftsResource resource;
         private final String route;
@@ -342,8 +457,15 @@ final class SevenShiftsReader implements SourceReader<SeaTunnelRow, SevenShiftsS
         }
     }
 
+    /**
+     * Transient decoded rows and prefix digests are bounded by the response and page limits. Only
+     * the accepted count and one digest enter the durable split; HTTP bodies never enter state.
+     */
     private static final class Page {
         private final String next;
+        private String nextDigest;
+        private int index;
+        private final List<String> hashes = new ArrayList<>();
         private final Set<Long> parents = new LinkedHashSet<>();
         private final List<SeaTunnelRow> rows = new ArrayList<>();
 

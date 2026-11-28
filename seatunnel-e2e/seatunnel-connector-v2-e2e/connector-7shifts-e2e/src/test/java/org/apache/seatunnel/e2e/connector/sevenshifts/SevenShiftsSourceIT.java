@@ -57,12 +57,18 @@ import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
+/**
+ * Exercises the source through real engine jobs and an HTTP/TLS protocol fixture. Committed local
+ * receipts distinguish accepted checkpoint prefixes from rows that have only reached a console log.
+ */
 @Execution(ExecutionMode.SAME_THREAD)
 class SevenShiftsSourceIT extends TestSuiteBase implements TestResource {
     private static final String HOST = "sevenshifts-fixture";
@@ -538,6 +544,191 @@ class SevenShiftsSourceIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK})
+    void checkpointsThrottledDecodedPageAndValidatesAcceptedPrefix(TestContainer container)
+            throws Exception {
+        for (boolean changed : Arrays.asList(false, true)) {
+            reset(settings("partial_page").put("change_prefix", changed));
+            String initial = jobId();
+            String resumed = jobId();
+            String directory = "/tmp/seatunnel_mnt/sevenshifts-" + initial;
+            Path file = receiptConfig(directory);
+            ExecutorService jobs = Executors.newSingleThreadExecutor();
+            try {
+                Future<Container.ExecResult> running =
+                        jobs.submit(() -> container.executeJob(resource(file), initial));
+                Awaitility.await().atMost(90, TimeUnit.SECONDS).until(() -> calls().size() == 2);
+                // Old whole-page collection takes roughly 50 seconds under the same limiter and
+                // cannot commit this partial receipt within the shorter checkpoint observation.
+                Awaitility.await()
+                        .atMost(20, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () -> {
+                                    int count = receipts(container, directory).size();
+                                    Assertions.assertTrue(count >= 5 && count < 100);
+                                });
+                long baseline = container.getCompletedCheckpointCount(initial);
+                Awaitility.await()
+                        .atMost(10, TimeUnit.SECONDS)
+                        .until(() -> container.getCompletedCheckpointCount(initial) > baseline);
+                Assertions.assertEquals(
+                        2, calls().size(), "The decoded user page is not refetched");
+                Assertions.assertTrue(receipts(container, directory).size() < 100);
+                container.stopJob(initial);
+                status(container, initial, "CANCELED");
+                running.get(60, TimeUnit.SECONDS);
+                List<JsonNode> committed = receipts(container, directory);
+                Assertions.assertTrue(committed.size() >= 5 && committed.size() < 100);
+
+                String before = container.getServerLogs();
+                Container.ExecResult result =
+                        container.restoreJobWithCheckpoint(resource(file), initial, resumed);
+                if (changed) {
+                    String logs =
+                            result.getStdout()
+                                    + "\n"
+                                    + result.getStderr()
+                                    + "\n"
+                                    + fresh(container, before);
+                    Assertions.assertNotEquals(0, result.getExitCode(), logs);
+                    Assertions.assertTrue(
+                            logs.contains("accepted page prefix changed since the checkpoint"),
+                            logs);
+                    Assertions.assertFalse(logs.contains(TOKEN));
+                    Assertions.assertFalse(logs.contains(PRIVATE_ERROR));
+                    Assertions.assertEquals(committed, receipts(container, directory));
+                } else {
+                    succeed(result);
+                    List<JsonNode> rows = receipts(container, directory);
+                    Assertions.assertEquals(100, rows.size());
+                    List<Long> expected = new ArrayList<>();
+                    for (int index = 0; index < 100; index++) {
+                        expected.add(FIRST_USER + index);
+                    }
+                    Assertions.assertEquals(
+                            expected,
+                            rows.stream()
+                                    .map(row -> row.path("user_id").longValue())
+                                    .collect(Collectors.toList()));
+                    for (JsonNode row : rows) {
+                        Assertions.assertEquals("users", row.path("resource").asText());
+                        Assertions.assertEquals(FIRST_COMPANY, row.path("company_id").longValue());
+                        long user = row.path("user_id").longValue();
+                        JsonNode payload = JSON.readTree(row.path("payload").textValue());
+                        Assertions.assertEquals(user, payload.path("id").longValue());
+                        Assertions.assertEquals(
+                                "employee-" + FIRST_COMPANY + "-" + user,
+                                payload.path("marker").asText());
+                        Assertions.assertTrue(payload.path("active").booleanValue());
+                    }
+                }
+                Assertions.assertEquals(
+                        3, calls().size(), "Restore refetches only the partial page");
+                assertProtocol(calls().get(0), "/v2/companies");
+                assertProtocol(calls().get(1), companyPath(FIRST_COMPANY, "users"));
+                assertProtocol(calls().get(2), companyPath(FIRST_COMPANY, "users"));
+                Assertions.assertEquals("100", calls().get(2).at("/query/limit/0").asText());
+            } finally {
+                try {
+                    cancelIfRunning(container, initial);
+                    cancelIfRunning(container, resumed);
+                } finally {
+                    jobs.shutdownNow();
+                    Files.deleteIfExists(file);
+                }
+            }
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK})
+    void responseScopedSymbolsKeepLongNamesExactAndRejectMalformedUtf8(TestContainer container)
+            throws Exception {
+        reset(settings("long_keys"));
+        List<OutputRow> rows = successful(container, options("companies"));
+        Assertions.assertEquals(1, rows.size());
+        JsonNode payload = rows.get(0).payload;
+        StringBuilder first = new StringBuilder();
+        StringBuilder second = new StringBuilder();
+        for (int index = 0; index < 4096; index++) {
+            first.append('k');
+            second.append('a');
+        }
+        Assertions.assertEquals("exact-value-中文", payload.path(first + "中").asText());
+        Assertions.assertEquals(
+                9007199254740997L, payload.path(second + "é").path("number").asLong());
+        Assertions.assertEquals(FIRST_COMPANY, rows.get(0).company);
+        Assertions.assertEquals(
+                0,
+                new BigDecimal("12345678901234567890.12345678901234567890")
+                        .compareTo(payload.path("amount").decimalValue()));
+        Assertions.assertEquals(1, calls().size());
+        reset(settings("malformed_utf8"));
+        String logs = failed(container, options("companies"), "invalid JSON page");
+        Assertions.assertTrue(output(logs, "companies").isEmpty());
+        Assertions.assertEquals(1, calls().size());
+    }
+
+    /**
+     * A real transactional sink commits receipts at checkpoint completion. The slow decoded page is
+     * longer than the checkpoint timeout, so page-wide collection cannot satisfy the prefix oracle.
+     */
+    private static Path receiptConfig(String directory) throws IOException {
+        String cfg =
+                "env {\n  parallelism = 1\n  job.retry.times = 0\n  job.mode = BATCH\n"
+                        + "  read_limit.rows_per_second = 2\n  checkpoint.interval = 1000\n"
+                        + "  checkpoint.timeout = 30000\n  checkpoint.retain-after-job-cancelled = true\n}\n"
+                        + "source {\n  SevenShifts "
+                        + options("users").put("page_size", 100)
+                        + "\n}\nsink {\n  LocalFile {\n    path = \""
+                        + directory
+                        + "\"\n    file_format_type = json\n    row_delimiter = \"\\n\"\n"
+                        + "    custom_filename = true\n    file_name_expression = \"receipt_${transactionId}\"\n"
+                        + "    is_enable_transaction = true\n  }\n}\n";
+        Path file =
+                Files.createTempFile(
+                        ContainerUtil.getCurrentModulePath().resolve("src/test/resources"),
+                        "seven-shifts-prefix-",
+                        ".conf");
+        Files.write(file, cfg.getBytes(StandardCharsets.UTF_8));
+        return file;
+    }
+
+    /**
+     * Reads only committed receipt files through the existing container callback. Sorting by typed
+     * user ID makes transaction file enumeration irrelevant without hiding duplicate output rows.
+     */
+    private static List<JsonNode> receipts(TestContainer container, String directory)
+            throws Exception {
+        List<JsonNode> rows = new ArrayList<>();
+        container.executeExtraCommands(
+                engine -> {
+                    Container.ExecResult files =
+                            engine.execInContainer(
+                                    "sh",
+                                    "-c",
+                                    "if test -d "
+                                            + directory
+                                            + "; then find "
+                                            + directory
+                                            + " -maxdepth 1 -name 'receipt_*' -type f "
+                                            + "-exec sh -c 'for f do cat \"$f\"; printf \"\\n\"; done' sh {} +; fi");
+                    Assertions.assertEquals(0, files.getExitCode(), files.getStderr());
+                    for (String line : files.getStdout().split("\\R")) {
+                        if (!line.trim().isEmpty()) {
+                            rows.add(JSON.readTree(line));
+                        }
+                    }
+                });
+        rows.sort(Comparator.comparingLong(row -> row.path("user_id").longValue()));
+        return rows;
+    }
+
     private static void assertProtocol(JsonNode call, String path) {
         Assertions.assertEquals(path, call.path("path").asText());
         Assertions.assertTrue(call.path("auth").asBoolean(), "Missing or incorrect Bearer header");
@@ -717,7 +908,10 @@ class SevenShiftsSourceIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    /** Generates a test-only, untrusted certificate without sharing private keys in the source. */
+    /**
+     * Generates an untrusted certificate for the TLS rejection scenario. Only temporary test keys
+     * enter the fixture container; no private key material is checked into the connector sources.
+     */
     private static void certificate(Path directory) throws Exception {
         Path keystore = directory.resolve("fixture.p12");
         Path keytool = Paths.get(System.getProperty("java.home"), "bin", "keytool");
@@ -774,6 +968,10 @@ class SevenShiftsSourceIT extends TestSuiteBase implements TestResource {
                         .getBytes(StandardCharsets.US_ASCII));
     }
 
+    /**
+     * Parsed engine output preserves authoritative typed parent IDs separately from the complete
+     * provider payload, so protocol and precision assertions do not rely on marker text alone.
+     */
     private static final class OutputRow {
         private final long company;
         private final Long user;

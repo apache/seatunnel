@@ -30,13 +30,20 @@ import java.util.Set;
 
 import static org.apache.seatunnel.connectors.seatunnel.sevenshifts.SevenShiftsHttp.failure;
 
-/** Resumable traversal position. Holds IDs and cursors, never credentials or response records. */
+/**
+ * Stores bounded parent/cursor traversal plus the count and digest of accepted rows on one page.
+ * Credentials and response records remain outside durable state, including during partial restore.
+ */
 final class SevenShiftsSplit implements SourceSplit {
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
     private static final int MAX_PAGES_PER_ENDPOINT = 10000;
     private static final int MAX_COMPANIES = 4096;
     private static final int MAX_USERS_PER_COMPANY = 100000;
 
+    /**
+     * Discovery phases precede the selected resource; DONE remains assigned so terminal checkpoints
+     * cannot be mistaken for a reader that is still waiting for its single split.
+     */
     enum Step {
         COMPANIES,
         USERS,
@@ -47,6 +54,9 @@ final class SevenShiftsSplit implements SourceSplit {
     final String checkpointKey;
     Step step;
     String cursor;
+    // Only the accepted prefix of the current RECORDS page is durable; records stay transient.
+    int acceptedCount;
+    String acceptedHash;
     private int companyIndex;
     private int userIndex;
     private final List<Long> companies;
@@ -71,6 +81,8 @@ final class SevenShiftsSplit implements SourceSplit {
         checkpointKey = source.checkpointKey;
         step = source.step;
         cursor = source.cursor;
+        acceptedCount = source.acceptedCount;
+        acceptedHash = source.acceptedHash;
         companyIndex = source.companyIndex;
         userIndex = source.userIndex;
         companies = new ArrayList<>(source.companies);
@@ -136,8 +148,14 @@ final class SevenShiftsSplit implements SourceSplit {
         target.addAll(ids);
     }
 
-    /** Advances after the whole page has been validated and emitted. */
+    /**
+     * Advances only after every included row is accepted. Output-page transitions share the
+     * collector/state boundary; discovery prepares this transition on a detached position instead.
+     * Both paths clear the prefix together with moving the page, parent or traversal phase.
+     */
     void advance(SevenShiftsResource resource, String next, String digest) {
+        acceptedCount = 0;
+        acceptedHash = null;
         if (next != null) {
             cursor = next;
             seenCursors.add(digest);

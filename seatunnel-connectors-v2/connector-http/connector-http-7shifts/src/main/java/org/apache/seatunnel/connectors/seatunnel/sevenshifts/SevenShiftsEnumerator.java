@@ -22,7 +22,10 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import java.io.Serializable;
 import java.util.List;
 
-/** Assigns the single scan and accepts restored reader splits even after startup. */
+/**
+ * Owns the single unassigned traversal and accepts reader-owned restored positions after startup.
+ * Assignment is restricted to subtask zero and acknowledged before pending ownership is cleared.
+ */
 final class SevenShiftsEnumerator
         implements SourceSplitEnumerator<SevenShiftsSplit, SevenShiftsEnumerator.State> {
     private final Context<SevenShiftsSplit> context;
@@ -87,7 +90,10 @@ final class SevenShiftsEnumerator
         assign();
     }
 
-    /** Records coordinator-owned work separately from the assigned reader checkpoint. */
+    /**
+     * Saves only coordinator-owned work. The assigned reader independently snapshots its accepted
+     * row prefix, so an empty pending position must not recreate a fresh traversal on restore.
+     */
     @Override
     public synchronized State snapshotState(long checkpointId) {
         return new State(checkpointKey, pending == null ? null : pending.copy());
@@ -108,6 +114,10 @@ final class SevenShiftsEnumerator
         }
     }
 
+    /**
+     * Detached coordinator checkpoint containing an optional unassigned scan. The fingerprint
+     * prevents a saved traversal from being assigned to a different export or state version.
+     */
     static final class State implements Serializable {
         private static final long serialVersionUID = 1L;
         private final String checkpointKey;

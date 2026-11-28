@@ -50,6 +50,7 @@ import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZonedDateTime;
@@ -63,12 +64,16 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPInputStream;
 
-/** Quiet, deadline-bounded GET transport, with one in-flight page per reader. */
+/**
+ * Owns one asynchronous GET with a deadline covering retries, transfer and response decoding. Quiet
+ * socket connections avoid credential/body logging; decoded JSON symbol tables belong to one page.
+ */
 final class SevenShiftsHttp implements AutoCloseable {
     private static final int MAX_BODY = 8 * 1024 * 1024;
     private static final ObjectMapper JSON =
             new ObjectMapper(
                             JsonFactory.builder()
+                                    .disable(JsonFactory.Feature.INTERN_FIELD_NAMES)
                                     .streamReadConstraints(
                                             StreamReadConstraints.builder()
                                                     .maxNestingDepth(64)
@@ -106,7 +111,10 @@ final class SevenShiftsHttp implements AutoCloseable {
         this.config = config;
     }
 
-    /** Starts the operation outside the engine and checkpoint threads. */
+    /**
+     * Submits one operation to the owned worker so connection setup, backoff and response parsing
+     * do not occupy the engine thread that must process checkpoints and cancellation.
+     */
     synchronized void start(SevenShiftsResource resource, String route) {
         if (closed) {
             return;
@@ -120,7 +128,10 @@ final class SevenShiftsHttp implements AutoCloseable {
                         resource, deadline, worker.submit(() -> fetch(resource, route, deadline)));
     }
 
-    /** A null result means the job can yield and check its checkpoint or cancellation work. */
+    /**
+     * Returns only a complete validated JSON response. A null result yields the engine thread while
+     * the operation is pending; the watchdog closes an exchange that outlives its request deadline.
+     */
     synchronized JsonNode poll() throws IOException {
         if (closed || pending == null) {
             return null;
@@ -148,6 +159,34 @@ final class SevenShiftsHttp implements AutoCloseable {
             }
             throw failure(current.resource, "request failed");
         }
+    }
+
+    /**
+     * Prevents new requests and interrupts worker backoff while closing the published socket
+     * without waiting for the worker to finish. Repeated cancellation and close calls share this
+     * ownership.
+     */
+    @Override
+    public synchronized void close() {
+        if (closed) {
+            return;
+        }
+        closed = true;
+        if (pending != null) {
+            pending.result.cancel(true);
+        }
+        worker.shutdownNow();
+        if (socket != null) {
+            try {
+                socket.close();
+            } catch (IOException ignored) {
+                // The connection also closes the socket when the worker unwinds.
+            }
+        }
+    }
+
+    static RequestFailure failure(SevenShiftsResource resource, String reason) {
+        return new RequestFailure("7shifts Source " + resource.apiName + ": " + reason);
     }
 
     private JsonNode fetch(SevenShiftsResource resource, String route, long deadline)
@@ -208,7 +247,7 @@ final class SevenShiftsHttp implements AutoCloseable {
             throw e;
         } catch (SSLException e) {
             throw failure(resource, "TLS transport failed");
-        } catch (java.net.SocketTimeoutException e) {
+        } catch (SocketTimeoutException e) {
             throw failure(resource, "request deadline exceeded");
         } catch (IOException | HttpException e) {
             throw failure(resource, "transport failed or returned invalid HTTP framing");
@@ -245,7 +284,9 @@ final class SevenShiftsHttp implements AutoCloseable {
         }
         byte[] decoded = decode(response, resource);
         try {
-            JsonNode page = JSON.readTree(decoded);
+            // A fresh factory bounds symbol ownership to this response. Keep byte parsing and
+            // canonicalization so malformed UTF-8 still fails instead of being replaced.
+            JsonNode page = JSON.copy().readTree(decoded);
             if (page == null || !page.isObject()) {
                 throw failure(resource, "invalid JSON page");
             }
@@ -344,30 +385,10 @@ final class SevenShiftsHttp implements AutoCloseable {
         return (int) Math.max(1, TimeUnit.NANOSECONDS.toMillis(remaining));
     }
 
-    /** Prevent future requests and interrupt backoff, the exchange, or the waiting read. */
-    @Override
-    public synchronized void close() {
-        if (closed) {
-            return;
-        }
-        closed = true;
-        if (pending != null) {
-            pending.result.cancel(true);
-        }
-        worker.shutdownNow();
-        if (socket != null) {
-            try {
-                socket.close();
-            } catch (IOException ignored) {
-                // The connection also closes the socket when the worker unwinds.
-            }
-        }
-    }
-
-    static RequestFailure failure(SevenShiftsResource resource, String reason) {
-        return new RequestFailure("7shifts Source " + resource.apiName + ": " + reason);
-    }
-
+    /**
+     * Public diagnostic boundary contains only resource and fixed failure reason. Request tokens,
+     * opaque cursors, response bodies and underlying network/parser messages are never attached.
+     */
     static final class RequestFailure extends IOException {
         private static final long serialVersionUID = 1L;
 
@@ -376,6 +397,10 @@ final class SevenShiftsHttp implements AutoCloseable {
         }
     }
 
+    /**
+     * Worker-local retry instruction carries only HTTP status and bounded-deadline delay metadata.
+     * It never exposes the provider error body or response headers to engine diagnostics.
+     */
     private static final class RetryableStatus extends IOException {
         private static final long serialVersionUID = 1L;
         private final int status;
@@ -387,6 +412,11 @@ final class SevenShiftsHttp implements AutoCloseable {
         }
     }
 
+    /**
+     * Keeps the absolute operation deadline and future together while the engine polls. Closing the
+     * owner cancels this future and its socket without serializing either resource into a
+     * checkpoint.
+     */
     private static final class Pending {
         private final SevenShiftsResource resource;
         private final long deadline;

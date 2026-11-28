@@ -137,6 +137,7 @@ def resource(path, query):
 
 
 class Handler(BaseHTTPRequestHandler):
+    """Original protocol, fault and lifecycle scenarios shared by all fixture modes."""
     protocol_version = 'HTTP/1.1'
 
     def log_message(self, *_):
@@ -285,9 +286,37 @@ class Handler(BaseHTTPRequestHandler):
             self.send(200, payload)
 
 
+class RepairHandler(Handler):
+    """Adds isolated prefix/decoder scenarios while preserving every original handler method."""
+
+    def send(self, status, payload=b'', **headers):
+        path = urlsplit(self.path).path
+        with lock:
+            mode = cases.get('mode')
+            changed = cases.get('change_prefix', False)
+            attempts = sum(call['path'] == path for call in calls)
+        if status == 200 and path.startswith('/v2/'):
+            if mode == 'partial_page':
+                if path == '/v2/companies':
+                    payload = body(page([company(C1)]))
+                elif path == f'/v2/company/{C1}/users':
+                    rows = [user(C1, U1 + index, True) for index in range(100)]
+                    if changed and attempts > 1:
+                        rows[0]['marker'] = 'changed-accepted-record'
+                    payload = body(page(rows))
+            elif mode == 'long_keys' and path == '/v2/companies':
+                record = company(C1)
+                record['k' * 4096 + '中'] = 'exact-value-中文'
+                record['a' * 4096 + 'é'] = {'number': 9007199254740997}
+                payload = body(page([record]))
+            elif mode == 'malformed_utf8' and path == '/v2/companies':
+                payload = b'{"data":[{"id":1,"name":"\xff"}]}'
+        super().send(status, payload, **headers)
+
+
 if __name__ == '__main__':
-    http = ThreadingHTTPServer(('', 8080), Handler)
-    https = ThreadingHTTPServer(('', 8443), Handler)
+    http = ThreadingHTTPServer(('', 8080), RepairHandler)
+    https = ThreadingHTTPServer(('', 8443), RepairHandler)
     tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     tls.load_cert_chain('/fixture-cert.pem', '/fixture-key.pem')
     https.socket = tls.wrap_socket(https.socket, server_side=True)

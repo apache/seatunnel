@@ -32,7 +32,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import java.util.Collections;
 import java.util.List;
 
-/** Bounded export of one 7shifts API resource. */
+/**
+ * Exposes one bounded resource export with fixed resource, company, nullable user and JSON columns.
+ * A single reader traverses the authorized parent scopes and restores its connector-owned position.
+ */
 public final class SevenShiftsSource
         implements SeaTunnelSource<SeaTunnelRow, SevenShiftsSplit, SevenShiftsEnumerator.State> {
     private static final long serialVersionUID = 1L;

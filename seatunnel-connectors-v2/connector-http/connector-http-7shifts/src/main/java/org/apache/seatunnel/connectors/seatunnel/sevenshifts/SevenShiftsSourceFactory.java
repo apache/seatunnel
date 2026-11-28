@@ -39,7 +39,10 @@ import static org.apache.seatunnel.connectors.seatunnel.sevenshifts.SevenShiftsS
 import static org.apache.seatunnel.connectors.seatunnel.sevenshifts.SevenShiftsSourceOptions.START_DATE;
 import static org.apache.seatunnel.connectors.seatunnel.sevenshifts.SevenShiftsSourceOptions.TOKEN;
 
-/** Exposes the 7shifts source and its option contract through the factory SPI. */
+/**
+ * Registers the bounded resource source through the factory SPI and validates the dedicated option
+ * contract before constructing its fixed output catalog and connector-owned HTTP reader.
+ */
 @AutoService(Factory.class)
 public final class SevenShiftsSourceFactory implements TableSourceFactory {
     @Override

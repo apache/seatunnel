@@ -19,7 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.sevenshifts;
 
 import java.util.Locale;
 
-/** Endpoint-specific parent, shape, paging and modification-filter rules. */
+/**
+ * Declares each endpoint's parent scope, response shape and modification precision together. These
+ * rules drive discovery, authoritative parent IDs and overlap filtering without changing the
+ * payload.
+ */
 enum SevenShiftsResource {
     COMPANIES(Scope.ROOT, Shape.LIST, Modification.DAY),
     LOCATIONS(Scope.COMPANY, Shape.LIST, Modification.DAY),
@@ -34,17 +38,30 @@ enum SevenShiftsResource {
     TIME_PUNCHES(Scope.COMPANY, Shape.LIST, Modification.INSTANT),
     SHIFTS(Scope.COMPANY, Shape.LIST, Modification.INSTANT);
 
+    /**
+     * Identifies whether traversal needs company discovery, company-local user discovery or
+     * neither. User resources are fetched per discovered user and cannot return a pagination
+     * cursor.
+     */
     enum Scope {
         ROOT,
         COMPANY,
         USER
     }
 
+    /**
+     * Distinguishes lists of records from one grouped user object. Grouped wages and assignments
+     * retain their required bucket arrays and are emitted atomically as a single payload row.
+     */
     enum Shape {
         LIST,
         OBJECT
     }
 
+    /**
+     * Controls provider lower-bound overlap before the reader applies its exact inclusive UTC
+     * cutoff. Resources without modification support reject a configured start date explicitly.
+     */
     enum Modification {
         NONE,
         DAY,

@@ -20,7 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.sevenshifts;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-/** Configuration for one bounded 7shifts resource scan. */
+/**
+ * Defines the dedicated options for one bounded resource export. Transport limits and parent scan
+ * bounds remain connector-owned; no caller-supplied schema changes the four produced columns.
+ */
 public final class SevenShiftsSourceOptions {
     public static final Option<String> TOKEN =
             Options.key("token")
