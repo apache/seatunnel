@@ -31,6 +31,7 @@
 
     <modules>
         <module>connector-http-base</module>
+        <module>connector-http-adjust</module>
         <module>connector-http-feishu</module>
         <module>connector-http-wechat</module>
         <module>connector-http-myhours</module>
