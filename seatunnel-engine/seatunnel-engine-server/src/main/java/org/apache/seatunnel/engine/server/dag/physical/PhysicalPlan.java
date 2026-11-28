@@ -204,14 +204,48 @@ public class PhysicalPlan {
             return;
         }
 
-        if (((JobStatus) runningJobStateIMap.get(jobId)).ordinal() <= JobStatus.PENDING.ordinal()) {
+        if (jobStatus.ordinal() <= JobStatus.PENDING.ordinal()) {
             // Tasks with the status 'INITIALIZING', 'CREATED', 'PENDING' need to be set directly to
             // the 'CANCELLED' state because it has not yet started running
+            cancelDeployedTasksOfPendingJob();
             updateJobState(JobStatus.CANCELED);
             jobEndFuture.complete(new JobResult(JobStatus.CANCELED));
         } else {
             updateJobState(JobStatus.CANCELING);
         }
+    }
+
+    /**
+     * Stops the tasks of a pending job that still owns deployed task groups and releases their
+     * slots.
+     *
+     * <p>A plain pending job has never been dispatched, so no task exists and moving the job
+     * straight to an end state is enough. A job recreated after an active-master switch is
+     * different: the new master re-enters it into the pending queue while the worker still runs the
+     * task groups deployed by the previous master and still owns their slots ({@code
+     * JobMaster#getReusableSlot} deliberately reuses them). Such a job is pending only from the
+     * coordinator's point of view. Moving it straight to {@link JobStatus#CANCELED} would drop the
+     * coordinator bookkeeping while the worker tasks kept running and their slots were never
+     * released, permanently poisoning a fixed slot pool. The pending job is also no longer
+     * reachable through the running-job map, so its regular task-state callbacks cannot be relied
+     * on to release anything: cancel the task groups and release the persisted slot ownership here.
+     */
+    private void cancelDeployedTasksOfPendingJob() {
+        if (pipelineList.stream()
+                .allMatch(
+                        pipeline ->
+                                pipeline.getPipelineState() == null
+                                        || PipelineStatus.CREATED.equals(
+                                                pipeline.getPipelineState()))) {
+            return;
+        }
+        log.info(
+                "{} is pending but still owns deployed tasks, cancel them before ending",
+                jobFullName);
+        jobMaster.neverNeedRestore();
+        pipelineList.forEach(SubPlan::markCancelRequested);
+        pipelineList.forEach(SubPlan::forceStopPipeline);
+        pipelineList.forEach(jobMaster::releasePipelineResource);
     }
 
     public void savepointJob() {
@@ -254,6 +288,7 @@ public class PhysicalPlan {
         if (jobStatus.ordinal() <= JobStatus.PENDING.ordinal()) {
             // Tasks with the status 'INITIALIZING', 'CREATED', 'PENDING' need to be set directly to
             // the 'CANCELLED' state because it has not yet started running
+            cancelDeployedTasksOfPendingJob();
             updateJobState(JobStatus.CANCELED);
             completeJobEndFuture(new JobResult(JobStatus.CANCELED, null));
         } else if (jobStatus == JobStatus.DOING_SAVEPOINT) {
