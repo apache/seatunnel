@@ -80,6 +80,7 @@ connector-http-feishu
 connector-http-gitlab
 connector-http-github
 connector-http-jira
+connector-http-confluence
 connector-http-klaviyo
 connector-http-stripe
 connector-http-paypal
