@@ -33,6 +33,7 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
@@ -51,6 +52,7 @@ import com.hazelcast.config.Config;
 import com.hazelcast.core.EntryView;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.map.IMap;
+import com.hazelcast.map.listener.EntryAddedListener;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -59,8 +61,11 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
@@ -79,6 +84,75 @@ public class ClusterFaultToleranceIT {
             "dynamic_test_row_num_per_parallelism";
 
     public static final String DYNAMIC_TEST_PARALLELISM = "dynamic_test_parallelism";
+
+    /** Verifies the graceful-removal marker on real Hazelcast distributed-object proxies. */
+    @Test
+    public void testGracefulShutdownPublishesMemberRemovalMarker() throws Exception {
+        String testClusterName =
+                "ClusterFaultToleranceIT_testGracefulShutdownPublishesMemberRemovalMarker";
+        HazelcastInstanceImpl node1 = null;
+        HazelcastInstanceImpl node2 = null;
+        IMap<Address, Long> markerMap = null;
+        UUID listenerRegistrationId = null;
+
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig
+                .getHazelcastConfig()
+                .setClusterName(TestUtils.getClusterName(testClusterName));
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
+
+        try {
+            node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+            node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+
+            HazelcastInstanceImpl finalNode = node1;
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, finalNode.getCluster().getMembers().size()));
+
+            Address departingAddress = node1.getCluster().getLocalMember().getAddress();
+            markerMap = node2.getMap(Constant.IMAP_GRACEFUL_MEMBER_REMOVAL);
+            CountDownLatch markerPublished = new CountDownLatch(1);
+            AtomicReference<Long> publishedAt = new AtomicReference<>();
+            listenerRegistrationId =
+                    markerMap.addEntryListener(
+                            (EntryAddedListener<Address, Long>)
+                                    event -> {
+                                        publishedAt.set(event.getValue());
+                                        markerPublished.countDown();
+                                    },
+                            departingAddress,
+                            true);
+
+            node1.shutdown();
+            node1 = null;
+
+            Assertions.assertTrue(
+                    markerPublished.await(30, TimeUnit.SECONDS),
+                    "graceful shutdown should publish the member-removal marker");
+            Assertions.assertNotNull(publishedAt.get());
+            Assertions.assertTrue(
+                    CoordinatorService.isGracefulMemberRemovalMarkerValid(
+                            publishedAt.get(), System.currentTimeMillis()),
+                    "the coordinator should classify the published marker as graceful");
+        } finally {
+            if (markerMap != null
+                    && listenerRegistrationId != null
+                    && node2 != null
+                    && node2.getLifecycleService().isRunning()) {
+                markerMap.removeEntryListener(listenerRegistrationId);
+            }
+            if (node1 != null) {
+                node1.shutdown();
+            }
+            if (node2 != null) {
+                node2.shutdown();
+            }
+        }
+    }
 
     @Test
     public void testBatchJobRunOkIn2Node() throws Exception {
