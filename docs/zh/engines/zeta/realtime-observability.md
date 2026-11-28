@@ -33,6 +33,11 @@
 
 > 解析方式支持点号路径（例如 `engine.observability.enabled`），对应到 HOCON/YAML 的嵌套对象。
 
+使用相同作业 ID 从 savepoint 恢复作业时，实时可观测性使用当前执行尝试的
+`enabled`、`bucket_ms` 和 `retention_minutes` 配置。之前执行尝试保留的历史数据不会覆盖
+当前执行尝试的可观测性设置。如果恢复时更改了 `bucket_ms` 或 `retention_minutes`，内存中的
+实时窗口会重新开始：系统会创建新的存储，并丢弃之前存储中的数据点。
+
 ### 2.2 配置项（当前实现）
 
 ```hocon

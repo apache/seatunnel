@@ -26,6 +26,8 @@ import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.job.ExecutionAddress;
+import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
@@ -44,6 +46,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.mockito.Mockito;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.exception.RetryableHazelcastException;
@@ -67,6 +70,62 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
     @AfterEach
     void clearPendingCleanupRecords() {
         nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP).clear();
+    }
+
+    @Test
+    void testGetJobInfoReturnsArchivedDagDuringDelayedCleanup() {
+        long cleanupDelayMs =
+                server.getSeaTunnelConfig().getEngineConfig().getStateCleanupDelayMillis();
+        server.getSeaTunnelConfig().getEngineConfig().setStateCleanupDelayMillis(30_000L);
+        long jobId = System.currentTimeMillis();
+        try {
+            startJob(jobId, "batch_fake_to_console_without_checkpoint_interval.conf", false);
+            await().atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.FINISHED,
+                                            server.getCoordinatorService().getJobStatus(jobId)));
+
+            IMap<Long, JobInfo> runningJobInfoIMap =
+                    nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+            Assertions.assertNotNull(
+                    runningJobInfoIMap.get(jobId),
+                    "running JobInfo should remain until delayed cleanup runs");
+
+            IMap<Long, JobDAGInfo> finishedJobDAGInfoIMap =
+                    nodeEngine
+                            .getHazelcastInstance()
+                            .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO);
+            await().atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertNotNull(
+                                            finishedJobDAGInfoIMap.get(jobId),
+                                            "finished history must contain the archived DAG"));
+            JobDAGInfo archivedDag = finishedJobDAGInfoIMap.get(jobId);
+            Assertions.assertNotNull(archivedDag, "finished history must contain the archived DAG");
+
+            JobDAGInfo returnedDag = server.getCoordinatorService().getJobInfo(jobId);
+            Assertions.assertEquals(archivedDag.getJobId(), returnedDag.getJobId());
+            Assertions.assertEquals(
+                    archivedDag.getHistoryExecutionPlan(), returnedDag.getHistoryExecutionPlan());
+            Assertions.assertNotNull(returnedDag.getHistoryExecutionPlan());
+            Assertions.assertFalse(returnedDag.getHistoryExecutionPlan().isEmpty());
+
+            Address workerAddress = nodeEngine.getThisAddress();
+            Assertions.assertTrue(
+                    returnedDag
+                            .getHistoryExecutionPlan()
+                            .contains(
+                                    new ExecutionAddress(
+                                            workerAddress.getHost(), workerAddress.getPort())),
+                    "archived execution plan should retain the worker address");
+        } finally {
+            server.getSeaTunnelConfig()
+                    .getEngineConfig()
+                    .setStateCleanupDelayMillis(cleanupDelayMs);
+        }
     }
 
     @Test
