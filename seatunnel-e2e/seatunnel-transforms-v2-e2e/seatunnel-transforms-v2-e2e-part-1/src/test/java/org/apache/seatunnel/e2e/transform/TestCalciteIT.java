@@ -65,6 +65,14 @@ public class TestCalciteIT extends TestSuiteBase {
         Assertions.assertEquals(0, result.getExitCode());
     }
 
+    @TestTemplate
+    public void testCalciteEncodeDecodeUdf(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult result =
+                container.executeJob("/calcite_transform/calcite_encode_decode_udf.conf");
+        Assertions.assertEquals(0, result.getExitCode());
+    }
+
     /** A transform with a transform level rule and per-table rules must be accepted. */
     @TestTemplate
     public void testCalciteMultiTable(TestContainer container)

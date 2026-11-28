@@ -130,6 +130,50 @@ FROM_BASE64(ENCODED_NAME)
 
 FROM_BASE64(TO_BASE64(NAME, 'UTF-16'), 'UTF-16')
 
+### ENCODE
+
+```ENCODE(value, charset) -> BINARY```
+
+Encodes a string into a binary value using the provided character set.
+
+The accepted charset names are `US-ASCII`, `ISO-8859-1`, `UTF-8`, `UTF-16BE`, `UTF-16LE`, `UTF-16`, case insensitive. No aliases are accepted, so `UTF8` is rejected even though the JVM knows it; a blank or unsupported charset name raises an error instead of falling back to a default charset.
+
+This is charset conversion between a string and raw bytes, not Base64 text encoding; for Base64 use `TO_BASE64`.
+
+Characters that cannot be represented in the charset are encoded using the JVM's replacement behavior rather than raising an error.
+
+Returns **NULL** if either argument is **NULL**.
+
+Example:
+
+ENCODE(NAME, 'UTF-8')
+
+ENCODE(NAME, 'UTF-16')
+
+ENCODE(NAME, 'ISO-8859-1')
+
+### DECODE
+
+```DECODE(value, charset) -> STRING```
+
+Decodes a binary value into a string using the provided character set.
+
+The accepted charset names are `US-ASCII`, `ISO-8859-1`, `UTF-8`, `UTF-16BE`, `UTF-16LE`, `UTF-16`, case insensitive. No aliases are accepted, so `UTF8` is rejected even though the JVM knows it; a blank or unsupported charset name raises an error instead of falling back to a default charset.
+
+For Base64 text use `FROM_BASE64`. The Oracle-style conditional `DECODE(expr, search, result)` is not supported.
+
+Invalid byte sequences are decoded using the JVM's replacement behavior rather than raising an error.
+
+Returns **NULL** if either argument is **NULL**.
+
+Example:
+
+DECODE(PAYLOAD, 'UTF-8')
+
+DECODE(PAYLOAD, 'ISO-8859-1')
+
+DECODE(ENCODE(NAME, 'UTF-8'), 'UTF-8')
+
 ### INSERT
 
 ```INSERT(originalString, startInt, lengthInt, addString) -> STRING```

@@ -101,6 +101,8 @@ public class ZetaSQLFunction {
     public static final String RAWTOHEX = "RAWTOHEX";
     public static final String TO_BASE64 = "TO_BASE64";
     public static final String FROM_BASE64 = "FROM_BASE64";
+    public static final String ENCODE = "ENCODE";
+    public static final String DECODE = "DECODE";
     public static final String INSERT = "INSERT";
     public static final String LOWER = "LOWER";
     public static final String LCASE = "LCASE";
@@ -508,6 +510,10 @@ public class ZetaSQLFunction {
                 return StringFunction.toBase64(args);
             case FROM_BASE64:
                 return StringFunction.fromBase64(args);
+            case ENCODE:
+                return StringFunction.encode(args);
+            case DECODE:
+                return StringFunction.decode(args);
             case INSERT:
                 return StringFunction.insert(args);
             case LOWER:
