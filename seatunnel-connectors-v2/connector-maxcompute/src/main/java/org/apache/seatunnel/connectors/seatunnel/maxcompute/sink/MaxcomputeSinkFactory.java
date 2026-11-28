@@ -47,8 +47,8 @@ public class MaxcomputeSinkFactory implements TableSinkFactory {
         return OptionRule.builder()
                 .required(
                         MaxcomputeSinkOptions.ENDPOINT,
-                        MaxcomputeSinkOptions.PROJECT,
-                        MaxcomputeSinkOptions.TABLE_NAME)
+                        Conditions.notBlank(MaxcomputeSinkOptions.ENDPOINT))
+                .required(MaxcomputeSinkOptions.PROJECT, MaxcomputeSinkOptions.TABLE_NAME)
                 .optional(
                         MaxcomputeSinkOptions.ACCESS_ID,
                         MaxcomputeSinkOptions.ACCESS_KEY,
