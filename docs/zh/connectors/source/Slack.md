@@ -23,7 +23,7 @@ import ChangeLog from '../changelog/connector-slack.md';
 
 ## 支持范围
 
-批处理 Source，源并行度必须为 **1**。在现有 `connector-slack` 插件中提供固定表结构、游标分页及检查点恢复，不改变既有 Slack Sink 配置。
+批处理 Source，源并行度必须为 **1**。在现有 `connector-slack` 插件中提供固定表结构、游标分页及检查点恢复。Source 使用默认脱敏的 `token` 凭证参数，既有 Slack Sink 仍使用 `oauth_token`，配置保持有效。
 
 仅读取明确指定的会话，不支持 Events API 流式订阅、会话发现、`conversations.replies` 线程回复遍历、文件、用户列表或其他 Slack 数据流。输出此 API 实际返回的历史条目；可访问数据受工作区保留策略、令牌权限和 Slack API 限制约束。
 
@@ -33,7 +33,7 @@ Bot 必须加入各会话并具备相应的 `channels:history`、`groups:history
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 | --- | --- | --- | --- | --- |
-| oauth_token | string | 是 | 无 | 只通过 Authorization 请求头发送；使用密钥提供程序。 |
+| token | string | 是 | 无 | 只通过 Authorization 请求头发送；使用密钥提供程序。 |
 | channel_ids | list(string) | 是 | 无 | 1–10000 个不重复的字母数字会话 ID。 |
 | api_root | string | 否 | https://slack.com/api/ | 可信 API 根地址，以 `/` 结尾，无用户信息、查询参数或片段。HTTP 仅供测试夹具使用；拒绝所有重定向。 |
 | page_size | int | 否 | 15 | 1–999；Slack 可以返回更少条目或限制实际页大小。 |
@@ -77,7 +77,7 @@ CI 的 API 契约 E2E 使用确定性 HTTP 夹具执行真实引擎作业，不�
 env { parallelism = 1, job.mode = "BATCH" }
 source {
   Slack {
-    oauth_token = ${SLACK_OAUTH_TOKEN}
+    token = ${SLACK_OAUTH_TOKEN}
     channel_ids = ["C0123456789", "C9876543210"]
     oldest = "1700000000.000001"
     latest = "1700086400.000001"

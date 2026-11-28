@@ -19,19 +19,21 @@ package org.apache.seatunnel.connectors.seatunnel.slack.source;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.slack.config.SlackSinkOptions;
 
 import java.util.List;
 
 /**
- * Declares bounded history source options independently of Slack Sink validation. The shared OAuth
- * token definition retains the existing sink option key; all source defaults and bounds stay
- * stable.
+ * Declares bounded history source options independently of Slack Sink validation. The source uses
+ * the default-masked token key without changing the historical Sink OAuth option.
  */
 public final class SlackSourceOptions {
     private SlackSourceOptions() {}
 
-    public static final Option<String> TOKEN = SlackSinkOptions.OAUTH_TOKEN;
+    public static final Option<String> TOKEN =
+            Options.key("token")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Slack access token sent only in the Authorization header.");
     public static final Option<List<String>> CHANNELS =
             Options.key("channel_ids")
                     .listType()

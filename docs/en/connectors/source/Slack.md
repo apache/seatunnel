@@ -27,14 +27,14 @@ Read bounded conversation history with Slack's `conversations.history` Web API.
 - Explicit conversation IDs, opaque cursor pagination and checkpoint restore.
 - No Events API streaming, channel discovery, thread-reply traversal (`conversations.replies`), files, users or other Slack data streams. History entries returned by this API are emitted as supplied. Workspace retention, token access and Slack API limits determine which messages are available.
 
-Install the existing `connector-slack` plugin. Existing Slack Sink configurations remain valid.
+Install the existing `connector-slack` plugin. The Source uses the default-masked `token` credential option. Existing Slack Sink configurations retain their `oauth_token` option.
 A bot needs membership in each conversation and the applicable `channels:history`, `groups:history`, `im:history` or `mpim:history` scope. User token access follows Slack's access rules. Private history requires appropriate membership. This connector does not expand token permissions.
 
 ## Source options
 
 | Option | Type | Required | Default | Meaning |
 | --- | --- | --- | --- | --- |
-| oauth_token | string | yes | — | Token sent only in the Authorization header; use your secret provider. |
+| token | string | yes | — | Token sent only in the Authorization header; use your secret provider. |
 | channel_ids | list of strings | yes | — | 1–10000 distinct alphanumeric conversation IDs. |
 | api_root | string | no | https://slack.com/api/ | Trusted API root ending in `/`; no credentials, query or fragment. HTTP is for fixtures only. All redirects fail. |
 | page_size | int | no | 15 | 1–999 requested messages; Slack can cap the effective page size. |
@@ -78,7 +78,7 @@ The CI API-contract E2E uses a deterministic HTTP fixture and real engine jobs; 
 env { parallelism = 1, job.mode = "BATCH" }
 source {
   Slack {
-    oauth_token = ${SLACK_OAUTH_TOKEN}
+    token = ${SLACK_OAUTH_TOKEN}
     channel_ids = ["C0123456789", "C9876543210"]
     oldest = "1700000000.000001"
     latest = "1700086400.000001"

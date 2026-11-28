@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.Deserialization
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.api.source.Collector;
@@ -34,8 +35,12 @@ import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.config.ConnectionConfig;
+import org.apache.http.config.MessageConstraints;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.conn.DefaultManagedHttpClientConnection;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -86,7 +91,10 @@ public class SlackSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final SlackSourceConfig config;
     private final SingleSplitReaderContext context;
     private final ObjectMapper mapper =
-            new ObjectMapper().enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
+            new ObjectMapper()
+                    .enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                    .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+                    .setNodeFactory(JsonNodeFactory.withExactBigDecimals(true));
     /**
      * Protects committed progress only. The sole polling thread acquires the collector checkpoint
      * lock before this lock; snapshots take only this lock. HTTP never holds either lock.
@@ -110,6 +118,7 @@ public class SlackSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     // Published under lifecycleLock so close can abort an active request from another thread.
     private HttpGet activeRequest;
     private CloseableHttpClient client;
+    private RequestConfig requestConfig;
     private ScheduledThreadPoolExecutor deadlines;
     private ExecutorService httpWorker;
 
@@ -145,19 +154,39 @@ public class SlackSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             if (closed || client != null) {
                 return;
             }
-            RequestConfig requestConfig =
+            requestConfig =
                     RequestConfig.custom()
                             .setConnectTimeout(config.timeout)
                             .setSocketTimeout(config.timeout)
                             .setConnectionRequestTimeout(config.timeout)
                             .build();
-            client =
-                    HttpClients.custom()
-                            .setDefaultRequestConfig(requestConfig)
-                            .disableRedirectHandling()
-                            .disableAutomaticRetries()
-                            .disableCookieManagement()
-                            .build();
+            // Keep token/cursor/message data out of HTTP header, wire and request-line DEBUG.
+            // The minimal chain retains TLS and abortable I/O without implicit redirects/retries.
+            PoolingHttpClientConnectionManager connections =
+                    new PoolingHttpClientConnectionManager(
+                            (route, connectionConfig) ->
+                                    new DefaultManagedHttpClientConnection(
+                                            "slack-source",
+                                            connectionConfig.getBufferSize(),
+                                            connectionConfig.getFragmentSizeHint(),
+                                            null,
+                                            null,
+                                            connectionConfig.getMessageConstraints(),
+                                            null,
+                                            null,
+                                            null,
+                                            null));
+            connections.setMaxTotal(1);
+            connections.setDefaultMaxPerRoute(1);
+            connections.setDefaultConnectionConfig(
+                    ConnectionConfig.custom()
+                            .setMessageConstraints(
+                                    MessageConstraints.custom()
+                                            .setMaxHeaderCount(100)
+                                            .setMaxLineLength(16 * 1024)
+                                            .build())
+                            .build());
+            client = HttpClients.createMinimal(connections);
             deadlines =
                     new ScheduledThreadPoolExecutor(
                             1,
@@ -308,8 +337,10 @@ public class SlackSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 throw new InterruptedIOException("Slack source closed");
             }
             HttpGet request = new HttpGet(uri.build());
+            request.setConfig(requestConfig);
             request.setHeader("Authorization", "Bearer " + config.token);
             request.setHeader("Accept", "application/json");
+            request.setHeader("Accept-Encoding", "identity");
             ScheduledFuture<?> deadline;
             synchronized (lifecycleLock) {
                 if (closed) {

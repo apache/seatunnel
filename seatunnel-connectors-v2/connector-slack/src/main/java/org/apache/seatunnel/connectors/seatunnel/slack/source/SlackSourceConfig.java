@@ -56,7 +56,7 @@ public final class SlackSourceConfig implements Serializable {
                         && !token.trim().isEmpty()
                         && !token.contains("\r")
                         && !token.contains("\n"),
-                "oauth_token");
+                "token");
         channels = new ArrayList<>(config.get(SlackSourceOptions.CHANNELS));
         require(!channels.isEmpty() && channels.size() <= 10000, "channel_ids");
         for (String channel : channels) {

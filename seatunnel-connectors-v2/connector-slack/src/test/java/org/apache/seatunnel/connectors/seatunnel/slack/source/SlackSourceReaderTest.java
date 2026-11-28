@@ -27,6 +27,17 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplit;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.Configuration;
+import org.apache.logging.log4j.core.config.LoggerConfig;
+import org.apache.logging.log4j.core.config.Property;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -44,6 +55,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -79,7 +91,7 @@ class SlackSourceReaderTest {
                                 "{\"ok\":true,\"messages\":[],\"response_metadata\":{\"next_cursor\":\"final\"}}";
                     } else if (query.contains("cursor=final")) {
                         body =
-                                "{\"ok\":true,\"messages\":[{\"ts\":\"1700000000.000002\",\"text\":\"世界🚀\"}]}";
+                                "{\"ok\":true,\"messages\":[{\"ts\":\"1700000000.000002\",\"text\":\"世界🚀\",\"metadata\":{\"amount\":1234567890.12345678901}}]}";
                     } else if (query.contains("channel=C2")) {
                         body = "{\"ok\":true,\"messages\":[]}";
                     } else {
@@ -135,7 +147,7 @@ class SlackSourceReaderTest {
                         "世界🚀",
                         null,
                         null,
-                        "{\"ts\":\"1700000000.000002\",\"text\":\"世界🚀\"}"
+                        "{\"ts\":\"1700000000.000002\",\"text\":\"世界🚀\",\"metadata\":{\"amount\":1234567890.12345678901}}"
                     },
                     after.rows.get(0).getFields());
             Assertions.assertEquals(6, queries.size());
@@ -369,9 +381,100 @@ class SlackSourceReaderTest {
     }
 
     @Test
+    void httpDebugDiagnosticsExcludeBearerCursorAndResponseBody() throws Exception {
+        String token = "slack-private-token-83";
+        String cursor = "slack-private-cursor-62";
+        String responseMarker = "slack-private-response-45";
+        AtomicInteger requests = new AtomicInteger();
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext(
+                "/conversations.history",
+                exchange -> {
+                    if (!("Bearer " + token)
+                            .equals(exchange.getRequestHeaders().getFirst("Authorization"))) {
+                        respond(exchange, 401, "{}");
+                        return;
+                    }
+                    if (requests.incrementAndGet() == 1) {
+                        respond(
+                                exchange,
+                                200,
+                                "{\"ok\":true,\"messages\":[],\"response_metadata\":{\"next_cursor\":\""
+                                        + cursor
+                                        + "\"}}");
+                    } else {
+                        if (!exchange.getRequestURI().getQuery().contains("cursor=" + cursor)) {
+                            respond(exchange, 400, "{}");
+                            return;
+                        }
+                        respond(
+                                exchange,
+                                200,
+                                "{\"ok\":true,\"messages\":[{\"ts\":\"1700000000.000001\",\"text\":\""
+                                        + responseMarker
+                                        + "\"}]}");
+                    }
+                });
+        LoggerContext logging = (LoggerContext) LogManager.getContext(false);
+        Configuration configuration = logging.getConfiguration();
+        String category = "org.apache.http";
+        LoggerConfig previous = configuration.getLoggers().get(category);
+        List<String> messages = new CopyOnWriteArrayList<>();
+        AbstractAppender capture =
+                new AbstractAppender(
+                        "slack-http-log-capture", null, null, true, Property.EMPTY_ARRAY) {
+                    @Override
+                    public void append(LogEvent event) {
+                        messages.add(event.getMessage().getFormattedMessage());
+                    }
+                };
+        capture.start();
+        LoggerConfig diagnostic = new LoggerConfig(category, Level.DEBUG, false);
+        diagnostic.addAppender(capture, Level.DEBUG, null);
+        configuration.removeLogger(category);
+        configuration.addLogger(category, diagnostic);
+        logging.updateLoggers();
+        server.start();
+        try {
+            Log requestLineLogger =
+                    LogFactory.getLog("org.apache.http.impl.execchain.MainClientExec");
+            Assertions.assertTrue(requestLineLogger.isDebugEnabled());
+            requestLineLogger.debug("slack-transport-debug-control");
+            Map<String, Object> options = options(server);
+            options.put("token", token);
+            RecordingCollector output = new RecordingCollector();
+            try (SlackSourceReader reader = reader(options, mock(SourceReader.Context.class))) {
+                reader.open();
+                pollUntilProgress(reader, output, 0, 1, cursor);
+                pollUntilProgress(reader, output, 1, 0, "");
+            }
+            Assertions.assertEquals(2, requests.get());
+            Assertions.assertEquals(1, output.rows.size());
+            Assertions.assertEquals(responseMarker, output.rows.get(0).getField(4));
+            String debug = String.join("\n", messages);
+            Assertions.assertTrue(debug.contains("slack-transport-debug-control"));
+            Assertions.assertTrue(
+                    debug.contains("Connection request:"),
+                    "Real HTTP diagnostics must be captured");
+            Assertions.assertFalse(debug.contains(token), "OAuth token leaked in HTTP diagnostics");
+            Assertions.assertFalse(
+                    debug.contains(cursor), "Continuation leaked in HTTP diagnostics");
+            Assertions.assertFalse(debug.contains(responseMarker), "Private message body leaked");
+        } finally {
+            server.stop(0);
+            configuration.removeLogger(category);
+            if (previous != null) {
+                configuration.addLogger(category, previous);
+            }
+            logging.updateLoggers();
+            capture.stop();
+        }
+    }
+
+    @Test
     void invalidOptionsFailWithoutExposingToken() {
         Map<String, Object> options = new HashMap<>();
-        options.put("oauth_token", "secret-token");
+        options.put("token", "secret-token");
         options.put("channel_ids", Collections.singletonList("C1"));
         for (String key :
                 Arrays.asList(
@@ -464,7 +567,7 @@ class SlackSourceReaderTest {
 
     private static Map<String, Object> options(HttpServer server) {
         Map<String, Object> options = new HashMap<>();
-        options.put("oauth_token", "fixture-token");
+        options.put("token", "fixture-token");
         options.put("channel_ids", Collections.singletonList("C1"));
         options.put("api_root", "http://127.0.0.1:" + server.getAddress().getPort() + "/");
         options.put("latest", "1700000100.000000");

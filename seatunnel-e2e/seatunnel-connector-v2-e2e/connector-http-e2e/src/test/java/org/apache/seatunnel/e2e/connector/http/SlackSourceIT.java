@@ -115,8 +115,19 @@ public class SlackSourceIT extends TestSuiteBase {
     @TestTemplate
     void boundedHistoryAndFailures(TestContainer container) throws Exception {
         reset();
+        int successLogStart = container.getServerLogs().length();
         Container.ExecResult success = container.executeJob(CONFIG, variables("success"));
         Assertions.assertEquals(0, success.getExitCode(), success.getStderr());
+        String serverLogs = container.getServerLogs();
+        String successLogs =
+                success.getStdout()
+                        + success.getStderr()
+                        + serverLogs.substring(Math.min(successLogStart, serverLogs.length()));
+        Assertions.assertTrue(
+                successLogs.contains("Parsed config file:"),
+                "Parsed config must actually be logged");
+        Assertions.assertFalse(
+                successLogs.contains("fixture-token"), "Source credential leaked at INFO");
         List<List<String>> rows = rows();
         Assertions.assertEquals(3, rows.size());
         Assertions.assertEquals(
