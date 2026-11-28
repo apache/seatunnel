@@ -49,7 +49,9 @@ public class BasicAuthFilterTest {
     @Test
     void testJettyRejectsMissingOrBlankCredentialsWhenBasicAuthIsEnabled() {
         SeaTunnelConfig config = new SeaTunnelConfig();
-        HttpConfig http = config.getEngineConfig().getHttpConfig();
+        // EngineConfig initially references a shared default; keep this fixture isolated.
+        HttpConfig http = new HttpConfig();
+        config.getEngineConfig().setHttpConfig(http);
         http.setEnabled(true);
         http.setEnableBasicAuth(true);
 

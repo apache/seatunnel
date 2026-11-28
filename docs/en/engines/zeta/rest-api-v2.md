@@ -11,7 +11,7 @@ and monitor jobs in that case.
 
 ## Overview
 
-When enabling Zeta HTTP Basic Auth, explicitly set both `basic-auth-username` and `basic-auth-password`. There are no built-in credentials. If either value is missing or blank, the management HTTP/HTTPS service cannot start. Replace any previously used example credentials before upgrading. Follow the [SeaTunnel security model](/security/) and restrict access to management interfaces outside SeaTunnel.
+When enabling Zeta HTTP Basic Auth, explicitly set both `basic-auth-username` and `basic-auth-password`. There are no built-in credentials. If either value is missing or blank, the management HTTP/HTTPS service cannot start. Replace any previously used example credentials before upgrading. Follow the [SeaTunnel security model](https://seatunnel.apache.org/security/) and restrict access to management interfaces outside SeaTunnel.
 
 The v2 API and the Web UI are both served by the embedded Jetty server. Jetty starts only when
 `seatunnel.engine.http.enable-http = true` or `enable-https = true`.

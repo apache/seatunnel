@@ -8,7 +8,7 @@ SeaTunnel有一个用于监控的API，可用于查询运行作业的状态和�
 
 ## 概述
 
-启用 Zeta HTTP Basic Auth 时，必须显式设置 `basic-auth-username` 和 `basic-auth-password`。引擎不提供内置凭据；任一项缺失或为空白时，管理 HTTP/HTTPS 服务无法启动。升级前请更换曾使用的示例凭据，并遵循 [SeaTunnel 安全模型](/zh-CN/security/)，在 SeaTunnel 外部限制管理接口的访问范围。
+启用 Zeta HTTP Basic Auth 时，必须显式设置 `basic-auth-username` 和 `basic-auth-password`。引擎不提供内置凭据；任一项缺失或为空白时，管理 HTTP/HTTPS 服务无法启动。升级前请更换曾使用的示例凭据，并遵循 [SeaTunnel 安全模型](https://seatunnel.apache.org/zh-CN/security/)，在 SeaTunnel 外部限制管理接口的访问范围。
 
 v2 版本的 API 和 Web UI 都由内嵌 Jetty 提供，与 v1 版本保持相同的接口规范。只有当
 `seatunnel.engine.http.enable-http = true` 或 `enable-https = true` 时，Jetty 才会启动。
