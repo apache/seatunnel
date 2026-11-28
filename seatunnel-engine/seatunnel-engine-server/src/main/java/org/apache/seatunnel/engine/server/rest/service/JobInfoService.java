@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.rest.service;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
@@ -31,6 +32,7 @@ import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.RestoreMode;
+import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
@@ -41,13 +43,16 @@ import org.apache.seatunnel.engine.server.utils.RestUtil;
 
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
+import com.hazelcast.internal.nio.BufferObjectDataInput;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.serialization.InternalSerializationService;
+import com.hazelcast.internal.serialization.impl.SerializationConstants;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 import scala.Tuple2;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -69,6 +74,15 @@ public class JobInfoService extends BaseService {
     private volatile IMap<Object, Object> runningJobStateMap;
     private final ConcurrentMap<Long, JobBasicInfo> runningJobBasicInfoCache =
             new ConcurrentHashMap<>();
+
+    // Header flags written by Hazelcast's DataSerializableSerializer, which is not public.
+    private static final byte DATA_SERIALIZABLE_IDENTIFIED_FLAG = 1;
+    private static final byte DATA_SERIALIZABLE_VERSIONED_FLAG = 1 << 1;
+    // Length that ObjectDataOutput#writeString writes for a null string.
+    private static final int NULL_STRING_LENGTH = -1;
+    // Longest job name the fast path accepts. It only decides which decoder runs and does not
+    // cap the output: a longer name is read by the full deserialization, cached and returned.
+    private static final int MAX_JOB_NAME_BYTES = 64 * 1024;
 
     public JobInfoService(NodeEngineImpl nodeEngine) {
         super(nodeEngine);
@@ -272,7 +286,7 @@ public class JobInfoService extends BaseService {
             long decodeStartNs = System.nanoTime();
             JobBasicInfo basicInfo =
                     runningJobBasicInfoCache.computeIfAbsent(
-                            jobId, k -> decodeJobBasicInfo(jobInfo));
+                            jobId, k -> decodeJobBasicInfo(jobId, jobInfo));
             decodeTotalNs += (System.nanoTime() - decodeStartNs);
 
             String jobName = basicInfo == null ? String.valueOf(jobId) : basicInfo.jobName;
@@ -353,39 +367,129 @@ public class JobInfoService extends BaseService {
         return local;
     }
 
-    private JobBasicInfo decodeJobBasicInfo(JobInfo jobInfo) {
+    /**
+     * Returns the name and create time of a running job: from the leading bytes of its serialized
+     * {@link JobImmutableInformation} when they have the expected layout, otherwise from the full
+     * deserialization.
+     *
+     * @param jobId the key of the entry in the running-job map
+     * @param jobInfo the value of that entry
+     * @return {@code null} when there is nothing to decode or the data cannot be deserialized
+     */
+    @VisibleForTesting
+    JobBasicInfo decodeJobBasicInfo(long jobId, JobInfo jobInfo) {
         if (jobInfo == null || jobInfo.getJobImmutableInformation() == null) {
             return null;
         }
+        Data data = jobInfo.getJobImmutableInformation();
 
         // Fast path: only read jobName/createTime from the beginning of JobImmutableInformation.
         // Avoid deserializing the whole JobImmutableInformation which includes LogicalDag and
         // JobConfig (can be very large).
         try {
-            InternalSerializationService serializationService =
-                    (InternalSerializationService) nodeEngine.getSerializationService();
-            Data data = jobInfo.getJobImmutableInformation();
-            com.hazelcast.internal.nio.BufferObjectDataInput in =
-                    serializationService.createObjectDataInput(data);
-
-            // IdentifiedDataSerializable header: factoryId + classId.
-            in.readInt();
-            in.readInt();
-            in.readLong(); // jobId
-            String jobName = in.readString();
-            in.readBoolean(); // isStartWithSavePoint
-            long createTime = in.readLong();
-            return new JobBasicInfo(jobName, createTime);
-        } catch (Throwable t) {
-            // Fallback to full deserialization for compatibility.
-            try {
-                Data data = jobInfo.getJobImmutableInformation();
-                JobImmutableInformation obj = nodeEngine.getSerializationService().toObject(data);
-                return obj == null ? null : new JobBasicInfo(obj.getJobName(), obj.getCreateTime());
-            } catch (Throwable ignored) {
-                return null;
+            JobBasicInfo basicInfo = decodeJobBasicInfoFromPrefix(jobId, data);
+            if (basicInfo != null) {
+                return basicInfo;
             }
+        } catch (Exception e) {
+            // Data that the fast path cannot read is expected here. Errors are not caught, so a
+            // fatal VM error is not followed by a full deserialization.
+            log.debug(
+                    "Fast decode of job basic info failed for job {}, data size {} bytes",
+                    jobId,
+                    data.totalSize(),
+                    e);
         }
+
+        // Fallback to full deserialization for compatibility.
+        try {
+            JobImmutableInformation obj = nodeEngine.getSerializationService().toObject(data);
+            return obj == null ? null : new JobBasicInfo(obj.getJobName(), obj.getCreateTime());
+        } catch (Exception e) {
+            // The result is not cached, so this is logged on every summary request for the job.
+            log.warn(
+                    "Failed to decode job basic info for job {}, data size {} bytes, the summary shows the job id as its name: {}",
+                    jobId,
+                    data.totalSize(),
+                    e.toString());
+            return null;
+        }
+    }
+
+    /**
+     * Reads the leading fields of a serialized {@link JobImmutableInformation} without
+     * deserializing the rest of it.
+     *
+     * <p>The reads mirror Hazelcast's {@code DataSerializableSerializer}: a one-byte header, the
+     * factory id and class id of an {@code IdentifiedDataSerializable}, two version bytes when the
+     * header says so, then the fields in the order of {@link JobImmutableInformation#writeData}.
+     * Every rejection is logged at debug level with the check that failed.
+     *
+     * @param expectedJobId the key of the entry in the running-job map; the job id in the data must
+     *     equal it, which shows that the reads are aligned with the data
+     * @param data the serialized {@link JobImmutableInformation}
+     * @return the decoded values, or {@code null} when the data does not have that layout or the
+     *     decoded values are not plausible, in which case the caller deserializes the whole object
+     * @throws IOException when the data ends before the leading fields do; the caller then
+     *     deserializes the whole object
+     */
+    @VisibleForTesting
+    JobBasicInfo decodeJobBasicInfoFromPrefix(long expectedJobId, Data data) throws IOException {
+        if (data.getType() != SerializationConstants.CONSTANT_TYPE_DATA_SERIALIZABLE) {
+            return rejectPrefix(expectedJobId, data, "serializer type id");
+        }
+        InternalSerializationService serializationService =
+                (InternalSerializationService) nodeEngine.getSerializationService();
+        BufferObjectDataInput in = serializationService.createObjectDataInput(data);
+        byte header = in.readByte();
+        if ((header & DATA_SERIALIZABLE_IDENTIFIED_FLAG) == 0
+                || in.readInt() != JobDataSerializerHook.FACTORY_ID
+                || in.readInt() != JobDataSerializerHook.JOB_IMMUTABLE_INFORMATION) {
+            return rejectPrefix(expectedJobId, data, "header flag, factory id or class id");
+        }
+        if ((header & DATA_SERIALIZABLE_VERSIONED_FLAG) != 0) {
+            in.readByte();
+            in.readByte();
+        }
+
+        // A job id other than the map key means the reads are not aligned with the data.
+        if (in.readLong() != expectedJobId) {
+            return rejectPrefix(expectedJobId, data, "job id");
+        }
+
+        // Check the string length before reading it, so that a misread length can never turn a
+        // large part of the payload into a job name.
+        int jobNamePosition = in.position();
+        int jobNameBytes = in.readInt();
+        if (jobNameBytes < NULL_STRING_LENGTH
+                || jobNameBytes > MAX_JOB_NAME_BYTES
+                || jobNameBytes > data.totalSize() - in.position()) {
+            return rejectPrefix(expectedJobId, data, "job name length");
+        }
+        in.position(jobNamePosition);
+        String jobName = in.readString();
+        in.readBoolean(); // isStartWithSavePoint
+        long createTime = in.readLong();
+        // The create time is an epoch timestamp, so anything else means misaligned reads.
+        if (createTime <= 0) {
+            return rejectPrefix(expectedJobId, data, "create time");
+        }
+        return new JobBasicInfo(jobName, createTime);
+    }
+
+    /**
+     * Logs which check of the fast path failed. Without it the full deserialization covers a fast
+     * path that rejects every job, and nothing shows that the fast path is not in use.
+     *
+     * @return always {@code null}, the result of a rejected prefix
+     */
+    private JobBasicInfo rejectPrefix(long jobId, Data data, String failedCheck) {
+        log.debug(
+                "Fast decode of job basic info rejected for job {}: check [{}] failed, data size {} bytes, using the full deserialization",
+                jobId,
+                failedCheck,
+                data.totalSize());
+        return null;
     }
 
     private JobImmutableInformation decodeJobImmutableInformation(JobInfo jobInfo) {
@@ -401,9 +505,10 @@ public class JobInfoService extends BaseService {
         }
     }
 
-    private static final class JobBasicInfo {
-        private final String jobName;
-        private final long createTime;
+    @VisibleForTesting
+    static final class JobBasicInfo {
+        final String jobName;
+        final long createTime;
 
         private JobBasicInfo(String jobName, long createTime) {
             this.jobName = jobName;
