@@ -35,6 +35,7 @@ const sidebars = {
                         "introduction/concepts/schema-feature",
                         "introduction/concepts/metadata-spi",
                         "introduction/concepts/gravitino-type-mapping",
+                        "introduction/concepts/lineage",
                         "introduction/concepts/incompatible-changes"
                     ]
                 }
