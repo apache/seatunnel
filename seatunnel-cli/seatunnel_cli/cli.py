@@ -545,8 +545,8 @@ class SeaTunnelCLI:
         console.print("    [bold]5[/bold]. orcarouter — OrcaRouter AI gateway (OpenAI-compatible)")
         console.print("       Requires: ORCAROUTER_API_KEY + pip install \".[openai]\"")
         console.print("       Note: many models behind one endpoint, e.g. orcarouter/auto\n")
-        console.print("    [bold]6[/bold]. uberllm    — UberLLM gateway (OpenAI-compatible)")
-        console.print("       Requires: UBERLLM_API_KEY + pip install \".[openai]\"")
+        console.print("    [bold]6[/bold]. martllm    — MartLLM gateway (OpenAI-compatible)")
+        console.print("       Requires: MARTLLM_API_KEY + pip install \".[openai]\"")
         console.print("       Note: many models behind one key, e.g. deepseek/deepseek-v4-pro\n")
 
         try:
@@ -557,7 +557,7 @@ class SeaTunnelCLI:
 
         choice_map = {"1": "anthropic", "2": "openai", "3": "bedrock",
                       "4": "bedrock-mantle", "5": "orcarouter",
-                      "6": "uberllm"}
+                      "6": "martllm"}
         choice = choice_map.get(choice, choice)
 
         if not choice or choice not in _PROVIDERS:
@@ -662,17 +662,17 @@ class SeaTunnelCLI:
                         "  [success]Key set for this session (NOT saved to disk).[/success]"
                     )
 
-        elif choice == "uberllm":
-            existing = os.environ.get("UBERLLM_API_KEY")
+        elif choice == "martllm":
+            existing = os.environ.get("MARTLLM_API_KEY")
             if existing:
                 masked = existing[:7] + "..." + existing[-4:] if len(existing) > 15 else "***"
-                console.print(f"  UBERLLM_API_KEY: [bold green]detected[/bold green] ({masked})")
+                console.print(f"  MARTLLM_API_KEY: [bold green]detected[/bold green] ({masked})")
             else:
-                console.print("  UBERLLM_API_KEY not found in environment.\n")
+                console.print("  MARTLLM_API_KEY not found in environment.\n")
                 console.print(
                     "  [dim]Persistent (recommended): add to ~/.zshrc or ~/.bashrc:[/dim]\n"
-                    "    export UBERLLM_API_KEY=ull_...\n"
-                    "  [dim]Get a key: https://uberllm.dev/signup[/dim]\n",
+                    "    export MARTLLM_API_KEY=ull_...\n"
+                    "  [dim]Get a key: https://martllm.com/signup[/dim]\n",
                 )
                 try:
                     # Password mode: the key is not echoed to the terminal.
@@ -683,7 +683,7 @@ class SeaTunnelCLI:
                 except (EOFError, KeyboardInterrupt):
                     key_input = ""
                 if key_input:
-                    os.environ["UBERLLM_API_KEY"] = key_input
+                    os.environ["MARTLLM_API_KEY"] = key_input
                     console.print(
                         "  [success]Key set for this session (NOT saved to disk).[/success]"
                     )
@@ -755,11 +755,11 @@ class SeaTunnelCLI:
             default_fast = "orcarouter/auto"
             model_env = "ORCAROUTER_MODEL"
             fast_env = "ORCAROUTER_SMALL_FAST_MODEL"
-        elif choice == "uberllm":
+        elif choice == "martllm":
             default_model = "deepseek/deepseek-v4-pro"
             default_fast = "deepseek/deepseek-v4.1-flash"
-            model_env = "UBERLLM_MODEL"
-            fast_env = "UBERLLM_SMALL_FAST_MODEL"
+            model_env = "MARTLLM_MODEL"
+            fast_env = "MARTLLM_SMALL_FAST_MODEL"
         elif choice == "bedrock-mantle":
             default_model = "openai.gpt-5.6-terra"
             default_fast = "openai.gpt-5.6-terra"
@@ -978,14 +978,14 @@ class SeaTunnelCLI:
             self.console.print(
                 "  Base URL: [bold]https://api.orcarouter.ai/v1[/bold]", style="info"
             )
-        elif provider_name == "uberllm":
-            if os.environ.get("UBERLLM_API_KEY"):
+        elif provider_name == "martllm":
+            if os.environ.get("MARTLLM_API_KEY"):
                 self.console.print("  API key:  [bold green]configured[/bold green]", style="info")
             else:
                 creds_ok = False
-                self.console.print("[error]UBERLLM_API_KEY not set.[/error]")
+                self.console.print("[error]MARTLLM_API_KEY not set.[/error]")
             self.console.print(
-                "  Base URL: [bold]https://api.uberllm.dev/v1[/bold]", style="info"
+                "  Base URL: [bold]https://api.martllm.com/v1[/bold]", style="info"
             )
 
         self.console.print(f"  Model: [bold]{provider.model_id}[/bold]", style="info")
@@ -1838,7 +1838,7 @@ def main():
     parser.add_argument(
         "--provider",
         choices=["bedrock", "bedrock-mantle", "anthropic", "openai", "orcarouter",
-                 "uberllm"],
+                 "martllm"],
         help="LLM provider (overrides AI_PROVIDER env var and config.json)",
     )
     parser.add_argument(
@@ -1904,7 +1904,7 @@ def main():
     if args.provider:
         os.environ["AI_PROVIDER"] = args.provider
     # Providers speaking the OpenAI protocol read OPENAI_MODEL*;
-    # bedrock/anthropic read ANTHROPIC_MODEL*; orcarouter and uberllm
+    # bedrock/anthropic read ANTHROPIC_MODEL*; orcarouter and martllm
     # have their own.
     _OPENAI_FAMILY = ("openai", "bedrock-mantle")
     # Resolve the provider the same way create_provider will (flag,
@@ -1917,8 +1917,8 @@ def main():
     if args.model:
         if provider == "orcarouter":
             os.environ["ORCAROUTER_MODEL"] = args.model
-        elif provider == "uberllm":
-            os.environ["UBERLLM_MODEL"] = args.model
+        elif provider == "martllm":
+            os.environ["MARTLLM_MODEL"] = args.model
         elif provider in _OPENAI_FAMILY:
             os.environ["OPENAI_MODEL"] = args.model
         else:
@@ -1926,8 +1926,8 @@ def main():
     if args.fast_model:
         if provider == "orcarouter":
             os.environ["ORCAROUTER_SMALL_FAST_MODEL"] = args.fast_model
-        elif provider == "uberllm":
-            os.environ["UBERLLM_SMALL_FAST_MODEL"] = args.fast_model
+        elif provider == "martllm":
+            os.environ["MARTLLM_SMALL_FAST_MODEL"] = args.fast_model
         elif provider in _OPENAI_FAMILY:
             os.environ["OPENAI_SMALL_FAST_MODEL"] = args.fast_model
         else:

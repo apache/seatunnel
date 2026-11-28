@@ -21,11 +21,11 @@ from unittest import mock
 
 from seatunnel_cli.llm_provider import (
     LLMProvider,
-    UberLLMProvider,
+    MartLLMProvider,
 )
 
 
-class _FakeUberLLMCompletions:
+class _FakeMartLLMCompletions:
     def __init__(self, stream):
         self.stream = stream
         self.kwargs = None
@@ -35,9 +35,9 @@ class _FakeUberLLMCompletions:
         return self.stream
 
 
-class _FakeUberLLMClient:
+class _FakeMartLLMClient:
     def __init__(self, stream):
-        self.completions = _FakeUberLLMCompletions(stream)
+        self.completions = _FakeMartLLMCompletions(stream)
         self.chat = SimpleNamespace(completions=self.completions)
 
 
@@ -67,72 +67,72 @@ class _fake_openai:
         return False
 
 
-class UberLLMProviderTest(unittest.TestCase):
+class MartLLMProviderTest(unittest.TestCase):
     def test_default_model_and_base_url(self):
-        provider = UberLLMProvider.__new__(UberLLMProvider)
-        self.assertEqual(provider.provider_name, "uberllm")
-        self.assertEqual(UberLLMProvider.DEFAULT_BASE_URL, "https://api.uberllm.dev/v1")
-        self.assertEqual(UberLLMProvider.DEFAULT_MODEL, "deepseek/deepseek-v4-pro")
-        self.assertEqual(UberLLMProvider.DEFAULT_FAST_MODEL, "deepseek/deepseek-v4.1-flash")
+        provider = MartLLMProvider.__new__(MartLLMProvider)
+        self.assertEqual(provider.provider_name, "martllm")
+        self.assertEqual(MartLLMProvider.DEFAULT_BASE_URL, "https://api.martllm.com/v1")
+        self.assertEqual(MartLLMProvider.DEFAULT_MODEL, "deepseek/deepseek-v4-pro")
+        self.assertEqual(MartLLMProvider.DEFAULT_FAST_MODEL, "deepseek/deepseek-v4.1-flash")
 
     def test_init_requires_api_key(self):
         with mock.patch.dict("os.environ", {}, clear=True), _fake_openai():
             with self.assertRaises(ValueError):
-                UberLLMProvider()
+                MartLLMProvider()
 
     def test_init_does_not_fall_back_to_openai_key_or_base_url(self):
         env = {"OPENAI_API_KEY": "sk-other", "OPENAI_BASE_URL": "https://example.invalid/v1"}
         with mock.patch.dict("os.environ", env, clear=True), _fake_openai():
             with self.assertRaises(ValueError):
-                UberLLMProvider()
+                MartLLMProvider()
 
-        env["UBERLLM_API_KEY"] = "ull_test"
+        env["MARTLLM_API_KEY"] = "ull_test"
         with mock.patch.dict("os.environ", env, clear=True), _fake_openai() as fake:
-            UberLLMProvider()
+            MartLLMProvider()
             fake.OpenAI.assert_called_once_with(
-                api_key="ull_test", base_url="https://api.uberllm.dev/v1"
+                api_key="ull_test", base_url="https://api.martllm.com/v1"
             )
 
     def test_model_precedence(self):
-        """UBERLLM_* wins, then OPENAI_*, then the class defaults."""
-        key = {"UBERLLM_API_KEY": "ull_test"}
+        """MARTLLM_* wins, then OPENAI_*, then the class defaults."""
+        key = {"MARTLLM_API_KEY": "ull_test"}
         with mock.patch.dict("os.environ", key, clear=True), _fake_openai():
-            provider = UberLLMProvider()
-            self.assertEqual(provider.model_id, UberLLMProvider.DEFAULT_MODEL)
-            self.assertEqual(provider.fast_model_id, UberLLMProvider.DEFAULT_FAST_MODEL)
+            provider = MartLLMProvider()
+            self.assertEqual(provider.model_id, MartLLMProvider.DEFAULT_MODEL)
+            self.assertEqual(provider.fast_model_id, MartLLMProvider.DEFAULT_FAST_MODEL)
 
         openai_only = dict(key, OPENAI_MODEL="o-main", OPENAI_SMALL_FAST_MODEL="o-fast")
         with mock.patch.dict("os.environ", openai_only, clear=True), _fake_openai():
-            provider = UberLLMProvider()
+            provider = MartLLMProvider()
             self.assertEqual(provider.model_id, "o-main")
             self.assertEqual(provider.fast_model_id, "o-fast")
 
-        both = dict(openai_only, UBERLLM_MODEL="u-main", UBERLLM_SMALL_FAST_MODEL="u-fast")
+        both = dict(openai_only, MARTLLM_MODEL="u-main", MARTLLM_SMALL_FAST_MODEL="u-fast")
         with mock.patch.dict("os.environ", both, clear=True), _fake_openai():
-            provider = UberLLMProvider()
+            provider = MartLLMProvider()
             self.assertEqual(provider.model_id, "u-main")
             self.assertEqual(provider.fast_model_id, "u-fast")
 
     def test_echo_reasoning_content_env_override(self):
-        key = {"UBERLLM_API_KEY": "ull_test"}
+        key = {"MARTLLM_API_KEY": "ull_test"}
         with mock.patch.dict(
-            "os.environ", dict(key, UBERLLM_ECHO_REASONING_CONTENT="false"), clear=True
+            "os.environ", dict(key, MARTLLM_ECHO_REASONING_CONTENT="false"), clear=True
         ), _fake_openai():
-            self.assertFalse(UberLLMProvider()._echo_reasoning_content)
+            self.assertFalse(MartLLMProvider()._echo_reasoning_content)
 
         with mock.patch.dict(
-            "os.environ", dict(key, UBERLLM_ECHO_REASONING_CONTENT="true"), clear=True
+            "os.environ", dict(key, MARTLLM_ECHO_REASONING_CONTENT="true"), clear=True
         ), _fake_openai():
-            self.assertTrue(UberLLMProvider()._echo_reasoning_content)
+            self.assertTrue(MartLLMProvider()._echo_reasoning_content)
 
         # Defaults to True when unset (parity with OPENAI_ECHO_REASONING_CONTENT).
         with mock.patch.dict("os.environ", key, clear=True), _fake_openai():
-            self.assertTrue(UberLLMProvider()._echo_reasoning_content)
+            self.assertTrue(MartLLMProvider()._echo_reasoning_content)
 
     def test_stream_uses_openai_protocol_and_collects_text(self):
-        provider = UberLLMProvider.__new__(UberLLMProvider)
+        provider = MartLLMProvider.__new__(MartLLMProvider)
         provider._model_id = "deepseek/deepseek-v4-pro"
-        provider._client = _FakeUberLLMClient(
+        provider._client = _FakeMartLLMClient(
             [
                 _chunk(SimpleNamespace(content="Sync ", tool_calls=None)),
                 _chunk(SimpleNamespace(content="users to S3", tool_calls=None)),
@@ -165,7 +165,7 @@ class UberLLMProviderTest(unittest.TestCase):
         )
 
     def test_chat_round_trip(self):
-        provider = UberLLMProvider.__new__(UberLLMProvider)
+        provider = MartLLMProvider.__new__(MartLLMProvider)
         provider._model_id = "anthropic/claude-sonnet-4.6"
         response = SimpleNamespace(
             choices=[
@@ -178,7 +178,7 @@ class UberLLMProviderTest(unittest.TestCase):
                 )
             ]
         )
-        provider._client = _FakeUberLLMClient(response)
+        provider._client = _FakeMartLLMClient(response)
 
         result = provider.chat(
             messages=[
@@ -213,14 +213,14 @@ class UberLLMProviderTest(unittest.TestCase):
         try:
             with mock.patch.dict(
                 "os.environ",
-                {"UBERLLM_API_KEY": "ull_test", "ANTHROPIC_MODEL": "claude-other"},
+                {"MARTLLM_API_KEY": "ull_test", "ANTHROPIC_MODEL": "claude-other"},
                 clear=True,
             ), _fake_openai():
                 llm_provider.save_config(
                     {
-                        "provider": "uberllm",
+                        "provider": "martllm",
                         "models": {
-                            "uberllm": {
+                            "martllm": {
                                 "model": "deepseek/deepseek-v4-pro",
                                 "fast_model": "deepseek/deepseek-v4.1-flash",
                             }

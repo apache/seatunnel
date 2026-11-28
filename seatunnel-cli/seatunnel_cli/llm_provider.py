@@ -22,7 +22,7 @@ Supports multiple backends while presenting a unified interface:
   - anthropic: Anthropic Messages API (direct)
   - openai   : OpenAI Chat Completions API
   - orcarouter: OrcaRouter AI gateway (OpenAI Chat Completions API)
-  - uberllm  : UberLLM gateway (OpenAI Chat Completions API)
+  - martllm  : MartLLM gateway (OpenAI Chat Completions API)
 
 All providers normalize their responses to a common internal format
 so that the agent layer (agents.py) needs no provider-specific code.
@@ -1312,23 +1312,23 @@ class OrcaRouterProvider(OpenAIProvider):
         return self._fast_model_id
 
 
-# ─── UberLLM Provider ───
+# ─── MartLLM Provider ───
 
-class UberLLMProvider(OpenAIProvider):
-    """UberLLM gateway provider (OpenAI Chat Completions API).
+class MartLLMProvider(OpenAIProvider):
+    """MartLLM gateway provider (OpenAI Chat Completions API).
 
-    UberLLM is an OpenAI-compatible gateway with one prepaid key for many
+    MartLLM is an OpenAI-compatible gateway with one prepaid key for many
     chat models from several labs. Model IDs use a ``vendor/model``
     namespace, e.g. ``anthropic/claude-sonnet-4.6`` or
     ``deepseek/deepseek-v4.1-flash``; ``GET /v1/models`` lists them.
 
-    Since UberLLM speaks the OpenAI Chat Completions protocol, this
+    Since MartLLM speaks the OpenAI Chat Completions protocol, this
     provider mirrors :class:`OpenAIProvider` and only customizes the base
     URL, the API key environment variable, and the default model.
     """
 
-    #: UberLLM's OpenAI-compatible base URL.
-    DEFAULT_BASE_URL = "https://api.uberllm.dev/v1"
+    #: MartLLM's OpenAI-compatible base URL.
+    DEFAULT_BASE_URL = "https://api.martllm.com/v1"
     #: Default model: supports tool calls, which the planning loop relies on.
     DEFAULT_MODEL = "deepseek/deepseek-v4-pro"
     #: Default fast model for lightweight calls.
@@ -1338,51 +1338,51 @@ class UberLLMProvider(OpenAIProvider):
         """Build the client from environment variables only.
 
         Contract:
-          * Credential: ``UBERLLM_API_KEY`` is required. There is no
+          * Credential: ``MARTLLM_API_KEY`` is required. There is no
             fallback to ``OPENAI_API_KEY``; a missing key raises
             ``ValueError`` before any client is created.
-          * Primary model: ``UBERLLM_MODEL``, then ``OPENAI_MODEL``, then
+          * Primary model: ``MARTLLM_MODEL``, then ``OPENAI_MODEL``, then
             :attr:`DEFAULT_MODEL`.
-          * Fast model: ``UBERLLM_SMALL_FAST_MODEL``, then
+          * Fast model: ``MARTLLM_SMALL_FAST_MODEL``, then
             ``OPENAI_SMALL_FAST_MODEL``, then :attr:`DEFAULT_FAST_MODEL`.
           * Base URL: always :attr:`DEFAULT_BASE_URL`. This class owns the
-            endpoint; ``OPENAI_BASE_URL`` is ignored so an UberLLM key is
+            endpoint; ``OPENAI_BASE_URL`` is ignored so an MartLLM key is
             never sent to another host.
-          * ``UBERLLM_ECHO_REASONING_CONTENT`` (default true) controls
+          * ``MARTLLM_ECHO_REASONING_CONTENT`` (default true) controls
             whether reasoning content is echoed back in later turns.
 
         Raises:
             ImportError: If the ``openai`` package is not installed.
-            ValueError: If ``UBERLLM_API_KEY`` is not set.
+            ValueError: If ``MARTLLM_API_KEY`` is not set.
         """
         try:
             import openai
         except ImportError:
             raise ImportError(
-                "openai package required for AI_PROVIDER=uberllm. "
+                "openai package required for AI_PROVIDER=martllm. "
                 "Install it: pip install openai"
             )
 
-        api_key = os.environ.get("UBERLLM_API_KEY")
+        api_key = os.environ.get("MARTLLM_API_KEY")
         if not api_key:
             raise ValueError(
-                "UBERLLM_API_KEY environment variable is required for "
-                "AI_PROVIDER=uberllm"
+                "MARTLLM_API_KEY environment variable is required for "
+                "AI_PROVIDER=martllm"
             )
 
         self._model_id = os.environ.get(
-            "UBERLLM_MODEL",
+            "MARTLLM_MODEL",
             os.environ.get("OPENAI_MODEL", self.DEFAULT_MODEL))
         self._fast_model_id = os.environ.get(
-            "UBERLLM_SMALL_FAST_MODEL",
+            "MARTLLM_SMALL_FAST_MODEL",
             os.environ.get("OPENAI_SMALL_FAST_MODEL", self.DEFAULT_FAST_MODEL))
         self._client = openai.OpenAI(api_key=api_key, base_url=self.DEFAULT_BASE_URL)
         self._echo_reasoning_content = _env_bool(
-            "UBERLLM_ECHO_REASONING_CONTENT", True)
+            "MARTLLM_ECHO_REASONING_CONTENT", True)
 
     @property
     def provider_name(self) -> str:
-        return "uberllm"
+        return "martllm"
 
     @property
     def model_id(self) -> str:
@@ -1433,9 +1433,9 @@ def _auto_detect_provider() -> str | None:
     if os.environ.get("ORCAROUTER_API_KEY"):
         return "orcarouter"
 
-    # 3. UberLLM gateway key
-    if os.environ.get("UBERLLM_API_KEY"):
-        return "uberllm"
+    # 3. MartLLM gateway key
+    if os.environ.get("MARTLLM_API_KEY"):
+        return "martllm"
 
     # 4. OpenAI API key
     if os.environ.get("OPENAI_API_KEY"):
@@ -1464,7 +1464,7 @@ _PROVIDERS = {
     "anthropic": AnthropicProvider,
     "openai": OpenAIProvider,
     "orcarouter": OrcaRouterProvider,
-    "uberllm": UberLLMProvider,
+    "martllm": MartLLMProvider,
 }
 
 
@@ -1521,8 +1521,8 @@ def create_provider(provider: str | None = None) -> LLMProvider:
         if model_config.get("model"):
             if name == "orcarouter":
                 os.environ.setdefault("ORCAROUTER_MODEL", model_config["model"])
-            elif name == "uberllm":
-                os.environ.setdefault("UBERLLM_MODEL", model_config["model"])
+            elif name == "martllm":
+                os.environ.setdefault("MARTLLM_MODEL", model_config["model"])
             elif not os.environ.get("ANTHROPIC_MODEL") and not os.environ.get("OPENAI_MODEL"):
                 if name in ("openai", "bedrock-mantle"):
                     os.environ.setdefault("OPENAI_MODEL", model_config["model"])
@@ -1531,8 +1531,8 @@ def create_provider(provider: str | None = None) -> LLMProvider:
         if model_config.get("fast_model"):
             if name == "orcarouter":
                 os.environ.setdefault("ORCAROUTER_SMALL_FAST_MODEL", model_config["fast_model"])
-            elif name == "uberllm":
-                os.environ.setdefault("UBERLLM_SMALL_FAST_MODEL", model_config["fast_model"])
+            elif name == "martllm":
+                os.environ.setdefault("MARTLLM_SMALL_FAST_MODEL", model_config["fast_model"])
             elif not os.environ.get("ANTHROPIC_SMALL_FAST_MODEL") and not os.environ.get("OPENAI_SMALL_FAST_MODEL"):
                 if name in ("openai", "bedrock-mantle"):
                     os.environ.setdefault("OPENAI_SMALL_FAST_MODEL", model_config["fast_model"])
