@@ -282,14 +282,31 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         writerContext.getEventListener().onEvent(new WriterCloseEvent());
     }
 
-    private void registerCommitter() {
+    /**
+     * Registers this writer with the aggregated committer and waits for the result. The wait
+     * returns when the task thread is interrupted, so cancelling the task does not have to wait for
+     * the remote registration to finish.
+     *
+     * <p>Hazelcast's {@code InvocationFuture#get} and {@code #join} keep waiting when the thread is
+     * interrupted, so the wait is on a plain future that the invocation completes.
+     */
+    private void registerCommitter() throws ExecutionException, InterruptedException {
         if (containAggCommitter) {
+            CompletableFuture<Object> registered = new CompletableFuture<>();
             runningTask
                     .getExecutionContext()
                     .sendToMember(
                             new SinkRegisterOperation(taskLocation, committerTaskLocation),
                             committerTaskAddress)
-                    .join();
+                    .whenComplete(
+                            (result, error) -> {
+                                if (error != null) {
+                                    registered.completeExceptionally(error);
+                                } else {
+                                    registered.complete(result);
+                                }
+                            });
+            registered.get();
         }
     }
 

@@ -19,10 +19,15 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
+import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.BlockTask;
 import org.apache.seatunnel.engine.server.execution.ExceptionTestTask;
@@ -40,7 +45,14 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupType;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TestTask;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
+import org.apache.seatunnel.engine.server.task.flow.SinkFlowLifeCycle;
+import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
+import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -52,19 +64,24 @@ import org.mockito.Mockito;
 
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.spi.impl.operationservice.OperationAccessor;
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -91,6 +108,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
     static FlakeIdGenerator FLAKE_ID_GENERATOR;
+
+    /**
+     * Watchdog of the sink registration tests: generous on a loaded runner, and about half the time
+     * that the registration retries take, so a wait that runs them out still fails.
+     */
+    private static final Duration REGISTRATION_WATCHDOG =
+            Duration.ofMillis(
+                    (long) Constant.OPERATION_RETRY_TIME * Constant.OPERATION_RETRY_SLEEP / 2);
+
     long taskRunTime = 2000;
     long jobId = 10001;
     int pipeLineId = 100001;
@@ -917,6 +943,233 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                     new FixedCallTestTimeTask(callTime, callTime + "t" + i, stopMart, lagList));
         }
         return taskQueue;
+    }
+
+    /**
+     * A writer that registers after the committer's task group has ended, for example while the job
+     * is being cancelled, gets an error at once instead of after the retries run out.
+     */
+    @Test
+    public void testSinkRegisterFailsAtOnceWhenCommitterTaskGroupEnded() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskLocation committer = deployAndFinishCommitterTaskGroup(taskExecutionService);
+        TaskLocation writer = new TaskLocation(newTaskGroupLocation(), 1L, 0);
+        TaskExecutionService lookups = Mockito.spy(taskExecutionService);
+        try {
+            SeaTunnelEngineException e =
+                    Assertions.assertTimeoutPreemptively(
+                            REGISTRATION_WATCHDOG,
+                            () ->
+                                    Assertions.assertThrows(
+                                            SeaTunnelEngineException.class,
+                                            () ->
+                                                    newSinkRegisterOperation(
+                                                                    writer, committer, lookups)
+                                                            .runInternal()));
+
+            Assertions.assertTrue(
+                    e.getMessage().contains("task group has already ended"), e.getMessage());
+            // One lookup and no retry.
+            Mockito.verify(lookups, Mockito.times(1)).getTask(committer);
+        } finally {
+            taskExecutionService.notifyCleanTaskGroupContext(committer.getTaskGroupLocation());
+        }
+    }
+
+    /**
+     * A pipeline restore cleans the ended committer's context and deploys the committer again at
+     * the same location. A restored writer that registers in between keeps retrying and registers
+     * with the new committer once it is active.
+     */
+    @Test
+    public void testSinkRegisterWaitsForCommitterRedeployedByRestore() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskLocation committer = deployAndFinishCommitterTaskGroup(taskExecutionService);
+        TaskGroupLocation location = committer.getTaskGroupLocation();
+        TaskLocation writer = new TaskLocation(newTaskGroupLocation(), 1L, 0);
+        // What SubPlan.prepareRestorePipeline does through JobMaster before it deploys again.
+        NodeEngineUtil.sendOperationToMemberNode(
+                        nodeEngine,
+                        new CleanTaskGroupContextOperation(location),
+                        nodeEngine.getThisAddress())
+                .get(10, TimeUnit.SECONDS);
+        Assertions.assertFalse(taskExecutionService.isTaskGroupEnded(location));
+
+        SinkAggregatedCommitterTask<?, ?> restoredCommitter =
+                Mockito.mock(SinkAggregatedCommitterTask.class);
+        Mockito.when(restoredCommitter.getTaskID()).thenReturn(committer.getTaskID());
+        TaskGroupContext restoredContext =
+                newTaskGroupContext(
+                        FLAKE_ID_GENERATOR.newId(),
+                        new TaskGroupDefaultImpl(
+                                location,
+                                "restored-committer",
+                                Lists.newArrayList(restoredCommitter)));
+        ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts =
+                getField(taskExecutionService, "executionContexts");
+        TaskExecutionService lookups = Mockito.spy(taskExecutionService);
+        // The first lookup and one retry.
+        CountDownLatch failedLookups = new CountDownLatch(2);
+        Mockito.doAnswer(
+                        invocation -> {
+                            try {
+                                return invocation.callRealMethod();
+                            } catch (TaskGroupContextNotFoundException e) {
+                                failedLookups.countDown();
+                                throw e;
+                            }
+                        })
+                .when(lookups)
+                .getTask(committer);
+        SinkRegisterOperation operation = newSinkRegisterOperation(writer, committer, lookups);
+        try {
+            Future<Void> registration =
+                    CompletableFuture.runAsync(
+                            () -> {
+                                try {
+                                    operation.runInternal();
+                                } catch (Exception e) {
+                                    throw new CompletionException(e);
+                                }
+                            });
+            Assertions.assertTrue(
+                    failedLookups.await(REGISTRATION_WATCHDOG.toMillis(), TimeUnit.MILLISECONDS),
+                    "the registration did not retry the lookup");
+            Assertions.assertFalse(registration.isDone());
+
+            executionContexts.put(location, restoredContext);
+            registration.get(REGISTRATION_WATCHDOG.toMillis(), TimeUnit.MILLISECONDS);
+
+            Mockito.verify(restoredCommitter)
+                    .receivedWriterRegister(writer, nodeEngine.getThisAddress());
+        } finally {
+            executionContexts.remove(location, restoredContext);
+        }
+    }
+
+    /**
+     * A writer waiting for its registration returns when its task thread is interrupted, so a
+     * cancel does not have to wait for the remote registration to finish.
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testSinkRegisterWaitReturnsWhenWriterThreadIsInterrupted() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        // Never deployed: the registration keeps retrying.
+        TaskLocation committer = new TaskLocation(newTaskGroupLocation(), 1L, 0);
+        TaskLocation writer = new TaskLocation(newTaskGroupLocation(), 2L, 0);
+
+        InvocationFuture<Object> committerAddress = Mockito.mock(InvocationFuture.class);
+        Mockito.when(committerAddress.get()).thenReturn(nodeEngine.getThisAddress());
+        TaskExecutionContext context = Mockito.mock(TaskExecutionContext.class);
+        Mockito.when(context.sendToMaster(Mockito.any())).thenReturn(committerAddress);
+        AtomicReference<InvocationFuture<Object>> registration = new AtomicReference<>();
+        Mockito.when(context.sendToMember(Mockito.any(), Mockito.any()))
+                .thenAnswer(
+                        invocation -> {
+                            InvocationFuture<Object> future =
+                                    NodeEngineUtil.sendOperationToMemberNode(
+                                            nodeEngine,
+                                            invocation.getArgument(0),
+                                            invocation.getArgument(1));
+                            registration.set(future);
+                            return future;
+                        });
+        SeaTunnelTask task = Mockito.mock(SeaTunnelTask.class);
+        Mockito.when(task.getExecutionContext()).thenReturn(context);
+        SeaTunnelSink<SeaTunnelRow, String, String, String> sink =
+                Mockito.mock(SeaTunnelSink.class);
+        Mockito.when(sink.getWriteCatalogTable()).thenReturn(Optional.empty());
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> flow =
+                new SinkFlowLifeCycle<>(
+                        new SinkAction<>(
+                                7L, "sink", sink, Collections.emptySet(), Collections.emptySet()),
+                        writer,
+                        0,
+                        task,
+                        committer,
+                        true,
+                        new CompletableFuture<>(),
+                        new SeaTunnelMetricsContext());
+
+        AtomicReference<Throwable> openResult = new AtomicReference<>();
+        CountDownLatch opened = new CountDownLatch(1);
+        Thread writerThread =
+                new Thread(
+                        () -> {
+                            try {
+                                flow.open();
+                            } catch (Throwable t) {
+                                openResult.set(t);
+                            } finally {
+                                opened.countDown();
+                            }
+                        },
+                        "sink-register-interrupt-test");
+        TaskGroupLocation location = committer.getTaskGroupLocation();
+        ConcurrentMap<TaskGroupLocation, TaskGroupContext> finishedExecutionContexts =
+                getField(taskExecutionService, "finishedExecutionContexts");
+        try {
+            writerThread.start();
+            await().atMost(10, TimeUnit.SECONDS).until(() -> registration.get() != null);
+            Assertions.assertFalse(opened.await(500, TimeUnit.MILLISECONDS));
+
+            writerThread.interrupt();
+
+            Assertions.assertTrue(
+                    opened.await(REGISTRATION_WATCHDOG.toMillis(), TimeUnit.MILLISECONDS),
+                    "open() kept waiting after the interrupt");
+            Assertions.assertInstanceOf(InterruptedException.class, openResult.get());
+        } finally {
+            // End the committer location so the retrying registration stops at its next attempt.
+            finishedExecutionContexts.put(
+                    location,
+                    newTaskGroupContext(
+                            FLAKE_ID_GENERATOR.newId(),
+                            new TaskGroupDefaultImpl(location, "ended", Lists.newArrayList())));
+            writerThread.interrupt();
+            writerThread.join(10_000);
+            // Best effort and without assertions, so that a failure above is the one reported.
+            InvocationFuture<Object> pending = registration.get();
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+            while (pending != null && !pending.isDone() && System.nanoTime() < deadline) {
+                Thread.sleep(100);
+            }
+            taskExecutionService.notifyCleanTaskGroupContext(location);
+        }
+    }
+
+    /** Deploys a task group on this node, waits until it has finished and returns a task in it. */
+    private TaskLocation deployAndFinishCommitterTaskGroup(
+            TaskExecutionService taskExecutionService) {
+        TaskGroupLocation location = newTaskGroupLocation();
+        TestTask committerTask = new TestTask(new AtomicBoolean(true), 0, false);
+        PassiveCompletableFuture<TaskExecutionState> result =
+                deployLocalTask(
+                        taskExecutionService,
+                        new TaskGroupDefaultImpl(
+                                location, "committer", Lists.newArrayList(committerTask)));
+        await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            assertEquals(FINISHED, result.get().getExecutionState());
+                            assertTrue(taskExecutionService.isTaskGroupEnded(location));
+                        });
+        return new TaskLocation(location, committerTask.getTaskID(), 0);
+    }
+
+    /**
+     * Creates a registration from this node's address that runs on the calling thread and looks the
+     * committer up in {@code lookups}.
+     */
+    private SinkRegisterOperation newSinkRegisterOperation(
+            TaskLocation writer, TaskLocation committer, TaskExecutionService lookups) {
+        SeaTunnelServer service = Mockito.mock(SeaTunnelServer.class);
+        Mockito.when(service.getTaskExecutionService()).thenReturn(lookups);
+        SinkRegisterOperation operation = new SinkRegisterOperation(writer, committer);
+        operation.setService(service);
+        OperationAccessor.setCallerAddress(operation, nodeEngine.getThisAddress());
+        return operation;
     }
 
     private TaskGroupLocation newTaskGroupLocation() {

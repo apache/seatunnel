@@ -339,6 +339,23 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     /**
+     * Returns whether the task group at this location has ended on this node: its deployment has
+     * finished and no newer deployment is active. A location that was never deployed here, or whose
+     * finished context has already been cleaned, is not ended.
+     *
+     * <p>This reads the active and finished contexts at the time of the call. It is not a fence
+     * against a later deployment: a pipeline restore can deploy the task group again at the same
+     * location.
+     *
+     * @param taskGroupLocation the location of the task group
+     * @return {@code true} if only a finished context exists for the location
+     */
+    public boolean isTaskGroupEnded(TaskGroupLocation taskGroupLocation) {
+        return !executionContexts.containsKey(taskGroupLocation)
+                && finishedExecutionContexts.containsKey(taskGroupLocation);
+    }
+
+    /**
      * Gets the active execution context for a task group. Only checks active execution contexts,
      * does not check finished contexts.
      *

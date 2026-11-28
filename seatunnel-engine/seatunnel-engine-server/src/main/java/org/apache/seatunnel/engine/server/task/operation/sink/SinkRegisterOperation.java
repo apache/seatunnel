@@ -19,7 +19,9 @@ package org.apache.seatunnel.engine.server.task.operation.sink;
 
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.TaskExecutionService;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
@@ -48,14 +50,18 @@ public class SinkRegisterOperation extends TracingOperation implements Identifie
         this.committerTaskID = committerTaskID;
     }
 
+    /**
+     * Registers the calling writer with the aggregated committer on this node. Retries while the
+     * committer is not deployed yet, and fails at once when its task group has already ended.
+     */
     @Override
     public void runInternal() throws Exception {
         SeaTunnelServer server = getService();
         Address readerAddress = getCallerAddress();
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
         RetryUtils.retryWithException(
                 () -> {
-                    SinkAggregatedCommitterTask<?, ?> task =
-                            server.getTaskExecutionService().getTask(committerTaskID);
+                    SinkAggregatedCommitterTask<?, ?> task = getCommitterTask(taskExecutionService);
                     task.receivedWriterRegister(writerTaskID, readerAddress);
                     return null;
                 },
@@ -66,6 +72,36 @@ public class SinkRegisterOperation extends TracingOperation implements Identifie
                                 e instanceof TaskGroupContextNotFoundException
                                         || e instanceof NullPointerException,
                         Constant.OPERATION_RETRY_SLEEP));
+    }
+
+    /**
+     * Looks up the committer task. While its task group is not active, for example while a restored
+     * pipeline is still being deployed, the lookup fails with the retryable {@link
+     * TaskGroupContextNotFoundException}. If the task group has ended on this node ({@link
+     * TaskExecutionService#isTaskGroupEnded}), for example because the job is being cancelled, this
+     * fails at once with an exception that is not retried.
+     *
+     * <p>That check reads the context maps at the time of the lookup and does not prove that the
+     * location is not deployed again. A pipeline restore cleans the finished context before it
+     * deploys the committer again, so a restored writer keeps retrying until the new committer is
+     * active. If that best-effort cleanup failed, a restored writer that registers before the new
+     * committer is active fails the same way, and the restore attempt fails instead of waiting.
+     */
+    private SinkAggregatedCommitterTask<?, ?> getCommitterTask(
+            TaskExecutionService taskExecutionService) {
+        try {
+            return taskExecutionService.getTask(committerTaskID);
+        } catch (TaskGroupContextNotFoundException e) {
+            if (taskExecutionService.isTaskGroupEnded(committerTaskID.getTaskGroupLocation())) {
+                throw new SeaTunnelEngineException(
+                        String.format(
+                                "Writer %s cannot register with the aggregated committer %s"
+                                        + " because the committer's task group has already ended",
+                                writerTaskID, committerTaskID),
+                        e);
+            }
+            throw e;
+        }
     }
 
     @Override
