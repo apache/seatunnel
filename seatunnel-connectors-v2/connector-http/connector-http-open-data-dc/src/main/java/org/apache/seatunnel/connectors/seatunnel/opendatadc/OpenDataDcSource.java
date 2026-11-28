@@ -37,6 +37,10 @@ import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Configures one bounded crash-layer scan with a fixed projected schema. The scan ceiling bounds
+ * IDs while existing remote records can still change during a read.
+ */
 public class OpenDataDcSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     static final String PLUGIN_NAME = "OpenDataDC";
     private final int pageSize;
@@ -44,17 +48,21 @@ public class OpenDataDcSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     private final CatalogTable table;
     private final String queryUrl;
 
+    /**
+     * Validates paging limits and a query endpoint without credentials or query parameters. Plain
+     * HTTP requires the explicit fixture option; HTTPS remains the default.
+     */
     OpenDataDcSource(ReadonlyConfig options) {
-        pageSize = options.get(OpenDataDcSourceFactory.PAGE_SIZE);
-        maxRows = options.get(OpenDataDcSourceFactory.MAX_ROWS);
+        pageSize = options.get(OpenDataDcSourceOptions.PAGE_SIZE);
+        maxRows = options.get(OpenDataDcSourceOptions.MAX_ROWS);
         if (pageSize < 1 || pageSize > 1000 || maxRows < 0) {
             throw new IllegalArgumentException(
                     "page_size must be within 1..1000 and max_rows cannot be negative");
         }
-        URI endpoint = URI.create(options.get(OpenDataDcSourceFactory.QUERY_URL));
+        URI endpoint = URI.create(options.get(OpenDataDcSourceOptions.QUERY_URL));
         boolean allowedScheme =
                 "https".equalsIgnoreCase(endpoint.getScheme())
-                        || (options.get(OpenDataDcSourceFactory.ALLOW_INSECURE_HTTP)
+                        || (options.get(OpenDataDcSourceOptions.ALLOW_INSECURE_HTTP)
                                 && "http".equalsIgnoreCase(endpoint.getScheme()));
         if (!allowedScheme
                 || endpoint.getHost() == null
@@ -100,6 +108,9 @@ public class OpenDataDcSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         return Boundedness.BOUNDED;
     }
 
+    /*
+     * Rejects streaming execution: the upper OBJECTID bound is a scan boundary, not CDC.
+     */
     @Override
     public void setJobContext(JobContext context) {
         if (context.getJobMode() != JobMode.BATCH) {

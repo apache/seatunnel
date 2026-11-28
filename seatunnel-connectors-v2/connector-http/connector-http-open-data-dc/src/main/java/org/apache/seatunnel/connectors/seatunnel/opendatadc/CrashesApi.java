@@ -46,6 +46,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * Owns the crash-layer HTTP transport, bounded empty-window traversal and HTTP 429 retries.
+ * Cancellation wakes retry waits and aborts the published request before transport shutdown.
+ */
 class CrashesApi implements Closeable {
     static final String ENDPOINT =
             "https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/"
@@ -59,9 +63,15 @@ class CrashesApi implements Closeable {
 
     private final String endpoint;
     private final CloseableHttpClient client;
+    /*
+     * Published before checking cancellation so cancel either aborts or prevents dispatch.
+     */
     private final AtomicReference<HttpGet> inFlight = new AtomicReference<>();
     // The latch is both the sticky cancellation flag and the wake-up for Retry-After.
     private final CountDownLatch cancelled = new CountDownLatch(1);
+    /*
+     * Transfers client-close ownership once, independently of the sticky cancellation latch.
+     */
     private final AtomicBoolean closed = new AtomicBoolean();
 
     CrashesApi() {
@@ -95,6 +105,9 @@ class CrashesApi implements Closeable {
                         .build();
     }
 
+    /*
+     * Permanently wakes retry waits and aborts the currently published request.
+     */
     void cancel() {
         cancelled.countDown();
         HttpGet request = inFlight.get();
@@ -103,6 +116,9 @@ class CrashesApi implements Closeable {
         }
     }
 
+    /*
+     * Cancels before closing the transport, with a single close owner across concurrent calls.
+     */
     @Override
     public void close() throws IOException {
         cancel();
@@ -125,6 +141,10 @@ class CrashesApi implements Closeable {
         return new IOException("Open Data DC source was cancelled");
     }
 
+    /**
+     * Reads at most the highest OBJECTID; an empty layer has upper bound zero. This fixes the ID
+     * ceiling, not a transactionally consistent snapshot of mutable records.
+     */
     long readUpperBound() throws IOException {
         JsonNode features = query("1=1", "OBJECTID", "OBJECTID DESC", 1).get("features");
         if (features.size() > 1) {
@@ -133,6 +153,9 @@ class CrashesApi implements Closeable {
         return features.isEmpty() ? 0L : objectId(attributes(features.get(0)));
     }
 
+    /*
+     * Projects the fixed crash fields in ascending key order within the inclusive scan ceiling.
+     */
     JsonNode readPage(long lastId, long upperBound, int size) throws IOException {
         return query(
                 "OBJECTID > " + lastId + " AND OBJECTID <= " + upperBound,
@@ -141,6 +164,11 @@ class CrashesApi implements Closeable {
                 size);
     }
 
+    /**
+     * Advances offsets only across empty candidate windows reporting more results. Each call starts
+     * at offset zero with its key predicate; nonempty pages resume by OBJECTID. Fails after the
+     * initial window plus at most 32 empty-window advances.
+     */
     private JsonNode query(String filter, String fields, String sort, int size) throws IOException {
         // MapServer may report an empty candidate window even though more results remain.
         // Keep the exact predicate, order and width while moving one complete window at a time.
@@ -167,6 +195,10 @@ class CrashesApi implements Closeable {
         throw new IOException("Open Data DC MapServer returned too many consecutive empty windows");
     }
 
+    /**
+     * Attempts each GET at most three times, retrying only HTTP 429 within the local delay budget.
+     * Detaches the active request on every outcome and makes cancellation visible before dispatch.
+     */
     private JsonNode get(String url) throws IOException {
         for (int attempt = 1; attempt <= MAX_THROTTLE_ATTEMPTS; attempt++) {
             HttpGet request = new HttpGet(url);
@@ -209,6 +241,10 @@ class CrashesApi implements Closeable {
         throw new IOException("Open Data DC returned HTTP 429");
     }
 
+    /**
+     * Waits on the cancellation latch so cancel wakes a Retry-After delay immediately. Thread
+     * interruption is preserved and propagated as an I/O failure.
+     */
     void awaitRetry(long retryDelay) throws IOException {
         try {
             if (cancelled.await(retryDelay, TimeUnit.MILLISECONDS)) {
@@ -220,6 +256,10 @@ class CrashesApi implements Closeable {
         }
     }
 
+    /**
+     * Supports delta-seconds and HTTP-date Retry-After values with a five-second ceiling. Missing
+     * or malformed headers use the caller fallback; excessive server delays fail.
+     */
     static long retryDelayMillis(String header, Instant now, long fallback) throws IOException {
         if (header == null) {
             return fallback;
@@ -249,6 +289,10 @@ class CrashesApi implements Closeable {
         return delay;
     }
 
+    /**
+     * Rejects ArcGIS error envelopes, missing features and invalid transfer-limit flags before
+     * paging.
+     */
     static JsonNode parse(InputStream payload) throws IOException {
         JsonNode result = MAPPER.readTree(payload);
         if (result == null || !result.isObject()) {

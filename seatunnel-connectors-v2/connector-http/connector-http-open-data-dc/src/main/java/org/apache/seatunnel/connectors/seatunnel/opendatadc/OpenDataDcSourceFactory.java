@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.opendatadc;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -33,28 +31,6 @@ import java.io.Serializable;
 
 @AutoService(Factory.class)
 public class OpenDataDcSourceFactory implements TableSourceFactory {
-    static final Option<Integer> PAGE_SIZE =
-            Options.key("page_size")
-                    .intType()
-                    .defaultValue(500)
-                    .withDescription("Number of crash records to request per page (1–1000)");
-    static final Option<Long> MAX_ROWS =
-            Options.key("max_rows")
-                    .longType()
-                    .defaultValue(0L)
-                    .withDescription("Maximum number of rows to read; zero reads the full scan");
-
-    static final Option<String> QUERY_URL =
-            Options.key("query_url")
-                    .stringType()
-                    .defaultValue(CrashesApi.ENDPOINT)
-                    .withDescription(
-                            "HTTPS ArcGIS Crashes layer query URL; use the public City endpoint by default");
-    static final Option<Boolean> ALLOW_INSECURE_HTTP =
-            Options.key("allow_insecure_http")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription("Enable plaintext HTTP for a trusted local test fixture only");
 
     @Override
     public String factoryIdentifier() {
@@ -64,7 +40,11 @@ public class OpenDataDcSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(PAGE_SIZE, MAX_ROWS, QUERY_URL, ALLOW_INSECURE_HTTP)
+                .optional(
+                        OpenDataDcSourceOptions.PAGE_SIZE,
+                        OpenDataDcSourceOptions.MAX_ROWS,
+                        OpenDataDcSourceOptions.QUERY_URL,
+                        OpenDataDcSourceOptions.ALLOW_INSECURE_HTTP)
                 .build();
     }
 

@@ -32,14 +32,27 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Scans ascending OBJECTIDs up to the first observed maximum, committing one page at a time. The
+ * upper bound excludes later IDs but does not freeze updates or deletions of existing rows.
+ */
 final class OpenDataDcReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final SingleSplitReaderContext context;
     private final CrashesApi api;
     private final int pageSize;
     private final long maxRows;
     private final String tableId;
+    /*
+     * Checkpoint field 1: negative before discovery, otherwise the inclusive scan maximum.
+     */
     private long upperBound = -1L;
+    /*
+     * Checkpoint field 2: last OBJECTID emitted with a fully committed page.
+     */
     private long lastId;
+    /*
+     * Checkpoint field 3: emitted rows, retained across restore to enforce max_rows.
+     */
     private long rowCount;
 
     OpenDataDcReader(
@@ -58,16 +71,26 @@ final class OpenDataDcReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     @Override
     public void open() {}
 
+    /*
+     * Delegates sticky cancellation and active-request abortion to the owned API client.
+     */
     @Override
     public void cancel() {
         api.cancel();
     }
 
+    /*
+     * Closes the owned API client, which cancels in-flight requests before closing transport.
+     */
     @Override
     public void close() throws IOException {
         api.close();
     }
 
+    /**
+     * Polls a page without holding the checkpoint lock during network I/O. A cancellation-induced
+     * I/O error is not reported as a failed request or normal completion.
+     */
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws IOException {
         if (noMoreSplits || api.isCancelled()) {
@@ -84,6 +107,11 @@ final class OpenDataDcReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
+    /**
+     * Fetches and validates the full ordered page before taking the checkpoint lock. Emission,
+     * upper bound, cursor and row count commit together under that lock. Short nonempty pages
+     * continue by key; only an empty page, bound or row cap ends the scan.
+     */
     private void pollPage(Collector<SeaTunnelRow> output) throws IOException {
         final long bound = upperBound < 0 ? api.readUpperBound() : upperBound;
         final int size = maxRows == 0 ? pageSize : (int) Math.min(pageSize, maxRows - rowCount);
@@ -130,6 +158,9 @@ final class OpenDataDcReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
+    /**
+     * Requires every projected field, preserving explicit nulls and converting epoch millis to UTC.
+     */
     private SeaTunnelRow toRow(long id, JsonNode attributes) throws IOException {
         JsonNode date = field(attributes, "REPORTDATE");
         JsonNode count = field(attributes, "TOTAL_VEHICLES");
@@ -193,6 +224,10 @@ final class OpenDataDcReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         throw new IOException("Open Data DC returned an invalid integer for " + key);
     }
 
+    /**
+     * Serializes exactly 24 bytes: big-endian upperBound, lastId and rowCount longs. The engine
+     * checkpoint lock coordinates this state with the page commit in pollPage.
+     */
     @Override
     protected byte[] snapshotStateToBytes(long checkpointId) {
         return ByteBuffer.allocate(3 * Long.BYTES)
@@ -202,6 +237,9 @@ final class OpenDataDcReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 .array();
     }
 
+    /**
+     * Restores the same three-long layout so resumed pages keep both the scan bound and row cap.
+     */
     @Override
     protected void restoreState(byte[] restoredState) {
         ByteBuffer buffer = ByteBuffer.wrap(restoredState);
