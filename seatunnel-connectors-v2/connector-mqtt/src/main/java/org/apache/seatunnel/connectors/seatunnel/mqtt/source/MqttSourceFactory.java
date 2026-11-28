@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mqtt.source;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -25,6 +26,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.mqtt.config.MqttFormatValidator;
 
 import com.google.auto.service.AutoService;
 
@@ -48,15 +50,29 @@ public class MqttSourceFactory implements TableSourceFactory {
                 .optional(
                         MqttSourceOptions.USERNAME,
                         MqttSourceOptions.PASSWORD,
-                        MqttSourceOptions.QOS,
-                        MqttSourceOptions.FORMAT,
                         MqttSourceOptions.FIELD_DELIMITER,
                         MqttSourceOptions.CLIENT_ID,
                         MqttSourceOptions.CLEAN_SESSION,
                         MqttSourceOptions.CONNECTION_TIMEOUT,
-                        MqttSourceOptions.KEEP_ALIVE_INTERVAL,
+                        MqttSourceOptions.KEEP_ALIVE_INTERVAL)
+                .optional(
+                        MqttSourceOptions.QOS,
+                        Conditions.greaterOrEqual(MqttSourceOptions.QOS, 0)
+                                .and(Conditions.lessOrEqual(MqttSourceOptions.QOS, 1)))
+                .optional(
+                        MqttSourceOptions.FORMAT,
+                        Conditions.extension(MqttSourceOptions.FORMAT, new MqttFormatValidator()))
+                .optional(
                         MqttSourceOptions.RECONNECT_TIMEOUT,
-                        MqttSourceOptions.MAX_QUEUE_SIZE)
+                        Conditions.greaterThan(MqttSourceOptions.RECONNECT_TIMEOUT, 0))
+                .optional(
+                        MqttSourceOptions.MAX_QUEUE_SIZE,
+                        Conditions.greaterThan(MqttSourceOptions.MAX_QUEUE_SIZE, 0))
+                .conditional(MqttSourceOptions.CLEAN_SESSION, false, MqttSourceOptions.CLIENT_ID)
+                .conditional(
+                        MqttSourceOptions.CLEAN_SESSION,
+                        false,
+                        Conditions.notBlank(MqttSourceOptions.CLIENT_ID))
                 .build();
     }
 
