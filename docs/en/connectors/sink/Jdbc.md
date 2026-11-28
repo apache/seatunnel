@@ -315,6 +315,17 @@ If the `dialect` option is not set and no dialect matches the url, SeaTunnel use
 | DSQL      |              |          |
 | YashanDB  | CockroachDB  |          |
 | DuckDB    |              |          |
+#### Ingres
+
+For the driver-reported JDBC-to-SeaTunnel type mapping and its validation limits, see [Ingres source type mapping](../source/Jdbc.md#type-mapping). This is not a validated reverse mapping for sink table creation.
+
+
+Ingres support targets source reads; real-server validation is pending. Sink jobs also select this shared dialect for `jdbc:ingres:`, but sink execution and `${schema_name}` target routing have not been validated. This does not establish Ingres sink support.
+
+Use `owner.table` with the exact stored case; `field_ide` changes columns only. For generated sink SQL, `database` is not included in the table identifier: the JDBC URL selects the database and `table = "owner.table"` supplies the owner. `database` remains required when `generate_sink_sql = true`.
+
+Existing jobs can set `dialect = "Generic"` to retain the previous dialect behavior while migrating. See [incompatible changes](../../introduction/concepts/incompatible-changes.md#dev).
+
 ### database [string]
 
 The target database or catalog used in generated SQL mode. This option is required when `generate_sink_sql = true` and must not be combined with `query`.
@@ -718,6 +729,7 @@ The following values are starting points. Confirm the driver artifact and versio
 | Highgo            | com.highgo.jdbc.Driver                       | jdbc:highgo://localhost:5866/highgo                                 | /                                                  | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                                                   |
 | Dsql              | org.postgresql.Driver                        | jdbc:postgresql://Amazon Aurora DSQL Cluster Endpoint:5432/postgres | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                                  |
 | YashanDB          | com.yashandb.jdbc.Driver                     | jdbc:yasdb://localhost:1688/SYS                                     | /                                                  | https://repo1.maven.org/maven2/com/yashandb/yashandb-jdbc/1.10.7/yashandb-jdbc-1.10.7.jar                                     |
+| Ingres    |              |          |
 
 ## Common patterns
 
