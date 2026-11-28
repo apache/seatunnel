@@ -273,17 +273,37 @@ def _collect_required_options(
     return result
 
 
-def _transform_connector_name(transform: object) -> str:
-    """Return the transform plugin name from a structured or string plan field."""
+def _transform_connector_names(transform: object) -> list[str]:
+    """Return every transform plugin name in a plan's `transform` field.
+
+    `PipelineSlot.transform` is typed `str | None`, but it is filled straight
+    from the planner's JSON with `p.get("transform")` and no normalisation,
+    unlike `source`/`sink` which are unwrapped from their object form. So the
+    field arrives as whatever the model emitted: a name, an object, or -- when
+    the pipeline needs more than one transform -- a list of either.
+
+    A list used to fall through to `str(transform)`, which turned
+    `["Sql", "FieldMapper"]` into the plugin name `"['Sql', 'FieldMapper']"`.
+    Nothing matches that, so the metadata lookup logged "No metadata found"
+    and the generator was left to invent option keys for every transform in
+    the pipeline.
+    """
     if not transform:
-        return ""
+        return []
     if isinstance(transform, dict):
         for key in ("connector", "name", "type"):
             value = transform.get(key)
             if value:
-                return str(value)
-        return ""
-    return str(transform)
+                return [str(value)]
+        return []
+    if isinstance(transform, (list, tuple)):
+        # Recurse so a list of objects resolves the same way a bare object
+        # does, and nested empties drop out instead of becoming "None".
+        names: list[str] = []
+        for item in transform:
+            names.extend(_transform_connector_names(item))
+        return names
+    return [str(transform)]
 
 
 def _metadata_targets_for_pipeline(pipeline: PipelineSlot) -> list[tuple[str, str]]:
@@ -292,8 +312,7 @@ def _metadata_targets_for_pipeline(pipeline: PipelineSlot) -> list[tuple[str, st
         (pipeline.source_connector, "source"),
         (pipeline.sink_connector, "sink"),
     ]
-    transform_name = _transform_connector_name(pipeline.transform)
-    if transform_name:
+    for transform_name in _transform_connector_names(pipeline.transform):
         targets.append((transform_name, "transform"))
     return [(name, ctype) for name, ctype in targets if name]
 
@@ -604,8 +623,11 @@ class SkillExecutor:
             parts.append(f'  - plugin_output: "{p.routing_label}"')
             parts.append(f"- Sink: {p.sink_connector}")
             parts.append(f'  - plugin_input: "{p.routing_label}"')
-            if p.transform:
-                parts.append(f"- Transform: {p.transform}")
+            # Same field, same reason: rendering the raw value put a Python
+            # list repr into the prompt the generator reads.
+            transform_names = _transform_connector_names(p.transform)
+            if transform_names:
+                parts.append(f"- Transform: {', '.join(transform_names)}")
 
         if len(pipelines) > 1:
             parts.append("\n## Routing Table:")
