@@ -22,10 +22,17 @@ SeaTunnel 还支持将 SeaTunnel 中的 INSERT/UPDATE/DELETE 消息编码为 Can
 
 |               选项               |  默认值   | 是否需要 |                                         描述                                         |
 |--------------------------------|--------|------|------------------------------------------------------------------------------------|
-| format                         | (none) | 是    | 指定要使用的格式，这里应该是 `canal_json`                                                        |
-| canal_json.ignore-parse-errors | false  | 否    | 跳过解析错误的字段和行，而不是失败。出现错误的字段将被设置为null                                                 |
-| canal_json.database.include    | (none) | 否    | 正则表达式，可选，通过正则匹配 Canal 记录中的`database`元字段来仅读取特定数据库变更日志行。此字符串Pattern模式与Java的Pattern兼容 |
-| canal_json.table.include       | (none) | 否    | 正则表达式，可选，通过正则匹配 Canal 记录中的`table`元字段来仅读取特定数据库变更日志行。此字符串Pattern模式与Java的Pattern兼容    |
+| format                         | json   | 是    | 指定要使用的格式，这里应该是 `canal_json`                                                        |
+
+> **注意：** 带前缀的 `canal_json.ignore-parse-errors`、`canal_json.database.include` 和 `canal_json.table.include` 不是有效的配置项，配置后不会生效。是否跳过无法解析的记录由各连接器自行决定（例如 Kafka 读取 Canal JSON 时始终跳过），format 模块的 `database.include`/`table.include` 过滤器目前也未接入任何连接器。
+
+:::warning
+
+在当前的 SeaTunnel 实现中，除 `format` 外的上述选项都不会从作业配置中读取。解析错误的行为由各个连接器自行决定：Kafka 和 Pulsar
+source 在 `canal_json` 格式下始终跳过解析错误的行，Amazon SQS source 则从不跳过。`canal_json.database.include` /
+`canal_json.table.include` 的过滤功能目前没有任何连接器实现。
+
+:::
 
 # 如何使用
 

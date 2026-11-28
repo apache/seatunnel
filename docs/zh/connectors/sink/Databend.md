@@ -82,6 +82,12 @@ Databend sink 内部通过 stage attachment 实现数据的批量导入。
 
 ## 数据类型映射
 
+列实际使用的映射取决于目标表是如何产生的。建表（save mode）与 CDC Schema 变更 DDL 使用的是两套不同的转换器，二者并不完全一致。
+
+### Schema 变更 DDL（CDC）
+
+对于 CDC 的 `ADD COLUMN` / `MODIFY COLUMN` 事件，连接器通过 `SchemaChangeManager` 生成 DDL，其中列类型由 `DatabendTypeConverter` 转换：
+
 | SeaTunnel 数据类型 | Databend 数据类型 |
 |-----------------|---------------|
 | BOOLEAN | BOOLEAN |
@@ -95,8 +101,16 @@ Databend sink 内部通过 stage attachment 实现数据的批量导入。
 | STRING | STRING |
 | BYTES | VARBINARY |
 | DATE | DATE |
-| TIME | TIME |
+| TIME | STRING |
 | TIMESTAMP | TIMESTAMP |
+| ARRAY | ARRAY(STRING) |
+| MAP | MAP(STRING, STRING) |
+| ROW | STRING |
+| NULL | NULL |
+
+### 建表（Save Mode）
+
+当 `schema_save_mode` 创建目标表时，`DatabendCatalog.buildCreateTableSql` 使用的是另一套转换，与上表存在差异：`STRING` 映射为 `VARCHAR`，`TIME` 映射为 `TIME`，并且不支持 `ARRAY`、`MAP`、`ROW`、`NULL` 类型（建表时会因数据类型不支持而失败）。
 
 ## 任务示例
 

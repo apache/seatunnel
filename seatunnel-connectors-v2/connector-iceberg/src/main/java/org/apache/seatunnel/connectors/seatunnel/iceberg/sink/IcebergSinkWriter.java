@@ -140,7 +140,11 @@ public class IcebergSinkWriter
     }
 
     @Override
-    public void abortPrepare() {}
+    public void abortPrepare() {
+        if (writer != null) {
+            writer.close();
+        }
+    }
 
     @Override
     public void close() throws IOException {

@@ -196,7 +196,7 @@ schema {
 | access_secret              | string  | 否    | -                  |                                                                                                                                                      |
 | delimiter/field_delimiter  | string  | 否    | \001               | 字段分隔符，用于告诉连接器在读取文本文件时如何切分字段。默认`\001`，与hive的默认分隔符相同。**delimiter** 参数将在 2.3.5 版本后废弃，请改用 **field_delimiter**。                                                            |
 | row_delimiter              | string  | 否    | \n                 | 行分隔符，用于告诉连接器在读取文本文件时如何切分行。默认`\n`。                                                                                                                    |
-| parse_partition_from_path  | boolean | 否    | true               | 控制是否从文件路径解析分区键和值。例如，如果您从路径`oss://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26`读取文件。文件中的每条记录数据都将添加这两个字段：name="tyrantlucifer"，age=16 |
+| parse_partition_from_path  | boolean | 否    | true               | 控制是否从文件路径解析分区键和值。例如，如果您从路径`oss://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26`读取文件。文件中的每条记录数据都将添加这两个字段：name="tyrantlucifer"，age=26 |
 | date_format                | string  | 否    | yyyy-MM-dd         | 日期类型格式，用于告诉连接器如何将字符串转换为日期，支持以下格式：`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`。默认`yyyy-MM-dd`                                                               |
 | datetime_format            | string  | 否    | yyyy-MM-dd HH:mm:ss | 日期时间类型格式，用于告诉连接器如何将字符串转换为日期时间，支持以下格式：`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`                              |
 | time_format                | string  | 否    | HH:mm:ss           | 时间类型格式，用于告诉连接器如何将字符串转换为时间，支持以下格式：`HH:mm:ss` `HH:mm:ss.SSS`                                                                                           |
@@ -205,6 +205,7 @@ schema {
 | csv_use_header_line        | boolean | 否    | false              | 是否使用标题行来解析文件，仅在file_format为`csv`且文件包含符合RFC 4180的标题行时使用                                                                                               |
 | schema                     | config  | 否    | -                  | 上游数据的schema。                                                                                                                                         |
 | sheet_name                 | string  | 否    | -                  | 读取工作簿的工作表，仅在file_format为excel时使用。                                                                                                                    |
+| excel_use_header_line | boolean | 否 | false | 使用 Excel 第一行作为表头按列名映射字段，仅在 file_format_type 为 excel 时使用。 |
 | excel_engine               | string  | 否    | POI                | 仅在 `file_format` 为 excel 时使用。支持的引擎包括 `POI` 和 `EasyExcel`。                                                                                                                                                                 |
 | poi_excel_max_file_size    | long    | 否    | 52428800           | 仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。POI 引擎允许读取的最大 Excel 文件大小（默认 50 MB）。                                                                                                                                                                 |
 | xml_row_tag                | string  | 否    | -                  | 指定XML文件中数据行的标签名称，仅在file_format为xml时使用。                                                                                                               |
@@ -215,6 +216,10 @@ schema {
 | null_format                | string  | 否    | -                  | 当 `file_format_type` 为 `text` 或 `csv` 时使用。指定表示 null 的字段值。 对于配置了 `schema.columns[].defaultValue` 的 CSV，如果字段值匹配 `null_format`，或文件表头缺少该列，则使用配置的默认值。空 CSV 字段仍为 null，除非它与 `null_format` 匹配；未配置默认值的列保持原有行为。 CSV 默认值在创建读取器时转换为列类型。无法转换的默认值会导致作业失败，即使没有字段需要使用该默认值。DATE 和 TIMESTAMP 默认值可以使用与文件数据不同的受支持格式。 例如：`\N` |
 | binary_chunk_size          | int     | 否    | 1024               | 仅在file_format_type为binary时使用。读取二进制文件的块大小（以字节为单位）。默认为1024字节。较大的值可能会提高大文件的性能，但会使用更多内存。                                                                 |
 | binary_complete_file_mode  | boolean | 否    | false              | 仅在file_format_type为binary时使用。是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为false。                                                                     |
+| enable_file_split          | boolean | 否    | false              | 允许并行读取大型 text、JSON、CSV 和 Parquet 文件。格式不支持切分，或启用了文件压缩或归档压缩时，连接器按不切分的方式读取。 |
+| file_split_size            | long    | 否    | 134217728          | `enable_file_split=true` 时的文件切分大小（字节），必须大于 0。对于文本类格式，切分点会对齐到下一个 `row_delimiter`。默认 128 MB。 |
+| markdown_rag_metadata_enabled | boolean | 否    | false              | 读取 markdown 文件时追加面向 RAG 的元数据列。仅在 `file_format_type` 为 `markdown` 时生效。 |
+| pdf_rag_metadata_enabled   | boolean | 否    | false              | 读取 PDF 文件时追加面向 RAG 的元数据列。仅在 `file_format_type` 为 `pdf` 时生效。 |
 | discovery_mode             | string  | 否    | once               | 文件发现模式，支持 `once`（默认）和 `continuous`。continuous 模式会定期扫描路径，目前需要同时配置 `sync_mode=update` 和 `file_format_type=binary`。 |
 | scan_interval              | string  | 否    | 10S                | `discovery_mode=continuous` 的轮询间隔，支持 `10S` 等简写和 `PT10S` 等 ISO-8601 格式。 |
 | start_mode                 | string  | 否    | earliest           | 持续发现的初始扫描方式。`earliest` 会处理已有文件，`latest` 仅处理后续新增或变更。 |
@@ -230,6 +235,7 @@ schema {
 | retention_max_age          | string  | 否    | -                  | `backup_path` 中 SeaTunnel 备份对象的可选最大保留时间。 |
 | retention_check_interval   | string  | 否    | 1H                 | 配置备份保留策略时的清理扫描间隔。 |
 | file_filter_pattern        | string  | 否    |                    | 过滤模式，用于过滤文件。                                                                                                                                         |
+| tables_configs | list | 否 | - | 用于定义多表任务，与 `path` 互斥。 |
 | common-options             | config  | 否    | -                  | 数据源插件通用参数，请参考[数据源通用选项](../common-options/source-common-options.md)了解详情。                                                                                             |
 | file_filter_modified_start | string  | 否    | -                  | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                            |
 | file_filter_modified_end   | string  | 否    | -                  | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                           |
