@@ -57,6 +57,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Verifies page commits, checkpoint restore, response budgets and cancellation with local fixtures.
+ */
 class OpenDataDcReaderTest {
     @Test
     void scansShortPagesAndRestoresCursorWithoutFetchingAnotherUpperBound() throws Exception {
@@ -432,6 +435,135 @@ class OpenDataDcReaderTest {
         assertThrows(
                 IOException.class,
                 () -> parse("{\"features\":[],\"exceededTransferLimit\":\"true\"}"));
+        assertThrows(IOException.class, () -> parse("{\"features\":[]}{\"error\":{\"code\":400}}"));
+        assertThrows(IOException.class, () -> parse("{\"features\":[1],\"features\":[]}"));
+        assertThrows(
+                IOException.class,
+                () ->
+                        parse(
+                                "{\"features\":[],\"extra\":"
+                                        + "[".repeat(65)
+                                        + "0"
+                                        + "]".repeat(65)
+                                        + "}"));
+        IOException tokenLimit =
+                assertThrows(
+                        IOException.class,
+                        () -> parse("{\"features\":[" + "0,".repeat(200000) + "0]}"));
+        assertTrue(tokenLimit.getMessage().contains("token budget"), tokenLimit.getMessage());
+    }
+
+    @Test
+    void rejectsOversizedChunkedBodyAndHeadersThroughTheHttpClient() throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        AtomicInteger calls = new AtomicInteger();
+        server.createContext(
+                "/body",
+                exchange -> {
+                    calls.incrementAndGet();
+                    try {
+                        exchange.sendResponseHeaders(200, 0);
+                        exchange.getResponseBody()
+                                .write(
+                                        ("{\"features\":[],\"padding\":\""
+                                                        + "x".repeat(100)
+                                                        + "\"}")
+                                                .getBytes(StandardCharsets.UTF_8));
+                    } finally {
+                        exchange.close();
+                    }
+                });
+        server.createContext(
+                "/headers",
+                exchange -> {
+                    calls.incrementAndGet();
+                    try {
+                        if (exchange.getRequestURI().getPath().endsWith("/many")) {
+                            for (int i = 0; i < 65; i++) {
+                                exchange.getResponseHeaders().set("X-Header-" + i, "value");
+                            }
+                        } else {
+                            exchange.getResponseHeaders().set("X-Oversized", "x".repeat(9000));
+                        }
+                        byte[] body = "{\"features\":[]}".getBytes(StandardCharsets.UTF_8);
+                        exchange.sendResponseHeaders(200, body.length);
+                        exchange.getResponseBody().write(body);
+                    } finally {
+                        exchange.close();
+                    }
+                });
+        server.start();
+        try {
+            for (String path : Arrays.asList("body", "headers", "headers/many")) {
+                try (CrashesApi api =
+                        new CrashesApi(
+                                "http://127.0.0.1:" + server.getAddress().getPort() + "/" + path,
+                                ProxySelector.getDefault(),
+                                64,
+                                5000)) {
+                    IOException error = assertThrows(IOException.class, api::readUpperBound);
+                    if ("body".equals(path)) {
+                        assertTrue(error.getMessage().contains("byte budget"), error.getMessage());
+                    }
+                }
+            }
+            assertEquals(3, calls.get());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void abortsAContinuouslyDrippingBodyAtTheElapsedDeadline() throws Exception {
+        CountDownLatch started = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch completedBody = new CountDownLatch(1);
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext(
+                "/query",
+                exchange -> {
+                    try {
+                        exchange.sendResponseHeaders(200, 0);
+                        exchange.getResponseBody()
+                                .write("{\"features\":[".getBytes(StandardCharsets.UTF_8));
+                        exchange.getResponseBody().flush();
+                        started.countDown();
+                        while (!release.await(20, TimeUnit.MILLISECONDS)) {
+                            // Each read remains active, so a socket-idle timeout cannot help.
+                            exchange.getResponseBody().write(' ');
+                            exchange.getResponseBody().flush();
+                        }
+                        exchange.getResponseBody().write("]}".getBytes(StandardCharsets.UTF_8));
+                        completedBody.countDown();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new IOException(e);
+                    } finally {
+                        exchange.close();
+                    }
+                });
+        server.start();
+        ExecutorService worker = Executors.newSingleThreadExecutor();
+        try (CrashesApi api =
+                new CrashesApi(
+                        "http://127.0.0.1:" + server.getAddress().getPort() + "/query",
+                        ProxySelector.getDefault(),
+                        1024,
+                        1000)) {
+            Future<IOException> error =
+                    worker.submit(() -> assertThrows(IOException.class, api::readUpperBound));
+            await(started);
+            IOException failure = error.get(3, TimeUnit.SECONDS);
+            assertTrue(
+                    failure.getMessage().contains("elapsed request deadline"),
+                    failure.getMessage());
+            assertEquals(1L, completedBody.getCount());
+            assertTrue(!api.isCancelled(), "A deadline must fail the GET, not cancel the source");
+        } finally {
+            release.countDown();
+            server.stop(0);
+            worker.shutdownNow();
+        }
     }
 
     @Test
@@ -483,6 +615,10 @@ class OpenDataDcReaderTest {
         return CrashesApi.parse(new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8)));
     }
 
+    /**
+     * Records each end-of-input signal without starting an engine. Tests inspect the counter to
+     * distinguish successful completion from cancellation or a rejected page.
+     */
     private static class RecordingContext extends SingleSplitReaderContext {
         private int signals;
 
@@ -496,6 +632,10 @@ class OpenDataDcReaderTest {
         }
     }
 
+    /**
+     * Collects emitted rows in encounter order and exposes one checkpoint monitor. Polling and
+     * snapshot test threads use that same monitor to verify page/state commit boundaries.
+     */
     private static class Rows implements Collector<SeaTunnelRow> {
         private final List<SeaTunnelRow> values = new ArrayList<>();
         private final Object lock = new Object();

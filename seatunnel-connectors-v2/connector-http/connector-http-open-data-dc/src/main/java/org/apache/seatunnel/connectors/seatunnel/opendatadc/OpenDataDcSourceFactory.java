@@ -29,6 +29,10 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
+/**
+ * Registers the bounded source through the factory SPI and exposes the same option definitions used
+ * by source construction. Endpoint and scan-limit validation stays in the source constructor.
+ */
 @AutoService(Factory.class)
 public class OpenDataDcSourceFactory implements TableSourceFactory {
 

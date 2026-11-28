@@ -56,6 +56,11 @@ HTTP 429 retries only the same GET, at most twice. A valid `Retry-After` up to f
 delay fails rather than retrying early. The retry budget is per request and does not change the job-level replay behavior.
 When Zeta cancels the job, the source aborts an active HTTP request and stops waiting for a pending HTTP 429 retry.
 
+Each GET has a 30-second abort deadline and rejects results decoded after that elapsed limit. Response bodies are
+limited to 4 MiB; JSON is limited to 200,000 tokens and nesting depth 64, with duplicate keys and trailing roots rejected.
+HTTP parsing uses an 8 KiB line limit and a 64-header count limit. These fixed budgets also apply to trusted mirrors;
+reduce `page_size` when projected rows make a page too large. Rejected responses do not commit a page or advance its checkpoint cursor.
+
 ```hocon
 env {
   job.mode = "BATCH"

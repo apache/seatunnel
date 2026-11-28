@@ -35,6 +35,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Exercises the installed source against the local ArcGIS fixture in Zeta. Tests verify exact
+ * request sequences and terminal job outcomes for paging, retry and response-budget failures.
+ */
 public class OpenDataDcIT extends TestSuiteBase implements TestResource {
     private static final String CONF = "/open_data_dc_to_assert.conf";
     private ArcGisCrashesFixture fixture;
@@ -149,6 +153,21 @@ public class OpenDataDcIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(
                 (result.getStdout() + result.getStderr())
                         .contains("Open Data DC returned HTTP 302"));
+        Assertions.assertEquals(Arrays.asList("1=1 @0"), fixture.getQueries());
+    }
+
+    @TestTemplate
+    public void failsBeforeAcceptingAnOversizedChunkedResponse(TestContainer container)
+            throws Exception {
+        Assumptions.assumeTrue(container.identifier() == TestContainerId.SEATUNNEL);
+        fixture.reset(ArcGisCrashesFixture.Mode.OVERSIZED_RESPONSE);
+        String jobId = Long.toString(System.currentTimeMillis());
+        Container.ExecResult result = execute(container, jobId);
+        Assertions.assertNotEquals(0, result.getExitCode());
+        Assertions.assertEquals("FAILED", container.getJobStatus(jobId));
+        Assertions.assertTrue(
+                (result.getStdout() + result.getStderr())
+                        .contains("response exceeds the local byte budget"));
         Assertions.assertEquals(Arrays.asList("1=1 @0"), fixture.getQueries());
     }
 

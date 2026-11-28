@@ -25,10 +25,15 @@ import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Serves ArcGIS-shaped crash responses locally and checks query predicates, projections and retry
+ * offsets. Each test selects an explicit mode and resets the observed request sequence.
+ */
 final class ArcGisCrashesFixture implements AutoCloseable {
     private static final String PROJECTION =
             "OBJECTID,CCN,REPORTDATE,WARD,TOTAL_VEHICLES,LATITUDE,LONGITUDE";
@@ -39,12 +44,17 @@ final class ArcGisCrashesFixture implements AutoCloseable {
     private final HttpServer server;
     private final List<String> queries = new ArrayList<>();
 
+    /**
+     * Selects one deterministic response sequence for a test, including recovery and retry
+     * exhaustion. Failure modes exercise ArcGIS errors, redirects and bounded response rejection.
+     */
     enum Mode {
         RECOVER,
         ARCGIS_ERROR,
         THROTTLE_EXHAUST,
         EMPTY_EXHAUST,
-        REDIRECT
+        REDIRECT,
+        OVERSIZED_RESPONSE
     }
 
     private Mode mode;
@@ -90,6 +100,26 @@ final class ArcGisCrashesFixture implements AutoCloseable {
 
             String body;
             if ("1=1".equals(where) && queryMatches(params, "OBJECTID", "OBJECTID DESC", "1")) {
+                if (mode == Mode.OVERSIZED_RESPONSE) {
+                    // Valid JSON over 4 MiB, chunked so rejection must enforce the streamed bound.
+                    exchange.getResponseHeaders().set("Content-Type", "application/json");
+                    exchange.sendResponseHeaders(200, 0);
+                    byte[] block = new byte[8192];
+                    Arrays.fill(block, (byte) 'x');
+                    try {
+                        exchange.getResponseBody()
+                                .write(
+                                        "{\"features\":[],\"padding\":\""
+                                                .getBytes(StandardCharsets.UTF_8));
+                        for (int i = 0; i < 513; i++) {
+                            exchange.getResponseBody().write(block);
+                        }
+                        exchange.getResponseBody().write("\"}".getBytes(StandardCharsets.UTF_8));
+                    } catch (IOException expected) {
+                        // The bounded reader closes this oversized response before it finishes.
+                    }
+                    return;
+                }
                 if (mode == Mode.REDIRECT) {
                     // Redirect back to the same query: following it would make extra requests.
                     exchange.getResponseHeaders()
