@@ -41,6 +41,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Fetches and validates one complete project-measures response before emission. Inherited polling
+ * holds the checkpoint lock throughout I/O and output; restore replays the read.
+ */
 final class SonarQubeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private static final int TIMEOUT_MS = 30_000;
     private static final int MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
@@ -49,12 +53,21 @@ final class SonarQubeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
                     .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                     .enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
 
+    /*
+     * One request is constructed before open so cancellation can abort it before dispatch as well as during I/O.
+     */
     private final HttpGet request;
     private final String projectKey;
     private final Set<String> keys;
     private final String tokenEnv;
     private final SingleSplitReaderContext context;
+    /*
+     * Sticky cancellation suppresses emission and terminal signaling after request abortion.
+     */
     private volatile boolean cancelled;
+    /*
+     * Created by open and closed by close in the engine lifecycle; publication is not coordinated with concurrent open/close.
+     */
     private CloseableHttpClient client;
 
     SonarQubeSourceReader(
@@ -70,6 +83,10 @@ final class SonarQubeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
         this.context = context;
     }
 
+    /*
+     * Resolves the optional bearer token on the worker, validates it without echoing its value,
+     * and creates the owned client with inactivity timeouts and no redirects or retries.
+     */
     @Override
     public void open() throws IOException {
         if (cancelled) {
@@ -98,12 +115,18 @@ final class SonarQubeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
                         .build();
     }
 
+    /*
+     * Permanently marks cancellation and aborts the one request, including cancellation before open.
+     */
     @Override
     public void cancel() {
         cancelled = true;
         request.abort();
     }
 
+    /*
+     * Cancels first, closes the reader-owned client and clears the stored Authorization header.
+     */
     @Override
     public void close() throws IOException {
         cancel();
@@ -113,6 +136,10 @@ final class SonarQubeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
         request.removeHeaders("Authorization");
     }
 
+    /*
+     * Reads at most 2 MiB under the inherited checkpoint lock, validates all measures before collection,
+     * and signals end only if not cancelled. Cancellation-induced I/O failures terminate polling quietly.
+     */
     @Override
     public void internalPollNext(Collector<SeaTunnelRow> output) throws IOException {
         if (cancelled) {
@@ -149,6 +176,11 @@ final class SonarQubeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
         }
     }
 
+    /*
+     * Requires the requested project, valid typed measures and unique requested metric keys.
+     * Absent metrics are allowed; absent overall value/bestValue stay null while period JSON is retained.
+     * No row is emitted until the entire response passes validation.
+     */
     static List<SeaTunnelRow> parseMeasures(
             byte[] payload, String expectedProject, Set<String> expectedMetrics)
             throws IOException {

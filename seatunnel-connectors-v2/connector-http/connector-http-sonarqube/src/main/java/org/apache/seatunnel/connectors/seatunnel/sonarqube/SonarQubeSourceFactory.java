@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.sonarqube;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -30,34 +28,10 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
-import java.util.List;
 
 @AutoService(Factory.class)
 public class SonarQubeSourceFactory implements TableSourceFactory {
     static final String IDENTIFIER = "SonarQube";
-    static final Option<String> BASE_URL =
-            Options.key("base_url")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "SonarQube Community Build base URL including its context path, if any.");
-    static final Option<String> PROJECT_KEY =
-            Options.key("project_key")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Key of the project whose current main-branch measures are read.");
-    static final Option<List<String>> METRIC_KEYS =
-            Options.key("metric_keys")
-                    .listType()
-                    .noDefaultValue()
-                    .withDescription("Between 1 and 50 distinct SonarQube metric keys.");
-    static final Option<String> TOKEN_ENV =
-            Options.key("token_env")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Optional worker environment variable with a SonarQube user token (HTTPS only).");
 
     @Override
     public String factoryIdentifier() {
@@ -79,8 +53,11 @@ public class SonarQubeSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(BASE_URL, PROJECT_KEY, METRIC_KEYS)
-                .optional(TOKEN_ENV)
+                .required(
+                        SonarQubeSourceOptions.BASE_URL,
+                        SonarQubeSourceOptions.PROJECT_KEY,
+                        SonarQubeSourceOptions.METRIC_KEYS)
+                .optional(SonarQubeSourceOptions.TOKEN_ENV)
                 .build();
     }
 }

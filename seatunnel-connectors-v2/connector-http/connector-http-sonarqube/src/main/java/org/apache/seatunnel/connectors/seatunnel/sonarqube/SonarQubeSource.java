@@ -41,12 +41,16 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-import static org.apache.seatunnel.connectors.seatunnel.sonarqube.SonarQubeSourceFactory.BASE_URL;
 import static org.apache.seatunnel.connectors.seatunnel.sonarqube.SonarQubeSourceFactory.IDENTIFIER;
-import static org.apache.seatunnel.connectors.seatunnel.sonarqube.SonarQubeSourceFactory.METRIC_KEYS;
-import static org.apache.seatunnel.connectors.seatunnel.sonarqube.SonarQubeSourceFactory.PROJECT_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.sonarqube.SonarQubeSourceFactory.TOKEN_ENV;
+import static org.apache.seatunnel.connectors.seatunnel.sonarqube.SonarQubeSourceOptions.BASE_URL;
+import static org.apache.seatunnel.connectors.seatunnel.sonarqube.SonarQubeSourceOptions.METRIC_KEYS;
+import static org.apache.seatunnel.connectors.seatunnel.sonarqube.SonarQubeSourceOptions.PROJECT_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.sonarqube.SonarQubeSourceOptions.TOKEN_ENV;
 
+/**
+ * Validates one bounded main-branch project-measures read and its fixed output schema. The source
+ * accepts no historical or incremental cursor and supports one reader.
+ */
 final class SonarQubeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     private final String projectKey;
     private final Set<String> metricKeys;
@@ -117,6 +121,10 @@ final class SonarQubeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                         null);
     }
 
+    /*
+     * Preserves requested metric order while rejecting duplicates, invalid names or more than 50 keys.
+     * Missing returned metrics are allowed; this validates the request, not response completeness.
+     */
     static Set<String> validateMetrics(List<String> metrics) {
         if (metrics == null || metrics.isEmpty() || metrics.size() > 50) {
             throw new IllegalArgumentException(
@@ -132,6 +140,10 @@ final class SonarQubeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         return values;
     }
 
+    /*
+     * Validates a project, optional worker token-variable name and normalized server context path.
+     * Authenticated requests require HTTPS; the token itself is resolved only by the worker reader.
+     */
     static URI measuresUri(String baseUrl, String projectKey, Set<String> keys, String tokenEnv) {
         if (projectKey == null || !projectKey.matches("[A-Za-z0-9_.:-]{1,400}")) {
             throw new IllegalArgumentException("project_key must be a valid SonarQube project key");
@@ -173,6 +185,9 @@ final class SonarQubeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         return IDENTIFIER;
     }
 
+    /*
+     * Rejects streaming mode because current project measures are fetched once per batch.
+     */
     @Override
     public void setJobContext(JobContext context) {
         if (context.getJobMode() != JobMode.BATCH) {
