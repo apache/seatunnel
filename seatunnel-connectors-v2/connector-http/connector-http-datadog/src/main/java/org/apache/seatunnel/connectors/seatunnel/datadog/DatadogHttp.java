@@ -64,13 +64,18 @@ import java.util.zip.ZipException;
  * logging. The fixed TLS origin and bounded parser keep provider data private.
  */
 final class DatadogHttp implements DatadogReader.PageClient {
+    // Bound HTTP headers independently of the decompressed body and JSON limits.
     private static final MessageConstraints HEADER_LIMITS =
             MessageConstraints.custom().setMaxLineLength(16384).setMaxHeaderCount(64).build();
     private static final int MAX_JSON_TOKENS = 250000;
     private final DatadogConfig config;
+    // The timer aborts the raw socket so trickling bodies cannot outlive the elapsed page budget.
     private final ScheduledThreadPoolExecutor deadlineTimer;
+    // Preserve integer/decimal values while bounding tree complexity before materializing records.
     private final ObjectMapper mapper;
+    // Guarded with current by this monitor; cancellation remains effective before connect starts.
     private boolean closed;
+    // Raw socket remains closable while its TLS wrapper or entity stream is blocked.
     private Socket current;
 
     DatadogHttp(DatadogConfig config) {
@@ -101,7 +106,10 @@ final class DatadogHttp implements DatadogReader.PageClient {
         return thread;
     }
 
-    /** Retries the same read-only request within both the attempt and elapsed time budgets. */
+    /**
+     * Retries the same read-only request within both the attempt and elapsed time budgets. A
+     * provider delay can reject further retries when the remaining page budget is insufficient.
+     */
     @Override
     public JsonNode fetch(String target, long expires) throws InterruptedException {
         for (int attempt = 1; ; attempt++) {
@@ -137,6 +145,10 @@ final class DatadogHttp implements DatadogReader.PageClient {
         }
     }
 
+    /**
+     * One fixed-origin TLS exchange; no redirects or response-controlled target can receive keys.
+     * The idle timeout and socket-closing timer cover different network-stall conditions.
+     */
     private JsonNode exchange(String target, long expires)
             throws IOException, HttpException, Retry, InterruptedException {
         Socket raw = new Socket(Proxy.NO_PROXY);
@@ -208,6 +220,11 @@ final class DatadogHttp implements DatadogReader.PageClient {
         }
     }
 
+    /**
+     * Reject oversized, malformed and incomplete results before returning any records to the
+     * reader. Abort the socket before closing an incomplete entity because entity close may drain
+     * its body.
+     */
     private JsonNode decode(HttpResponse response, Socket socket) throws IOException {
         HttpEntity entity = response.getEntity();
         if (entity == null) {
@@ -286,6 +303,10 @@ final class DatadogHttp implements DatadogReader.PageClient {
                 && !(node.isTextual() && node.textValue().isEmpty());
     }
 
+    /**
+     * Treat valid provider delay hints as lower bounds; the page deadline can reject that wait.
+     * Datadog X-RateLimit-Reset is seconds until reset, not an epoch timestamp.
+     */
     private long retryFloor(HttpResponse response, int code) {
         long retryAfter = 0;
         for (Header header : response.getHeaders("Retry-After")) {
@@ -337,7 +358,10 @@ final class DatadogHttp implements DatadogReader.PageClient {
         return config.resource.invalid(reason);
     }
 
-    /** Cancellation is sticky even if DNS, TLS or a retry wakeup has not started. */
+    /**
+     * Cancellation is sticky even if DNS, TLS or a retry wakeup has not started. Closing the raw
+     * socket and timer never needs the reader checkpoint lock.
+     */
     @Override
     public synchronized void close() {
         closed = true;
@@ -355,6 +379,10 @@ final class DatadogHttp implements DatadogReader.PageClient {
         }
     }
 
+    /**
+     * Sanitized retry instruction; provider response text is deliberately never retained. Only
+     * status categories and a minimum delay cross this internal boundary.
+     */
     private static final class Retry extends Exception {
         private final String reason;
         private final long minimumMs;

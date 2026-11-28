@@ -75,8 +75,11 @@ def catalog(path, q):
     if path == "/api/v1/downtime":
         return [{"id": 9223372036854775807, "active": True, "message": "暂停"}]
     if path == "/api/v2/team":
-        return {0: {"data": [{"id": "t1"}], "meta": {"pagination": {"next_number": 1, "total": 3}}},
-                1: {"data": [{"id": "t2"}, {"id": "t3"}], "meta": {"pagination": {"total": 3}}}}[int(q["page[number]"])]
+        return {0: {"data": [{"id": "t1", "type": "team", "attributes": {"name": "Operations", "handle": "ops"}}],
+                    "meta": {"pagination": {"next_number": 1, "total": 3}}},
+                1: {"data": [{"id": "t2", "type": "team", "attributes": {"name": "Engineering", "handle": "eng"}},
+                             {"id": "t3", "type": "team", "attributes": {"name": "Support", "handle": "support"}}],
+                    "meta": {"pagination": {"total": 3}}}}[int(q["page[number]"])]
     if path == "/api/v2/incidents":
         return {0: {"data": [{"id": "i1"}], "meta": {"pagination": {"next_offset": 2}}},
                 2: {"data": [{"id": "i2"}], "meta": {"pagination": {"next_offset": 4}}},

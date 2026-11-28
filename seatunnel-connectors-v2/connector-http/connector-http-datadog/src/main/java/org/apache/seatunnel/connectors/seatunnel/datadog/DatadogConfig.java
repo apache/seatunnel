@@ -52,20 +52,26 @@ final class DatadogConfig implements Serializable {
                             "us2.ddog-gov.com"));
     private static final Duration MAX_RANGE = Duration.ofDays(36525);
 
+    // Source configuration carries credentials to the worker; checkpoint splits carry only scope.
     final String accessKey;
     final String secretKey;
+    // Only an allow-listed API origin may receive authenticated requests.
     final String host;
     final DatadogResource resource;
+    // Event bounds are absent for catalogs; an implicit end is frozen by the coordinator.
     final Instant start;
     final Instant explicitEnd;
     final int sliceDays;
     final String logsQuery;
     final int metricsWindow;
+    // The requested size is clamped once to the selected endpoint limit and bound into scope.
     final int pageSize;
+    // Socket/connection idle timeout and whole-page elapsed budget are distinct bounds.
     final int timeout;
     final int deadline;
     final int attempts;
     final int maxBytes;
+    // Query-defining settings are hashed; transport budgets can change during compatible restore.
     private final byte[] scope;
 
     DatadogConfig(ReadonlyConfig options) {
@@ -120,6 +126,10 @@ final class DatadogConfig implements Serializable {
                                 Integer.toString(metricsWindow)));
     }
 
+    /**
+     * Called on the coordinator so all recovery attempts reuse one automatically selected end.
+     * Independent jobs create their own bounds rather than sharing a scheduler watermark.
+     */
     DatadogSplit initialSplit(Instant now) {
         Instant end = resource.dated ? (explicitEnd == null ? now : explicitEnd) : null;
         if (end != null) {
@@ -128,6 +138,10 @@ final class DatadogConfig implements Serializable {
         return new DatadogSplit(scope.clone(), start, end);
     }
 
+    /**
+     * Fail before any request when restored progress belongs to another query or state version.
+     * Transport-only budgets do not change the identity of the source query.
+     */
     void verify(DatadogSplit split) {
         if (!split.matches(scope)) {
             throw new IllegalStateException(

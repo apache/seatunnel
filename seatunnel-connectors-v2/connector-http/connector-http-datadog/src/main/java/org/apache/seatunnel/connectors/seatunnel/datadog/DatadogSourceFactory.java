@@ -29,7 +29,10 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
-/** Registers the independently packaged Datadog source in SeaTunnel's Factory SPI. */
+/**
+ * Registers the independently packaged Datadog source in SeaTunnel's Factory SPI. Generated
+ * discovery binds the product identifier to its dedicated artifact rather than Http.
+ */
 @AutoService(Factory.class)
 public class DatadogSourceFactory implements TableSourceFactory {
     @Override

@@ -27,7 +27,7 @@ Datadog Source 支持批处理。每个 Source 配置段采集一个资源。一
 | `audit_logs` | GET `/api/v2/audit/events` | `audit_logs_read` |
 | `dashboards` | GET `/api/v1/dashboard` | `dashboards_read` |
 | `downtimes` | GET `/api/v1/downtime` | `monitors_read` |
-| `incident_teams` | GET `/api/v2/team` | `teams_read` |
+| `teams` | GET `/api/v2/team` | `teams_read` |
 | `incidents` | GET `/api/v2/incidents` | `incident_read` |
 | `logs` | GET `/api/v2/logs/events` | `logs_read_data` |
 | `metrics` | GET `/api/v2/metrics` | `metrics_read` |
@@ -38,6 +38,8 @@ Datadog Source 支持批处理。每个 Source 配置段采集一个资源。一
 
 仪表盘接口提供摘要，指标接口提供指标目录和可用的元数据。停机计划使用 v1 接口，一次返回一个数组。
 监控器使用 v1 ID 偏移分页。这两种模式同样受单个响应大小的限制。事件管理接口目前处于公开测试阶段。
+`teams` 读取现代组织通用团队，未实现已退役的旧事件团队接口 `/api/v2/teams`，不接受 `incident_teams` 资源名。
+应用密钥须具备 `teams_read` 权限，并可访问需要读取的组织团队。
 可用性、数据可见范围和保留期由 Datadog 站点及组织权限决定。
 
 ## 配置项
@@ -52,7 +54,7 @@ Datadog Source 支持批处理。每个 Source 配置段采集一个资源。一
 | `end_time` | String | 否 | 作业初次启动时间 | 已排除结束时刻的 ISO-8601 时间。空值使用默认值，仅适用于日志和审计日志。 |
 | `logs_query` | String | 否 | 空 | Datadog 日志搜索表达式，最多 4,096 个字符，仅适用于日志。 |
 | `slice_days` | Integer | 否 | `1` | 每个事件时间窗口的天数，范围 1 到 31。整个采集区间最多 36,525 天。 |
-| `metrics_window_seconds` | Integer | 否 | `5184000` | 指标目录按上报时间回溯的秒数，范围 0 到 5,184,000。0 使用服务端不限上报时间的目录查询，包含已停止上报的指标。 |
+| `metrics_window_seconds` | Integer | 否 | `5184000` | 指标目录按上报时间回溯的秒数，范围 0 到 5,184,000。0 仅返回最近几分钟内上报过的指标，不代表不限时间的历史目录。 |
 | `page_size` | Integer | 否 | `100` | 每页请求条数，范围 1 到 1,000，并受各接口上限约束。停机计划和监控器 ID 偏移接口无此参数。 |
 | `request_timeout_ms` | Integer | 否 | `10000` | 连接和套接字空闲超时，范围 100 到 60,000 毫秒。 |
 | `page_deadline_ms` | Integer | 否 | `120000` | 单页总时限，包含重试等待，范围 100 到 300,000 毫秒。 |

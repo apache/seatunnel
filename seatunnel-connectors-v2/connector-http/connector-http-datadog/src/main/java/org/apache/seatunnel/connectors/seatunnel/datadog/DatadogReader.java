@@ -42,14 +42,19 @@ import java.util.function.Supplier;
  * Polling owns emission and checkpoint progress. One cancellable worker fetches immutable pages.
  */
 final class DatadogReader implements SourceReader<SeaTunnelRow, DatadogSplit> {
+    // Bound a non-terminating provider walk even when every individual response is valid.
     private static final int MAX_PAGES = 10000;
+    // This row bound complements the decompressed byte and JSON token limits in the client.
     private static final int MAX_RECORDS_PER_RESPONSE = 10000;
+    // Release the engine checkpoint lock between small emitted batches.
     private static final int ROWS_PER_POLL = 64;
     private final DatadogConfig config;
     private final Context context;
     private final Supplier<PageClient> clientFactory;
+    // Lock order is checkpoint -> state -> lifecycle; cancel takes lifecycle only.
     private final Object stateLock = new Object();
     private final Object lifecycleLock = new Object();
+    // Sticky across open, worker preparation and cancellation from a separate engine thread.
     private volatile boolean closed;
     private PageClient http;
     private ExecutorService worker;
@@ -57,9 +62,12 @@ final class DatadogReader implements SourceReader<SeaTunnelRow, DatadogSplit> {
     // Split and page ownership is protected independently of the I/O lifecycle.
     private DatadogSplit split;
     private Future<Page> request;
+    // Absolute monotonic deadline covers queue wait, HTTP retries, decoding and row preparation.
     private long requestDeadline;
     private Page page;
+    // An idle non-owner terminates only after the enumerator explicitly closes assignment.
     private boolean noMoreSplits;
+    // Keep the engine completion signal single-shot independently of terminal split persistence.
     private boolean signaled;
 
     DatadogReader(DatadogConfig config, Context context) {
@@ -72,6 +80,9 @@ final class DatadogReader implements SourceReader<SeaTunnelRow, DatadogSplit> {
         this.clientFactory = clientFactory;
     }
 
+    /**
+     * Lazily creates worker resources under the lifecycle lock; an earlier cancel is never undone.
+     */
     @Override
     public void open() {
         synchronized (lifecycleLock) {
@@ -110,6 +121,10 @@ final class DatadogReader implements SourceReader<SeaTunnelRow, DatadogSplit> {
         }
     }
 
+    /**
+     * Submit one immutable request and yield after a brief wait; no worker mutates checkpoint
+     * state.
+     */
     private boolean acquirePage() throws Exception {
         if (request == null) {
             if (split.page >= MAX_PAGES) {
@@ -157,6 +172,10 @@ final class DatadogReader implements SourceReader<SeaTunnelRow, DatadogSplit> {
         return true;
     }
 
+    /**
+     * Validate the whole response and committed prefix before exposing any recovered tail rows.
+     * Continuation is calculated from provider rows before local event-window filtering.
+     */
     private Page preparePage(DatadogSplit view, long deadline) throws InterruptedException {
         DatadogResource resource = config.resource;
         JsonNode response = http.fetch(resource.target(config, view), deadline);
@@ -197,6 +216,9 @@ final class DatadogReader implements SourceReader<SeaTunnelRow, DatadogSplit> {
         }
     }
 
+    /**
+     * Advance the committed prefix only after collect succeeds, under both engine and state locks.
+     */
     private void emit(Collector<SeaTunnelRow> output) {
         int end = Math.min(page.rows.size(), split.prefix + ROWS_PER_POLL);
         while (!closed && split.prefix < end) {
@@ -211,7 +233,10 @@ final class DatadogReader implements SourceReader<SeaTunnelRow, DatadogSplit> {
         }
     }
 
-    /** A completed page and its successor become visible as one checkpoint state transition. */
+    /**
+     * A completed page and its successor become visible as one checkpoint state transition. Window
+     * completion clears per-window cursor-cycle history and resets its page budget.
+     */
     private void finishPage() {
         split.prefix = 0;
         split.prefixDigest = new byte[0];
@@ -233,6 +258,10 @@ final class DatadogReader implements SourceReader<SeaTunnelRow, DatadogSplit> {
         page = null;
     }
 
+    /**
+     * Snapshot logical progress only; futures, clients and decoded pages are reconstructed on
+     * restore.
+     */
     @Override
     public List<DatadogSplit> snapshotState(long checkpointId) {
         synchronized (stateLock) {
@@ -242,7 +271,10 @@ final class DatadogReader implements SourceReader<SeaTunnelRow, DatadogSplit> {
         }
     }
 
-    /** Only one active scan may own rows. */
+    /**
+     * Only one active scan may own rows. Coordinated recovery installs a saved split on a newly
+     * created reader instead of replacing live state.
+     */
     @Override
     public void addSplits(List<DatadogSplit> splits) {
         if (splits.size() != 1) {
@@ -268,7 +300,10 @@ final class DatadogReader implements SourceReader<SeaTunnelRow, DatadogSplit> {
     @Override
     public void notifyCheckpointComplete(long checkpointId) {}
 
-    /** Interrupts retry waits and aborts network reads without acquiring the checkpoint lock. */
+    /**
+     * Interrupts retry waits and aborts network reads without acquiring the checkpoint lock. The
+     * lifecycle lock prevents an earlier cancel from being undone by concurrent resource creation.
+     */
     @Override
     public void cancel() {
         synchronized (lifecycleLock) {
@@ -285,7 +320,10 @@ final class DatadogReader implements SourceReader<SeaTunnelRow, DatadogSplit> {
         cancel();
     }
 
-    /** The worker owns the page client; cancel may close it independently from an engine thread. */
+    /**
+     * The worker owns the page client; cancel may close it independently from an engine thread.
+     * This boundary keeps network cancellation independent of row emission.
+     */
     interface PageClient extends AutoCloseable {
         JsonNode fetch(String target, long expires) throws InterruptedException;
 
@@ -293,6 +331,10 @@ final class DatadogReader implements SourceReader<SeaTunnelRow, DatadogSplit> {
         void close();
     }
 
+    /**
+     * Worker-built page handed to the poll thread once; its rows are never checkpoint state. Only
+     * the logical split coordinates and emitted-prefix digest survive recovery.
+     */
     private static final class Page {
         private final List<SeaTunnelRow> rows;
         private final DatadogResource.Next next;

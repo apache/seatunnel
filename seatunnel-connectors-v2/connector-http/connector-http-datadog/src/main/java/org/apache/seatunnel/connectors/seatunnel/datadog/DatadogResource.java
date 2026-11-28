@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.datadog;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 
+import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URIBuilder;
 
 import java.net.URI;
@@ -27,12 +28,15 @@ import java.time.DateTimeException;
 import java.time.Instant;
 import java.util.Locale;
 
-/** The provider endpoint, record container and paging rule for each supported resource. */
+/**
+ * The provider endpoint, record container and paging rule for each supported resource.
+ * Endpoint-specific contracts remain local rather than changing the shared HTTP connector.
+ */
 enum DatadogResource {
     AUDIT_LOGS("/api/v2/audit/events", "data", true, 1000),
     DASHBOARDS("/api/v1/dashboard", "dashboards", false, 1000),
     DOWNTIMES("/api/v1/downtime", null, false, 1000),
-    INCIDENT_TEAMS("/api/v2/team", "data", false, 100),
+    TEAMS("/api/v2/team", "data", false, 100),
     INCIDENTS("/api/v2/incidents", "data", false, 100),
     LOGS("/api/v2/logs/events", "data", true, 1000),
     METRICS("/api/v2/metrics", "data", false, 1000),
@@ -41,9 +45,13 @@ enum DatadogResource {
     SYNTHETIC_TESTS("/api/v1/synthetics/tests", "tests", false, 100),
     USERS("/api/v2/users", "data", false, 100);
 
+    // Endpoint identity is fixed in code; cursor links can supply tokens but cannot redirect keys.
     final String path;
+    // Null means the endpoint returns the record array as its root JSON value.
     final String section;
+    // Only event endpoints use sliced, half-open time bounds and timestamp filtering.
     final boolean dated;
+    // Clamp the common page_size option to the selected endpoint's supported request size.
     final int maxPageSize;
     final String label = name().toLowerCase(Locale.ROOT);
 
@@ -63,7 +71,10 @@ enum DatadogResource {
         throw new IllegalArgumentException("Unsupported Datadog resource.");
     }
 
-    /** Builds the fixed relative target; response-supplied links cannot change it. */
+    /**
+     * Builds the fixed relative target; response-supplied links cannot change it. Opaque
+     * continuation values are encoded only as query parameters on this endpoint.
+     */
     String target(DatadogConfig config, DatadogSplit split) {
         URIBuilder request = new URIBuilder().setPath(path);
         String size = Integer.toString(config.pageSize);
@@ -86,7 +97,7 @@ enum DatadogResource {
             case DASHBOARDS:
                 request.addParameter("start", position).addParameter("count", size);
                 break;
-            case INCIDENT_TEAMS:
+            case TEAMS:
             case USERS:
                 request.addParameter("page[number]", position).addParameter("page[size]", size);
                 break;
@@ -119,6 +130,10 @@ enum DatadogResource {
         }
     }
 
+    /**
+     * A missing container is a provider failure, never an empty successful scan. An explicit empty
+     * array remains valid so endpoint pagination can decide whether to continue.
+     */
     JsonNode records(JsonNode response) {
         JsonNode records = section == null ? response : response.path(section);
         if (!records.isArray()) {
@@ -170,7 +185,7 @@ enum DatadogResource {
                 throw invalid("unrecognized pagination path");
             }
             String token = null;
-            for (org.apache.http.NameValuePair parameter : new URIBuilder(link).getQueryParams()) {
+            for (NameValuePair parameter : new URIBuilder(link).getQueryParams()) {
                 if ("page[cursor]".equals(parameter.getName())) {
                     if (token != null || parameter.getValue() == null) {
                         throw invalid("ambiguous pagination link");
@@ -196,7 +211,10 @@ enum DatadogResource {
         return value;
     }
 
-    /** Evaluates continuation using the original page size, before time-bound row filtering. */
+    /**
+     * Evaluates continuation using the original page size, before time-bound row filtering.
+     * Filtering must not make a continuing provider page appear terminal.
+     */
     Next next(DatadogConfig config, DatadogSplit split, JsonNode response, JsonNode records) {
         int count = records.size();
         switch (this) {
@@ -232,7 +250,7 @@ enum DatadogResource {
                         next == null
                                 ? sum(split.position, count)
                                 : advancing(split.position, next));
-            case INCIDENT_TEAMS:
+            case TEAMS:
                 Long total = optionalLong(response.at("/meta/pagination/total"));
                 if (total != null
                         && remaining(total, split.position, count, config.pageSize) == 0) {
@@ -265,6 +283,10 @@ enum DatadogResource {
         }
     }
 
+    /**
+     * Numbered pages represent requested-size slots, so a short result page alone cannot prove
+     * completion. A provider total can prove completion; otherwise probe until an empty page.
+     */
     private Next numbered(DatadogConfig config, DatadogSplit split, int count, Long total) {
         if ((total == null && count == 0)
                 || (total != null
@@ -332,7 +354,10 @@ enum DatadogResource {
         return dated ? item.at("/attributes/timestamp").textValue() : null;
     }
 
-    /** Filters exact event instants into the current half-open window. */
+    /**
+     * Filters exact event instants into the current half-open window. A row at the upper boundary
+     * is left for the following window rather than emitted twice.
+     */
     boolean inWindow(String rawTimestamp, DatadogConfig config, DatadogSplit split) {
         if (!dated) {
             return true;
@@ -353,16 +378,26 @@ enum DatadogResource {
         return new ProviderFailure("Datadog " + label + ": " + reason);
     }
 
+    /**
+     * Safe connector diagnostic whose text excludes provider bodies, URLs and credentials. The
+     * reader propagates this failure category without retaining arbitrary remote exception text.
+     */
     static final class ProviderFailure extends IllegalStateException {
         private ProviderFailure(String message) {
             super(message);
         }
     }
 
+    /**
+     * Endpoint-specific successor calculated before row filtering; the reader commits it
+     * atomically.
+     */
     static final class Next {
         private static final Next DONE = new Next(null, 0, true);
+        // Cursor and numeric position are mutually exclusive continuation forms.
         final String cursor;
         final long position;
+        // Completion ends the current event window, or the whole catalog when no window exists.
         final boolean done;
 
         private Next(String cursor, long position, boolean done) {

@@ -69,7 +69,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Exercises the packaged source, Zeta and a JDBC sink against a verified TLS provider fixture. */
+/**
+ * Exercises the packaged source, Zeta and a JDBC sink against a verified TLS provider fixture.
+ * Exact rows and requests cover pagination, bounded failures and checkpoint recovery.
+ */
 class DatadogSourceIT extends TestSuiteBase {
     private static final String CONFIG = "/datadog_to_postgresql.conf";
     private static final String START = "2026-01-01T00:00:00.000001Z";
@@ -151,7 +154,10 @@ class DatadogSourceIT extends TestSuiteBase {
         engine.startUp();
     }
 
-    /** A fresh trust store for the isolated engine, with ordinary hostname verification. */
+    /**
+     * A fresh trust store for the isolated engine, with ordinary hostname verification. A second
+     * fixture alias deliberately lacks a certificate SAN to test peer rejection.
+     */
     private void createTlsMaterial() throws Exception {
         Path server = temp.resolve("server.p12");
         String tool = Paths.get(System.getProperty("java.home"), "bin", "keytool").toString();
@@ -240,14 +246,24 @@ class DatadogSourceIT extends TestSuiteBase {
                 "d1",
                 "d2",
                 "d3");
-        catalog(
-                "incident_teams",
-                "/api/v2/team",
-                "page[number]",
+        run("normal", "teams");
+        assertRows(
+                "teams",
+                row(
+                        "t1",
+                        null,
+                        "{\"id\":\"t1\",\"type\":\"team\",\"attributes\":{\"name\":\"Operations\",\"handle\":\"ops\"}}"),
+                row(
+                        "t2",
+                        null,
+                        "{\"id\":\"t2\",\"type\":\"team\",\"attributes\":{\"name\":\"Engineering\",\"handle\":\"eng\"}}"),
+                row(
+                        "t3",
+                        null,
+                        "{\"id\":\"t3\",\"type\":\"team\",\"attributes\":{\"name\":\"Support\",\"handle\":\"support\"}}"));
+        assertEquals(
                 Arrays.asList("0", "1"),
-                "t1",
-                "t2",
-                "t3");
+                queryValues(assertRoute("/api/v2/team", "datadoghq.com", 2), "page[number]"));
         catalog(
                 "incidents",
                 "/api/v2/incidents",
@@ -379,6 +395,14 @@ class DatadogSourceIT extends TestSuiteBase {
         failure("oversize", "exceeds max_response_bytes", 1);
         select("normal");
         int baseline = engine.getServerLogs().length();
+        assertFailure(
+                engine.executeJob(
+                        CONFIG, arguments("incident_teams", "datadoghq.com", null, null, 30000)),
+                baseline,
+                "Unsupported Datadog resource");
+        assertEquals(0, requests().size(), "A retired resource label cannot open an API request");
+        assertTrue(rows().isEmpty());
+        baseline = engine.getServerLogs().length();
         Container.ExecResult rejected =
                 engine.executeJob(
                         CONFIG, arguments("metrics", "ap1.datadoghq.com", null, null, 30000));
@@ -515,7 +539,10 @@ class DatadogSourceIT extends TestSuiteBase {
         }
     }
 
-    /** Sample the counter after the fixture has entered its hold. An old checkpoint cannot pass. */
+    /**
+     * Sample the counter after the fixture has entered its hold. An old checkpoint cannot pass.
+     * Recovery assertions therefore depend on a checkpoint completed while I/O is still blocked.
+     */
     private void awaitHeldAndCheckpoint(String jobId) {
         await().atMost(45, TimeUnit.SECONDS)
                 .untilAsserted(

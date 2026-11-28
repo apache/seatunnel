@@ -20,7 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.datadog;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-/** User-facing settings for one Datadog resource scan. */
+/**
+ * User-facing settings for one Datadog resource scan. Credential, time-scope and response limits
+ * are validated before the reader starts.
+ */
 public final class DatadogSourceOptions {
     public static final Option<String> ACCESS_KEY =
             Options.key("access_key")
@@ -36,7 +39,8 @@ public final class DatadogSourceOptions {
             Options.key("resource")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Datadog resource to read.");
+                    .withDescription(
+                            "Datadog resource to read. teams selects modern general organization teams.");
     public static final Option<String> SITE =
             Options.key("site")
                     .stringType()
@@ -68,7 +72,7 @@ public final class DatadogSourceOptions {
                     .intType()
                     .defaultValue(5184000)
                     .withDescription(
-                            "Metric catalog reporting lookback in seconds, from 0 to 5184000.");
+                            "Metric catalog reporting lookback in seconds, from 0 to 5184000. Zero selects only metrics reported in the last few minutes.");
     public static final Option<Integer> PAGE_SIZE =
             Options.key("page_size")
                     .intType()

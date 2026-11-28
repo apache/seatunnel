@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -49,6 +50,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Covers frozen coordinator state, terminal restore and exact committed-prefix recovery behavior.
+ */
 class DatadogCheckpointTest {
     private static final Instant FROZEN_TIME = Instant.parse("2026-01-01T00:30:00Z");
 
@@ -199,10 +203,17 @@ class DatadogCheckpointTest {
         throw new AssertionError("Reader did not progress");
     }
 
+    /**
+     * Bounded polling condition for observing asynchronous page preparation in component tests. The
+     * enclosing deadline turns a stalled reader into a deterministic assertion failure.
+     */
     private interface Attempt {
         boolean await() throws Exception;
     }
 
+    /**
+     * Captures emitted business IDs under the same collector lock used by checkpoint-aware polling.
+     */
     private static final class Output implements Collector<SeaTunnelRow> {
         private final List<String> ids = new ArrayList<>();
 
@@ -217,6 +228,10 @@ class DatadogCheckpointTest {
         }
     }
 
+    /**
+     * Observes the source completion signal so terminal recovery cannot pass by merely opening. The
+     * counter also detects duplicate completion signals.
+     */
     private static final class ReaderContext implements SourceReader.Context {
         private int finished;
 
@@ -239,8 +254,7 @@ class DatadogCheckpointTest {
         public void sendSplitRequest() {}
 
         @Override
-        public void sendSourceEventToEnumerator(
-                org.apache.seatunnel.api.source.SourceEvent event) {}
+        public void sendSourceEventToEnumerator(SourceEvent event) {}
 
         @Override
         public MetricsContext getMetricsContext() {
@@ -253,6 +267,10 @@ class DatadogCheckpointTest {
         }
     }
 
+    /**
+     * Records actual split assignments to verify frozen fallback and restored-reader ownership. No
+     * provider call is needed to observe coordinator dispatch.
+     */
     private static final class EnumeratorContext
             implements SourceSplitEnumerator.Context<DatadogSplit> {
         private final List<DatadogSplit> assigned = new ArrayList<>();
@@ -276,8 +294,7 @@ class DatadogCheckpointTest {
         public void signalNoMoreSplits(int subtaskId) {}
 
         @Override
-        public void sendEventToSourceReader(
-                int subtaskId, org.apache.seatunnel.api.source.SourceEvent event) {}
+        public void sendEventToSourceReader(int subtaskId, SourceEvent event) {}
 
         @Override
         public MetricsContext getMetricsContext() {

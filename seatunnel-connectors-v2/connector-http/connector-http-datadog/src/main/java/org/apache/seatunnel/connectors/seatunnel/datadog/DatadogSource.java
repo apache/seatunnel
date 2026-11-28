@@ -38,7 +38,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Produces one bounded, recoverable Datadog resource scan with a stable four-column row schema. */
+/**
+ * Produces one bounded, recoverable Datadog resource scan with a stable four-column row schema.
+ * Endpoint-specific fields remain in JSON rather than changing schemas during pagination.
+ */
 public class DatadogSource implements SeaTunnelSource<SeaTunnelRow, DatadogSplit, DatadogSplit> {
     private static final long serialVersionUID = 1L;
     static final String IDENTIFIER = "Datadog";
@@ -48,6 +51,9 @@ public class DatadogSource implements SeaTunnelSource<SeaTunnelRow, DatadogSplit
         config = new DatadogConfig(options);
     }
 
+    /**
+     * Reject streaming jobs because each independent scan has fixed bounds and no shared watermark.
+     */
     @Override
     public void setJobContext(JobContext context) {
         if (JobMode.STREAMING.equals(context.getJobMode())) {
@@ -65,6 +71,10 @@ public class DatadogSource implements SeaTunnelSource<SeaTunnelRow, DatadogSplit
         return Boundedness.BOUNDED;
     }
 
+    /**
+     * Keep provider JSON inside a string column so endpoint-specific payloads preserve nested
+     * values.
+     */
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
         TableSchema schema =
@@ -87,18 +97,29 @@ public class DatadogSource implements SeaTunnelSource<SeaTunnelRow, DatadogSplit
         return PhysicalColumn.of(name, BasicType.STRING_TYPE, 0, nullable, null, null);
     }
 
+    /**
+     * Each reader owns its client; only the reader assigned the single split opens requests. Idle
+     * parallel subtasks complete when the enumerator closes their assignments.
+     */
     @Override
     public SourceReader<SeaTunnelRow, DatadogSplit> createReader(SourceReader.Context context) {
         return new DatadogReader(config, context);
     }
 
-    /** Freeze the automatic upper bound on the coordinator and keep it across recovery. */
+    /**
+     * Freeze the automatic upper bound on the coordinator and keep it across recovery. The initial
+     * fallback also covers checkpoints taken before a reader assignment is persisted.
+     */
     @Override
     public SourceSplitEnumerator<DatadogSplit, DatadogSplit> createEnumerator(
             SourceSplitEnumerator.Context<DatadogSplit> context) {
         return new Enumerator(context, config, config.initialSplit(Instant.now()));
     }
 
+    /**
+     * Keep the saved coordinator window until the engine returns the reader's committed split. This
+     * preserves the original implicit end during coordinated restoration.
+     */
     @Override
     public SourceSplitEnumerator<DatadogSplit, DatadogSplit> restoreEnumerator(
             SourceSplitEnumerator.Context<DatadogSplit> context, DatadogSplit state) {
@@ -114,8 +135,11 @@ public class DatadogSource implements SeaTunnelSource<SeaTunnelRow, DatadogSplit
         private final Context<DatadogSplit> context;
         private final DatadogConfig config;
         private final Set<Integer> endedReaders = new HashSet<>();
+        // Frozen initial state remains available when an early checkpoint has no reader assignment.
         private DatadogSplit fallback;
+        // Protect single-split ownership; returned reader state explicitly clears this flag.
         private boolean hasAssigned;
+        // Registration can precede run; all dispatch/state transitions share the context monitor.
         private boolean running;
 
         Enumerator(Context<DatadogSplit> context, DatadogConfig config, DatadogSplit fallback) {
@@ -127,6 +151,10 @@ public class DatadogSource implements SeaTunnelSource<SeaTunnelRow, DatadogSplit
         @Override
         public void open() {}
 
+        /**
+         * Dispatch after engine registration; late restored state is handled by addSplitsBack. All
+         * coordinator ownership transitions use the same context monitor.
+         */
         @Override
         public void run() {
             synchronized (context) {
@@ -137,7 +165,10 @@ public class DatadogSource implements SeaTunnelSource<SeaTunnelRow, DatadogSplit
             }
         }
 
-        /** Empty early checkpoints leave the frozen fallback intact. */
+        /**
+         * Empty early checkpoints leave the frozen fallback intact. A returned terminal split must
+         * also replace that fallback so restoration cannot restart the scan.
+         */
         @Override
         public void addSplitsBack(List<DatadogSplit> splits, int subtaskId) {
             synchronized (context) {
@@ -156,7 +187,10 @@ public class DatadogSource implements SeaTunnelSource<SeaTunnelRow, DatadogSplit
             }
         }
 
-        /** Only reader zero owns the scan; other subtasks can finish without opening a request. */
+        /**
+         * Only reader zero owns the scan; other subtasks can finish without opening a request.
+         * Registration may happen before run and must not assign the active split prematurely.
+         */
         private void dispatch(int reader) {
             if (!running) {
                 return;
@@ -188,6 +222,9 @@ public class DatadogSource implements SeaTunnelSource<SeaTunnelRow, DatadogSplit
             registerReader(subtaskId);
         }
 
+        /**
+         * Reader snapshots hold committed progress; this fallback preserves the frozen scan scope.
+         */
         @Override
         public DatadogSplit snapshotState(long checkpointId) {
             synchronized (context) {
