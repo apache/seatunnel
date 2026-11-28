@@ -66,7 +66,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | filename_time_format                  | string  | 否  | "yyyy.MM.dd"                               | 仅在custom_filename为true时使用                                                                                                    |
 | file_format_type                      | string  | 否  | "csv"                                      | 文件格式类型，支持：`text`、`csv`、`parquet`、`orc`、`json`、`excel`、`xml`、`binary`、`canal_json`、`debezium_json`、`maxwell_json`。                                       |
 | filename_extension                    | string  | 否  | -                                          | 使用自定义的文件扩展名覆盖默认的文件扩展名。 例如：`.xml`, `.json`, `dat`, `.customtype`                                                                  |
-| field_delimiter                       | string  | 否  | '\001' for text and ',' for csv            | 仅在file_format为text时使用                                                                                                          |
+| field_delimiter                       | string  | 否  | '\001' for text and ',' for csv            | 仅在 file_format_type 为 `text` 和 `csv` 时使用                                                                                     |
 | row_delimiter                         | string  | 否  | "\n"                                       | 仅在file_format为 `text`、`csv`、`json` 时使用                                                                                       |
 | have_partition                        | boolean | 否  | false                                      | 是否需要处理分区.                                                                                                                       |
 | partition_by                          | array   | 否  | -                                          | 只有在have_partition为true时才使用                                                                                                    |
@@ -76,6 +76,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | is_enable_transaction                 | boolean | 否  | true                                       | 若为 `true`，写入目标目录的数据不会丢失或重复；当为 `true` 时，会自动在文件名前缀添加 `${transactionId}_`。                                                                   |
 | batch_size                            | int     | 否  | 1000000                                    | 单个文件的最大行数。对于 SeaTunnel Engine，文件中的行数由 `batch_size` 和 `checkpoint.interval` 共同决定。                                                            |
 | compress_codec                        | string  | 否  | none                                       | 文件的压缩编解码器。Excel 格式不支持任何压缩格式。                                                                                                |
+| enable_header_write | boolean | 否 | false | 仅在 file_format_type 为 text,csv 时使用。<br/> false:不写入表头,true:写入表头。 |
 | common-options                        | object  | 否  | -                                          | Sink 插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 了解详情。                                                     |
 | max_rows_in_memory                    | int     | 否  | -                                          | 仅在file_format为excel时使用.                                                                                                       |
 | sheet_max_rows                         | int     | 否  | 1048576                                    | 仅在 `file_format_type` 为 `excel` 时使用；每个工作表允许写入的最大行数。                                                                |
@@ -91,6 +92,11 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | encoding                              | string  | 否  | "UTF-8"                                    | 仅当file_format_type为json、text、csv、xml时使用.                                                                                    |
 | merge_update_event                    | boolean | 否  | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json 时使用。设置为 `true` 时，会将 `UPDATE_AFTER` 与 `UPDATE_BEFORE` 合并为 `UPDATE` 事件数据。                        |
 | schema_evolution_enabled              | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
+| date_format                            | string  | 否    | yyyy-MM-dd                                 | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。日期类型格式，用于告知 connector 如何写出 date 值。支持格式（示例）：`yyyy-MM-dd`、`yyyy.MM.dd`、`yyyy/MM/dd`。 |
+| datetime_format                        | string  | 否    | yyyy-MM-dd HH:mm:ss                        | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间戳类型格式，用于告知 connector 如何写出 datetime 值。支持格式：`yyyy-MM-dd HH:mm:ss`、`yyyy.MM.dd HH:mm:ss`、`yyyy/MM/dd HH:mm:ss`、`yyyyMMddHHmmss`。 |
+| time_format                            | string  | 否    | HH:mm:ss                                   | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间类型格式，用于告知 connector 如何写出 time 值。支持格式（示例）：`HH:mm:ss`、`HH:mm:ss.SSS`。 |
+| schema_save_mode                       | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方式                                                       |
+| data_save_mode                         | string  | 否    | APPEND_DATA                                | 现有数据处理方式                                                       |
 
 ### path [string]
 
@@ -205,7 +211,7 @@ cos文件系统的分区.
 - txt: `lzo` `none`
 - json: `lzo` `none`
 - csv: `lzo` `none`
-- orc: `lzo` `snappy` `lz4` `zlib` `none`
+- orc: `lzo` `snappy` `lz4` `zlib` `zstd` `none`
 - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
 
 Tips: excel 类型不支持任何压缩格式
@@ -226,7 +232,7 @@ Tips: excel 类型不支持任何压缩格式
 
 编写工作簿的工作表
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 当文件格式为CSV时，CSV的字符串引用模式.
 

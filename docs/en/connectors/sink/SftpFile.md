@@ -206,7 +206,7 @@ The compress codec of files and the details that supported as the following show
 - txt: `lzo` `none`
 - json: `lzo` `none`
 - csv: `lzo` `none`
-- orc: `lzo` `snappy` `lz4` `zlib` `none`
+- orc: `lzo` `snappy` `lz4` `zlib` `zstd` `none`
 - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
 
 Tips: excel type does not support any compression format
@@ -227,7 +227,7 @@ When file format is Excel, the maximum number of rows per sheet.
 
 Writer the sheet of the workbook
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 When File Format is CSV,The string quote mode of CSV.
 

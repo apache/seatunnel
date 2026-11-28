@@ -34,7 +34,7 @@ Reads messages from Apache RocketMQ topics. The connector can read one or more t
 |------|------|----------|---------|-------------|
 | name.srv.addr | String | yes | - | RocketMQ name server address, for example `localhost:9876`. |
 | topics | String | no | - | Topic name list separated by commas, for example `"topic_a,topic_b"`. Configure only one of `topics`, `tables_configs`, and `table_list`. |
-| tables_configs | List | no | - | Multi-table read configuration. Each item must contain `topics` and can contain `format`, `schema`, `tags`, `start.mode`, `start.mode.timestamp`, `start.mode.offsets`, and `ignore_parse_errors`. |
+| tables_configs | List | no | - | Multi-table read configuration. Each item must contain `topics` and can contain `format`, `schema`, `tags`, `start.mode`, `start.mode.timestamp`, `start.mode.offsets`, `ignore_parse_errors`, and `field.delimiter`. |
 | table_list | List | no | - | Deprecated. Use `tables_configs` instead. |
 | tags | String | no | - | Tag list separated by commas. Only messages whose RocketMQ tag exactly matches one configured value are consumed. |
 | acl.enabled | Boolean | no | false | Whether to enable RocketMQ ACL authentication. |
@@ -43,7 +43,7 @@ Reads messages from Apache RocketMQ topics. The connector can read one or more t
 | batch.size | int | no | 100 | Maximum number of messages pulled each time. |
 | consumer.group | String | no | SeaTunnel-Consumer-Group | RocketMQ consumer group ID. |
 | commit.on.checkpoint | Boolean | no | true | Whether to commit offsets when SeaTunnel checkpoints are completed. |
-| schema | config | no | - | Message schema. See [Schema Feature](../../introduction/concepts/schema-feature.md). If omitted, the connector reads message bodies as text. |
+| schema | config | yes | - | Message schema. See [Schema Feature](../../introduction/concepts/schema-feature.md). Required for both `json` and `text` formats; the source fails to start without it. |
 | format | String | no | json | Message format. Supported values are `json` and `text`. |
 | field.delimiter | String | no | `,` | Field delimiter used when `format = text`. |
 | start.mode | String | no | CONSUME_FROM_GROUP_OFFSETS | Startup position. Supported values: `CONSUME_FROM_LAST_OFFSET`, `CONSUME_FROM_FIRST_OFFSET`, `CONSUME_FROM_GROUP_OFFSETS`, `CONSUME_FROM_TIMESTAMP`, `CONSUME_FROM_SPECIFIC_OFFSETS`. |
@@ -89,8 +89,9 @@ message body into typed fields. `ignore_parse_errors = true` can be used to skip
 invalid JSON messages instead of failing the job.
 
 When `format = text`, SeaTunnel splits the message body by `field.delimiter`
-and maps the values to fields in schema order. If `schema` is omitted, the
-message body is read as a single text value.
+and maps the values to fields in schema order. `schema` must be configured in
+both formats; without it the source fails to start when it builds its catalog
+table.
 
 ### Tags
 

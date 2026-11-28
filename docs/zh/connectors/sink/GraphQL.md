@@ -16,6 +16,11 @@ GraphQL Sink 连接器通过 HTTP POST 向 GraphQL 服务写入数据。它会�
 GraphQL `mutation`：输入行里的字段会按同名字段放入 GraphQL `variables`，然后随配置的
 mutation 一起发送。
 
+当服务端返回的状态码不是 200，或者响应中的 `errors` 数组不为空时，写入会失败。GraphQL
+服务通常用 HTTP 200 加 `errors` 数组来表示 mutation 被拒绝，所以 sink 会同时检查这两点。
+日期和时间字段会以 ISO 8601 字符串发送，例如 `2020-02-02T02:02:00`。未配置 `variables`
+时，行字段会放入一个新的对象发送。
+
 ## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
@@ -42,9 +47,9 @@ mutation 一起发送。
 | timeout       | Long    | 否       | -      | 传给 HTTP 客户端参数的请求超时时间。 |
 | headers       | Map     | 否       | -      | HTTP 请求头，例如鉴权请求头。 |
 | params        | Map     | 否       | -      | HTTP 请求参数。 |
-| retry         | Int     | 否       | -      | HTTP 请求出现 IOException 时的最大重试次数。 |
-| retry_backoff_multiplier_ms | Int | 否 | 100 | HTTP 请求失败后的重试退避倍率，单位毫秒。 |
-| retry_backoff_max_ms | Int | 否 | 10000 | HTTP 请求失败后的最大重试退避时间，单位毫秒。 |
+| retry         | Int     | 否       | -      | 连接器对 HTTP I/O 故障重试时的最大请求尝试次数，包含首次请求。 |
+| retry_backoff_multiplier_ms | Int | 否 | 100 | 斐波那契退避的时间倍率，单位毫秒。 |
+| retry_backoff_max_ms | Int | 否 | 10000 | 每次重试前的最大等待时间，单位毫秒。 |
 | connect_timeout_ms | Int | 否 | 12000 | HTTP 连接超时时间，单位毫秒。 |
 | socket_timeout_ms | Int | 否 | 60000 | HTTP socket 超时时间，单位毫秒。 |
 | multi_table_sink_replica | Int | 否 | 1 | Sink 通用参数，用于控制多表运行时的 sink 副本数；但写入到该 sink 的所有行仍使用同一条 GraphQL mutation。 |
@@ -159,8 +164,9 @@ sink {
 
 ### 向 GraphQL 服务流式发送 Mutation
 
-在流式模式下持续执行同一个 mutation。sink 会为每一行发送一次 mutation，并通过
-`retry` 加指数退避来吸收瞬时的 HTTP 失败。
+在流式模式下持续执行同一个 mutation。Sink 会为每一行发送一次 mutation。
+通过 `retry` 启用重试后，连接器对执行 HTTP 请求时的 `IOException` 使用斐波那契退避。
+每次重试前的等待时间上限由 `retry_backoff_max_ms` 设置。
 
 ```hocon
 env {

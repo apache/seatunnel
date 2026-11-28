@@ -51,7 +51,7 @@ Other SeaTunnel types are not supported by the current InfluxDB sink serializer.
 | key_tags                    | array  | no       | -                     | Field names written as InfluxDB tags. Other fields are written as point fields.                |
 | batch_size                  | int    | no       | 1024                  | Number of points buffered before flushing to InfluxDB.                                        |
 | max_retries                 | int    | no       | -                     | Maximum retry count when flushing points fails.                                               |
-| write_timeout               | int    | no       | 5                     | Write timeout used by the InfluxDB client.                                                     |
+| write_timeout               | int    | no       | 5                     | Deprecated. Currently parsed for backward compatibility only and not applied by the InfluxDB client; use `connect_timeout_ms` and `query_timeout_sec` instead. |
 | retry_backoff_multiplier_ms | int    | no       | -                     | Backoff multiplier used between retry attempts, in milliseconds.                              |
 | max_retry_backoff_ms        | int    | no       | -                     | Maximum backoff between retry attempts, in milliseconds.                                      |
 | rp                          | string | no       | -                     | Retention policy used when writing points.                                                     |
@@ -85,11 +85,12 @@ The InfluxDB user password. Configure it together with `username` when authentic
 
 ### key_time [string]
 
-The field name in the upstream row that supplies the InfluxDB point timestamp. When omitted, the
-sink uses the current processing time. The referenced field must be a `BIGINT` or a `STRING`
-containing a numeric epoch value in the precision configured by the `epoch` option (default `n`,
-nanoseconds), or a `TIMESTAMP` value, which is converted to epoch milliseconds using UTC and only
-matches the point precision when `epoch` is set to `MS`. ISO-8601 timestamp strings are not parsed.
+The field name in the upstream row that supplies the InfluxDB point timestamp. When `key_time` is
+omitted, the sink uses the current processing time, which is written with millisecond precision.
+The referenced field must be a `BIGINT` or a `STRING` containing a numeric epoch value in the
+precision configured by the `epoch` option (default `n`, nanoseconds), or a `TIMESTAMP` value,
+which is converted to epoch milliseconds using UTC and written with millisecond precision, so it
+is correct for any `epoch` value. ISO-8601 timestamp strings are not parsed.
 
 ### key_tags [array]
 
@@ -118,7 +119,9 @@ Maximum backoff between retry attempts, in milliseconds. Configure it together w
 
 ### write_timeout [int]
 
-The write timeout used by the InfluxDB client, in seconds.
+Deprecated. The option is still parsed for backward compatibility, but the InfluxDB client never
+applies it, so changing it has no runtime effect. Use `connect_timeout_ms` and `query_timeout_sec`
+to control the client timeouts.
 
 ### rp [string]
 
@@ -272,7 +275,6 @@ sink {
     max_retries = 3
     retry_backoff_multiplier_ms = 100
     max_retry_backoff_ms = 5000
-    write_timeout = 10
     multi_table_sink_replica = 2
   }
 }

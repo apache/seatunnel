@@ -108,6 +108,7 @@ MongoDB Sink 连接器将 SeaTunnel 行记录写入 MongoDB 集合。每行记�
 | primary-key           | List     | 否       | -              | 用于 upsert 或更新的主键，格式为 `["id","name",...]`。 |
 | transaction           | Boolean  | 否       | false          | 是否在 MongoSink 中启用事务（需要 MongoDB 4.2+）。 |
 | data_save_mode        | Enum     | 否       | APPEND_DATA    | MongoDB 集合的数据写入模式：`DROP_DATA` 表示写入前清空集合；`APPEND_DATA` 表示追加写入；`ERROR_WHEN_DATA_EXISTS` 表示集合已有数据时直接报错。 |
+| tls_ca_file           | String   | 否       | -              | PEM 格式的 CA 证书文件路径，TLS 连接只信任该文件中的证书，且只对本作业生效。设置后会启用 TLS。详见 [使用私有 CA 的 TLS 连接](#使用私有-ca-的-tls-连接)。 |
 | multi_table_sink_replica | Int   | 否       | 1              | 多表写入作业中每张表使用的写入器副本数，最小为 1。 |
 | common-options        | -        | 否       | -              | 通用 Sink 插件参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。 |
 
@@ -275,6 +276,28 @@ mongodb://192.168.0.1:27017,192.168.0.2:27017,192.168.0.3:27017/mydb
 ```
 
 > 注意：URI 中的用户名与密码在拼接前必须进行 URL 编码。
+
+### 使用私有 CA 的 TLS 连接
+
+MongoDB Java 驱动会忽略连接串中的 `tlsCAFile`。因此，如果服务端证书由 JDK 信任库之外的 CA 签发（例如使用 Amazon RDS CA 的 Amazon DocumentDB，或者使用企业内部 CA 的自建 MongoDB），在 `uri` 中设置 `tlsCAFile` 无法连接。请改用 `tls_ca_file`：
+
+```hocon
+sink {
+  MongoDB {
+    uri = "mongodb://user:password@docdb-cluster.cluster-xxxx.us-west-2.docdb.amazonaws.com:27017/?replicaSet=rs0&retryWrites=false"
+    database = "test_db"
+    collection = "test_collection"
+    tls_ca_file = "/opt/seatunnel/certs/global-bundle.pem"
+  }
+}
+```
+
+- 该文件在每个运行 Sink 的节点上读取，因此每个节点的相同路径下都必须有这个文件。文件中可以包含多个证书（证书包），其中的证书都会被信任。
+- 只信任该文件中的证书，并且只对本 Sink 生效。不会使用或修改 `javax.net.ssl.trustStore` 等 JVM 全局信任设置，同一集群上的其他作业和连接器不受影响。
+- 设置 `tls_ca_file` 会启用 TLS，不能与 `uri` 中的 `tls=false` 或 `ssl=false` 同时使用。
+- 主机名校验保持开启，只能像未设置 `tls_ca_file` 时一样，通过在 `uri` 中显式设置 `tlsAllowInvalidHostnames=true` 来关闭。
+- 数据写入、事务提交、保存模式（`data_save_mode`）和连通性 Dry Run 都使用同一套设置。
+- Amazon DocumentDB 不支持 retryable writes，请在 `uri` 中保留 `retryWrites=false`。
 
 ### Buffer Flush 示例
 

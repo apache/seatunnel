@@ -163,7 +163,7 @@ Pulsar 消费者的启动模式，有效值为 `'EARLIEST'`、`'LATEST'`、`'SUB
 
 ### format [String]
 
-数据格式。默认值为 `json`。支持 json、canal_json、avro 和 text 格式。使用 avro 格式时需要配置 `schema`。text 格式仅支持单表模式。更多格式说明参考 [formats](../formats)。当生产端按可空 Avro union 写入 ROW 字段时，需设置 `avro_row_nullable = true` 才能解码值为 `null` 的 ROW，参见 [Avro 格式](../formats/avro.md#avro_row_nullable)。
+数据格式。默认值为 `json`。支持 json、canal_json、avro 和 text 格式。使用 avro 格式时需要配置 `schema`。text 格式仅支持单表模式。更多格式说明参考 [formats](../formats/overview.md)。当生产端按可空 Avro union 写入 ROW 字段时，需设置 `avro_row_nullable = true` 才能解码值为 `null` 的 ROW，参见 [Avro 格式](../formats/avro.md#avro_row_nullable)。
 
 ### field_delimiter [String]
 
@@ -363,9 +363,13 @@ source {
 
 ### 按 topic-pattern 自动发现新 topic
 
-当 topic 列表会随时间增长时，可以组合使用 `topic-pattern` 与 `topic-discovery.interval`，让连接器自动发现新增的 topic。
+当 topic 列表会随时间增长时，可以组合使用 `topic-pattern` 与 `topic-discovery.interval`，让连接器自动发现新增的 topic。动态发现只在无界读取下生效：必须以 `STREAMING` 模式运行并使用 `cursor.stop.mode = "NEVER"`，否则源连接器会抛出 `Bounded streams do not support dynamic partition discovery.` 错误。
 
 ```hocon
+env {
+  job.mode = "STREAMING"
+}
+
 source {
   Pulsar {
     topic-pattern = "persistent://public/default/orders-.*"
@@ -374,7 +378,7 @@ source {
     admin.service-url = "http://localhost:8080"
     topic-discovery.interval = 30000
     cursor.startup.mode = "EARLIEST"
-    cursor.stop.mode = "LATEST"
+    cursor.stop.mode = "NEVER"
     format = json
     schema = {
       fields {
