@@ -140,35 +140,24 @@ public class OracleUtils {
                 });
     }
 
+    /**
+     * Samples the specified column of a table and returns the sampled keys in the database
+     * collation order.
+     *
+     * <p>The sampled keys MUST be returned in the database collation order, NOT Java
+     * String.compareTo order. Snapshot reads later filter rows with {@code WHERE key >= chunkStart
+     * AND key < chunkEnd}, which the database evaluates using its collation (binary or linguistic).
+     * If the chunk boundaries were produced from a Java byte-order sort, the two orderings disagree
+     * for mixed-case string keys: chunk ranges overlap (rows read twice) or invert (permanently
+     * empty chunks), and rows can concentrate into a single giant chunk that overloads one subtask.
+     */
     public static Object[] sampleDataFromColumn(
-            JdbcConnection jdbc, TableId tableId, String columnName, int inverseSamplingRate)
-            throws SQLException {
-        final String minQuery =
-                String.format(
-                        "SELECT %s FROM %s WHERE MOD((%s - (SELECT MIN(%s) FROM %s)), %s) = 0 ORDER BY %s",
-                        quote(columnName),
-                        quoteSchemaAndTable(tableId),
-                        quote(columnName),
-                        quote(columnName),
-                        quoteSchemaAndTable(tableId),
-                        inverseSamplingRate,
-                        quote(columnName));
-        return jdbc.queryAndMap(
-                minQuery,
-                resultSet -> {
-                    List<Object> results = new ArrayList<>();
-                    while (resultSet.next()) {
-                        results.add(resultSet.getObject(1));
-                    }
-                    return results.toArray();
-                });
-    }
-
-    public static Object[] skipReadAndSortSampleData(
             JdbcConnection jdbc, TableId tableId, String columnName, int inverseSamplingRate)
             throws Exception {
         final String sampleQuery =
-                String.format("SELECT %s FROM %s", quote(columnName), quoteSchemaAndTable(tableId));
+                String.format(
+                        "SELECT %s FROM %s ORDER BY %s",
+                        quote(columnName), quoteSchemaAndTable(tableId), quote(columnName));
 
         Statement stmt = null;
         ResultSet rs = null;
@@ -212,9 +201,11 @@ public class OracleUtils {
                 }
             }
         }
-        Object[] resultsArray = results.toArray();
-        Arrays.sort(resultsArray);
-        return resultsArray;
+        // The sample is already sorted by the database (ORDER BY in sampleQuery), in the same
+        // collation order the snapshot WHERE filters use. Do NOT re-sort here with Java
+        // Arrays.sort: String.compareTo uses UTF-16 code-unit order which disagrees with the
+        // database collation and would misalign the chunk boundaries again.
+        return results.toArray();
     }
 
     public static Object queryNextChunkMax(

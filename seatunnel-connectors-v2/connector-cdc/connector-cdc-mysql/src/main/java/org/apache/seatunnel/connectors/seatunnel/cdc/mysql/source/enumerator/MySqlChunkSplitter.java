@@ -62,7 +62,7 @@ public class MySqlChunkSplitter extends AbstractJdbcSourceChunkSplitter {
     public Object[] sampleDataFromColumn(
             JdbcConnection jdbc, TableId tableId, String columnName, int inverseSamplingRate)
             throws Exception {
-        return MySqlUtils.skipReadAndSortSampleData(jdbc, tableId, columnName, inverseSamplingRate);
+        return MySqlUtils.sampleDataFromColumn(jdbc, tableId, columnName, inverseSamplingRate);
     }
 
     @Override
