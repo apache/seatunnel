@@ -70,6 +70,9 @@ public final class ConfigParserUtil {
             throw new JobDefineCheckException("Source And Sink can not be null");
         }
         if (isSimpleGraph(sources, transforms, sinks)) {
+            TransformDependencyScheduler.scheduleTransforms(
+                    transforms,
+                    Collections.singleton(getTableId(ReadonlyConfig.fromConfig(sources.get(0)))));
             checkSimpleGraph(sources, transforms, sinks);
             return;
         }
@@ -169,6 +172,12 @@ public final class ConfigParserUtil {
         checkInputId(sinks, vertexStatusMap);
         log.debug("Phase 5: Check if there are unused vertex.");
         checkLinked(vertexStatusMap);
+        log.debug("Phase 6: Check for cyclic transform dependencies.");
+        Set<String> sourceIds = new HashSet<>();
+        for (Config source : sources) {
+            sourceIds.add(getTableId(ReadonlyConfig.fromConfig(source)));
+        }
+        TransformDependencyScheduler.scheduleTransforms(transforms, sourceIds);
     }
 
     private static void fillVirtualVertices(
@@ -257,7 +266,12 @@ public final class ConfigParserUtil {
         return config.getOptional(PLUGIN_OUTPUT).orElse(DEFAULT_ID);
     }
 
-    static List<String> getInputIds(ReadonlyConfig config) {
+    /**
+     * Returns configured input IDs, or the default input ID when {@code plugin_input} is absent. An
+     * explicitly empty list stays empty so the dependency scheduler can distinguish the legacy
+     * previous-output fallback from an omitted input that refers to the default output.
+     */
+    public static List<String> getInputIds(ReadonlyConfig config) {
         return config.getOptional(PLUGIN_INPUT).orElse(Collections.singletonList(DEFAULT_ID));
     }
 
