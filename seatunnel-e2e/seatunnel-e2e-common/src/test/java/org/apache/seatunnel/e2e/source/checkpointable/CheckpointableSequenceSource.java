@@ -90,7 +90,9 @@ public class CheckpointableSequenceSource
         return new CheckpointableSequenceSourceReader(
                 readerContext,
                 config.get(CheckpointableSequenceSourceFactory.RECORDS_PER_POLL),
-                config.get(CheckpointableSequenceSourceFactory.EMIT_INTERVAL_MS));
+                config.get(CheckpointableSequenceSourceFactory.EMIT_INTERVAL_MS),
+                config.get(CheckpointableSequenceSourceFactory.PAUSE_AFTER_OFFSETS_PER_SPLIT),
+                config.get(CheckpointableSequenceSourceFactory.RESUME_FILE));
     }
 
     @Override
@@ -98,7 +100,10 @@ public class CheckpointableSequenceSource
             createEnumerator(
                     SourceSplitEnumerator.Context<CheckpointableSequenceSplit> enumeratorContext) {
         return new CheckpointableSequenceSplitEnumerator(
-                enumeratorContext, createInitialSplits(), false);
+                enumeratorContext,
+                createInitialSplits(),
+                false,
+                config.get(CheckpointableSequenceSourceFactory.ONE_SPLIT_PER_READER));
     }
 
     @Override
@@ -109,7 +114,8 @@ public class CheckpointableSequenceSource
         return new CheckpointableSequenceSplitEnumerator(
                 enumeratorContext,
                 checkpointState.getPendingSplits(),
-                checkpointState.getPendingSplits().isEmpty());
+                checkpointState.getPendingSplits().isEmpty(),
+                config.get(CheckpointableSequenceSourceFactory.ONE_SPLIT_PER_READER));
     }
 
     @Override

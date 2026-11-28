@@ -49,6 +49,51 @@ public class CheckpointableSequenceSourceFactory implements TableSourceFactory {
     public static final Option<Long> EMIT_INTERVAL_MS =
             Options.key("emit_interval_ms").longType().defaultValue(50L);
 
+    /**
+     * When enabled, the enumerator hands at most one split to each reader instead of draining the
+     * whole pending queue into the first reader that registers.
+     *
+     * <p>The default keeps the historical behaviour so existing fixtures and tests are unaffected.
+     * The per-reader mode exists so tests can give every parallel reader its own checkpoint state:
+     * with the default mode a single reader owns all splits and the other subtasks checkpoint an
+     * empty state, which cannot exercise per-subtask state restoration.
+     */
+    public static final Option<Boolean> ONE_SPLIT_PER_READER =
+            Options.key("one_split_per_reader")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Assign at most one split to every source reader instead of assigning all pending splits to the first registered reader");
+
+    /**
+     * When set to a non-negative value, every reader stops emitting as soon as its own split has
+     * advanced this many offsets from the split's start and keeps polling without emitting until
+     * the file named by {@link #RESUME_FILE} exists.
+     *
+     * <p>This turns "the job is interrupted in the middle of its input" into a controlled
+     * precondition: the readers park at a known, non-terminal offset of their own split instead of
+     * racing to the end of a finite range while the test prepares the savepoint. The historical
+     * default {@code -1} keeps the fixture emitting without a gate.
+     */
+    public static final Option<Long> PAUSE_AFTER_OFFSETS_PER_SPLIT =
+            Options.key("pause_after_offsets_per_split")
+                    .longType()
+                    .defaultValue(-1L)
+                    .withDescription(
+                            "Stop emitting after every split advanced this many offsets and resume once resume_file exists; negative disables the gate");
+
+    /**
+     * Path of the file that releases {@link #PAUSE_AFTER_OFFSETS_PER_SPLIT}. The gate is open when
+     * this option is empty, and also when the file already exists, so a restored run whose split
+     * state is past the pause offset never parks again.
+     */
+    public static final Option<String> RESUME_FILE =
+            Options.key("resume_file")
+                    .stringType()
+                    .defaultValue("")
+                    .withDescription(
+                            "File whose creation releases a reader paused by pause_after_offsets_per_split");
+
     @Override
     public String factoryIdentifier() {
         return "CheckpointableSequenceSource";
@@ -57,7 +102,15 @@ public class CheckpointableSequenceSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(START_OFFSET, END_OFFSET, SPLIT_NUM, RECORDS_PER_POLL, EMIT_INTERVAL_MS)
+                .optional(
+                        START_OFFSET,
+                        END_OFFSET,
+                        SPLIT_NUM,
+                        RECORDS_PER_POLL,
+                        EMIT_INTERVAL_MS,
+                        ONE_SPLIT_PER_READER,
+                        PAUSE_AFTER_OFFSETS_PER_SPLIT,
+                        RESUME_FILE)
                 .build();
     }
 
