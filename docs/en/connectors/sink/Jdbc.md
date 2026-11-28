@@ -691,7 +691,26 @@ When `is_exactly_once = true`, JDBC Sink uses XA transactions. Before enabling i
 - MySQL requires a server and Connector/J combination that supports the XA operations used by the sink. Accounts that perform XA recovery may also require the `XA_RECOVER_ADMIN` privilege; check the requirements for your MySQL version.
 - Do not configure `sink.flush.interval`; XA transaction boundaries are controlled by checkpoints.
 
+## MySQL batch write tuning
+
 For MySQL non-XA batch jobs, adding `rewriteBatchedStatements=true` to the JDBC URL can improve throughput. Validate the effect with your driver version and workload.
+
+With MySQL Connector/J, also compare client-side preparation with server-side preparation and statement caching. Add the options to the existing URL, retaining other required connection parameters. For example, the following fragment belongs inside an existing JDBC sink configuration:
+
+```hocon
+url = "jdbc:mysql://mysql-host:3306/example?rewriteBatchedStatements=true&useServerPrepStmts=true&cachePrepStmts=true&prepStmtCacheSize=4&prepStmtCacheSqlLimit=65536"
+batch_size = 1000
+```
+
+These are measurement starting points, not SeaTunnel defaults or a guarantee that server-side preparation is faster. Keep the sink's required driver, credentials, database and table settings.
+
+- `useServerPrepStmts` requests server-side preparation when supported; `cachePrepStmts` enables statement caching.
+- `prepStmtCacheSize` bounds cached entries per physical connection. The small example cache suits a fixed SQL workload; size it for the actual tables and SQL shapes, accounting for connection and writer concurrency.
+- `prepStmtCacheSqlLimit` limits the SQL length eligible for caching. Connector/J 8.0.33 defaults to 256. A rewritten multi-row INSERT can exceed that limit, so enabling caching alone may not reuse it. Choose the limit using the generated SQL length, rather than the row payload size.
+
+Measure rows per second, memory and server prepared-statement usage with representative row widths and batch sizes. Check packet limits and the server's `max_prepared_stmt_count` before increasing batch or cache sizes. When the source also uses MySQL, measure source and sink URL changes independently; an end-to-end result does not isolate either side. This example does not select a transaction policy or apply to XA tuning.
+
+See the Connector/J [performance properties](https://dev.mysql.com/doc/connector-j/en/connector-j-connp-props-performance-extensions.html) and [prepared-statement properties](https://dev.mysql.com/doc/connector-j/en/connector-j-connp-props-prepared-statements.html).
 
 ## Driver reference
 
