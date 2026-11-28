@@ -68,6 +68,54 @@ public class TypeConverterUtils {
     }
 
     public static DataType convert(SeaTunnelDataType<?> dataType) {
+        return convert(dataType, null);
+    }
+
+    /**
+     * Same as {@link #convert(SeaTunnelDataType)} for the type of a field, so that the fallback
+     * ARRAY/MAP error names the field, e.g. {@code tags.element}.
+     *
+     * @throws org.apache.seatunnel.common.exception.SeaTunnelRuntimeException with {@code
+     *     SPARK-TRANSLATION-01} if a DECIMAL wider than Spark supports sits inside an ARRAY or MAP
+     */
+    public static DataType convert(SeaTunnelDataType<?> dataType, String fieldName) {
+        try {
+            return convert(dataType, false);
+        } catch (WideDecimalInCollection e) {
+            throw WideDecimalUtils.collectionError(
+                    null, WideDecimalUtils.childPath(fieldName, e.path), e.decimalType);
+        }
+    }
+
+    /**
+     * A wide decimal inside an ARRAY or MAP. Each enclosing type adds its part of the path on the
+     * way up, so the path is built only when the conversion fails; converters call this per row.
+     */
+    private static final class WideDecimalInCollection extends RuntimeException {
+
+        private static final long serialVersionUID = 1L;
+
+        private final String path;
+        private final DecimalType decimalType;
+
+        private WideDecimalInCollection(String path, DecimalType decimalType) {
+            super(null, null, false, false);
+            this.path = path;
+            this.decimalType = decimalType;
+        }
+
+        private WideDecimalInCollection under(String parent) {
+            return new WideDecimalInCollection(
+                    WideDecimalUtils.childPath(parent, path), decimalType);
+        }
+    }
+
+    /**
+     * @param inCollection whether the type sits inside an ARRAY or MAP. A wide decimal there fails.
+     *     {@code MultiTableManager} already rejects it with the table and column at job start; this
+     *     only keeps other callers safe without walking the type tree again.
+     */
+    private static DataType convert(SeaTunnelDataType<?> dataType, boolean inCollection) {
         checkNotNull(dataType, "The SeaTunnel's data type is required.");
         switch (dataType.getSqlType()) {
             case NULL:
@@ -99,24 +147,47 @@ public class TypeConverterUtils {
             case TIMESTAMP_TZ:
                 return OffsetDateTimeUtils.OFFSET_DATETIME_WITH_DECIMAL;
             case ARRAY:
-                return DataTypes.createArrayType(
-                        convert(((ArrayType<?, ?>) dataType).getElementType()));
+                DataType elementType;
+                try {
+                    elementType = convert(((ArrayType<?, ?>) dataType).getElementType(), true);
+                } catch (WideDecimalInCollection e) {
+                    throw e.under("element");
+                }
+                return DataTypes.createArrayType(elementType);
             case MAP:
                 MapType<?, ?> mapType = (MapType<?, ?>) dataType;
-                return DataTypes.createMapType(
-                        convert(mapType.getKeyType()), convert(mapType.getValueType()));
+                DataType keyType;
+                DataType valueType;
+                try {
+                    keyType = convert(mapType.getKeyType(), true);
+                } catch (WideDecimalInCollection e) {
+                    throw e.under("key");
+                }
+                try {
+                    valueType = convert(mapType.getValueType(), true);
+                } catch (WideDecimalInCollection e) {
+                    throw e.under("value");
+                }
+                return DataTypes.createMapType(keyType, valueType);
             case DECIMAL:
+                if (WideDecimalUtils.isWideDecimal(dataType)) {
+                    if (inCollection) {
+                        throw new WideDecimalInCollection(null, (DecimalType) dataType);
+                    }
+                    // Spark stops at precision 38; the field metadata keeps the declared type.
+                    return DataTypes.StringType;
+                }
                 DecimalType decimalType = (DecimalType) dataType;
                 return new org.apache.spark.sql.types.DecimalType(
                         decimalType.getPrecision(), decimalType.getScale());
             case ROW:
-                return convert((SeaTunnelRowType) dataType);
+                return convert((SeaTunnelRowType) dataType, inCollection);
             default:
         }
         throw new IllegalArgumentException("Unsupported SeaTunnel's data type: " + dataType);
     }
 
-    private static StructType convert(SeaTunnelRowType rowType) {
+    private static StructType convert(SeaTunnelRowType rowType, boolean inCollection) {
         // TODO: row kind
         StructField[] fields = new StructField[rowType.getFieldNames().length];
         for (int i = 0; i < rowType.getFieldNames().length; i++) {
@@ -131,12 +202,19 @@ public class TypeConverterUtils {
                                         OffsetDateTimeUtils.LOGICAL_TIMESTAMP_WITH_OFFSET_TYPE_FLAG,
                                         true)
                                 .build();
+            } else if (WideDecimalUtils.isWideDecimal(fieldType)) {
+                metadata = WideDecimalUtils.metadata((DecimalType) fieldType);
             } else {
                 metadata = Metadata.empty();
             }
 
-            fields[i] =
-                    new StructField(rowType.getFieldNames()[i], convert(fieldType), true, metadata);
+            DataType sparkType;
+            try {
+                sparkType = convert(fieldType, inCollection);
+            } catch (WideDecimalInCollection e) {
+                throw e.under(rowType.getFieldNames()[i]);
+            }
+            fields[i] = new StructField(rowType.getFieldNames()[i], sparkType, true, metadata);
         }
         return new StructType(fields);
     }
@@ -210,7 +288,10 @@ public class TypeConverterUtils {
         for (int i = 0; i < structFields.length; i++) {
             fieldNames[i] = structFields[i].name();
             Metadata metadata = structFields[i].metadata();
-            if (metadata != null
+            DecimalType wideDecimalType = WideDecimalUtils.fromMetadata(structFields[i]);
+            if (wideDecimalType != null) {
+                fieldTypes[i] = wideDecimalType;
+            } else if (metadata != null
                     && metadata.contains(LOGICAL_TIME_TYPE_FLAG)
                     && metadata.getBoolean(LOGICAL_TIME_TYPE_FLAG)) {
                 fieldTypes[i] = LocalTimeType.LOCAL_TIME_TYPE;

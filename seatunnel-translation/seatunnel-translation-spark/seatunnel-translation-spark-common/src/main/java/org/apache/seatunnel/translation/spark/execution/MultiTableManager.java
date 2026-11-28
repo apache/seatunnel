@@ -27,6 +27,7 @@ import org.apache.seatunnel.translation.spark.serialization.InternalRowCollector
 import org.apache.seatunnel.translation.spark.serialization.InternalRowConverter;
 import org.apache.seatunnel.translation.spark.serialization.SeaTunnelRowConverter;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
+import org.apache.seatunnel.translation.spark.utils.WideDecimalUtils;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.expressions.GenericRow;
@@ -58,6 +59,12 @@ public class MultiTableManager implements Serializable {
     private boolean isMultiTable = false;
 
     public MultiTableManager(CatalogTable[] catalogTables) {
+        // Merging renames the columns to column0..N, so check before it to name the real column.
+        for (CatalogTable catalogTable : catalogTables) {
+            WideDecimalUtils.checkNoWideDecimalInCollection(
+                    String.valueOf(catalogTable.getTablePath()),
+                    catalogTable.getSeaTunnelRowType());
+        }
         List<ColumnWithIndex> columnWithIndexes = mergeSchema(catalogTables);
         if (catalogTables.length > 1) {
             isMultiTable = true;
@@ -73,7 +80,9 @@ public class MultiTableManager implements Serializable {
                                             columnWithIndex ->
                                                     new InternalRowConverter(
                                                             mergeCatalogTable.getSeaTunnelRowType(),
-                                                            columnWithIndex.getIndex())));
+                                                            columnWithIndex.getIndex(),
+                                                            tablePath(columnWithIndex),
+                                                            sourceFieldNames(columnWithIndex))));
             genericRowSerializationMap =
                     columnWithIndexes.stream()
                             .collect(
@@ -86,11 +95,17 @@ public class MultiTableManager implements Serializable {
                                             columnWithIndex ->
                                                     new SeaTunnelRowConverter(
                                                             mergeCatalogTable.getSeaTunnelRowType(),
-                                                            columnWithIndex.getIndex())));
+                                                            columnWithIndex.getIndex(),
+                                                            tablePath(columnWithIndex),
+                                                            sourceFieldNames(columnWithIndex))));
         } else {
-            rowSerialization = new InternalRowConverter(catalogTables[0].getSeaTunnelRowType());
+            String tablePath = String.valueOf(catalogTables[0].getTablePath());
+            rowSerialization =
+                    new InternalRowConverter(
+                            catalogTables[0].getSeaTunnelRowType(), null, tablePath, null);
             genericRowSerialization =
-                    new SeaTunnelRowConverter(catalogTables[0].getSeaTunnelRowType());
+                    new SeaTunnelRowConverter(
+                            catalogTables[0].getSeaTunnelRowType(), null, tablePath, null);
         }
         log.info("Multi-table enabled:{}", isMultiTable);
         log.info(
@@ -100,6 +115,15 @@ public class MultiTableManager implements Serializable {
         for (ColumnWithIndex columnWithIndex : columnWithIndexes) {
             log.info("MultiTableManager columnWithIndex:{}", columnWithIndex);
         }
+    }
+
+    private static String tablePath(ColumnWithIndex columnWithIndex) {
+        return String.valueOf(columnWithIndex.getCatalogTable().getTablePath());
+    }
+
+    /** Value errors name these instead of the merged {@code column0..N}. */
+    private static String[] sourceFieldNames(ColumnWithIndex columnWithIndex) {
+        return columnWithIndex.getCatalogTable().getSeaTunnelRowType().getFieldNames();
     }
 
     public SeaTunnelRow reconvert(InternalRow record) throws IOException {

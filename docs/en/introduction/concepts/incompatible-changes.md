@@ -200,6 +200,17 @@ The same strictness applies wherever the shared JSON-to-row conversion is used w
 - **Impact**: Readers may observe a prefix of a split checkpoint. Append-only checkpoints still use one snapshot. Fresh commits can read legacy manifests when checkpoint numbers are reused. A partial file match or manifest-read error fails the commit with table, branch and checkpoint context.
 - **Migration Guide**: Keep the required snapshots, manifests and pending data/delete files until the checkpoint is no longer recoverable. On a partial-match error, inspect the named branch and checkpoint against the pending files before retrying. Recover from a checkpoint with complete publication evidence or reconcile the target before restarting. Avoid removing a matching snapshot or manually replaying part of the payload to bypass the check. Zeta and Flink 1.20 can pass recovered committables to these checks, while Flink 1.13 and 1.15 discard them. See the Iceberg sink's replay guidance.
 
+### Spark: DECIMAL with precision above 38
+
+- **Behavior change: on the Spark engine, `DECIMAL(p, s)` with `p > 38` no longer fails at schema creation when it is a top-level column or a field inside a `ROW`**
+  - **Description**: Spark's decimal type stops at precision 38, so any such column failed with `decimal can only support precision up to 38` before any row was read. SeaTunnel now carries these values through Spark as plain decimal text, with the declared precision and scale in the column metadata, and restores `DECIMAL(p, s)` for transforms and sinks.
+  - **Impact**:
+    - Jobs that read such columns on Spark 2.4 or 3.3 now run and keep every digit.
+    - A `DECIMAL(p > 38)` inside an `ARRAY` or `MAP` now fails at job start with error `SPARK-TRANSLATION-01`, which names the table, the column path and the workarounds. This change alone does not affect Doris: the Doris source still declares `LARGEINT` as `DECIMAL(20, 0)`.
+    - A value that does not fit the declared precision or scale fails the job with `SPARK-TRANSLATION-02` instead of being rounded. The error names the table and column but not the value.
+    - In Spark's own view of the data, such as the Dataset schema or a temporary view, these columns are `STRING`.
+  - **Migration Guide**: No change is needed for top-level or `ROW` columns. For an `ARRAY` or `MAP` column, leave it out at the source, cast it in the source query, or run the job on the Zeta or Flink engine. A `Sql` transform cannot help here, because on Spark the source schema is built before any transform runs. See [SeaTunnel With Spark](../../engines/spark.md#decimal-precision-above-38).
+
 ### File sink: XML applies `date_format`, `datetime_format` and `time_format`
 
 - **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**

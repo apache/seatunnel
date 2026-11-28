@@ -102,6 +102,25 @@ This is one of the most sensitive boundaries in the Spark path, especially for:
 - nested types
 - nullability
 
+### DECIMAL precision above 38
+
+Spark's `DecimalType` stops at precision 38. `TypeConverterUtils` maps a SeaTunnel `DecimalType(p, s)` with `p > 38` as follows, in the same way `TIME` and `TIMESTAMP_TZ` are carried with a metadata flag:
+
+| Position of the wide decimal | Spark schema |
+|---|---|
+| Top-level field, or a field of a `ROW` when every container on the path is a `ROW` | `StringType`, with `StructField` metadata `seatunnel_decimal_precision = p` and `seatunnel_decimal_scale = s` (both long) |
+| Anywhere inside an `ARRAY` or `MAP` | rejected with `SPARK-TRANSLATION-01` |
+
+Rules:
+
+- `MultiTableManager` checks every source `CatalogTable` before `mergeSchema`, because merging renames the columns to `column0..N`. The error names the table, the column path (`.element`, `.key`, `.value`), the declared type, the limit of 38 and the workarounds.
+- Write (`InternalRowConverter` and `SeaTunnelRowConverter`): `null` stays `null`. The integer and fraction digit counts are checked on the unscaled value first, so a value with an extreme exponent (for example `1E+100000000`) is rejected without being expanded. A value with more than `p - s` integer digits, or one that would need rounding to `s` fraction digits, is rejected with `SPARK-TRANSLATION-02`. A value whose plain text would be longer than `Integer.MAX_VALUE / 4` characters is rejected the same way. Otherwise it is padded to `s` fraction digits and written with `toPlainString()`.
+- Read: both converters accept only carrier text (`String` or `UTF8String`). Text longer than `3 + p + |s|` characters is rejected before it is parsed; the writer never produces longer text. The text must match `-?\d+(\.\d+)?` and have exactly `s` fraction digits (none for a negative `s`, where a non-zero value must end in `-s` zeros), and its unscaled value at scale `s` must have at most `p` digits. Anything else, including a value of another class, is rejected with `SPARK-TRANSLATION-02`, never rounded. A negative `s` is restored exactly.
+- A `SPARK-TRANSLATION-02` message names the source table (when the converter knows it, as in every job built by `MultiTableManager`), the column path and the declared type, and says why the value was rejected. It does not include the value. In a multi-table job the converters map the merged `columnN` back to the source column name.
+- Schema read-back utility (`WideDecimalUtils.fromMetadata`, reached through `TypeConverterUtils.convert(DataType)` on a Spark `StructType`): a `StringType` field with both metadata keys becomes `DecimalType(p, s)` again. Only one key, the keys on another type, `p <= 38`, or a value that does not fit an `int` is rejected with `SPARK-TRANSLATION-03`. This is for callers that convert a Spark schema back to a SeaTunnel type; the job path does not call it today.
+
+Row values are converted from the SeaTunnel row type, so transforms and sinks always see `DecimalType(p, s)`.
+
 ## Version Split
 
 Spark translation in SeaTunnel is version-aware. Spark 2.4 and Spark 3.x do not expose identical datasource APIs, so SeaTunnel keeps separate modules and adapters for major Spark lines.
