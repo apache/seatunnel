@@ -27,6 +27,8 @@ import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
+import org.apache.seatunnel.api.sink.DirtyCollectorConfigProcessor;
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SaveModeExecuteWrapper;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -115,89 +117,116 @@ public class SinkExecuteProcessor
         boolean createdAnySink = false;
         for (int i = 0; i < plugins.size(); i++) {
             Config sinkConfig = pluginConfigs.get(i);
+            Config envConfig = sparkRuntimeEnvironment.getConfig();
+            Config mergedSinkConfig =
+                    DirtyCollectorConfigProcessor.getMergedSinkConfigForDirty(
+                            envConfig, sinkConfig);
             DatasetTableInfo datasetTableInfo =
                     fromSourceTable(sinkConfig, sparkRuntimeEnvironment, upstreamDataStreams)
                             .orElse(input);
-            Dataset<Row> dataset = datasetTableInfo.getDataset();
-
-            int parallelism;
-            if (sinkConfig.hasPath(EnvCommonOptions.PARALLELISM.key())) {
-                parallelism = sinkConfig.getInt(EnvCommonOptions.PARALLELISM.key());
-            } else {
-                parallelism =
-                        sparkRuntimeEnvironment
-                                .getSparkConf()
-                                .getInt(
-                                        EnvCommonOptions.PARALLELISM.key(),
-                                        EnvCommonOptions.PARALLELISM.defaultValue());
-            }
-            dataset.sparkSession().read().option(EnvCommonOptions.PARALLELISM.key(), parallelism);
-            Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
-            List<MultiTableFailedTable> currentSkippedTables = new ArrayList<>();
-            for (CatalogTable catalogTable : datasetTableInfo.getCatalogTables()) {
-                SeaTunnelSink<Object, Object, Object, Object> sink;
-                try {
-                    sink =
-                            FactoryUtil.createAndPrepareSink(
-                                    catalogTable,
-                                    ReadonlyConfig.fromConfig(sinkConfig),
-                                    classLoader,
-                                    sinkConfig.getString(PLUGIN_NAME.key()),
-                                    fallbackCreateSink,
-                                    null);
-                    sink.setJobContext(jobContext);
-                } catch (Exception error) {
-                    if (!shouldContinueOtherTables()) {
-                        throw wrapThrowable(error);
-                    }
-                    logSkippedTable(
-                            currentSkippedTables,
-                            skippedTables,
-                            catalogTable,
-                            sinkConfig,
-                            MultiTableFailurePhase.SINK_INIT,
-                            error);
-                    continue;
-                }
-                try {
-                    handleSaveMode(sink);
-                    sinks.put(catalogTable.getTableId().toTablePath(), sink);
-                } catch (Exception error) {
-                    if (!shouldContinueOtherTables()) {
-                        throw wrapThrowable(error);
-                    }
-                    logSkippedTable(
-                            currentSkippedTables,
-                            skippedTables,
-                            catalogTable,
-                            sinkConfig,
-                            MultiTableFailurePhase.SAVE_MODE,
-                            error);
-                }
-            }
-            if (sinks.isEmpty()) {
-                continue;
-            }
-
-            SeaTunnelSink sink =
-                    tryGenerateMultiTableSink(
-                            sinks,
-                            MultiTableFailureHelper.withFailedTables(
-                                    MultiTableFailureHelper.mergeOptions(
-                                            ReadonlyConfig.fromConfig(sinkConfig),
-                                            ReadonlyConfig.fromConfig(
-                                                    sparkRuntimeEnvironment.getConfig())),
-                                    currentSkippedTables),
-                            classLoader);
-            createdAnySink = true;
-            String applicationId =
-                    sparkRuntimeEnvironment.getSparkSession().sparkContext().applicationId();
             CatalogTable[] catalogTables =
                     datasetTableInfo.getCatalogTables().toArray(new CatalogTable[0]);
-            SparkSinkInjector.inject(
-                            dataset.write(), sink, catalogTables, applicationId, parallelism)
-                    .option("checkpointLocation", "/tmp")
-                    .save();
+            CatalogTable firstCatalogTable = catalogTables.length > 0 ? catalogTables[0] : null;
+            DirtyRecordCollector dirtyCollector =
+                    DirtyCollectorConfigProcessor.processConfig(
+                            envConfig, sinkConfig, firstCatalogTable, catalogTables.length);
+            boolean dirtyCollectorClosed = false;
+            try {
+                Dataset<Row> dataset = datasetTableInfo.getDataset();
+
+                int parallelism;
+                if (sinkConfig.hasPath(EnvCommonOptions.PARALLELISM.key())) {
+                    parallelism = sinkConfig.getInt(EnvCommonOptions.PARALLELISM.key());
+                } else {
+                    parallelism =
+                            sparkRuntimeEnvironment
+                                    .getSparkConf()
+                                    .getInt(
+                                            EnvCommonOptions.PARALLELISM.key(),
+                                            EnvCommonOptions.PARALLELISM.defaultValue());
+                }
+                dataset.sparkSession()
+                        .read()
+                        .option(EnvCommonOptions.PARALLELISM.key(), parallelism);
+                Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
+                List<MultiTableFailedTable> currentSkippedTables = new ArrayList<>();
+                for (CatalogTable catalogTable : datasetTableInfo.getCatalogTables()) {
+                    SeaTunnelSink<Object, Object, Object, Object> sink;
+                    try {
+                        sink =
+                                FactoryUtil.createAndPrepareSink(
+                                        catalogTable,
+                                        ReadonlyConfig.fromConfig(mergedSinkConfig),
+                                        classLoader,
+                                        sinkConfig.getString(PLUGIN_NAME.key()),
+                                        fallbackCreateSink,
+                                        null);
+                        sink.setJobContext(jobContext);
+                    } catch (Exception error) {
+                        if (!shouldContinueOtherTables()) {
+                            throw wrapThrowable(error);
+                        }
+                        logSkippedTable(
+                                currentSkippedTables,
+                                skippedTables,
+                                catalogTable,
+                                sinkConfig,
+                                MultiTableFailurePhase.SINK_INIT,
+                                error);
+                        continue;
+                    }
+                    DirtyCollectorConfigProcessor.validateSinkSupport(mergedSinkConfig, sink);
+                    try {
+                        handleSaveMode(sink);
+                        sinks.put(catalogTable.getTableId().toTablePath(), sink);
+                    } catch (Exception error) {
+                        if (!shouldContinueOtherTables()) {
+                            throw wrapThrowable(error);
+                        }
+                        logSkippedTable(
+                                currentSkippedTables,
+                                skippedTables,
+                                catalogTable,
+                                sinkConfig,
+                                MultiTableFailurePhase.SAVE_MODE,
+                                error);
+                    }
+                }
+                if (sinks.isEmpty()) {
+                    dirtyCollectorClosed = true;
+                    DirtyCollectorConfigProcessor.closeAfterPlanningFailure(dirtyCollector, null);
+                    continue;
+                }
+
+                SeaTunnelSink sink =
+                        tryGenerateMultiTableSink(
+                                sinks,
+                                MultiTableFailureHelper.withFailedTables(
+                                        MultiTableFailureHelper.mergeOptions(
+                                                ReadonlyConfig.fromConfig(sinkConfig),
+                                                ReadonlyConfig.fromConfig(
+                                                        sparkRuntimeEnvironment.getConfig())),
+                                        currentSkippedTables),
+                                classLoader);
+                createdAnySink = true;
+                String applicationId =
+                        sparkRuntimeEnvironment.getSparkSession().sparkContext().applicationId();
+                SparkSinkInjector.inject(
+                                dataset.write(),
+                                sink,
+                                catalogTables,
+                                applicationId,
+                                parallelism,
+                                dirtyCollector)
+                        .option("checkpointLocation", "/tmp")
+                        .save();
+            } catch (RuntimeException | Error failure) {
+                if (!dirtyCollectorClosed) {
+                    DirtyCollectorConfigProcessor.closeAfterPlanningFailure(
+                            dirtyCollector, failure);
+                }
+                throw failure;
+            }
         }
         if (!createdAnySink && !skippedTables.isEmpty()) {
             throw new TaskExecuteException(
