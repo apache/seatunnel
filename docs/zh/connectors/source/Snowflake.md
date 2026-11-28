@@ -150,7 +150,7 @@ source {
 - Snowflake 任务使用 `Jdbc` 插件名，并设置 `driver = "net.snowflake.client.jdbc.SnowflakeDriver"`。
 - 运行任务前请把 Snowflake JDBC 驱动 jar 放到 `$SEATUNNEL_HOME/plugins/jdbc/lib/`。
 - 并行读取时，`partition_column`、`partition_lower_bound`、`partition_upper_bound` 和 `partition_num` 必须描述同一数值列的范围。
-- Snowflake 地理空间列映射为 SeaTunnel `STRING` 类型。
+- Snowflake 的 `GEOGRAPHY`/`GEOMETRY` 列始终映射为 SeaTunnel 的 `STRING` 类型；返回的文本表示形式由 Snowflake JDBC URL 参数（如 `GEOGRAPHY_OUTPUT_FORMAT`）决定。
 
 ## 变更日志
 

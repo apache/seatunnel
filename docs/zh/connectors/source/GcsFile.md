@@ -76,6 +76,7 @@ import ChangeLog from '../changelog/connector-file-gcs.md';
 | quote_char | string | 否 | `"` | CSV 引号字符。 |
 | escape_char | string | 否 | - | CSV 转义字符。 |
 | sheet_name | string | 否 | - | 要读取的 Excel 工作表。 |
+| excel_use_header_line | boolean | 否 | false | 使用 Excel 第一行作为表头按列名映射字段，仅在 file_format_type 为 excel 时使用。 |
 | excel_engine | string | 否 | `POI` | Excel 读取器：`POI` 或 `EasyExcel`。 |
 | poi_excel_max_file_size | long | 否 | `52428800` | POI 引擎可读取的最大 Excel 文件字节数。 |
 | xml_row_tag | string | 条件必填 | - | 表示一行数据的 XML 元素。 |

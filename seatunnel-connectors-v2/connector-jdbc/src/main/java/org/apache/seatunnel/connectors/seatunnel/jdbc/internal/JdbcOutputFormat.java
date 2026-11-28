@@ -41,6 +41,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
@@ -252,6 +253,42 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                             CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
                 }
 
+                boolean retryableTransactionConflict =
+                        isRetryableTransactionConflict(sqlExceptions);
+                boolean transactionConflict = false;
+                if (retryableTransactionConflict) {
+                    // An auto-commit connection keeps every statement in its own transaction, so
+                    // the failed attempt replayed nothing and the legacy generic retry below is
+                    // safe. Fail fast only when the flush does not own the transaction boundary
+                    // (checkpoint / XA) or the executor cannot retain its records for replay.
+                    boolean canRetry;
+                    try {
+                        canRetry = canRetryTransactionConflict();
+                        if (!canRetry && !isAutoCommitConnection()) {
+                            throw new JdbcConnectorException(
+                                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                                    "JDBC transaction conflict cannot be retried inside the current"
+                                            + " transaction boundary.",
+                                    e);
+                        }
+                    } catch (SQLException transactionStateException) {
+                        throw new JdbcConnectorException(
+                                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                                "Unable to inspect JDBC transaction state after a transaction conflict.",
+                                transactionStateException);
+                    }
+                    if (canRetry) {
+                        transactionConflict = true;
+                        try {
+                            rollbackAfterTransactionConflict();
+                        } catch (SQLException rollbackException) {
+                            throw new JdbcConnectorException(
+                                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                                    "Unable to rollback JDBC transaction after a transaction conflict.",
+                                    rollbackException);
+                        }
+                    }
+                }
                 SQLException nonRetryableDataException =
                         findNonRetryableDataException(sqlExceptions);
                 if (nonRetryableDataException != null) {
@@ -301,7 +338,9 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                             e);
                 }
                 try {
-                    if (shouldRefreshExecutor(sqlExceptions)) {
+                    // A transaction-conflict retry must keep the executor: its buffer still
+                    // holds the records the next attempt replays after the rollback.
+                    if (!transactionConflict && shouldRefreshExecutor(sqlExceptions)) {
                         updateExecutor(true);
                     }
                 } catch (Exception exception) {
@@ -314,7 +353,13 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                             exception);
                 }
                 try {
-                    sleepBeforeFlushRetry((long) sleepMs * i);
+                    long retrySleepMs = (long) sleepMs * i;
+                    if (retryableTransactionConflict) {
+                        retrySleepMs =
+                                (long) sleepMs * (i + 1)
+                                        + ThreadLocalRandom.current().nextLong(sleepMs);
+                    }
+                    sleepBeforeFlushRetry(retrySleepMs);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                     throw new JdbcConnectorException(
@@ -603,6 +648,63 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         }
 
         return isOracleDataException(sqlException);
+    }
+
+    /**
+     * Returns whether the current transaction is owned by this flush and can be replayed safely.
+     * Checkpoint and XA transactions span multiple flushes, so their conflicts must be propagated
+     * to the owner that can replay the complete transaction.
+     */
+    private boolean canRetryTransactionConflict() throws SQLException {
+        if (!commitOnFlush) {
+            return false;
+        }
+        if (jdbcStatementExecutor == null
+                || !jdbcStatementExecutor.supportsTransactionConflictRetry()) {
+            return false;
+        }
+        Connection connection = connectionProvider.getConnection();
+        return connection != null && !connection.getAutoCommit();
+    }
+
+    /** Returns whether the current connection keeps each JDBC statement in its own transaction. */
+    private boolean isAutoCommitConnection() throws SQLException {
+        Connection connection = connectionProvider.getConnection();
+        return connection != null && connection.getAutoCommit();
+    }
+
+    /**
+     * Rolls back the failed flush transaction and clears only the driver's partial batch. The
+     * executor retains its logical records so a following flush attempt can replay them.
+     */
+    private void rollbackAfterTransactionConflict() throws SQLException {
+        Connection connection = connectionProvider.getConnection();
+        if (connection != null && !connection.getAutoCommit()) {
+            connection.rollback();
+        }
+        // Clear the driver's partially submitted batch while retaining the logical records.
+        jdbcStatementExecutor.resetForTransactionConflictRetry();
+    }
+
+    /**
+     * Identifies database transaction conflicts using PostgreSQL SQLSTATEs 40P01/40001 and Oracle
+     * vendor code 60 with the ORA-00060 message.
+     */
+    private boolean isRetryableTransactionConflict(List<SQLException> sqlExceptions) {
+        for (SQLException sqlException : sqlExceptions) {
+            String sqlState = sqlException.getSQLState();
+            int vendorCode = sqlException.getErrorCode();
+            if ("40P01".equals(sqlState) || "40001".equals(sqlState)) {
+                return true;
+            }
+            String message = sqlException.getMessage();
+            if (vendorCode == 60
+                    && message != null
+                    && message.toUpperCase(Locale.ROOT).contains("ORA-00060")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isOracleDataException(SQLException sqlException) {

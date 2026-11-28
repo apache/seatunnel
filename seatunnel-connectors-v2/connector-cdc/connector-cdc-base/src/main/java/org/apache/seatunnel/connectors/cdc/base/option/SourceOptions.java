@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.cdc.base.option;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.schema.SchemaChangeBehavior;
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventType;
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 
@@ -154,6 +155,13 @@ public class SourceOptions {
                             "Whether to enable concurrent read with split during snapshot phase. "
                                     + "When set to false, the source reads the table as a single split "
                                     + "without any split analysis, which is useful for tables without indexes.");
+
+    public static final Option<SchemaChangeBehavior> SCHEMA_CHANGES_BEHAVIOR =
+            Options.key("schema-changes.behavior")
+                    .enumType(SchemaChangeBehavior.class)
+                    .defaultValue(SchemaChangeBehavior.EVOLVE)
+                    .withDescription(
+                            "Schema change event behavior. Values are case-insensitive. STRICT fails when a schema change is observed, EVOLVE applies supported schema changes, and IGNORE drops comment-only changes but rejects row-layout changes.");
 
     public static OptionRule.Builder getBaseRule() {
         return OptionRule.builder()

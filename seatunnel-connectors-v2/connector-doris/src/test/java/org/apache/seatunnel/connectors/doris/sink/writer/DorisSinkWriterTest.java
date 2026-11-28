@@ -503,6 +503,174 @@ public class DorisSinkWriterTest {
     }
 
     @Test
+    void testSubWritersWithTheSameSinkTableGetDistinctTwoPhaseCommitLabels() throws Exception {
+        DorisStreamLoad streamLoad = mock(DorisStreamLoad.class);
+        doNothing().when(streamLoad).abortPreCommit(anyString(), anyLong());
+
+        RecordingStreamLoadFactory factory = new RecordingStreamLoadFactory();
+        factory.register("fe1:8030", streamLoad);
+
+        DorisSinkWriter first = null;
+        DorisSinkWriter second = null;
+        try {
+            first =
+                    new DorisSinkWriter(
+                            new DefaultSinkWriterContext(0, 1),
+                            new ArrayList<>(),
+                            mockCatalogTable(),
+                            createSinkConfig(false, true),
+                            "job_1",
+                            "source_a",
+                            factory);
+            second =
+                    new DorisSinkWriter(
+                            new DefaultSinkWriterContext(0, 1),
+                            new ArrayList<>(),
+                            mockCatalogTable(),
+                            createSinkConfig(false, true),
+                            "job_1",
+                            "source_b",
+                            factory);
+
+            ArgumentCaptor<String> labelCaptor = ArgumentCaptor.forClass(String.class);
+            verify(streamLoad, times(2)).startLoad(labelCaptor.capture());
+            List<String> labels = labelCaptor.getAllValues();
+            Assertions.assertEquals(2, labels.size());
+            Assertions.assertNotEquals(labels.get(0), labels.get(1));
+        } finally {
+            if (first != null) {
+                first.close();
+            }
+            if (second != null) {
+                second.close();
+            }
+        }
+    }
+
+    @Test
+    void testSameSourceTableKeepsTwoPhaseCommitLabelAcrossAttempts() throws Exception {
+        DorisStreamLoad streamLoad = mock(DorisStreamLoad.class);
+        doNothing().when(streamLoad).abortPreCommit(anyString(), anyLong());
+
+        RecordingStreamLoadFactory factory = new RecordingStreamLoadFactory();
+        factory.register("fe1:8030", streamLoad);
+
+        DorisSinkWriter first = null;
+        DorisSinkWriter second = null;
+        try {
+            first =
+                    new DorisSinkWriter(
+                            new DefaultSinkWriterContext(0, 1),
+                            new ArrayList<>(),
+                            mockCatalogTable(),
+                            createSinkConfig(false, true),
+                            "job_1",
+                            "source_a",
+                            factory);
+            second =
+                    new DorisSinkWriter(
+                            new DefaultSinkWriterContext(0, 1),
+                            new ArrayList<>(),
+                            mockCatalogTable(),
+                            createSinkConfig(false, true),
+                            "job_1",
+                            "source_a",
+                            factory);
+
+            ArgumentCaptor<String> labelCaptor = ArgumentCaptor.forClass(String.class);
+            verify(streamLoad, times(2)).startLoad(labelCaptor.capture());
+            List<String> labels = labelCaptor.getAllValues();
+            Assertions.assertEquals(2, labels.size());
+            Assertions.assertEquals(labels.get(0), labels.get(1));
+        } finally {
+            if (first != null) {
+                first.close();
+            }
+            if (second != null) {
+                second.close();
+            }
+        }
+    }
+
+    @Test
+    void testSubWritersWithTheSameSinkTableGetDistinctNonTwoPhaseCommitLabels() throws Exception {
+        DorisStreamLoad streamLoad = mock(DorisStreamLoad.class);
+        when(streamLoad.stopLoad()).thenReturn(successRespContent(1L));
+
+        RecordingStreamLoadFactory factory = new RecordingStreamLoadFactory();
+        factory.register("fe1:8030", streamLoad);
+
+        DorisSinkWriter first = null;
+        DorisSinkWriter second = null;
+        try {
+            first =
+                    new DorisSinkWriter(
+                            new DefaultSinkWriterContext(0, 1),
+                            new ArrayList<>(),
+                            mockCatalogTable(),
+                            createSinkConfig(false, false),
+                            "job_1",
+                            "source_a",
+                            factory);
+            second =
+                    new DorisSinkWriter(
+                            new DefaultSinkWriterContext(0, 1),
+                            new ArrayList<>(),
+                            mockCatalogTable(),
+                            createSinkConfig(false, false),
+                            "job_1",
+                            "source_b",
+                            factory);
+
+            ArgumentCaptor<String> labelCaptor = ArgumentCaptor.forClass(String.class);
+            verify(streamLoad, times(2)).startLoad(labelCaptor.capture());
+            List<String> labels = labelCaptor.getAllValues();
+            Assertions.assertEquals(2, labels.size());
+            Assertions.assertNotEquals(labels.get(0), labels.get(1));
+        } finally {
+            if (first != null) {
+                first.close();
+            }
+            if (second != null) {
+                second.close();
+            }
+        }
+    }
+
+    @Test
+    void testRestoreAbortsTwoPhaseCommitLabelsWithThePersistedPrefix() throws Exception {
+        DorisStreamLoad streamLoad = mock(DorisStreamLoad.class);
+        doNothing().when(streamLoad).abortPreCommit(anyString(), anyLong());
+
+        RecordingStreamLoadFactory factory = new RecordingStreamLoadFactory();
+        factory.register("fe1:8030", streamLoad);
+
+        List<DorisSinkState> state =
+                Collections.singletonList(new DorisSinkState("persisted_label_prefix", 7L));
+        DorisSinkWriter writer = null;
+        try {
+            writer =
+                    new DorisSinkWriter(
+                            new DefaultSinkWriterContext(0, 1),
+                            state,
+                            mockCatalogTable(),
+                            createSinkConfig(false, true),
+                            "job_1",
+                            "source_a",
+                            factory);
+
+            verify(streamLoad).abortPreCommit("persisted_label_prefix", 8L);
+            ArgumentCaptor<String> labelCaptor = ArgumentCaptor.forClass(String.class);
+            verify(streamLoad).startLoad(labelCaptor.capture());
+            Assertions.assertFalse(labelCaptor.getValue().startsWith("persisted_label_prefix"));
+        } finally {
+            if (writer != null) {
+                writer.close();
+            }
+        }
+    }
+
+    @Test
     void testTimestampTzZoneWarningNamesColumnsAndJvmZoneWhenZoneUnset() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(

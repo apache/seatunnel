@@ -27,6 +27,8 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.schema.SchemaChangePolicy;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.CreateTableEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -109,6 +111,7 @@ public class MultiTableSinkWriter
     private final int tableRetryTimes;
     private final int tableRetryIntervalSeconds;
     private final RuntimeSinkWriterFactory runtimeSinkWriterFactory;
+    private final Map<String, List<SchemaChangeType>> supportedSchemaChangeTypesByTable;
     private final Map<String, List<SinkIdentifier>> sinkIdentifiersByTable =
             new ConcurrentHashMap<>();
     private final ConcurrentMap<String, CatalogTable> runtimeCreatedTables =
@@ -257,6 +260,31 @@ public class MultiTableSinkWriter
             Collection<MultiTableFailedTable> initialFailedTables,
             int tableRetryTimes,
             int tableRetryIntervalSeconds,
+            Map<String, List<SchemaChangeType>> supportedSchemaChangeTypesByTable) {
+        this(
+                sinkWriters,
+                queueSize,
+                sinkWritersContext,
+                failurePolicy,
+                jobMode,
+                initialFailedTables,
+                tableRetryTimes,
+                tableRetryIntervalSeconds,
+                Collections.emptyList(),
+                null,
+                Collections.emptyMap(),
+                supportedSchemaChangeTypesByTable);
+    }
+
+    MultiTableSinkWriter(
+            Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters,
+            int queueSize,
+            Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext,
+            MultiTableFailurePolicy failurePolicy,
+            JobMode jobMode,
+            Collection<MultiTableFailedTable> initialFailedTables,
+            int tableRetryTimes,
+            int tableRetryIntervalSeconds,
             List<SinkWriterTemplate> sinkWriterTemplates,
             RuntimeSinkWriterFactory runtimeSinkWriterFactory) {
         this(
@@ -270,7 +298,8 @@ public class MultiTableSinkWriter
                 tableRetryIntervalSeconds,
                 sinkWriterTemplates,
                 runtimeSinkWriterFactory,
-                Collections.emptyMap());
+                Collections.emptyMap(),
+                null);
     }
 
     MultiTableSinkWriter(
@@ -284,7 +313,8 @@ public class MultiTableSinkWriter
             int tableRetryIntervalSeconds,
             List<SinkWriterTemplate> sinkWriterTemplates,
             RuntimeSinkWriterFactory runtimeSinkWriterFactory,
-            Map<SinkIdentifier, SinkContextProxy> proxyContexts) {
+            Map<SinkIdentifier, SinkContextProxy> proxyContexts,
+            Map<String, List<SchemaChangeType>> supportedSchemaChangeTypesByTable) {
         if (!sinkWriterTemplates.isEmpty() && sinkWriterTemplates.size() != queueSize) {
             throw new IllegalArgumentException(
                     "The runtime sink writer template count must match the queue count");
@@ -299,6 +329,7 @@ public class MultiTableSinkWriter
         if (proxyContexts != null) {
             this.proxyContexts.putAll(proxyContexts);
         }
+        this.supportedSchemaChangeTypesByTable = supportedSchemaChangeTypesByTable;
         AtomicInteger cnt = new AtomicInteger(0);
         executorService =
                 MDCTracer.tracing(
@@ -594,6 +625,7 @@ public class MultiTableSinkWriter
                             new SchemaChangeDispatchTarget(
                                     sinkWriterEntry.getKey(),
                                     sinkWriterEntry.getValue(),
+                                    getSupportedSchemaChangeTypes(sinkWriterEntry.getKey()),
                                     "source-match"));
                     primaryDispatchedKeys.add(sinkWriterEntry.getKey());
                     extractPhysicalSinkIdentifier(sinkWriterEntry.getValue())
@@ -622,6 +654,7 @@ public class MultiTableSinkWriter
                             new SchemaChangeDispatchTarget(
                                     sinkWriterEntry.getKey(),
                                     sinkWriterEntry.getValue(),
+                                    getSupportedSchemaChangeTypes(sinkWriterEntry.getKey()),
                                     "shared-physical-sink " + siblingPhysicalSinkId.get()));
                 }
             }
@@ -710,6 +743,19 @@ public class MultiTableSinkWriter
                 dispatchTarget.getSinkIdentifier().getTableIdentifier(),
                 dispatchTarget.getSinkIdentifier().getIndex(),
                 dispatchTarget.getReason());
+        List<SchemaChangeType> supportedTypes = dispatchTarget.getSupportedSchemaChangeTypes();
+        if (supportedTypes != null) {
+            if (!SchemaChangePolicy.isSupported(event, supportedTypes)
+                    && SchemaChangePolicy.isSafeToIgnore(event)) {
+                log.warn(
+                        "Drop unsupported comment-only schema change event {} for table {} "
+                                + "because its sub-sink does not advertise this capability.",
+                        event.getEventType(),
+                        dispatchTarget.getSinkIdentifier().getTableIdentifier());
+                return;
+            }
+            SchemaChangePolicy.validateSupported(event, supportedTypes, event.getJobId());
+        }
         executeWithTableRetry(
                 dispatchTarget.getSinkIdentifier().getTableIdentifier(),
                 MultiTableFailurePhase.CHECKPOINT,
@@ -717,9 +763,25 @@ public class MultiTableSinkWriter
                     if (dispatchTarget.getWriter() instanceof SupportSchemaEvolutionSinkWriter) {
                         ((SupportSchemaEvolutionSinkWriter) dispatchTarget.getWriter())
                                 .applySchemaChange(event);
-                    } else {
-                        // TODO remove deprecated method
+                    } else if (SchemaChangePolicy.overridesDeprecatedSchemaChangeMethod(
+                            dispatchTarget.getWriter())) {
+                        log.warn(
+                                "Sink writer {} for table {} still uses the deprecated "
+                                        + "SinkWriter.applySchemaChange method. Migrate it to "
+                                        + "SupportSchemaEvolutionSinkWriter.",
+                                dispatchTarget.getWriter().getClass().getName(),
+                                dispatchTarget.getSinkIdentifier().getTableIdentifier());
                         dispatchTarget.getWriter().applySchemaChange(event);
+                    } else {
+                        log.warn(
+                                "Drop schema change event {} for table {} because sink writer {} "
+                                        + "inherits the deprecated no-op applySchemaChange method. "
+                                        + "This compatibility fallback will be removed in the next "
+                                        + "release; implement SupportSchemaEvolutionSinkWriter, disable "
+                                        + "schema-changes.enabled, or exclude this event type.",
+                                event.getEventType(),
+                                dispatchTarget.getSinkIdentifier().getTableIdentifier(),
+                                dispatchTarget.getWriter().getClass().getName());
                     }
                     return null;
                 });
@@ -728,6 +790,18 @@ public class MultiTableSinkWriter
                 dispatchTarget.getSinkIdentifier().getTableIdentifier(),
                 dispatchTarget.getSinkIdentifier().getIndex(),
                 dispatchTarget.getReason());
+    }
+
+    private List<SchemaChangeType> getSupportedSchemaChangeTypes(SinkIdentifier sinkIdentifier) {
+        if (supportedSchemaChangeTypesByTable == null) {
+            return null;
+        }
+        String tableIdentifier = sinkIdentifier.getTableIdentifier();
+        // A present null preserves the one-release legacy writer compatibility window. A missing
+        // table is an unresolved capability lookup and must continue to reject layout changes.
+        return supportedSchemaChangeTypesByTable.containsKey(tableIdentifier)
+                ? supportedSchemaChangeTypesByTable.get(tableIdentifier)
+                : Collections.emptyList();
     }
 
     private Optional<String> extractPhysicalSinkIdentifier(SinkWriter<SeaTunnelRow, ?, ?> writer) {
@@ -1235,19 +1309,7 @@ public class MultiTableSinkWriter
         }
         executorService.shutdownNow();
         if (failurePolicy.continueOtherTables()) {
-            synchronized (this) {
-                // When a timer flush round is cancelled, a worker may already be isolating
-                // a failed table. That isolation can continue after shutdownNow() returns
-                // while the worker closes and removes the table's writers across queues.
-                //
-                // Queue locks serialize individual close calls. If shutdown closes a writer
-                // first, the writer is still in the map and isolation could close it again.
-                //
-                // handleTableFailure() holds this monitor. A flush worker checks the round's
-                // stop signal under the same monitor before starting isolation. Since close()
-                // has already signaled the round to stop, acquiring this monitor waits for any
-                // isolation in progress. Release it before acquiring the queue locks below.
-            }
+            awaitTableIsolation();
         }
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             synchronized (runnable.get(i)) {
@@ -1332,6 +1394,33 @@ public class MultiTableSinkWriter
         aggregatedFlush(proxyContexts);
     }
 
+    /**
+     * Waits for table isolation started by a timer flush before closing the remaining writers.
+     *
+     * <p>The caller must first signal the active timer flush round to stop. The timer flush stop
+     * check and {@code handleTableFailure()} hold this writer's monitor: a timer flush that passed
+     * the check finishes isolation before this method returns, and a later timer flush failure
+     * observes the completed round under that monitor and skips isolation. This prevents timer
+     * flush isolation and shutdown from closing the same writer twice.
+     *
+     * <p>Other isolation entry points do not check this timer stop signal. {@link #close()}
+     * separately calls {@link #checkQueueRemain()} to drain runtime writes and their failure
+     * handling.
+     *
+     * <p>Acquiring this monitor is unbounded and uninterruptible; the executor termination timeout
+     * in {@link #close()} does not cover this wait. The monitor is released before {@code close()}
+     * acquires the queue locks.
+     */
+    private synchronized void awaitTableIsolation() {
+        // Acquiring this monitor is the wait; no additional work is required.
+    }
+
+    /**
+     * Drains the row queues and flushes independent queues in parallel. A successful round waits
+     * for every queue. A fatal failure ends the round and prevents further child flush actions.
+     *
+     * @param proxyContexts map from sink identifier to its {@link SinkContextProxy}
+     */
     void aggregatedFlush(Map<SinkIdentifier, SinkContextProxy> proxyContexts) throws Exception {
         checkQueueRemain();
         subSinkErrorCheck();
@@ -1431,8 +1520,10 @@ public class MultiTableSinkWriter
                 if (error instanceof InterruptedException) {
                     Thread.currentThread().interrupt();
                 } else if (error instanceof Exception && failurePolicy.continueOtherTables()) {
-                    // Table isolation acquires other queue locks. Coordinate with close outside
-                    // ours.
+                    // Keep this catch outside the queue monitor: isolation takes every queue lock.
+                    // Holding ours while acquiring the writer monitor risks a lock-order cycle.
+                    // Hold the writer monitor across the stop check and handleTableFailure(), so
+                    // close() cannot acquire it via awaitTableIsolation() between them.
                     synchronized (this) {
                         if (!completion.isDone()) {
                             handleTableFailure(

@@ -136,6 +136,9 @@ If write to `csv`, `text`, `json` file type, All column will be string.
 | data_save_mode                        | Enum    | no       | APPEND_DATA                                | Controls how existing data files in the target directory are processed before the synchronization task starts.                                                                 |
 | merge_update_event                    | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data |
 | schema_evolution_enabled              | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
+| date_format                           | string  | no       | yyyy-MM-dd                                 | Only used when file_format_type is `text`, `csv`, `excel` or `xml`. Date type format, used to tell connector how to write date values. Supported formats (examples): `yyyy-MM-dd`, `yyyy.MM.dd`, `yyyy/MM/dd`. |
+| datetime_format                       | string  | no       | yyyy-MM-dd HH:mm:ss                        | Only used when file_format_type is `text`, `csv`, `excel` or `xml`. Datetime type format, used to tell connector how to write datetime values. Supported formats (examples): `yyyy-MM-dd HH:mm:ss`, `yyyy.MM.dd HH:mm:ss`, `yyyy/MM/dd HH:mm:ss`, `yyyyMMddHHmmss`. |
+| time_format                           | string  | no       | HH:mm:ss                                   | Only used when file_format_type is `text`, `csv`, `excel` or `xml`. Time type format, used to tell connector how to write time values. Supported formats (examples): `HH:mm:ss`, `HH:mm:ss.SSS`. |
 
 ### path [string]
 
@@ -253,7 +256,7 @@ The compress codec of files and the details that supported as the following show
 - txt: `lzo` `none`
 - json: `lzo` `none`
 - csv: `lzo` `none`
-- orc: `lzo` `snappy` `lz4` `zlib` `none`
+- orc: `lzo` `snappy` `lz4` `zlib` `zstd` `none`
 - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
 
 Tips: excel type does not support any compression format
@@ -274,7 +277,7 @@ When file format is Excel, the maximum number of rows per sheet.
 
 Writer the sheet of the workbook
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 When File Format is CSV,The string quote mode of CSV.
 
@@ -604,8 +607,12 @@ Users on the default CDC source config (`schema-changes.enabled = false`) are co
 Example usage in a CDC pipeline:
 
 ```hocon
-LocalFile {
-    path = "/tmp/cdc/${table_name}"
+OssFile {
+    bucket = "oss://whale-ops"
+    access_key = "xxxxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxx"
+    endpoint = "https://oss-accelerate.aliyuncs.com"
+    path = "/cdc/${table_name}"
     file_format_type = "parquet"
     schema_evolution_enabled = true
     have_partition = true

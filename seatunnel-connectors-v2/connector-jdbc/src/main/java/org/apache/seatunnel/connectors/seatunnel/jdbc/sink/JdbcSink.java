@@ -149,7 +149,7 @@ public class JdbcSink
                             new ArrayList<>());
 
         } else {
-            Integer primaryKeyIndex = getPrimaryKeyIndex(tableSchema).orElse(null);
+            Integer primaryKeyIndex = routingKeyIndex().orElse(null);
             sinkWriter =
                     new JdbcSinkWriter(
                             sinkTablePath,
@@ -166,14 +166,41 @@ public class JdbcSink
         return sinkWriter;
     }
 
-    static Optional<Integer> getPrimaryKeyIndex(TableSchema tableSchema) {
+    /** The routing key position the writers of this table get, see {@link #getPrimaryKeyIndex}. */
+    Optional<Integer> routingKeyIndex() {
+        return getPrimaryKeyIndex(tableSchema, jdbcSinkConfig.getPrimaryKeys());
+    }
+
+    /**
+     * Returns the position of the column that the multi-table sink routes rows by when it runs
+     * several writers of this table, so that all changes of one record reach the same writer.
+     *
+     * <p>It is the first column of the schema primary key. When the schema has none, it is the
+     * first column of the key the sink writes by: {@code primary_keys}, which the factory also
+     * fills from a UNIQUE key of the table. Without either, there is no routing key.
+     *
+     * <p>The multi-table sink hashes the value with {@code hashCode()}, so the changes of one
+     * record reach the same writer only when equal values have equal hash codes. A {@code BYTES}
+     * column holds a {@code byte[]}, whose hash code is its identity, and gives no such guarantee.
+     *
+     * @param tableSchema the schema of the rows this sink receives
+     * @param sinkPrimaryKeys the {@code primary_keys} the sink upserts by, may be {@code null}
+     * @return the column position, or empty when the table has no usable key
+     */
+    static Optional<Integer> getPrimaryKeyIndex(
+            TableSchema tableSchema, List<String> sinkPrimaryKeys) {
         PrimaryKey primaryKey = tableSchema.getPrimaryKey();
-        if (primaryKey == null
-                || primaryKey.getColumnNames() == null
-                || primaryKey.getColumnNames().isEmpty()) {
+        if (primaryKey != null
+                && primaryKey.getColumnNames() != null
+                && !primaryKey.getColumnNames().isEmpty()) {
+            int index =
+                    tableSchema.toPhysicalRowDataType().indexOf(primaryKey.getColumnNames().get(0));
+            return index > -1 ? Optional.of(index) : Optional.empty();
+        }
+        if (sinkPrimaryKeys == null || sinkPrimaryKeys.isEmpty()) {
             return Optional.empty();
         }
-        int index = tableSchema.toPhysicalRowDataType().indexOf(primaryKey.getColumnNames().get(0));
+        int index = tableSchema.toPhysicalRowDataType().indexOf(sinkPrimaryKeys.get(0), false);
         return index > -1 ? Optional.of(index) : Optional.empty();
     }
 
@@ -352,7 +379,9 @@ public class JdbcSink
                                 SchemaChangeType.ADD_COLUMN,
                                 SchemaChangeType.DROP_COLUMN,
                                 SchemaChangeType.RENAME_COLUMN,
-                                SchemaChangeType.UPDATE_COLUMN));
+                                SchemaChangeType.UPDATE_COLUMN,
+                                SchemaChangeType.ALTER_TABLE_COMMENT,
+                                SchemaChangeType.ALTER_COLUMN_COMMENT));
         if (!jdbcSinkConfig.isExactlyOnce()) {
             supportedTypes.add(0, SchemaChangeType.CREATE_TABLE);
         }

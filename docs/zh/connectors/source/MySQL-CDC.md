@@ -105,7 +105,7 @@ enforce_gtid_consistency = on
 3. 重启MySQL Server
 
 ```shell
-/etc/inint.d/mysqld restart
+/etc/init.d/mysqld restart
 ```
 
 4. 修改之后再检查一次binlog的状态:
@@ -179,7 +179,7 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | DATE                                                                                           | DATE          |
 | TIME(s)                                                                                        | TIME(s)       |
 | DATETIME<br/>TIMESTAMP(s)                                                                      | TIMESTAMP(s)  |
-| BINARY<br/>VARBINAR<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB <br/>GEOMETRY | BYTES         |
+| BINARY<br/>VARBINARY<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB <br/>GEOMETRY | BYTES         |
 
 ## 配置参数选项
 
@@ -222,7 +222,8 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | exactly_once                              | Boolean  | 否    | false   | 启用精确一次语义。当 `startup.mode` 为 `initial` 或 `snapshot-only` 时，还会在快照阶段额外启用有界的 low-to-high-watermark binlog 回填。                                                                                                                                                                             |
 | format                                    | Enum     | 否    | DEFAULT | MySQL CDC 的可选输出格式, 有效的枚举值为 `DEFAULT`、`COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                                             |
 | schema-changes.enabled                    | Boolean  | 否    | false   | 模式演进默认是禁用的. 当前支持的变更类型：`add column`、`drop column`、`rename column`、`modify column`（类型变更），以及表注释和列注释变更。`schema-changes.include`/`exclude` 中只能选择列级别的变更类型。                                                                                                                                                            |
-| schema-changes.include                     | List     | 否    | -       | 仅向下游发送列出的 schema change 事件类型（需 `schema-changes.enabled = true`）。为空表示全部允许。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                              |
+| schema-changes.behavior                   | Enum     | 否    | evolve  | `schema-changes.enabled = true` 时，处理经过 `schema-changes.include` / `schema-changes.exclude` 过滤后保留的事件。值不区分大小写：`strict`、`evolve`、`ignore`。`ignore` 只丢弃纯注释事件，行结构变更会失败。目前仅在 Flink 上生效，Zeta 和 Spark 不支持。详见 [Schema 变更行为策略](../../introduction/configuration/schema-evolution.md#schema-变更行为策略)。 |
+| schema-changes.include                    | List     | 否    | -       | 仅向下游发送列出的 schema change 事件类型（需 `schema-changes.enabled = true`）。为空表示全部允许。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                              |
 | schema-changes.exclude                     | List     | 否    | -       | 此处列出的 schema change 事件类型不会发送到下游。在 `schema-changes.include` 之后应用；冲突时 exclude 优先。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                       |
 | debezium                                  | Config   | 否    | -       | 传递 [Debezium的属性](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/mysql.adoc#connector-properties) 给Debezium嵌入式引擎, 该引擎用于捕获 MySQL 服务的数据变更.                                                  |
 | int_type_narrowing                        | Boolean  | 否    | true    | Int类型收窄，如果为 true，则 tinyint(1) 类型将被收窄为 boolean 类型（如果没有精度损失）。目前仅支持 MySQL。                                                                                                                                                                      |

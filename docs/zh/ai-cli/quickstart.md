@@ -70,6 +70,16 @@ export ORCAROUTER_API_KEY=orc_...
 # export ORCAROUTER_ECHO_REASONING_CONTENT=true   # 可选：保留并回传推理模型的 reasoning_content
 ```
 
+### 推理模型与输出长度上限
+
+对任意 OpenAI 兼容端点，推理内容会按服务端实际使用的字段名读取 ——
+`reasoning_content` 或 `reasoning`（vLLM 的 reasoning parser 从 0.34 起使用后者）——
+因此跨服务端使用推理模型无需额外设置。
+
+如果模型在写出任何回答之前就达到输出 token 上限，CLI 会明确报告这一情况，
+而不是把空响应当成正常结束。这通常意味着推理占用了全部预算：可以提高
+`max_tokens`、缩短请求，或本次运行关闭思考模式。
+
 ### OrcaRouter AI 网关
 
 [OrcaRouter](https://www.orcarouter.ai) 是一个 OpenAI 兼容的 AI 网关，在单个端点

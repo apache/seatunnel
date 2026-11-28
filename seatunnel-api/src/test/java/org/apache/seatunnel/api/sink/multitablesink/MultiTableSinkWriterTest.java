@@ -36,6 +36,7 @@ import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
@@ -46,7 +47,11 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.api.table.schema.SchemaChangePolicy;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.CreateTableEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -629,6 +634,18 @@ public class MultiTableSinkWriterTest {
         }
     }
 
+    static class CreateCapableTestSink extends TestSeaTunnelSink
+            implements SupportSchemaEvolutionSink {
+        CreateCapableTestSink() {
+            super(null);
+        }
+
+        @Override
+        public List<SchemaChangeType> supports() {
+            return Collections.singletonList(SchemaChangeType.CREATE_TABLE);
+        }
+    }
+
     public static class RuntimeFlushSinkFactory
             implements TableSinkFactory<SeaTunnelRow, Object, TestSinkState, Object> {
         @Override
@@ -650,7 +667,7 @@ public class MultiTableSinkWriterTest {
         public TableSink<SeaTunnelRow, Object, TestSinkState, Object> createSink(
                 TableSinkFactoryContext context) {
             return () ->
-                    new TestSeaTunnelSink(null) {
+                    new CreateCapableTestSink() {
                         @Override
                         public SinkWriter<SeaTunnelRow, TestSinkState, Object> createWriter(
                                 SinkWriter.Context writerContext) {
@@ -1683,6 +1700,104 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
+    public void testExplicitDeprecatedSchemaChangeOverrideRemainsSupported() throws IOException {
+        SchemaChangeEvent event = createAddColumnEvent();
+        String tableId = event.tablePath().getFullName();
+        LegacySchemaEvolutionSinkWriter legacyWriter = new LegacySchemaEvolutionSinkWriter();
+        SinkIdentifier sinkIdentifier = SinkIdentifier.of(tableId, 0);
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        Collections.singletonMap(sinkIdentifier, legacyWriter),
+                        1,
+                        Collections.singletonMap(sinkIdentifier, new TestSinkWriterContext()));
+
+        multiTableSinkWriter.applySchemaChange(event);
+
+        Assertions.assertEquals(1, legacyWriter.appliedCount.get());
+    }
+
+    @Test
+    public void testLegacyCapabilitySurvivesFactoryCreateAndRestore() throws IOException {
+        for (boolean restore : new boolean[] {false, true}) {
+            SchemaChangeEvent event = createAddColumnEvent();
+            TablePath table = event.tablePath();
+            LegacySchemaEvolutionSinkWriter legacy = new LegacySchemaEvolutionSinkWriter();
+            Map<TablePath, SeaTunnelSink> sinks =
+                    Collections.singletonMap(table, new TestSeaTunnelSink(legacy));
+            Map<String, Object> options = new HashMap<>();
+            options.put(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key(), 1);
+            MultiTableSink sink =
+                    new MultiTableSink(
+                            new MultiTableFactoryContext(
+                                    ReadonlyConfig.fromMap(options),
+                                    Thread.currentThread().getContextClassLoader(),
+                                    sinks));
+            MultiTableState state =
+                    new MultiTableState(
+                            Collections.singletonMap(
+                                    SinkIdentifier.of(table.toString(), 0),
+                                    Collections.emptyList()));
+            SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> writer =
+                    restore
+                            ? sink.restoreWriter(
+                                    new TestSinkWriterContext(), Collections.singletonList(state))
+                            : sink.createWriter(new TestSinkWriterContext());
+            try {
+                writer.applySchemaChange(event);
+                Assertions.assertEquals(1, legacy.appliedCount.get());
+            } finally {
+                writer.close();
+            }
+        }
+    }
+
+    @Test
+    public void testInheritedNoOpSchemaChangeMethodIsDroppedDuringCompatibilityWindow()
+            throws IOException {
+        SchemaChangeEvent event = createAddColumnEvent();
+        String tableId = event.tablePath().getFullName();
+        TestSinkWriter noOpWriter = new TestSinkWriter();
+        SinkIdentifier sinkIdentifier = SinkIdentifier.of(tableId, 0);
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        Collections.singletonMap(sinkIdentifier, noOpWriter),
+                        1,
+                        Collections.singletonMap(sinkIdentifier, new TestSinkWriterContext()));
+
+        multiTableSinkWriter.applySchemaChange(event);
+
+        Assertions.assertFalse(
+                SchemaChangePolicy.overridesDeprecatedSchemaChangeMethod(noOpWriter));
+    }
+
+    @Test
+    public void testUnsupportedRowLayoutChangeFailsBeforeLegacyWriterApply() throws IOException {
+        SchemaChangeEvent event = createAddColumnEvent();
+        String tableId = event.tablePath().getFullName();
+        LegacySchemaEvolutionSinkWriter legacyWriter = new LegacySchemaEvolutionSinkWriter();
+        SinkIdentifier sinkIdentifier = SinkIdentifier.of(tableId, 0);
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        Collections.singletonMap(sinkIdentifier, legacyWriter),
+                        1,
+                        Collections.singletonMap(sinkIdentifier, new TestSinkWriterContext()),
+                        MultiTableFailurePolicy.FAIL_FAST,
+                        JobMode.BATCH,
+                        Collections.emptyList(),
+                        0,
+                        0,
+                        Collections.singletonMap(tableId, Collections.emptyList()));
+
+        RuntimeException error =
+                Assertions.assertThrows(
+                        RuntimeException.class,
+                        () -> multiTableSinkWriter.applySchemaChange(event));
+
+        Assertions.assertTrue(error.getMessage().contains("not supported end to end"));
+        Assertions.assertEquals(0, legacyWriter.appliedCount.get());
+    }
+
+    @Test
     public void testFailedTableMetadataIsSerializable() throws IOException {
         MultiTableFailedTable failedTable =
                 MultiTableFailureHelper.buildFailedTable(
@@ -1895,6 +2010,12 @@ public class MultiTableSinkWriterTest {
         return (ExecutorService) executorServiceField.get(multiTableSinkWriter);
     }
 
+    private SchemaChangeEvent createAddColumnEvent() {
+        return AlterTableAddColumnEvent.add(
+                TableIdentifier.of("catalog", "database", "table"),
+                PhysicalColumn.of("added_col", BasicType.STRING_TYPE, 64L, true, null, null));
+    }
+
     static class TestSinkWriter
             implements SinkWriter<SeaTunnelRow, TestSinkState, Object>,
                     SupportMultiTableSinkWriter {
@@ -1990,6 +2111,15 @@ public class MultiTableSinkWriterTest {
 
         void releaseWrite() {
             releaseWrite.countDown();
+        }
+    }
+
+    static class LegacySchemaEvolutionSinkWriter extends TestSinkWriter {
+        private final AtomicInteger appliedCount = new AtomicInteger();
+
+        @Override
+        public void applySchemaChange(SchemaChangeEvent event) {
+            appliedCount.incrementAndGet();
         }
     }
 
