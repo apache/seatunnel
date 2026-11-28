@@ -79,6 +79,14 @@ JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.config=${HAZELCAST_CONFIG}"
 # JAVA_OPTS="${JAVA_OPTS} -Xdebug -Xrunjdwp:transport=dt_socket,server=y,address=5000,suspend=n"
 
 # Log4j2 Config
+# Keep validation diagnostics off the JSON protocol's stdout. Set the target before Log4j starts.
+previous_arg=""
+for arg in "${args[@]}"; do
+  if [[ ( "$previous_arg" == "--format" && "$arg" == [Jj][Ss][Oo][Nn] ) || "$arg" == --format=[Jj][Ss][Oo][Nn] ]]; then
+    JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.console.target=SYSTEM_ERR"
+  fi
+  previous_arg="$arg"
+done
 JAVA_OPTS="${JAVA_OPTS} -Dlog4j2.isThreadContextMapInheritable=true"
 if [ -e "${CONF_DIR}/log4j2_client.properties" ]; then
   JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.logging.type=log4j2 -Dlog4j2.configurationFile=${CONF_DIR}/log4j2_client.properties"

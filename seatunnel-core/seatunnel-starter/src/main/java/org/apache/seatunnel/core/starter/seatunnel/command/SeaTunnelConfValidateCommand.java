@@ -35,6 +35,7 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.utils.DryRunConnectFailureMessageSanitizer;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.enums.DryRun;
+import org.apache.seatunnel.core.starter.enums.OutputFormat;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
@@ -101,8 +102,26 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
 
     @Override
     public void execute() throws ConfigCheckException {
-        Path configPath = FileUtils.getConfigPath(clientCommandArgs);
+        executeForExitCode();
+    }
 
+    /**
+     * Runs the CLI adapter and returns its exit status. JSON validation failures are represented by
+     * the result and status, not by an exception that the launcher would log as text.
+     */
+    public int executeForExitCode() throws ConfigCheckException {
+        if (clientCommandArgs.getOutputFormat() == OutputFormat.JSON) {
+            ConfigValidationResult result = validateResult();
+            System.out.println(result.toJson());
+            return result.isValid() ? 0 : 1;
+        }
+        validateConfig();
+        return 0;
+    }
+
+    private void validateConfig() throws ConfigCheckException {
+        // Preserve the original path-resolution exception contract in default text mode.
+        Path configPath = FileUtils.getConfigPath(clientCommandArgs);
         try {
             Config config = ConfigBuilder.of(configPath, clientCommandArgs.getVariables());
 
@@ -184,16 +203,10 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
             }
 
         } catch (Exception e) {
-            String validationMode =
-                    clientCommandArgs.getDryRun() == DryRun.CONNECT
-                            ? "Connectivity check"
-                            : "Static analysis";
-            String message = e.getMessage();
-            if (clientCommandArgs.getDryRun() == DryRun.CONNECT) {
-                message = DryRunConnectFailureMessageSanitizer.sanitize(message);
-                throw new ConfigCheckException(validationMode + " failed: " + message);
-            }
-            throw new ConfigCheckException(validationMode + " failed: " + message, e);
+            String message = safeMessage(e.getMessage());
+            // The launcher logs the complete exception chain in text mode too.
+            // Do not reattach a cause that can contain the unredacted configuration.
+            throw new ConfigCheckException(validationMode() + " failed: " + message);
         }
     }
 
@@ -204,9 +217,9 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
      */
     public ConfigValidationResult validateResult() {
         try {
-            execute();
+            validateConfig();
             return ConfigValidationResult.success(validationPhase());
-        } catch (ConfigCheckException e) {
+        } catch (Exception e) {
             String message = e.getMessage();
             String prefix = validationMode() + " failed: ";
             if (message != null && message.startsWith(prefix)) {
@@ -214,11 +227,14 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
             }
             // The result is intended for programmatic consumers, so never expose credentials
             // even when the underlying validation phase is static.
-            message = DryRunConnectFailureMessageSanitizer.sanitize(message);
             return ConfigValidationResult.failure(
-                    validationPhase(),
-                    toValidationError(message == null ? "Validation failed" : message));
+                    validationPhase(), toValidationError(safeMessage(message)));
         }
+    }
+
+    private static String safeMessage(String message) {
+        return DryRunConnectFailureMessageSanitizer.sanitize(
+                message == null ? "Validation failed" : message);
     }
 
     private String validationPhase() {
