@@ -56,7 +56,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 /**
  * Starts native members or the application's sole native client, without engine lifecycle hooks.
@@ -66,6 +68,17 @@ public final class SeatunnelKubernetesHaApplication {
     private SeatunnelKubernetesHaApplication() {}
 
     public static void main(String[] args) throws Exception {
+        if (args.length == 7 && "master".equals(args[1])) {
+            startMaster(
+                    args[0],
+                    args[2],
+                    Integer.parseInt(args[3]),
+                    Integer.parseInt(args[4]),
+                    Integer.parseInt(args[5]),
+                    Integer.parseInt(args[6]));
+            return;
+        }
+        // Existing templates may use the full specification even for a master.
         if (args.length != 2 || !("master".equals(args[1]) || "owner".equals(args[1]))) {
             throw new IllegalArgumentException("Expected <application-id> <master|owner>");
         }
@@ -75,35 +88,39 @@ public final class SeatunnelKubernetesHaApplication {
             throw new IllegalArgumentException("HA configuration required");
         }
         if ("master".equals(args[1])) {
-            startMaster(args[0], parameters);
+            ApplicationSpecification specification = parameters.getSpecification();
+            startMaster(
+                    args[0],
+                    parameters.getNamespace(),
+                    parameters.getMasterReplicas(),
+                    specification.getMasterPort(),
+                    specification.getWorkerSpecification().getSlots(),
+                    parameters.getHaBackupCount());
         } else {
             startApplication(args[0], encoded, parameters);
         }
     }
 
     /** Starts a native HA member; native election/recovery owns it, not Kubernetes Pod cleanup. */
-    private static void startMaster(String id, KubernetesApplicationConfig parameters) {
+    private static void startMaster(
+            String id, String namespace, int replicas, int port, int slots, int backupCount) {
         SeaTunnelConfig config = ConfigProvider.locateAndGetSeaTunnelConfig();
-        ApplicationSpecification specification = parameters.getSpecification();
         KubernetesApplicationHaConfig.configure(
                 config,
                 SeatunnelApplicationConfig.clusterName(id),
-                HaApplicationFactory.masterAddresses(id, parameters),
+                HaApplicationFactory.masterAddresses(id, namespace, replicas, port),
                 false,
-                specification.getWorkerSpecification().getSlots(),
-                parameters.getHaBackupCount());
+                slots,
+                backupCount);
         SeatunnelApplicationConfig.configureCheckpointRetention(config);
-        config.getHazelcastConfig()
-                .getNetworkConfig()
-                .setPort(specification.getMasterPort())
-                .setPortAutoIncrement(false);
+        config.getHazelcastConfig().getNetworkConfig().setPort(port).setPortAutoIncrement(false);
         String host = System.getenv(KubernetesConstants.MASTER_HOST_ENV);
         if (host != null && !host.trim().isEmpty()) {
             // A stable discovery name can still resolve to the deleted Pod.
             String formattedHost = host.contains(":") ? "[" + host + "]" : host;
             config.getHazelcastConfig()
                     .getNetworkConfig()
-                    .setPublicAddress(formattedHost + ":" + specification.getMasterPort());
+                    .setPublicAddress(formattedHost + ":" + port);
         }
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.enabled", "true");
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.policy", "GRACEFUL");
@@ -128,7 +145,10 @@ public final class SeatunnelKubernetesHaApplication {
                                 true))) {
             KubernetesJob owner =
                     HaApplicationState.validated(
-                            api.getJob(id), uid, encoded, specification.getJobId());
+                            retryTransient(id, () -> api.getJob(id)),
+                            uid,
+                            encoded,
+                            specification.getJobId());
             if (HaApplicationState.terminal(owner) != null) {
                 finish(api, id, uid, encoded, specification.getJobId());
                 return;
@@ -149,11 +169,19 @@ public final class SeatunnelKubernetesHaApplication {
             try {
                 client = new SeaTunnelHazelcastClient(clientConfig);
             } catch (RuntimeException unavailable) {
+                log.warn(
+                        "Application {} native client connection failed: {}",
+                        id,
+                        diagnostic(unavailable));
                 Files.deleteIfExists(job);
                 KubernetesJob current =
                         HaApplicationState.validated(
-                                api.getJob(id), uid, encoded, specification.getJobId());
-                if (HaApplicationState.recordStartupFailure(api, current)) {
+                                retryTransient(id, () -> api.getJob(id)),
+                                uid,
+                                encoded,
+                                specification.getJobId());
+                if (retryTransient(
+                        id, () -> HaApplicationState.recordStartupFailure(api, current))) {
                     finish(api, id, uid, encoded, specification.getJobId());
                     return;
                 }
@@ -270,10 +298,65 @@ public final class SeatunnelKubernetesHaApplication {
         List<JobPipelineCheckpointData> checkpoints =
                 jobs.getCheckpointData(sourceJobId, RestoreMode.CHECKPOINT);
         if (checkpoints == null || checkpoints.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "No checkpoint found for restore jobId=" + sourceJobId);
+            throw new MissingRestoreCheckpoint(sourceJobId);
         }
         return checkpoints;
+    }
+
+    private static final class MissingRestoreCheckpoint extends IllegalArgumentException {
+        private MissingRestoreCheckpoint(long sourceJobId) {
+            super("No checkpoint found for restore jobId=" + sourceJobId);
+        }
+    }
+
+    // Job parsing, connectors and API exceptions can include credentials in their messages.
+    // Log bounded type/location information, plus messages created here from safe values.
+    static String diagnostic(Throwable failure) {
+        StringBuilder details = new StringBuilder();
+        for (int depth = 0; failure != null && depth < 4; depth++, failure = failure.getCause()) {
+            if (depth > 0) {
+                details.append(" caused by ");
+            }
+            details.append(failure.getClass().getName());
+            StackTraceElement[] trace = failure.getStackTrace();
+            if (trace.length > 0) {
+                details.append(" at ").append(trace[0]);
+            }
+            if (failure instanceof MissingRestoreCheckpoint) {
+                details.append(": ").append(failure.getMessage());
+            }
+        }
+        return details.toString();
+    }
+
+    private static <T> T retryTransient(String id, Supplier<T> operation)
+            throws InterruptedException {
+        long delay = 1;
+        while (true) {
+            try {
+                return operation.get();
+            } catch (KubernetesClientException failure) {
+                if (!failure.isTransientFailure()) {
+                    throw failure;
+                }
+                log.warn(
+                        "Application {} Kubernetes request failed (HTTP {}), retrying in {}s",
+                        id,
+                        failure.getCode(),
+                        delay);
+                TimeUnit.SECONDS.sleep(delay);
+                delay = Math.min(30, delay * 2);
+            }
+        }
+    }
+
+    private static void retryTransient(String id, Runnable operation) throws InterruptedException {
+        retryTransient(
+                id,
+                () -> {
+                    operation.run();
+                    return null;
+                });
     }
 
     /** Native client operations; attachment and status never submit a replacement job. */
@@ -306,13 +389,18 @@ public final class SeatunnelKubernetesHaApplication {
         while (true) {
             KubernetesJob owner =
                     HaApplicationState.validated(
-                            api.getJob(id), uid, encoded, specification.getJobId());
+                            retryTransient(id, () -> api.getJob(id)),
+                            uid,
+                            encoded,
+                            specification.getJobId());
             if (HaApplicationState.terminal(owner) != null) {
                 break;
             }
+            KubernetesJob statusOwner = owner;
             if (HaApplicationState.unsubmitted(owner)) {
-                if (workersTerminated(api, id) || System.nanoTime() > deadline) {
-                    HaApplicationState.recordStartupFailure(api, owner);
+                if (retryTransient(id, () -> workersTerminated(api, id))
+                        || System.nanoTime() > deadline) {
+                    retryTransient(id, () -> HaApplicationState.recordStartupFailure(api, owner));
                     continue;
                 }
                 if (!job.ready()) {
@@ -325,15 +413,35 @@ public final class SeatunnelKubernetesHaApplication {
                     log.warn(
                             "Application {} graph preparation failed: {}",
                             id,
-                            rejected.getClass().getSimpleName());
-                    HaApplicationState.recordStartupFailure(api, owner);
+                            diagnostic(rejected));
+                    retryTransient(id, () -> HaApplicationState.recordStartupFailure(api, owner));
                     continue;
                 }
                 // Refresh identity after preparation, which can include a remote checkpoint read.
-                owner =
+                KubernetesJob refreshed =
                         HaApplicationState.validated(
-                                api.getJob(id), uid, encoded, specification.getJobId());
-                if (HaApplicationState.claimSubmission(api, owner)) {
+                                retryTransient(id, () -> api.getJob(id)),
+                                uid,
+                                encoded,
+                                specification.getJobId());
+                statusOwner = refreshed;
+                String claimId = UUID.randomUUID().toString();
+                boolean claimed =
+                        retryTransient(
+                                id,
+                                () -> HaApplicationState.claimSubmission(api, refreshed, claimId));
+                if (!claimed) {
+                    // The previous CAS may have committed before its response was lost.
+                    // Only this process's unique claim can authorize a native submission.
+                    statusOwner =
+                            HaApplicationState.validated(
+                                    retryTransient(id, () -> api.getJob(id)),
+                                    uid,
+                                    encoded,
+                                    specification.getJobId());
+                    claimed = HaApplicationState.claimedBy(statusOwner, claimId);
+                }
+                if (claimed) {
                     try {
                         job.submit();
                     } catch (Exception ambiguous) {
@@ -341,7 +449,7 @@ public final class SeatunnelKubernetesHaApplication {
                         log.warn(
                                 "Submission acknowledgement unavailable for application {}: {}",
                                 id,
-                                ambiguous.getClass().getSimpleName());
+                                diagnostic(ambiguous));
                     }
                 }
             }
@@ -354,19 +462,25 @@ public final class SeatunnelKubernetesHaApplication {
                         id,
                         unavailable.getClass().getSimpleName());
             }
+            KubernetesJob observedOwner = statusOwner;
             ApplicationStatus result = terminalStatus(nativeStatus);
             if (result != null) {
-                HaApplicationState.recordTerminal(api, owner, result);
+                retryTransient(
+                        id, () -> HaApplicationState.recordTerminal(api, observedOwner, result));
                 continue;
             }
-            if (workersFailed(api, id, specification.getWorkerCount())) {
-                // Fixed worker loss ends this deployment. Deletion, rather than a cancel ACK,
-                // ensures no accepted task remains alive after application failure.
-                HaApplicationState.recordTerminal(api, owner, ApplicationStatus.FAILED);
+            if (retryTransient(id, () -> workersFailed(api, id, specification.getWorkerCount()))) {
+                // Confirmed fixed worker loss ends the deployment. Kubernetes deletion
+                // cannot fence an accepted writer if a node is unreachable.
+                retryTransient(
+                        id,
+                        () ->
+                                HaApplicationState.recordTerminal(
+                                        api, owner, ApplicationStatus.FAILED));
                 continue;
             }
             if (nativeStatus == JobStatus.RUNNING) {
-                HaApplicationState.recordRunning(api, owner);
+                retryTransient(id, () -> HaApplicationState.recordRunning(api, observedOwner));
             }
             // UNKNOWABLE is not a terminal result. A lost admission/restore requires explicit
             // cancellation if the native engine cannot recover it. It never permits resubmission.
@@ -386,9 +500,9 @@ public final class SeatunnelKubernetesHaApplication {
         List<KubernetesPod> workers =
                 api.listPods(
                         KubernetesResourceIdentity.selector(id, KubernetesConstants.WORKER_ROLE));
-        return workers.size() != expected
-                || workers.stream()
-                        .anyMatch(p -> p.isTerminated() || p.isTerminating() || p.isUnknown());
+        // Unknown and terminating Pods can still be running. Keep observing the
+        // same native job until it reaches a terminal state or worker loss is observed.
+        return workers.size() != expected || workers.stream().anyMatch(KubernetesPod::isTerminated);
     }
 
     static ApplicationStatus terminalStatus(JobStatus status) {

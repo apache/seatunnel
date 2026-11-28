@@ -128,14 +128,16 @@ Native Zeta handles election, scheduling and checkpoint recovery unchanged.
 The owner is a submission client, not a metadata-only observer. It receives the resolved job
 specification, required environment/Secret/ConfigMap mounts and plugin libraries. It uses the
 configured master resources with a minimum 512Mi memory limit and the normal JVM heap ratio.
-Masters and workers do not mount Kubernetes API tokens; only the owner needs in-cluster API access.
+The native masters receive their peer, port, slot, and backup settings without the inline job specification.
+Masters and workers do not mount Kubernetes API tokens. Only the owner needs in-cluster API access.
 
 ### Submission, failover and cleanup
 
 - Initial submission waits for two native masters and the fixed worker count. Master replacement
   does not resubmit the graph or replace workers. Native master takeover retains the same job ID.
-- Submission intent is recorded once using the owner UID and resource version. A lost submit
-  acknowledgement is ambiguous: observe the existing job ID, never execute it again. Native
+- Submission intent is recorded once using the owner UID and resource version. If the Kubernetes
+  claim acknowledgement is lost, the owner can confirm its own claim before submitting. If the
+  native submit acknowledgement is lost, the owner observes the existing job ID without resubmitting. Native
   `UNKNOWABLE`, a transport error or missing history is not a terminal success. If native recovery
   cannot recover the job, the owner and remaining workers can keep running indefinitely. Run
   application `cancel` to release them; an unknown status never permits automatic resubmission.
@@ -143,8 +145,15 @@ Masters and workers do not mount Kubernetes API tokens; only the owner needs in-
   Cleanup retries API deletion failures and removes only generated resources owned by the observed
   owner UID, with individual resource UID preconditions. User PVCs and referenced configuration
   remain. Created mounted configuration remains until owner Job TTL.
-- Workers are fixed `Never`-restart Pods. Losing a worker fails the deployment and removes its
-  remaining compute; no worker replacement is provided.
+- Workers are fixed `Never`-restart Pods. After submission, a Pod that is Unknown or terminating
+  does not by itself cause a terminal result. The owner keeps observing the same native job.
+  A terminated or missing fixed worker can fail the deployment. There is no automatic replacement.
+- HA cleanup uses each worker Pod's configured termination grace period and waits for the owned
+  compute objects to disappear from the Kubernetes API. API deletion cannot fence a writer on a
+  partitioned node. After an unreachable node or an external force deletion, confirm the old writer
+  has stopped or fence it at the sink before submitting another application against the same target.
+- The owner retries transient Kubernetes API failures while observing a job. It stops if the owner
+  Job is deleted or replaced and never reissues a native submission after an ambiguous acknowledgement.
 - After observing an HA owner, application `cancel` deletes that Job by UID with foreground propagation. Its acknowledgement
   is distinct from observing that all dependent resources have disappeared.
 
@@ -181,7 +190,9 @@ The following manifests are also used by the HA integration tests:
 - [Submitter Role](./ha-submitter-role.yaml): Job `create/get/patch/delete`, Pod
   `create/list/delete/deletecollection`, StatefulSet `create`, Service `create/get`, and generated
   Secret/ConfigMap `create`. The Pod deletion permissions retain cancellation cleanup when the
-  owner is absent. Partial HA deployment rollback deletes the acknowledged owner Job by UID;
+  owner is absent. Partial HA deployment rollback retries deletion by owner Job UID. After an
+  ambiguous create response, the submitter first checks the suspended Job's identity and specification.
+  If rollback cannot be confirmed, the deployment error names the Job for authorized manual cleanup.
   Kubernetes garbage collection removes its dependents, so child `get/delete` permissions are not
   required for that rollback. Secret/ConfigMap `get` is optional for validating referenced objects; add it
   with `resourceNames` limited to the references to validate. Without it, validation warns and

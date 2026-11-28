@@ -390,10 +390,10 @@ final class DefaultKubernetesClient implements KubernetesHaClient {
                         namespace,
                         null,
                         null,
-                        0,
+                        null,
                         null,
                         "Foreground",
-                        deletion(metadata));
+                        podDeletion(metadata));
             } catch (ApiException failure) {
                 rethrowUnlessMissing(failure);
             }
@@ -460,10 +460,10 @@ final class DefaultKubernetesClient implements KubernetesHaClient {
                                 namespace,
                                 null,
                                 null,
-                                0,
+                                null,
                                 null,
                                 "Foreground",
-                                deletion(metadata));
+                                podDeletion(metadata));
                     } catch (ApiException failure) {
                         rethrowUnlessMissing(failure);
                     }
@@ -510,9 +510,12 @@ final class DefaultKubernetesClient implements KubernetesHaClient {
     }
 
     private static V1DeleteOptions deletion(V1ObjectMeta metadata) {
+        return podDeletion(metadata).gracePeriodSeconds(0L);
+    }
+
+    private static V1DeleteOptions podDeletion(V1ObjectMeta metadata) {
         return new V1DeleteOptions()
                 .propagationPolicy("Foreground")
-                .gracePeriodSeconds(0L)
                 .preconditions(new V1Preconditions().uid(metadata.getUid()));
     }
 

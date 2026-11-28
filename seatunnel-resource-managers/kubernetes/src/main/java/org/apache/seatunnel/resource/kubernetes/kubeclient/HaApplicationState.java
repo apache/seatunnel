@@ -40,6 +40,7 @@ public final class HaApplicationState {
     public static final String JOB_ID = "seatunnel.apache.org/job-id";
     public static final String SPEC_DIGEST = "seatunnel.apache.org/spec-digest";
     public static final String STATUS = "seatunnel.apache.org/application-status";
+    private static final String CLAIM_ID = "seatunnel.apache.org/submission-claim";
     private static final String NEW = "new";
     private static final String REQUESTED = "requested";
 
@@ -97,11 +98,19 @@ public final class HaApplicationState {
     }
     /** Only the successful resource-version CAS may send the first native execute request. */
     public static boolean claimSubmission(KubernetesHaClient api, KubernetesJob owner) {
+        return claimSubmission(api, owner, null);
+    }
+
+    public static boolean claimSubmission(
+            KubernetesHaClient api, KubernetesJob owner, String claimId) {
         if (terminal(owner) != null || !unsubmitted(owner)) {
             return false;
         }
         Map<String, String> claimed = new HashMap<>(HaApplicationState.annotations(owner));
         claimed.put(HaApplicationState.INTENT, REQUESTED);
+        if (claimId != null) {
+            claimed.put(CLAIM_ID, claimId);
+        }
         try {
             api.updateHaState(owner, claimed);
             return true;
@@ -111,6 +120,13 @@ public final class HaApplicationState {
             }
             throw conflict;
         }
+    }
+
+    /** Confirms that this process owns an ambiguously acknowledged submission claim. */
+    public static boolean claimedBy(KubernetesJob owner, String claimId) {
+        return terminal(owner) == null
+                && REQUESTED.equals(annotations(owner).get(INTENT))
+                && claimId.equals(annotations(owner).get(CLAIM_ID));
     }
 
     public static KubernetesJob validated(
@@ -236,7 +252,7 @@ public final class HaApplicationState {
             TimeUnit.SECONDS.sleep(1);
         }
         log.info(
-                "HA application {} terminal {}: compute released; Job retention owns remaining configuration cleanup",
+                "HA application {} terminal {}: owned compute objects removed from the Kubernetes API; Job retention owns remaining configuration cleanup",
                 owner.getName(),
                 HaApplicationState.terminal(owner));
     }

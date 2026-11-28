@@ -956,6 +956,14 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
         try (KubernetesApplicationClient application = deployApplication(specification, "ha")) {
             try {
                 awaitStatus(application, ApplicationStatus.FAILED);
+                // Read the owner log before the Job retention policy removes its Pod.
+                List<V1Pod> owners = rolePods(application, "owner");
+                assertEquals(1, owners.size());
+                assertTrue(
+                        retainedPodLogs(owners.get(0).getMetadata().getName())
+                                .contains(
+                                        "No checkpoint found for restore jobId=9223372036854775000"),
+                        "The retained owner logs must identify the unavailable restore checkpoint");
                 awaitHaClean(application);
                 assertUserResourcesPreserved();
             } catch (Exception | AssertionError failure) {

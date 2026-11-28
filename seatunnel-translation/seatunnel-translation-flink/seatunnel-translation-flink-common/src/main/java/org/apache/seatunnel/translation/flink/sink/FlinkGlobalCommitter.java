@@ -128,13 +128,19 @@ public class FlinkGlobalCommitter<CommT, GlobalCommT>
     @Override
     public GlobalCommT combine(List<CommitWrapper<CommT>> committables) throws IOException {
         // Flink can restore a partially completed end-of-input batch and add live transactions
-        // from the remaining writers. Reconcile the entire aggregate through the idempotent path.
+        // from the remaining writers. Keep restored transactions before live transactions so the
+        // connector can reconcile an already-resolved prefix without seeing a false gap.
         boolean replay = committables.stream().anyMatch(CommitWrapper::isRecovered);
-        GlobalCommT combined =
-                aggregatedCommitter.combine(
-                        committables.stream()
-                                .map(CommitWrapper::getCommit)
-                                .collect(Collectors.toList()));
+        List<CommT> ordered =
+                committables.stream()
+                        .filter(CommitWrapper::isRecovered)
+                        .map(CommitWrapper::getCommit)
+                        .collect(Collectors.toList());
+        committables.stream()
+                .filter(committable -> !committable.isRecovered())
+                .map(CommitWrapper::getCommit)
+                .forEach(ordered::add);
+        GlobalCommT combined = aggregatedCommitter.combine(ordered);
         if (replay) {
             markRecovered(combined);
         } else if (isRecovered(combined)) {

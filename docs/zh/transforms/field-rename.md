@@ -31,7 +31,7 @@ FieldRename 转换用于在不改变表名和行数据的前提下重命名表�
 | replacements_with_regex | Array&lt;Map&gt; | 否 | - | 替换规则。每个条目包含 `replace_from`、`replace_to` 以及可选的 `is_regex`（默认 `true`）。 |
 | specific | Array&lt;Map&gt; | 否 | - | 显式重命名规则。每个条目包含 `field_name` 和 `target_name`。匹配后优先于其他所有重命名选项。 |
 | table_match_regex | String | 否 | `.*` | 转换级别规则所适用的表路径的正则表达式。 |
-| table_transform | Array&lt;Map&gt; | 否 | - | 针对单表的规则，参见 [多表转换](transform-multi-table.md)。 |
+| table_transform | Array&lt;Map&gt; | 否 | `[]` | 针对单表的规则，参见 [多表转换](transform-multi-table.md)。 |
 | rule_match_mode | String | 否 | `FIRST_MATCH` | 当多个 `table_transform` 条目的 `table_path` 相同时，决定它们的匹配方式。 |
 | common options | - | 否 | - | 转换插件的通用参数，参见 [Transform Plugin](common-options/common-options.md)。 |
 

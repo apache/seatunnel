@@ -2092,6 +2092,14 @@ class KubernetesApplicationResourcesTest {
                 assertEquals(
                         pool.getMetadata().getLabels(),
                         pool.getSpec().getSelector().getMatchLabels());
+                assertTrue(
+                        pool.getSpec().getTemplate().getSpec().getContainers().get(0).getEnv()
+                                .stream()
+                                .noneMatch(
+                                        env ->
+                                                KubernetesConstants.SPECIFICATION_ENV.equals(
+                                                        env.getName())),
+                        "The native master does not need the inline job configuration");
                 assertEquals(2, pool.getSpec().getReplicas());
             }
         }

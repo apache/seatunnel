@@ -18,6 +18,7 @@
 package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
 
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
+import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesHaApplication;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState;
@@ -67,7 +68,16 @@ public final class HaApplicationFactory extends AbstractWorkloadFactory {
 
     /** Stable internal peer names are independent of Pod addresses and the elected master. */
     public static List<String> masterAddresses(String id, KubernetesApplicationConfig parameters) {
-        return IntStream.range(0, parameters.getMasterReplicas())
+        return masterAddresses(
+                id,
+                parameters.getNamespace(),
+                parameters.getMasterReplicas(),
+                parameters.getSpecification().getMasterPort());
+    }
+
+    public static List<String> masterAddresses(
+            String id, String namespace, int replicas, int port) {
+        return IntStream.range(0, replicas)
                 .mapToObj(
                         index ->
                                 id
@@ -76,9 +86,9 @@ public final class HaApplicationFactory extends AbstractWorkloadFactory {
                                         + "."
                                         + id
                                         + "-discovery."
-                                        + parameters.getNamespace()
+                                        + namespace
                                         + ".svc:"
-                                        + parameters.getSpecification().getMasterPort())
+                                        + port)
                 .collect(Collectors.toList());
     }
 
@@ -97,9 +107,20 @@ public final class HaApplicationFactory extends AbstractWorkloadFactory {
         V1Pod master =
                 ApplicationJobFactory.createMasterPod(
                         id, SeatunnelKubernetesHaApplication.class.getName(), parameters);
-        master.getSpec().getContainers().get(0).getCommand().add("master");
+        ApplicationSpecification specification = parameters.getSpecification();
+        master.getSpec()
+                .getContainers()
+                .get(0)
+                .getCommand()
+                .addAll(
+                        Arrays.asList(
+                                "master",
+                                parameters.getNamespace(),
+                                Integer.toString(parameters.getMasterReplicas()),
+                                Integer.toString(specification.getMasterPort()),
+                                Integer.toString(specification.getWorkerSpecification().getSlots()),
+                                Integer.toString(parameters.getHaBackupCount())));
         master = decorate(master, common);
-        master = new SpecificationEnvDecorator(parameters).decorate(master);
         master.getSpec().setRestartPolicy("Always");
         // Native masters never create workers or access the Kubernetes API.
         master.getSpec().setAutomountServiceAccountToken(false);

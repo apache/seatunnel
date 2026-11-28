@@ -121,19 +121,21 @@ Service 提供各 Master 独立的发现地址；成员公布自己的 Pod 地�
 
 owner 不再是仅观察元数据的进程，它接收作业配置、所需环境变量、Secret/ConfigMap 挂载和插件，
 使用配置的 Master 资源、至少 512Mi 内存以及正常 JVM 堆比例。只有 owner 使用 Kubernetes API
-令牌，Master 和 Worker 不挂载该令牌。
+令牌，Master 和 Worker 不挂载该令牌。原生 Master 只接收节点发现、端口、slot 和备份所需参数，不接收内联作业配置。
 
 ### 提交、切换与清理
 
 - 首次提交等待两个 Master 和固定数量 Worker。Master 替换不会重新提交作业，也不会补充 Worker。
   原生接管保留相同作业 ID。
-- 提交意图通过 owner UID 和 resourceVersion 记录一次。提交确认丢失时只观察原有作业 ID，不能重提。
+- 提交意图通过 owner UID 和 resourceVersion 记录一次。Kubernetes 提交权确认丢失时，owner 只能在核验自己持有提交权后提交。原生作业提交确认丢失时，只观察原有作业 ID，不能重提。
   `UNKNOWABLE`、连接异常或历史记录缺失均不表示成功。原生恢复无法完成时，owner 和剩余 Worker
   可能一直运行，必须通过 application `cancel` 释放；未知状态不能触发自动重新提交。
 - 原生 `FINISHED`/`SAVEPOINT_DONE`、`FAILED`、`CANCELED` 先持久化，再清理计算资源。
   API 删除失败会重试，清理同时校验 owner UID 和资源 UID，只删除本应用生成的资源。
   用户 PVC 和引用配置不删除；生成的挂载配置保留至 owner Job TTL。
-- Worker 为固定且不重启的 Pod，丢失 Worker 会失败并释放剩余计算资源，不自动补充。
+- Worker 为固定且不重启的 Pod，不自动补充。提交之后，Pod 处于 Unknown 或终止处理中不会单独触发终态，owner 会继续观察原有作业。已终止或缺失的固定 Worker 仍可导致部署失败。
+- HA 清理使用 Worker Pod 配置的终止宽限期，并等待 Kubernetes API 中的计算资源对象消失。删除 API 对象无法阻止隔离节点上的写入。节点不可达或 Pod 被外部强制删除后，向同一目标重新提交前，应先确认旧 Worker 已停止写入，或在 sink 端隔离旧写入者。
+- owner 观察作业时会重试短暂的 Kubernetes API 故障。owner Job 被删除或替换时停止观察，不会因提交确认丢失而重提作业。
 - 观察到 HA owner 后，应用 cancel 以该 UID 为前置条件并使用 foreground 传播删除该 Job；删除确认不等于已观察到全部依赖消失。
 
 owner Job 不自动重试，以免重复含糊的提交。owner 进程丢失不属于 Master HA：Job 会失败，
@@ -164,7 +166,7 @@ coordinator 生命周期隔离问题，未覆盖上述全部恢复场景。如�
 - [提交端 Role](../../../../en/getting-started/application/kubernetes/ha-submitter-role.yaml)：
   Job `create/get/patch/delete`、Pod `create/list/delete/deletecollection`、StatefulSet `create`、
   Service `create/get`，以及生成的 Secret/ConfigMap `create`。Pod 删除权限用于 owner 缺失时的取消清理。
-  HA 部署部分失败时按 UID 删除已确认的 owner Job，由 Kubernetes 回收其依赖，因此回滚无需子资源
+  HA 部署部分失败时按 owner Job UID 重试删除。创建响应不确定时，先核验仍处于暂停状态的 Job 身份和配置摘要。回滚无法确认时，部署错误会给出待手动核验的 Job 名称。Kubernetes 回收其依赖，因此回滚无需子资源
   `get/delete` 权限。
   引用对象的 Secret/ConfigMap `get` 是可选的校验权限，建议通过 `resourceNames` 限定到需校验的对象；
   缺少此权限时只发出警告，由 Kubernetes 校验挂载。

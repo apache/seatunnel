@@ -577,10 +577,23 @@ class DefaultKubernetesClientTest {
                                                                     "Foreground",
                                                                     deletion
                                                                             .getPropagationPolicy());
-                                                            assertEquals(
-                                                                    0L,
-                                                                    deletion
-                                                                            .getGracePeriodSeconds());
+                                                            if (path.contains("/pods/")) {
+                                                                assertEquals(
+                                                                        null,
+                                                                        deletion
+                                                                                .getGracePeriodSeconds());
+                                                                assertEquals(
+                                                                        null,
+                                                                        chain.request()
+                                                                                .url()
+                                                                                .queryParameter(
+                                                                                        "gracePeriodSeconds"));
+                                                            } else {
+                                                                assertEquals(
+                                                                        0L,
+                                                                        deletion
+                                                                                .getGracePeriodSeconds());
+                                                            }
                                                         } else {
                                                             assertEquals(
                                                                     "Background",

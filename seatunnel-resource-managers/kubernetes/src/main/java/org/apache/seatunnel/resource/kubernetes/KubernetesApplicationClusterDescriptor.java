@@ -111,26 +111,45 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
         String mainClass = SeatunnelKubernetesApplicationCli.class.getName();
         validateUserManagedResources(parameters, id);
         List<KubernetesResource<?>> application = assembleApplication(id, mainClass, parameters);
+        KubernetesJob request = (KubernetesJob) application.remove(0);
+        // Keep the identity from the submitted template across an uncertain create response.
+        String digest =
+                parameters.isHaEnabled()
+                        ? HaApplicationState.annotations(request)
+                                .get(HaApplicationState.SPEC_DIGEST)
+                        : null;
         KubernetesJob job = null;
         try {
             log.debug("Creating owner Job {} and its accompanying resources", id);
-            job = api.createJob((KubernetesJob) application.remove(0));
+            job = api.createJob(request);
             api.createAccompanyingResources(job, application);
             log.debug("Starting Job {}", id);
             api.startJob(job.getName());
             return job.getName();
         } catch (Exception failure) {
             log.warn("Kubernetes application {} deployment failed", id, failure);
-            if (job != null || (!parameters.isHaEnabled() && ambiguousOutcome(failure))) {
-                // HA cleanup requires the acknowledged owner UID. An ambiguous create may have
-                // reached the server; preserve that unknown outcome rather than delete by name.
-                // Legacy single-master compensation retains its existing behavior.
+            if (parameters.isHaEnabled() && (job != null || ambiguousOutcome(failure))) {
                 try {
-                    if (job != null && parameters.isHaEnabled()) {
-                        KubernetesHaClient.require(api).deleteApplication(id, job.getUid());
-                    } else {
-                        api.deleteApplication(id);
+                    rollbackHa(
+                            KubernetesHaClient.require(api),
+                            id,
+                            job,
+                            digest,
+                            specification.getJobId());
+                } catch (Exception cleanup) {
+                    failure.addSuppressed(cleanup);
+                    if (cleanup instanceof InterruptedException) {
+                        Thread.currentThread().interrupt();
                     }
+                    throw new IllegalStateException(
+                            "Kubernetes application deployment failed for "
+                                    + id
+                                    + "; rollback unconfirmed. Verify the owner identity before manual cancellation.",
+                            failure);
+                }
+            } else if (!parameters.isHaEnabled() && (job != null || ambiguousOutcome(failure))) {
+                try {
+                    api.deleteApplication(id);
                 } catch (Exception cleanup) {
                     failure.addSuppressed(cleanup);
                 }
@@ -389,6 +408,36 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
                         && secret.getInternalResource().getData().containsKey(key))
                 || (secret.getInternalResource().getStringData() != null
                         && secret.getInternalResource().getStringData().containsKey(key));
+    }
+
+    private static void rollbackHa(
+            KubernetesHaClient api, String id, KubernetesJob created, String digest, long jobId)
+            throws InterruptedException {
+        String uid = created == null ? null : created.getUid();
+        for (int attempt = 0; ; attempt++) {
+            try {
+                if (uid == null) {
+                    KubernetesJob observed = api.getJob(id);
+                    if (!Boolean.TRUE.equals(observed.getInternalResource().getSpec().getSuspend())
+                            || !HaApplicationState.unsubmitted(observed)) {
+                        throw new IllegalStateException(
+                                "Observed owner is not suspended and unsubmitted");
+                    }
+                    HaApplicationState.validatedDigest(observed, observed.getUid(), digest, jobId);
+                    uid = observed.getUid();
+                }
+                api.deleteApplication(id, uid);
+                return;
+            } catch (KubernetesClientException unavailable) {
+                // After an uncertain create, an absent Job may appear when the request commits.
+                if (attempt == 3
+                        || (!unavailable.isTransientFailure()
+                                && (uid != null || unavailable.getCode() != 404))) {
+                    throw unavailable;
+                }
+                TimeUnit.SECONDS.sleep(1L << attempt);
+            }
+        }
     }
 
     /** @return whether a failed request may still have been applied by the API server */

@@ -75,6 +75,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.github.stefanbirkner.systemlambda.SystemLambda.catchSystemExit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -94,6 +95,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -916,6 +918,7 @@ class KubernetesApplicationTest {
                                         .data(Map.of("seatunnel.yaml", "seatunnel: {}"))));
         when(api.createJob(any()))
                 .thenThrow(new KubernetesClientException(504, "owner create reply lost"));
+        when(api.getJob(anyString())).thenReturn(job());
         Map<String, String> ha = new HashMap<>(options());
         ha.put(KubernetesOptions.HA_ENABLED.key(), "true");
         ha.put(KubernetesOptions.MASTER_REPLICAS.key(), "2");
@@ -925,8 +928,46 @@ class KubernetesApplicationTest {
             assertThrows(Exception.class, () -> descriptor.deployApplication(specification()));
         }
         verify(api).createJob(any());
+        verify(api).getJob(anyString());
         verify(api, never()).deleteApplication(anyString());
         verify(api, never()).deleteApplication(anyString(), anyString());
+        verify(api, never()).createAccompanyingResources(any(), any());
+    }
+
+    @Test
+    void haAmbiguousCreateReconcilesMatchingSuspendedOwnerAndRetriesDelete() {
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
+        when(api.getConfigMap("seatunnel-runtime"))
+                .thenReturn(
+                        new KubernetesConfigMap(
+                                new V1ConfigMap()
+                                        .metadata(new V1ObjectMeta().name("seatunnel-runtime"))
+                                        .data(Map.of("seatunnel.yaml", "seatunnel: {}"))));
+        AtomicReference<KubernetesJob> created = new AtomicReference<>();
+        when(api.createJob(any()))
+                .thenAnswer(
+                        call -> {
+                            KubernetesJob owner = call.getArgument(0);
+                            owner.getInternalResource().getMetadata().setUid("observed-uid");
+                            created.set(owner);
+                            throw new KubernetesClientException(504, "owner create reply lost");
+                        });
+        when(api.getJob(anyString())).thenAnswer(call -> created.get());
+        doThrow(new KubernetesClientException(503, "rollback connection unavailable"))
+                .doNothing()
+                .when(api)
+                .deleteApplication(anyString(), org.mockito.ArgumentMatchers.eq("observed-uid"));
+        Map<String, String> ha = new HashMap<>(options());
+        ha.put(KubernetesOptions.HA_ENABLED.key(), "true");
+        ha.put(KubernetesOptions.MASTER_REPLICAS.key(), "2");
+        ha.put(KubernetesOptions.HA_BACKUP_COUNT.key(), "1");
+        assertThrows(
+                KubernetesClientException.class,
+                () ->
+                        new KubernetesApplicationClusterDescriptor(api, ha)
+                                .deployApplication(specification()));
+        verify(api, times(2)).deleteApplication(created.get().getName(), "observed-uid");
+        verify(api, never()).deleteApplication(anyString());
         verify(api, never()).createAccompanyingResources(any(), any());
     }
 

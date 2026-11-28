@@ -87,6 +87,54 @@ class SeatunnelKubernetesHaApplicationTest {
         assertMasterAddress("  ", null);
     }
 
+    @Test
+    void masterStartsWithOnlyPeerSettings() throws Exception {
+        SeaTunnelConfig config = new SeaTunnelConfig();
+        try (MockedStatic<ConfigProvider> configurations = mockStatic(ConfigProvider.class);
+                MockedStatic<SeaTunnelServerStarter> starter =
+                        mockStatic(SeaTunnelServerStarter.class)) {
+            configurations.when(ConfigProvider::locateAndGetSeaTunnelConfig).thenReturn(config);
+            withEnvironmentVariable(KubernetesConstants.SPECIFICATION_ENV, null)
+                    .execute(
+                            () ->
+                                    SeatunnelKubernetesHaApplication.main(
+                                            new String[] {
+                                                "app", "master", "fixture", "2", "5910", "3", "1"
+                                            }));
+            starter.verify(
+                    () ->
+                            SeaTunnelServerStarter.createHazelcastInstance(
+                                    eq(config), isNull(), any(ResourceManagerFactory.class)));
+            assertEquals(5910, config.getHazelcastConfig().getNetworkConfig().getPort());
+            assertEquals(
+                    List.of(
+                            "app-master-0.app-discovery.fixture.svc:5910",
+                            "app-master-1.app-discovery.fixture.svc:5910"),
+                    config.getHazelcastConfig()
+                            .getNetworkConfig()
+                            .getJoin()
+                            .getTcpIpConfig()
+                            .getMembers());
+        }
+    }
+
+    @Test
+    void failureDiagnosticPreservesSafeRestoreDetailAndRedactsUntrustedMessages() {
+        JobClient jobs = mock(JobClient.class);
+        when(jobs.getCheckpointData(17L, RestoreMode.CHECKPOINT))
+                .thenReturn(Collections.emptyList());
+        IllegalArgumentException missing =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> SeatunnelKubernetesHaApplication.restoreCheckpoints(jobs, 17L));
+        String details =
+                SeatunnelKubernetesHaApplication.diagnostic(
+                        new IllegalStateException("fixture-secret", missing));
+        assertTrue(details.contains("No checkpoint found for restore jobId=17"));
+        assertTrue(details.contains("restoreCheckpoints"));
+        assertFalse(details.contains("fixture-secret"));
+    }
+
     private static void assertMasterAddress(String host, String expected) throws Exception {
         KubernetesApplicationConfig parameters = parameters();
         StringWriter serialized = new StringWriter();
@@ -234,6 +282,102 @@ class SeatunnelKubernetesHaApplicationTest {
         verify(job, times(3)).status();
         assertEquals(ApplicationStatus.SUCCEEDED, HaApplicationState.terminal(current));
         verify(api).deleteHaResources(current);
+    }
+
+    @Test
+    void lostClaimAcknowledgementStillLetsTheClaimingOwnerSubmitOnce() throws Exception {
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
+        KubernetesJob initial = owner("1", "new", null);
+        KubernetesJob claimed = owner("2", "requested", null);
+        KubernetesJob completed = owner("3", "requested", "SUCCEEDED");
+        AtomicBoolean committed = new AtomicBoolean();
+        AtomicBoolean terminal = new AtomicBoolean();
+        when(api.getJob("app"))
+                .thenAnswer(
+                        call -> terminal.get() ? completed : (committed.get() ? claimed : initial));
+        when(api.listPods(any())).thenReturn(Collections.emptyList());
+        doAnswer(
+                        call -> {
+                            KubernetesJob expected = call.getArgument(0);
+                            if (expected == initial) {
+                                if (committed.getAndSet(true)) {
+                                    throw new KubernetesClientException(409, "stale claim version");
+                                }
+                                claimed.getInternalResource()
+                                        .getMetadata()
+                                        .setAnnotations(new HashMap<>(call.getArgument(1)));
+                                throw new KubernetesClientException(
+                                        503, "lost claim acknowledgement");
+                            }
+                            terminal.set(true);
+                            return null;
+                        })
+                .when(api)
+                .updateHaState(any(), any());
+        SeatunnelKubernetesHaApplication.NativeJob job =
+                mock(SeatunnelKubernetesHaApplication.NativeJob.class);
+        when(job.ready()).thenReturn(true);
+        when(job.status()).thenReturn(JobStatus.FINISHED);
+        SeatunnelKubernetesHaApplication.runApplication(
+                api, "app", "uid", "immutable-spec", parameters().getSpecification(), job);
+        verify(job, times(1)).submit();
+        verify(api).deleteHaResources(completed);
+    }
+
+    @Test
+    void transientOwnerReadDoesNotOrphanAcceptedJob() throws Exception {
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
+        KubernetesJob running = owner("1", "requested", "RUNNING");
+        KubernetesJob completed = owner("2", "requested", "SUCCEEDED");
+        when(api.getJob("app"))
+                .thenThrow(new KubernetesClientException(503, "fixture outage"))
+                .thenReturn(running, completed, completed);
+        SeatunnelKubernetesHaApplication.NativeJob job =
+                mock(SeatunnelKubernetesHaApplication.NativeJob.class);
+        when(job.status()).thenReturn(JobStatus.FINISHED);
+        SeatunnelKubernetesHaApplication.runApplication(
+                api, "app", "uid", "immutable-spec", parameters().getSpecification(), job);
+        verify(job, never()).submit();
+        verify(api).updateHaState(any(), any());
+        verify(api).deleteHaResources(completed);
+    }
+
+    @Test
+    void unknownWorkerDoesNotCreateTerminalOutcomeForAcceptedJob() throws Exception {
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
+        KubernetesJob current = owner("1", "requested", "RUNNING");
+        when(api.getJob("app")).thenReturn(current);
+        KubernetesPod unreachable = mock(KubernetesPod.class);
+        when(unreachable.isUnknown()).thenReturn(true);
+        when(api.listPods(any())).thenReturn(List.of(unreachable));
+        doAnswer(
+                        call -> {
+                            current.getInternalResource()
+                                    .getMetadata()
+                                    .setAnnotations(new HashMap<>(call.getArgument(1)));
+                            return null;
+                        })
+                .when(api)
+                .updateHaState(any(), any());
+        doAnswer(
+                        call -> {
+                            when(api.listPods(any())).thenReturn(Collections.emptyList());
+                            return null;
+                        })
+                .when(api)
+                .deleteHaResources(current);
+        SeatunnelKubernetesHaApplication.NativeJob job =
+                mock(SeatunnelKubernetesHaApplication.NativeJob.class);
+        when(job.status()).thenReturn(JobStatus.RUNNING, JobStatus.FINISHED);
+        SeatunnelKubernetesHaApplication.runApplication(
+                api,
+                "app",
+                "uid",
+                "immutable-spec",
+                parameters(Map.of("application.worker-count", "1")).getSpecification(),
+                job);
+        assertEquals(ApplicationStatus.SUCCEEDED, HaApplicationState.terminal(current));
+        verify(job, never()).submit();
     }
 
     @Test
