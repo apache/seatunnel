@@ -454,24 +454,22 @@ public class ConfigShadeTest {
         for (ConfigObject configObject : sourceConfigs) {
             Config sourceConfig = configObject.toConfig();
 
-            if (sourceConfig.hasPath("properties")) {
-                Map<String, Object> mysqlProperties =
-                        sourceConfig.getObject("properties").unwrapped();
-                Assertions.assertTrue(
-                        mysqlProperties.containsKey("allowPublicKeyRetrieval"),
-                        "properties should contain key: 'allowPublicKeyRetrieval'");
+            Assertions.assertTrue(sourceConfig.hasPath("properties"));
 
-                List<? extends ConfigObject> tableList = sourceConfig.getObjectList("table_list");
-                boolean useRegex =
-                        tableList.stream()
-                                .map(tableObject -> tableObject.toConfig().getBoolean("use_regex"))
-                                .findFirst()
-                                .get();
+            Map<String, Object> mysqlProperties = sourceConfig.getObject("properties").unwrapped();
+            Assertions.assertTrue(
+                    mysqlProperties.containsKey("allowPublicKeyRetrieval"),
+                    "properties should contain key: 'allowPublicKeyRetrieval'");
 
-                Assertions.assertTrue(
-                        useRegex,
-                        "useRegex should contain replaced placeholder value: " + useRegex);
-            }
+            List<? extends ConfigObject> tableList = sourceConfig.getObjectList("table_list");
+            boolean useRegex =
+                    tableList.stream()
+                            .map(tableObject -> tableObject.toConfig().getBoolean("use_regex"))
+                            .findFirst()
+                            .get();
+
+            Assertions.assertTrue(
+                    useRegex, "useRegex should contain replaced placeholder value: " + useRegex);
         }
     }
 
@@ -500,6 +498,69 @@ public class ConfigShadeTest {
                         ConfigException.class, () -> sourceConfig.getObject("properties"));
             }
         }
+    }
+
+    @Test
+    public void testVariableWithDefaultValues() throws URISyntaxException {
+        List<String> variables = new ArrayList<>();
+        variables.add(
+                "mysql_tables=[{\"table_path\":\"test.t_*\",\"use_regex\":\"true\"},{\"table_path\":\"test.tt\"}]");
+        URL resource = ConfigShadeTest.class.getResource("/config_with_json_defaults.conf");
+        Assertions.assertNotNull(resource);
+        Config config = ConfigBuilder.of(Paths.get(resource.toURI()), variables);
+
+        List<? extends ConfigObject> sourceConfigs = config.getObjectList("source");
+        for (ConfigObject configObject : sourceConfigs) {
+            Config sourceConfig = configObject.toConfig();
+
+            Assertions.assertTrue(sourceConfig.hasPath("properties"));
+            Map<String, Object> mysqlProperties = sourceConfig.getObject("properties").unwrapped();
+            // properties comes from default value
+            Assertions.assertTrue(
+                    mysqlProperties.containsKey("allowPublicKeyRetrieval"),
+                    "properties should contain key: 'allowPublicKeyRetrieval'");
+
+            // empty default value
+            String password = sourceConfig.getString("password");
+            Assertions.assertEquals("", password);
+
+            List<? extends ConfigObject> tableList = sourceConfig.getObjectList("table_list");
+            // use_regex comes from user variable, overrides default value of table_list option
+            boolean useRegex =
+                    tableList.stream()
+                            .map(tableObject -> tableObject.toConfig().getBoolean("use_regex"))
+                            .findFirst()
+                            .get();
+
+            Assertions.assertTrue(
+                    useRegex, "useRegex should contain replaced placeholder value: " + useRegex);
+        }
+    }
+
+    @Test
+    public void testDuplicatePlaceholderKeysWithDefaultAndWithout() throws URISyntaxException {
+        List<String> variables = new ArrayList<>();
+
+        URL resource =
+                ConfigShadeTest.class.getResource("/config_with_duplicate_placeholder_keys.conf");
+        Assertions.assertNotNull(resource);
+        Assertions.assertThrows(
+                ConfigException.BadValue.class,
+                () -> ConfigBuilder.of(Paths.get(resource.toURI()), variables));
+    }
+
+    @Test
+    public void testDuplicatePlaceholderKeysWithDifferentDefaults() throws URISyntaxException {
+        List<String> variables = new ArrayList<>();
+
+        URL resource =
+                ConfigShadeTest.class.getResource(
+                        "/config_with_duplicate_placeholder_keys_diff_defaults.conf");
+        Assertions.assertNotNull(resource);
+
+        Assertions.assertThrows(
+                ConfigException.BadValue.class,
+                () -> ConfigBuilder.of(Paths.get(resource.toURI()), variables));
     }
 
     @Test

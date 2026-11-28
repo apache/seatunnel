@@ -164,6 +164,87 @@ public class ConfigBuilderTest {
                 "prefix-quoted_key_job", config.getConfig("env").getString("job.name"));
     }
 
+    /** A quoted -i value is the user's signal that the value is a String, not a List. */
+    @Test
+    public void testQuotedUserValueStaysStringForSinglePlaceholder(@TempDir Path tempDir)
+            throws IOException {
+        String configText =
+                "option = \"${option}\"\n" + "source { FakeSource {} }\n" + "sink { Console {} }\n";
+
+        Path configFile = tempDir.resolve("quoted_single_placeholder.conf");
+        Files.write(configFile, configText.getBytes(StandardCharsets.UTF_8));
+
+        Config config = ConfigBuilder.of(configFile, Arrays.asList("option=\"[a-z]\""));
+
+        Assertions.assertEquals("[a-z]", config.getString("option"));
+    }
+
+    /** An unquoted -i value that looks like a List is re-typed into a List. */
+    @Test
+    public void testUnquotedUserValueIsListForSinglePlaceholder(@TempDir Path tempDir)
+            throws IOException {
+        String configText =
+                "option = \"${option}\"\n" + "source { FakeSource {} }\n" + "sink { Console {} }\n";
+
+        Path configFile = tempDir.resolve("unquoted_single_placeholder.conf");
+        Files.write(configFile, configText.getBytes(StandardCharsets.UTF_8));
+
+        Config config = ConfigBuilder.of(configFile, Arrays.asList("option=[a-z]"));
+
+        Assertions.assertEquals(Arrays.asList("a-z"), config.getStringList("option"));
+    }
+
+    /** A mixed expression keeps its boundary quotes as content, not standalone type syntax. */
+    @Test
+    public void testMixedExpressionPreservesBoundaryQuotes(@TempDir Path tempDir)
+            throws IOException {
+        String configText =
+                "option = \"\\\"${option}\\\"\"\n"
+                        + "source { FakeSource {} }\n"
+                        + "sink { Console {} }\n";
+
+        Path configFile = tempDir.resolve("mixed_boundary_quotes.conf");
+        Files.write(configFile, configText.getBytes(StandardCharsets.UTF_8));
+
+        Config config = ConfigBuilder.of(configFile, Arrays.asList("option=foo"));
+
+        Assertions.assertEquals("\"foo\"", config.getString("option"));
+    }
+
+    /** A list leaf with a mixed expression keeps its boundary quotes as content. */
+    @Test
+    public void testListMixedExpressionPreservesBoundaryQuotes(@TempDir Path tempDir)
+            throws IOException {
+        String configText =
+                "options = [\"\\\"${option}\\\"\"]\n"
+                        + "source { FakeSource {} }\n"
+                        + "sink { Console {} }\n";
+
+        Path configFile = tempDir.resolve("list_mixed_boundary_quotes.conf");
+        Files.write(configFile, configText.getBytes(StandardCharsets.UTF_8));
+
+        Config config = ConfigBuilder.of(configFile, Arrays.asList("option=foo"));
+
+        Assertions.assertEquals(Arrays.asList("\"foo\""), config.getStringList("options"));
+    }
+
+    /** A standalone placeholder with a quoted default value still unwraps its syntactic quotes. */
+    @Test
+    public void testStandaloneQuotedDefaultValueIsUnwrapped(@TempDir Path tempDir)
+            throws IOException {
+        String configText =
+                "option = \"\"\"${option:\"foo bar\"}\"\"\"\n"
+                        + "source { FakeSource {} }\n"
+                        + "sink { Console {} }\n";
+
+        Path configFile = tempDir.resolve("standalone_quoted_default.conf");
+        Files.write(configFile, configText.getBytes(StandardCharsets.UTF_8));
+
+        Config config = ConfigBuilder.of(configFile);
+
+        Assertions.assertEquals("foo bar", config.getString("option"));
+    }
+
     @Test
     public void testConfigDesensitizationSort() {
         Map<String, Object> config = new LinkedHashMap<>();
