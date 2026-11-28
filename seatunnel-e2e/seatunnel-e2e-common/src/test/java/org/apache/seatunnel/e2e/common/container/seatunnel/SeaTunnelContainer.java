@@ -99,6 +99,15 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
     private static final String CONNECTOR_DIRECTORY = "/tmp/seatunnel/connectors";
     private static final String RUNTIME_LIBRARY_DIRECTORY = "/tmp/seatunnel/lib";
     private static final int REST_REQUEST_TIMEOUT_MILLIS = 5_000;
+    /**
+     * Bound for a single job-status REST request. Test cleanup reads the status before it submits
+     * its bounded stop command, so a stalled response must not be able to hold the cleanup path
+     * open. The value is deliberately generous compared with {@link #REST_REQUEST_TIMEOUT_MILLIS}:
+     * a busy master may answer a legitimate status query slowly and must not fail because of this
+     * bound.
+     */
+    private static final int STATUS_REQUEST_TIMEOUT_MILLIS = 30_000;
+
     private static final int RUNNING_JOBS_TIMEOUT_SECONDS = 30;
     protected static final String SERVER_SHELL = "seatunnel-cluster.sh";
     protected static final String CONNECTOR_CHECK_SHELL = "seatunnel-connector.sh";
@@ -867,6 +876,15 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
         if (isGcsOpenCensusThreadExempt(threadName)) {
             return true;
         }
+        // The in-repo InMemory sink fixture intentionally keeps a daemon thread alive to pin the
+        // job classloader it was loaded from (see InMemorySinkWriter's static block): that thread
+        // is a classloader-leak probe, not a connector leak, and it outlives every job that used
+        // the sink by design. Without this exemption each CLI-driven job using the sink waits for
+        // it here and exits non-zero after the 120s retry window, which would make any test that
+        // takes a savepoint of such a job fail on the CLI exit code alone.
+        if (threadName.startsWith("InMemorySinkWriter-daemon-thread")) {
+            return true;
+        }
         // ClickHouse com.clickhouse.client.ClickHouseClientBuilder
         return threadName.startsWith("ClickHouseClientWorker")
                 // InfluxDB okio.AsyncTimeout$Watchdog
@@ -1015,7 +1033,18 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
                         String.format(
                                 "http://%s:%d/job-info/%s",
                                 server.getHost(), server.getMappedPort(8080), jobId));
-        try (CloseableHttpClient client = HttpClients.createDefault()) {
+        // Bounded explicitly: test cleanup calls this before it can submit its bounded stop
+        // command, so a stalled response would otherwise hold the cleanup path open. All three
+        // stages of the request are capped so neither a dead connect, a stuck pool checkout nor
+        // an idle socket can block the caller.
+        RequestConfig requestConfig =
+                RequestConfig.custom()
+                        .setConnectTimeout(STATUS_REQUEST_TIMEOUT_MILLIS)
+                        .setConnectionRequestTimeout(STATUS_REQUEST_TIMEOUT_MILLIS)
+                        .setSocketTimeout(STATUS_REQUEST_TIMEOUT_MILLIS)
+                        .build();
+        try (CloseableHttpClient client =
+                HttpClients.custom().setDefaultRequestConfig(requestConfig).build()) {
             CloseableHttpResponse response = client.execute(get);
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
                 String jobStatus = EntityUtils.toString(response.getEntity());

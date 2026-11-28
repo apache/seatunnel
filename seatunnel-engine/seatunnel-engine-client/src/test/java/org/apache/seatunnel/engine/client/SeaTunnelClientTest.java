@@ -54,6 +54,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Spliterators;
@@ -561,6 +562,57 @@ public class SeaTunnelClientTest {
             throw new RuntimeException(e);
         } finally {
             seaTunnelClient.close();
+        }
+    }
+
+    @Test
+    public void testRestoreWithoutCheckpointDataFailsFast() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = ContentFormatUtilTest.getResource("/streaming_fake_to_console.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("testRestoreWithoutCheckpointDataFailsFast");
+
+        try (SeaTunnelClient seaTunnelClient = createSeaTunnelClient()) {
+            long missingSourceJobId = Long.MAX_VALUE - 1;
+
+            // restoreMode=CHECKPOINT must be rejected instead of silently starting from scratch.
+            IllegalArgumentException checkpointRestoreFailure =
+                    Assertions.assertThrows(
+                            IllegalArgumentException.class,
+                            () ->
+                                    seaTunnelClient
+                                            .restoreFromCheckpointExecutionContext(
+                                                    filePath,
+                                                    Collections.emptyList(),
+                                                    jobConfig,
+                                                    SEATUNNEL_CONFIG,
+                                                    missingSourceJobId,
+                                                    null)
+                                            .execute());
+            Assertions.assertTrue(
+                    checkpointRestoreFailure.getMessage().contains("No checkpoint found"),
+                    checkpointRestoreFailure.getMessage());
+            Assertions.assertTrue(
+                    checkpointRestoreFailure
+                            .getMessage()
+                            .contains(String.valueOf(missingSourceJobId)),
+                    checkpointRestoreFailure.getMessage());
+
+            // The savepoint restore entry point shares the same precondition.
+            IllegalArgumentException savepointRestoreFailure =
+                    Assertions.assertThrows(
+                            IllegalArgumentException.class,
+                            () ->
+                                    seaTunnelClient
+                                            .restoreExecutionContext(
+                                                    filePath,
+                                                    jobConfig,
+                                                    SEATUNNEL_CONFIG,
+                                                    missingSourceJobId)
+                                            .execute());
+            Assertions.assertTrue(
+                    savepointRestoreFailure.getMessage().contains("No checkpoint found"),
+                    savepointRestoreFailure.getMessage());
         }
     }
 
