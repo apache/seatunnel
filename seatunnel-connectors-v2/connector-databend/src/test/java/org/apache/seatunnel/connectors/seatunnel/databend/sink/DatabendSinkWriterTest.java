@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendSinkConfig;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -38,20 +39,27 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.TimeZone;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -95,7 +103,7 @@ public class DatabendSinkWriterTest {
                         + "FROM test_db.cdc_stream "
                         + "QUALIFY ROW_NUMBER() OVER(PARTITION BY id ORDER BY add_time DESC) = 1) b "
                         + "ON a.id = b.id "
-                        + "WHEN MATCHED AND b.action = 'update' THEN UPDATE * "
+                        + "WHEN MATCHED AND b.action IN ('insert', 'update') THEN UPDATE * "
                         + "WHEN MATCHED AND b.action = 'delete' THEN DELETE "
                         + "WHEN NOT MATCHED AND b.action!='delete' THEN INSERT *";
 
@@ -140,7 +148,7 @@ public class DatabendSinkWriterTest {
                         + "FROM test_db.cdc_stream "
                         + "QUALIFY ROW_NUMBER() OVER(PARTITION BY id ORDER BY add_time DESC) = 1) b "
                         + "ON a.id = b.id "
-                        + "WHEN MATCHED AND b.action = 'update' THEN UPDATE * "
+                        + "WHEN MATCHED AND b.action IN ('insert', 'update') THEN UPDATE * "
                         + "WHEN NOT MATCHED AND b.action!='delete' THEN INSERT *";
 
         assertEquals(expectedSql, mergeSql);
@@ -293,6 +301,9 @@ public class DatabendSinkWriterTest {
         org.junit.jupiter.api.Assertions.assertTrue(mergeSql.contains("raw_data:id as id"));
         org.junit.jupiter.api.Assertions.assertTrue(mergeSql.contains("raw_data:name as name"));
         org.junit.jupiter.api.Assertions.assertFalse(mergeSql.contains("raw_data:score as score"));
+        org.junit.jupiter.api.Assertions.assertTrue(
+                mergeSql.contains(
+                        "WHEN MATCHED AND b.action IN ('insert', 'update') THEN UPDATE * "));
     }
 
     @Test
@@ -344,6 +355,132 @@ public class DatabendSinkWriterTest {
         verify(preparedStatement).setString(3, "10:15:30.123");
         verify(preparedStatement, never()).setObject(anyInt(), any(LocalTime.class));
         verify(preparedStatement).addBatch();
+    }
+
+    /** 2023-11-14 22:13:20 UTC. */
+    private static final long CLOCK_MILLIS = 1_700_000_000_000L;
+
+    @Test
+    public void testEventsOfABurstGetDistinctIncreasingAddTimes() {
+        long last = 0L;
+        for (int i = 0; i < 10000; i++) {
+            long next = DatabendSinkWriter.nextAddTimeMicros(CLOCK_MILLIS, last);
+            org.junit.jupiter.api.Assertions.assertTrue(next > last);
+            last = next;
+        }
+        // Microsecond steps keep a burst close to the clock: millisecond steps would be 10 s ahead.
+        assertEquals(CLOCK_MILLIS * 1000 + 9999, last);
+    }
+
+    @Test
+    public void testAddTimeKeepsIncreasingWhenTheClockStepsBack() {
+        long last = DatabendSinkWriter.nextAddTimeMicros(CLOCK_MILLIS, 0L);
+
+        assertEquals(last + 1, DatabendSinkWriter.nextAddTimeMicros(CLOCK_MILLIS - 1000, last));
+        assertEquals(
+                (CLOCK_MILLIS + 5) * 1000,
+                DatabendSinkWriter.nextAddTimeMicros(CLOCK_MILLIS + 5, last + 1));
+    }
+
+    @Test
+    public void testAddTimeIsWrittenInTheLocalTimeOfTheJvmWithMicroseconds() {
+        long micros = CLOCK_MILLIS * 1000 + 123_456;
+
+        assertEquals(
+                "2023-11-14 22:13:20.123456",
+                inTimeZone("UTC", () -> DatabendSinkWriter.formatAddTime(micros)));
+        assertEquals(
+                "2023-11-15 06:13:20.123456",
+                inTimeZone("Asia/Shanghai", () -> DatabendSinkWriter.formatAddTime(micros)));
+    }
+
+    /**
+     * add_time is local time, so when daylight saving time ends the written times repeat an hour:
+     * one second later is written as almost an hour earlier. The field comment of lastAddTimeMicros
+     * states this limit.
+     */
+    @Test
+    public void testAddTimeRepeatsAnHourWhenDaylightSavingTimeEnds() {
+        // 2026-11-01 05:59:59 UTC is 01:59:59 EDT, one second later is 01:00:00 EST.
+        long beforeMicros = 1_793_512_799_000_000L;
+        long afterMicros = beforeMicros + 1_000_000;
+
+        assertEquals(
+                "2026-11-01 01:59:59.0",
+                inTimeZone(
+                        "America/New_York", () -> DatabendSinkWriter.formatAddTime(beforeMicros)));
+        assertEquals(
+                "2026-11-01 01:00:00.0",
+                inTimeZone(
+                        "America/New_York", () -> DatabendSinkWriter.formatAddTime(afterMicros)));
+    }
+
+    /**
+     * Goes through write() and processCdcRow() to the add_time parameter of the raw table insert:
+     * it is bound with setString, keeps its microseconds, and increases within one millisecond. The
+     * driver's setTimestamp would drop everything below milliseconds.
+     */
+    @Test
+    public void testWriteBindsTheAddTimeOfEachCdcRowAsAStringWithMicroseconds() throws Exception {
+        Connection connection = mock(Connection.class);
+        PreparedStatement cdcStatement = mock(PreparedStatement.class);
+        when(connection.prepareStatement(startsWith("INSERT INTO test_db.raw_table")))
+                .thenReturn(cdcStatement);
+        DatabendSinkWriter sinkWriter = cdcWriter(connection);
+        // Every row arrives in the same millisecond.
+        sinkWriter.clockMillis = () -> CLOCK_MILLIS + 123;
+
+        inTimeZone(
+                "UTC",
+                () -> {
+                    for (int id = 1; id <= 3; id++) {
+                        sinkWriter.write(new SeaTunnelRow(new Object[] {id, "name" + id}));
+                    }
+                    return null;
+                });
+
+        ArgumentCaptor<String> addTimes = ArgumentCaptor.forClass(String.class);
+        verify(cdcStatement, times(3)).setString(eq(4), addTimes.capture());
+        verify(cdcStatement, never()).setTimestamp(eq(4), any());
+        verify(cdcStatement, never()).setTimestamp(eq(4), any(), any());
+        assertEquals(
+                Arrays.asList(
+                        "2023-11-14 22:13:20.123",
+                        "2023-11-14 22:13:20.123001",
+                        "2023-11-14 22:13:20.123002"),
+                addTimes.getAllValues());
+        for (int i = 1; i < addTimes.getAllValues().size(); i++) {
+            Timestamp previous = Timestamp.valueOf(addTimes.getAllValues().get(i - 1));
+            Timestamp current = Timestamp.valueOf(addTimes.getAllValues().get(i));
+            assertTrue(current.after(previous), addTimes.getAllValues().toString());
+        }
+    }
+
+    /** A real writer in CDC mode, with the raw table insert prepared on {@code connection}. */
+    private static DatabendSinkWriter cdcWriter(Connection connection) {
+        DatabendSinkConfig config = mock(DatabendSinkConfig.class);
+        when(config.isCdcMode()).thenReturn(true);
+        when(config.getConflictKey()).thenReturn("id");
+        CatalogTable catalogTable = mock(CatalogTable.class);
+        when(catalogTable.getSeaTunnelRowType())
+                .thenReturn(
+                        new SeaTunnelRowType(
+                                new String[] {"id", "name"},
+                                new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE, BasicType.STRING_TYPE
+                                }));
+        return new DatabendSinkWriter(
+                mock(SinkWriter.Context.class),
+                connection,
+                catalogTable,
+                config,
+                null,
+                "test_db",
+                "target_table",
+                "raw_table",
+                "cdc_stream",
+                10,
+                30);
     }
 
     /**
@@ -417,6 +554,16 @@ public class DatabendSinkWriterTest {
                 null,
                 10,
                 30);
+    }
+
+    private static String inTimeZone(String zone, Supplier<String> action) {
+        TimeZone previous = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone(zone));
+        try {
+            return action.get();
+        } finally {
+            TimeZone.setDefault(previous);
+        }
     }
 
     private DatabendSinkWriter mockCdcWriter(Statement statement) throws Exception {

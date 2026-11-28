@@ -47,6 +47,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -58,6 +59,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -98,6 +100,20 @@ public class DatabendSinkWriter
     private boolean hasUnmergedCdcRows = false;
     private String conflictKey;
     private boolean enableDelete;
+
+    /**
+     * The add_time of the last CDC row of this writer, in microseconds since the epoch. The merge
+     * keeps the row with the latest add_time for each key, so {@link #nextAddTime()} makes each row
+     * of this writer later than the one before, also within one millisecond and when the clock
+     * steps back. The value lives only in this writer instance: it is not checkpointed, a new or
+     * restored writer starts again from the clock, and rows of different writers are ordered only
+     * by their clocks. add_time is written in the local time of the JVM, so when daylight saving
+     * time ends the written times repeat an hour.
+     */
+    private long lastAddTimeMicros = 0L;
+
+    /** The clock that add_time is taken from, in milliseconds since the epoch. Tests replace it. */
+    LongSupplier clockMillis = System::currentTimeMillis;
 
     public DatabendSinkWriter(
             Context context,
@@ -273,7 +289,7 @@ public class DatabendSinkWriter
 
         sql.append("ON a.").append(conflictKey).append(" = b.").append(conflictKey).append(" ");
 
-        sql.append("WHEN MATCHED AND b.action = 'update' THEN UPDATE * ");
+        sql.append("WHEN MATCHED AND b.action IN ('insert', 'update') THEN UPDATE * ");
 
         if (enableDelete) {
             sql.append("WHEN MATCHED AND b.action = 'delete' THEN DELETE ");
@@ -422,10 +438,38 @@ public class DatabendSinkWriter
         cdcPreparedStatement.setString(1, conflictKeyValue);
         cdcPreparedStatement.setString(2, targetTableName);
         cdcPreparedStatement.setString(3, jsonData);
-        cdcPreparedStatement.setTimestamp(4, java.sql.Timestamp.valueOf(LocalDateTime.now()));
+        cdcPreparedStatement.setString(4, nextAddTime());
         cdcPreparedStatement.setString(5, action);
 
         cdcPreparedStatement.addBatch();
+    }
+
+    /**
+     * Returns the add_time of the next CDC row. The merge keeps the row with the latest add_time
+     * for each key, so rows of a burst must not share a value or an older event can win. It is a
+     * string because the driver's setTimestamp drops everything below milliseconds.
+     *
+     * @return a timestamp, in microseconds, later than the one returned by the previous call
+     */
+    String nextAddTime() {
+        lastAddTimeMicros = nextAddTimeMicros(clockMillis.getAsLong(), lastAddTimeMicros);
+        return formatAddTime(lastAddTimeMicros);
+    }
+
+    /**
+     * Returns the add_time, in microseconds, that follows {@code lastMicros} when the clock reads
+     * {@code nowMillis}: the clock time, or one microsecond after {@code lastMicros} if the clock
+     * is not past it.
+     */
+    static long nextAddTimeMicros(long nowMillis, long lastMicros) {
+        return Math.max(nowMillis * 1000, lastMicros + 1);
+    }
+
+    /** Returns {@code micros} as a timestamp in the local time of the JVM, with microseconds. */
+    static String formatAddTime(long micros) {
+        Timestamp addTime = new Timestamp(micros / 1000);
+        addTime.setNanos((int) (micros % 1_000_000) * 1000);
+        return addTime.toString();
     }
 
     private void processTraditionalRow(SeaTunnelRow row) throws SQLException {

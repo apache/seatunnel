@@ -182,6 +182,9 @@ sink {
 
 `conflict_key` 用来指定合并更新/删除事件的主键列。只有当 DELETE 事件需要删除
 Databend 中的数据时，才需要设置 `enable_delete = true`。
+如果主键已存在，INSERT 事件会像更新事件一样更新该行。
+当同一 writer 中同一主键的多个事件进入同一次合并时，最新事件生效。该顺序来自 writer 按 JVM 本地时区读取的时钟，
+因此在夏令时结束、本地时间重复的那一小时内，较早的事件仍可能生效；使用没有夏令时的时区（例如 UTC）可以避免这一点。
 如果不配置 `conflict_key`，sink 会按普通批量插入方式写入。
 
 下面的端到端示例将 CDC 行类型（`INSERT`、`UPDATE_BEFORE`、`UPDATE_AFTER`、`DELETE`）

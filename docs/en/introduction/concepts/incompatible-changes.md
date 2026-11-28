@@ -77,6 +77,23 @@ for connector requirements and the restrictions on shared physical destinations.
   - **Impact**: A job that reads a Databend `DECIMAL` column now emits decimal values. A sink table that SeaTunnel creates through `schema_save_mode` gets a decimal column instead of a string column, and a transform or sink that expected a string now receives a decimal.
   - **Migration Guide**: No configuration change is needed. If a downstream step needs text, convert the column explicitly, for example `CAST(price AS STRING)` in the SQL transform. A sink table that an earlier run already created with a string column keeps that type.
 
+### Databend Sink: the latest CDC event of a key is applied
+
+- **Affected jobs**: Databend sinks in CDC mode (`conflict_key` set).
+- **Behavior change**: an INSERT event for a key that already exists in the target table was ignored,
+  so the row kept its old values. It now overwrites the row, the same as an update event. This
+  includes a re-insert after a DELETE that `enable_delete = false` dropped, and a snapshot that runs
+  again over an existing table. When events of one key from one writer reach the same merge, the latest
+  now wins. Before, events within the same millisecond could leave an older value in the row, or
+  remove a row that had been inserted again. The merge orders the events by `add_time`, which the
+  writer takes from its clock in the local time zone of the JVM. When daylight saving time ends, the
+  local times of one hour repeat, so in that hour an event can still lose to an older event of the
+  same key in the same merge. This limit is not new; a JVM time zone without daylight saving time,
+  such as UTC, does not have it. Events of one key from different writers are ordered only by the
+  clocks of their workers.
+- **Migration**: no configuration change is required. Jobs that relied on an INSERT leaving an
+  existing row unchanged need to filter those events before the sink.
+
 ### JDBC source: a nullable key column is no longer chosen as the split key
 
 - **Behavior change: the automatic split key selection skips nullable columns**
