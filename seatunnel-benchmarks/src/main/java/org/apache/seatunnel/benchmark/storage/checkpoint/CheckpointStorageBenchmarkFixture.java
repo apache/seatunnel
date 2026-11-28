@@ -76,7 +76,6 @@ public class CheckpointStorageBenchmarkFixture {
     private CheckpointOverviewStateStore overviewStore;
     private CheckpointMonitorService monitorService;
     private IMap<String, Long> checkpointCounterMap;
-    private IMap<Long, CheckpointOverview> checkpointOverviewMap;
     private long expectedCompletedCount;
 
     @Setup(Level.Trial)
@@ -120,12 +119,6 @@ public class CheckpointStorageBenchmarkFixture {
                             .getNodeEngine()
                             .getHazelcastInstance()
                             .getMap(EngineStateStoreNames.CHECKPOINT_ID);
-            checkpointOverviewMap =
-                    environment
-                            .getServer()
-                            .getNodeEngine()
-                            .getHazelcastInstance()
-                            .getMap(EngineStateStoreNames.CHECKPOINT_MONITOR);
         } catch (Exception setupFailure) {
             try {
                 tearDown();
@@ -198,15 +191,6 @@ public class CheckpointStorageBenchmarkFixture {
         checkpointCounterMap.loadAll(keys, true);
     }
 
-    void reloadOverviewSamples(CheckpointOperation[] operations) {
-        Set<Long> keys = new LinkedHashSet<>();
-        for (int index : DURABILITY_SAMPLE_INDEXES) {
-            keys.add(operations[index].jobId);
-            checkpointOverviewMap.evict(operations[index].jobId);
-        }
-        checkpointOverviewMap.loadAll(keys, true);
-    }
-
     void validateCounter(CheckpointOperation operation, long allocatedCheckpointId) {
         if (allocatedCheckpointId != operation.checkpointId) {
             throw new IllegalStateException(
@@ -257,7 +241,7 @@ public class CheckpointStorageBenchmarkFixture {
         CheckpointOverview storedOverview = overviewStore.get(operation.jobId);
         if (storedOverview == null || storedOverview.getJobId() != operation.jobId) {
             throw new IllegalStateException(
-                    "Checkpoint overview was not stored for job " + operation.jobId);
+                    "Checkpoint overview is unavailable for job " + operation.jobId);
         }
 
         PipelineCheckpointOverview pipelineOverview =
