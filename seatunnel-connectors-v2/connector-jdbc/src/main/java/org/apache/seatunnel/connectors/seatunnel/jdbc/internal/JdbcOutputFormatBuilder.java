@@ -19,21 +19,29 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.condition.UpdateCondition;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.BufferReducedBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.BufferedBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.CopyManagerBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.FieldNamedPreparedStatement;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.InsertOrUpdateBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.OrderedBufferedBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.SimpleBatchStatementExecutor;
+
+import org.postgresql.Driver;
 
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -42,8 +50,11 @@ import lombok.extern.slf4j.Slf4j;
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
@@ -51,6 +62,8 @@ import java.util.stream.Collectors;
 @Slf4j
 @RequiredArgsConstructor
 public class JdbcOutputFormatBuilder {
+    private static final String POSTGRESQL_URL_PREFIX = "jdbc:postgresql:";
+
     @NonNull private final JdbcDialect dialect;
     @NonNull private final JdbcConnectionProvider connectionProvider;
     @NonNull private final JdbcSinkConfig jdbcSinkConfig;
@@ -76,7 +89,38 @@ public class JdbcOutputFormatBuilder {
         final String table = jdbcSinkConfig.getTable();
         final List<String> primaryKeys = jdbcSinkConfig.getPrimaryKeys();
         validateOracleInsertMode(dialect, jdbcSinkConfig, primaryKeys);
-        if (jdbcSinkConfig.isUseCopyStatement()) {
+        Optional<UpdateCondition> updateCondition =
+                resolveUpdateCondition(dialect, jdbcSinkConfig, tableSchema);
+        if (updateCondition.isPresent()) {
+            String[] pkNames = primaryKeys.toArray(new String[0]);
+            String upsertSQL =
+                    ((PostgresDialect) dialect)
+                            .getConditionalUpsertStatement(
+                                    database,
+                                    table,
+                                    tableSchema.getFieldNames(),
+                                    pkNames,
+                                    updateCondition.get());
+            log.info("update_condition_sql is enabled, generated upsert SQL: {}", upsertSQL);
+            boolean oneRowPerStatement =
+                    isRewriteBatchedInsertsEnabled(jdbcSinkConfig.getJdbcConnectionConfig());
+            if (oneRowPerStatement) {
+                log.info(
+                        "reWriteBatchedInserts is enabled, update_condition_sql sends one row per"
+                                + " statement");
+            }
+            statementExecutorFactory =
+                    () ->
+                            createConditionalUpsertBufferedExecutor(
+                                    (PostgresDialect) dialect,
+                                    database,
+                                    table,
+                                    tableSchema,
+                                    databaseTableSchema,
+                                    pkNames,
+                                    upsertSQL,
+                                    oneRowPerStatement);
+        } else if (jdbcSinkConfig.isUseCopyStatement()) {
             statementExecutorFactory =
                     () ->
                             createCopyInBufferStatementExecutor(
@@ -189,6 +233,138 @@ public class JdbcOutputFormatBuilder {
                         supportUpsertByInsertOnly);
         return new BufferReducedBatchStatementExecutor(
                 upsertExecutor, deleteExecutor, keyExtractor, Function.identity());
+    }
+
+    /**
+     * Builds the executor for {@code update_condition_sql}: upserts and deletes are kept in arrival
+     * order and replayed together after a failed flush. The output format owns the connection and
+     * prepares the statements again after a reconnect.
+     */
+    private static JdbcBatchStatementExecutor<SeaTunnelRow> createConditionalUpsertBufferedExecutor(
+            PostgresDialect dialect,
+            String database,
+            String table,
+            TableSchema tableSchema,
+            TableSchema databaseTableSchema,
+            String[] pkNames,
+            String upsertSQL,
+            boolean oneRowPerStatement) {
+        int[] pkFields =
+                Arrays.stream(pkNames)
+                        .mapToInt(tableSchema.toPhysicalRowDataType()::indexOf)
+                        .toArray();
+        TableSchema pkSchema =
+                TableSchema.builder()
+                        .columns(
+                                Arrays.stream(pkFields)
+                                        .mapToObj(
+                                                (IntFunction<Column>) tableSchema.getColumns()::get)
+                                        .collect(Collectors.toList()))
+                        .build();
+        return new OrderedBufferedBatchStatementExecutor(
+                createSimpleExecutor(
+                        upsertSQL, tableSchema, databaseTableSchema, dialect.getRowConverter()),
+                createSimpleExecutor(
+                        dialect.getConditionalDeleteStatement(database, table, pkNames),
+                        pkSchema,
+                        databaseTableSchema,
+                        dialect.getRowConverter()),
+                createKeyExtractor(pkFields),
+                Function.identity(),
+                oneRowPerStatement);
+    }
+
+    /**
+     * Whether the PostgreSQL driver may merge the rows of a batch into one statement. The driver
+     * reads the url itself, which decodes its values and lets them override the properties.
+     */
+    static boolean isRewriteBatchedInsertsEnabled(JdbcConnectionConfig connectionConfig) {
+        Properties properties = new Properties();
+        properties.putAll(connectionConfig.getProperties());
+        Properties effective = Driver.parseURL(connectionConfig.getUrl(), properties);
+        // A url the driver cannot read does not connect either, so assume the safe answer.
+        return effective == null
+                || Boolean.parseBoolean(effective.getProperty("reWriteBatchedInserts"));
+    }
+
+    /**
+     * Validates {@code update_condition_sql} against the sink configuration and parses it. Called
+     * when the sink is created, so that a wrong configuration fails the job before it runs, and
+     * again when the writer builds its statements.
+     */
+    public static Optional<UpdateCondition> resolveUpdateCondition(
+            JdbcDialect dialect, JdbcSinkConfig jdbcSinkConfig, TableSchema tableSchema) {
+        String condition = jdbcSinkConfig.getUpdateConditionSql();
+        if (condition == null) {
+            return Optional.empty();
+        }
+        if (dialect.getClass() != PostgresDialect.class) {
+            // Name the dialect class: dialects based on the PostgreSQL dialect, such as the one
+            // for compatible_mode = "postgresLow", report the same dialect name.
+            throw invalidUpdateCondition(
+                    String.format(
+                            "it is only supported by the PostgreSQL dialect (PostgresDialect,"
+                                    + " without compatible_mode = \"postgresLow\"), but the sink"
+                                    + " uses %s",
+                            dialect.getClass().getSimpleName()));
+        }
+        JdbcConnectionConfig connectionConfig = jdbcSinkConfig.getJdbcConnectionConfig();
+        String url = connectionConfig == null ? null : connectionConfig.getUrl();
+        if (url == null || !url.startsWith(POSTGRESQL_URL_PREFIX)) {
+            throw invalidUpdateCondition(
+                    "it is only supported for a PostgreSQL database, the url must start with "
+                            + POSTGRESQL_URL_PREFIX);
+        }
+        if (StringUtils.isNotBlank(jdbcSinkConfig.getSimpleSql())) {
+            throw invalidUpdateCondition(
+                    "it requires generate_sink_sql = true and cannot be used with query");
+        }
+        if (jdbcSinkConfig.isUseCopyStatement()) {
+            throw invalidUpdateCondition("it cannot be used with use_copy_statement = true");
+        }
+        List<String> primaryKeys = jdbcSinkConfig.getPrimaryKeys();
+        if (primaryKeys == null || primaryKeys.isEmpty()) {
+            throw invalidUpdateCondition("it requires primary_keys to be set");
+        }
+        if (!jdbcSinkConfig.isEnableUpsert()) {
+            throw invalidUpdateCondition("it requires enable_upsert = true");
+        }
+        if (jdbcSinkConfig.isSupportUpsertByInsertOnly()) {
+            throw invalidUpdateCondition(
+                    "it cannot be used with support_upsert_by_insert_only = true");
+        }
+        String[] fieldNames = tableSchema.getFieldNames();
+        for (String fieldName : fieldNames) {
+            if (!isBindableColumnName(fieldName, fieldNames)) {
+                throw invalidUpdateCondition(
+                        String.format(
+                                "the column name '%s' cannot be used as a statement parameter, it"
+                                        + " contains ':' or '?' or starts with a character such as a"
+                                        + " space or a quote",
+                                fieldName));
+            }
+        }
+        return Optional.of(UpdateCondition.parse(condition, Arrays.asList(fieldNames)));
+    }
+
+    /**
+     * Whether {@code :name} is read back as one parameter of that name. A {@code ?} is excluded as
+     * well, because the statement would count it as another parameter.
+     */
+    private static boolean isBindableColumnName(String name, String[] fieldNames) {
+        Map<String, List<Integer>> parameters = new HashMap<>();
+        return name.indexOf('?') < 0
+                && "?"
+                        .equals(
+                                FieldNamedPreparedStatement.parseNamedStatement(
+                                        ":" + name, parameters, fieldNames))
+                && parameters.containsKey(name);
+    }
+
+    private static JdbcConnectorException invalidUpdateCondition(String reason) {
+        return new JdbcConnectorException(
+                SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                "Invalid update_condition_sql: " + reason);
     }
 
     private static JdbcBatchStatementExecutor<SeaTunnelRow> createUpsertExecutor(

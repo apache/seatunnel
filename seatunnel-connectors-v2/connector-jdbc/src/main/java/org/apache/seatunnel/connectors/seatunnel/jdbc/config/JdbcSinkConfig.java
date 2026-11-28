@@ -40,6 +40,7 @@ public class JdbcSinkConfig implements Serializable {
     @Builder.Default private boolean isPrimaryKeyUpdated = true;
     private boolean supportUpsertByInsertOnly;
     private boolean useCopyStatement;
+    private String updateConditionSql;
     @Builder.Default private boolean createIndex = true;
     @Builder.Default private OracleInsertMode oracleInsertMode = OracleInsertMode.CONVENTIONAL;
 
@@ -56,6 +57,8 @@ public class JdbcSinkConfig implements Serializable {
                 config.get(JdbcSinkOptions.SUPPORT_UPSERT_BY_INSERT_ONLY));
         builder.simpleSql(config.get(JdbcSinkOptions.QUERY));
         builder.useCopyStatement(config.get(JdbcSinkOptions.USE_COPY_STATEMENT));
+        config.getOptional(JdbcSinkOptions.UPDATE_CONDITION_SQL)
+                .ifPresent(builder::updateConditionSql);
         builder.createIndex(config.get(JdbcSinkOptions.CREATE_INDEX));
         builder.oracleInsertMode(config.get(JdbcSinkOptions.ORACLE_INSERT_MODE));
         return builder.build();

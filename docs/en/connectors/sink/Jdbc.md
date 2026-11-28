@@ -252,6 +252,7 @@ Exactly-once delivery uses XA transactions and therefore requires XA support fro
 | enable_upsert                             | Boolean | No       | true                         |
 | is_primary_key_updated                    | Boolean | No       | true                         |
 | support_upsert_by_insert_only             | Boolean | No       | false                        |
+| update_condition_sql                      | String  | No       | -                            |
 | table_options                             | Map     | No       | -                            |
 | use_copy_statement                        | Boolean | No       | false                        |
 | oracle_insert_mode                        | Enum    | No       | CONVENTIONAL                 |
@@ -639,6 +640,58 @@ Whether primary key fields are included when generating update statements. Keep 
 ### support_upsert_by_insert_only [boolean]
 
 Whether to support upsert behavior through insert-only statements for compatible dialects. This is an advanced compatibility option and is disabled by default.
+
+### update_condition_sql [String]
+
+Only supported by the PostgreSQL JDBC sink. A condition that an incoming row must meet to update the stored row with the same key. Use it to repair or replay data without overwriting newer rows, for example when a batch job re-reads rows from the source while a CDC job keeps writing the same table.
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://localhost:5432/sales"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "password"
+    generate_sink_sql = true
+    database = "sales"
+    table = "public.orders"
+    primary_keys = ["id"]
+    update_condition_sql = ":update_time > target.update_time"
+  }
+}
+```
+
+SeaTunnel adds the condition only to the update branch of the PostgreSQL upsert statement:
+
+```sql
+INSERT INTO "sales"."public"."orders" AS target ("id", "amount", "update_time") VALUES (...)
+ON CONFLICT ("id") DO UPDATE SET "amount"=EXCLUDED."amount", "update_time"=EXCLUDED."update_time"
+WHERE (EXCLUDED."update_time" > target."update_time")
+```
+
+Results:
+
+- A row with a new key is inserted.
+- When the condition is true, the stored row is updated.
+- When the condition is false or NULL, the stored row is kept. This is not an error, the row is not retried and nothing is inserted. A comparison with a NULL value is NULL, so to also update a stored row whose `update_time` is NULL, write `target.update_time IS NULL OR :update_time > target.update_time`.
+- `DELETE` rows are not affected by the condition and delete the stored row as before.
+
+Syntax:
+
+- `:column` is the value of the incoming row and `target.column` the value of the stored row. The column must be one of the columns written by the sink. Use double quotes for other names, for example `:"Update Time"` and `target."Update Time"`, and write a double quote inside a name twice. With this option, column names containing dots or double quotes are quoted as one name. The job is rejected when a written column name contains `:` or `?`, or starts with a character such as a space or a quote.
+- Supported are the comparisons `=`, `<>`, `<`, `<=`, `>`, `>=`, the operators `AND`, `OR`, `NOT`, `IS NULL`, `IS NOT NULL` and parentheses.
+- Functions, casts, literals and any other column reference are rejected when the job starts. The condition is parsed and SeaTunnel builds the SQL from it, the text is never passed to the database as it is.
+
+Batches: without this option the sink keeps only the last change of a key within a batch. With it, every change is applied in the order it arrives, so the newest version wins whatever the input order is. When a key appears again in the same batch, the sink first executes the pending statements, so that one statement never changes the same row twice. A batch with repeated keys therefore needs more round trips to the database. When `reWriteBatchedInserts=true` is set in the url or in `properties`, each row is sent as its own statement, because the database can treat two keys as equal that look different to the sink (for example `numeric` values `1.0` and `1.00`). The option therefore gives no batching speed-up from `reWriteBatchedInserts`.
+
+Requirements, otherwise the job fails when it starts:
+
+- a `jdbc:postgresql:` url with the PostgreSQL dialect. `compatible_mode = "postgresLow"`, the dialects based on the PostgreSQL dialect (such as OpenGauss or CockroachDB) and other urls (such as `jdbc:pivotal:greenplum:` or `jdbc:highgo:`) are not supported
+- `generate_sink_sql = true`, without `query`
+- `primary_keys` set in the sink options. The primary key or unique key of the table is not used instead
+- `enable_upsert = true`, `use_copy_statement = false` and `support_upsert_by_insert_only = false`
+
+When a flush fails and is retried, the whole batch is applied again in the same order. With a condition such as `:update_time > target.update_time`, changes that were already applied are skipped.
 
 ### use_copy_statement [boolean]
 

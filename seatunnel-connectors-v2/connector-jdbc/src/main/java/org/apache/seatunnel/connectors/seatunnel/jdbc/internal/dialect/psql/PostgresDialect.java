@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.condition.UpdateCondition;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -66,6 +67,8 @@ public class PostgresDialect implements JdbcDialect {
 
     private static final long serialVersionUID = -5834746193472465218L;
     public static final int DEFAULT_POSTGRES_FETCH_SIZE = 128;
+
+    public static final String UPDATE_CONDITION_TARGET_ALIAS = "target";
 
     /** PostgreSQL FILLFACTOR legal range (inclusive): 10-100. */
     private static final int FILLFACTOR_MIN = 10;
@@ -206,6 +209,77 @@ public class PostgresDialect implements JdbcDialect {
                         uniqueColumns,
                         conflictAction);
         return Optional.of(upsertSQL);
+    }
+
+    /**
+     * Builds the upsert statement for {@code update_condition_sql}. The condition is added to the
+     * update branch only, so a new key is always inserted. {@code EXCLUDED} is the incoming row and
+     * {@value #UPDATE_CONDITION_TARGET_ALIAS} the stored one.
+     */
+    public String getConditionalUpsertStatement(
+            String database,
+            String tableName,
+            String[] fieldNames,
+            String[] pkNames,
+            UpdateCondition condition) {
+        String columns =
+                Arrays.stream(fieldNames)
+                        .map(this::quoteColumnName)
+                        .collect(Collectors.joining(", "));
+        String placeholders =
+                Arrays.stream(fieldNames)
+                        .map(fieldName -> ":" + fieldName)
+                        .collect(Collectors.joining(", "));
+        String uniqueColumns =
+                Arrays.stream(pkNames).map(this::quoteColumnName).collect(Collectors.joining(", "));
+        final Set<String> pkNamesSet = new HashSet<>(Arrays.asList(pkNames));
+        String updateClause =
+                Arrays.stream(fieldNames)
+                        .filter(fieldName -> !pkNamesSet.contains(fieldName))
+                        .map(
+                                fieldName ->
+                                        quoteColumnName(fieldName)
+                                                + "=EXCLUDED."
+                                                + quoteColumnName(fieldName))
+                        .collect(Collectors.joining(", "));
+        // When every written column is a key column there is nothing to update.
+        String conflictAction =
+                updateClause.isEmpty()
+                        ? "DO NOTHING"
+                        : String.format(
+                                "DO UPDATE SET %s WHERE (%s)",
+                                updateClause,
+                                condition.toSql(
+                                        this::quoteColumnName,
+                                        "EXCLUDED",
+                                        UPDATE_CONDITION_TARGET_ALIAS));
+        return String.format(
+                "INSERT INTO %s AS %s (%s) VALUES (%s) ON CONFLICT (%s) %s",
+                tableIdentifier(database, tableName),
+                UPDATE_CONDITION_TARGET_ALIAS,
+                columns,
+                placeholders,
+                uniqueColumns,
+                conflictAction);
+    }
+
+    /** The delete statement used with {@code update_condition_sql}. */
+    public String getConditionalDeleteStatement(
+            String database, String tableName, String[] pkNames) {
+        String conditionClause =
+                Arrays.stream(pkNames)
+                        .map(pkName -> quoteColumnName(pkName) + " = :" + pkName)
+                        .collect(Collectors.joining(" AND "));
+        return String.format(
+                "DELETE FROM %s WHERE %s", tableIdentifier(database, tableName), conditionClause);
+    }
+
+    /**
+     * Quotes one column name literally. Unlike {@link #quoteIdentifier(String)}, a dot is part of
+     * the name and a double quote is escaped.
+     */
+    private String quoteColumnName(String columnName) {
+        return "\"" + getFieldIde(columnName, fieldIde).replace("\"", "\"\"") + "\"";
     }
 
     @Override
