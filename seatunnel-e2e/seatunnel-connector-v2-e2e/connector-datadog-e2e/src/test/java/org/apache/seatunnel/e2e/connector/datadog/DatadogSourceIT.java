@@ -27,6 +27,7 @@ import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 import org.postgresql.Driver;
 import org.testcontainers.containers.Container;
@@ -536,6 +537,67 @@ class DatadogSourceIT extends TestSuiteBase {
             control("/release");
             cancelIfRunning(jobId);
             cancelIfRunning(restoredId);
+        }
+    }
+
+    /**
+     * Checkpoints must finish while one decoded page is throttled. A completed stop-with-savepoint
+     * then restores its accepted prefix without duplicating rows in the unkeyed JDBC result table.
+     */
+    @Test
+    @Timeout(value = 3, unit = TimeUnit.MINUTES)
+    void checkpointsThrottledDecodedRowsAndRestoresTheSavepointTail() throws Exception {
+        String config = "/datadog_throttled_to_postgresql.conf";
+        select("throttled-downtimes");
+        String job = nextJobId();
+        List<String> args = arguments("downtimes", "datadoghq.com", null, null, 120000);
+        List<List<String>> expected = new ArrayList<>();
+        for (int i = 1; i <= 64; i++) {
+            expected.add(row(Integer.toString(i), null, "{\"id\":" + i + ",\"active\":true}"));
+        }
+        CompletableFuture<Container.ExecResult> original =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return engine.executeJob(config, job, args.toArray(new String[0]));
+                            } catch (Exception e) {
+                                throw new IllegalStateException("Fixture job invocation failed", e);
+                            }
+                        });
+        try {
+            await().atMost(45, TimeUnit.SECONDS).until(() -> !rows().isEmpty());
+            long baseline = engine.getCompletedCheckpointCount(job);
+            // Two later completions exclude a checkpoint already injected before the first row.
+            await().atMost(15, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                assertTrue(engine.getCompletedCheckpointCount(job) >= baseline + 2);
+                                assertTrue(
+                                        rows().size() < 64, "The decoded page must remain partial");
+                                assertRoute("/api/v1/downtime", "datadoghq.com", 1);
+                            });
+            assertSuccess(engine.savepointJob(job));
+            await().atMost(20, TimeUnit.SECONDS)
+                    .until(() -> "SAVEPOINT_DONE".equals(engine.getJobStatus(job)));
+            assertSuccess(original.get(40, TimeUnit.SECONDS));
+            List<List<String>> prefix = rows();
+            assertTrue(!prefix.isEmpty() && prefix.size() < 64);
+            List<List<String>> expectedPrefix = new ArrayList<>();
+            for (List<String> row : expected.subList(0, prefix.size())) {
+                List<String> value = new ArrayList<>();
+                value.add("downtimes");
+                value.addAll(row);
+                expectedPrefix.add(value);
+            }
+            expectedPrefix.sort(Comparator.comparing(row -> row.get(1)));
+            assertEquals(expectedPrefix, prefix);
+            assertRoute("/api/v1/downtime", "datadoghq.com", 1);
+            assertSuccess(engine.restoreJob(config, job, args.toArray(new String[0])));
+            assertRows("downtimes", expected);
+            JsonNode calls = assertRoute("/api/v1/downtime", "datadoghq.com", 2);
+            assertEquals(calls.get(0).path("query"), calls.get(1).path("query"));
+        } finally {
+            cancelIfRunning(job);
         }
     }
 

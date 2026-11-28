@@ -41,6 +41,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -108,7 +112,7 @@ class DatadogCheckpointTest {
             beforeDeadline(
                     () -> {
                         original.pollNext(output);
-                        return !output.ids.isEmpty();
+                        return output.ids.size() == 64;
                     });
             checkpoint = original.snapshotState(1).get(0);
             assertEquals(64, checkpoint.prefix, "The checkpoint must bisect the returned page");
@@ -145,6 +149,92 @@ class DatadogCheckpointTest {
                                             }));
             assertTrue(error.getMessage().contains("checkpointed page prefix"));
             assertTrue(output.ids.isEmpty(), "Changed page must fail before emitting its tail");
+        }
+    }
+
+    /**
+     * A waiting checkpoint can observe the first accepted row before another collect starts. The
+     * saved prefix must restore exactly the remaining rows from the same provider page.
+     */
+    @Test
+    void checkpointsAfterOneAcceptedRowAndRestoresItsExactTail() throws Exception {
+        DatadogConfig config = config("metrics");
+        AtomicInteger requests = new AtomicInteger();
+        CountDownLatch first = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        ExecutorService operations = Executors.newFixedThreadPool(2);
+        Output output = new Output();
+        Collector<SeaTunnelRow> collector =
+                new Collector<SeaTunnelRow>() {
+                    @Override
+                    public void collect(SeaTunnelRow row) {
+                        if (!output.ids.isEmpty()) {
+                            try {
+                                assertTrue(
+                                        release.await(30, TimeUnit.SECONDS), "Second collect held");
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                throw new AssertionError("Held collector interrupted", e);
+                            }
+                        }
+                        output.collect(row);
+                        first.countDown();
+                    }
+
+                    @Override
+                    public Object getCheckpointLock() {
+                        return output.getCheckpointLock();
+                    }
+                };
+        DatadogSplit checkpoint;
+        DatadogReader original = reader(config, new ReaderContext(), requests, page(false));
+        try {
+            original.open();
+            original.addSplits(Collections.singletonList(config.initialSplit(FROZEN_TIME)));
+            Future<?> polling =
+                    operations.submit(
+                            () -> {
+                                beforeDeadline(
+                                        () -> {
+                                            original.pollNext(collector);
+                                            return first.getCount() == 0;
+                                        });
+                                return null;
+                            });
+            assertTrue(first.await(5, TimeUnit.SECONDS), "First row must reach the collector");
+            Future<DatadogSplit> snapshot =
+                    operations.submit(
+                            () -> {
+                                synchronized (collector.getCheckpointLock()) {
+                                    return original.snapshotState(1).get(0);
+                                }
+                            });
+            checkpoint = snapshot.get(5, TimeUnit.SECONDS);
+            polling.get(5, TimeUnit.SECONDS);
+            assertEquals(1, checkpoint.prefix);
+            assertEquals(ids(0, 1), output.ids);
+            assertEquals(1, requests.get());
+        } finally {
+            // Release an old batched implementation before closing or waiting for its worker.
+            release.countDown();
+            original.close();
+            operations.shutdownNow();
+            assertTrue(operations.awaitTermination(5, TimeUnit.SECONDS));
+        }
+
+        ReaderContext restored = new ReaderContext();
+        try (DatadogReader reader = reader(config, restored, requests, page(false))) {
+            reader.open();
+            reader.addSplits(Collections.singletonList(checkpoint));
+            Output tail = new Output();
+            beforeDeadline(
+                    () -> {
+                        reader.pollNext(tail);
+                        return restored.finished == 1;
+                    });
+            assertEquals(ids(1, 130), tail.ids);
+            assertEquals(2, requests.get(), "Recovery refetches only the checkpointed page");
+            assertTrue(reader.snapshotState(2).get(0).complete);
         }
     }
 

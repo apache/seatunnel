@@ -158,6 +158,11 @@ class Api(QuietHandler):
 
     def reply(self, active, request, number):
         path, q = request["path"], request["query"]
+        if active == "throttled-downtimes":
+            if path != "/api/v1/downtime" or q:
+                raise ValueError("Expected one unpaginated downtime response")
+            self.write(200, [{"id": i, "active": True} for i in range(1, 65)])
+            return
         if active == "normal":
             size_key = {
                 "/api/v2/logs/events": "page[limit]", "/api/v2/audit/events": "page[limit]",

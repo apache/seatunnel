@@ -46,8 +46,8 @@ final class DatadogReader implements SourceReader<SeaTunnelRow, DatadogSplit> {
     private static final int MAX_PAGES = 10000;
     // This row bound complements the decompressed byte and JSON token limits in the client.
     private static final int MAX_RECORDS_PER_RESPONSE = 10000;
-    // Release the engine checkpoint lock between small emitted batches.
-    private static final int ROWS_PER_POLL = 64;
+    // Return to the engine checkpoint handoff after every accepted row.
+    private static final int ROWS_PER_POLL = 1;
     private final DatadogConfig config;
     private final Context context;
     private final Supplier<PageClient> clientFactory;
@@ -97,7 +97,8 @@ final class DatadogReader implements SourceReader<SeaTunnelRow, DatadogSplit> {
 
     /**
      * Waits briefly for a page, then yields so the engine can take a checkpoint or stop the job
-     * while the network is blocked. Cursor advancement and collection share the engine lock.
+     * while the network is blocked. Each accepted row returns to the engine checkpoint handoff;
+     * cursor advancement and collection share the engine lock.
      */
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
