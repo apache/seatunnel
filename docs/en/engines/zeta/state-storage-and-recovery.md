@@ -111,6 +111,49 @@ curl -X POST http://<master>:8080/stop-job \
   }'
 ```
 
+### Savepoint after master loss
+
+A stop-with-savepoint request is **not retried automatically by the SeaTunnel Engine client**. The
+request is sent to the master that owns the savepoint operation; if that member is lost while the
+request is in flight, the caller receives an error instead of the client quietly replaying the same
+request on the newly elected master.
+
+**A failed call does not prove that the savepoint was not persisted.** The error may be a
+client-side connection error rather than a savepoint failure: the savepoint may have failed before
+it started, it may have completed while its response was lost, or it may still have been in
+progress when the master disappeared. Because the client lost the connection to the member that
+owned the operation, it cannot tell these outcomes apart.
+
+**Do not resubmit the stop/savepoint blindly.** After a master loss the job is usually restored on
+the surviving master and can be running again; replaying the stop-with-savepoint then drives the
+recovered job into another savepoint and stops it a second time, although the earlier savepoint may
+already be complete. Resubmitting for a job that has already stopped fails as well, so a retry loop
+does not tell you which outcome you got. Inspect the job first, then retry explicitly only if it is
+still needed:
+
+1. Job status: `$SEATUNNEL_HOME/bin/seatunnel.sh -j <job-id>`. `SAVEPOINT_DONE` means the savepoint
+   completed and the job finished; `RUNNING` means the job is running again, typically restored on
+   the surviving master; `DOING_SAVEPOINT` means a savepoint is still in progress and should be left
+   to finish or fail.
+2. Checkpoint records: `$SEATUNNEL_HOME/bin/seatunnel.sh --checkpoint-history <job-id>` lists the
+   job's checkpoint history, where a savepoint appears as `SAVEPOINT_TYPE`. The latest savepoint per
+   pipeline is also reported by the REST API `GET /jobs/checkpoints/:jobId` (`latestSavepoint`, see
+   [job checkpoint overview](rest-api-v2.md#get-job-checkpoint-overview)), and the savepoint data
+   itself is under the job's checkpoint directory (see
+   [Savepoint path layout](#savepoint-path-layout)).
+3. Only if the job is still running and no completed savepoint matches what you need, issue a
+   **new** stop-with-savepoint explicitly. Treat it as a new request, not as a replay of the lost
+   one: it writes another savepoint and stops the job again, and older checkpoints remain subject
+   to `checkpoint.storage.max-retained`.
+
+**Version scope.** Both the request protocol definition and its generated client codec carry the
+non-retryable flag, so the behavior applies to the SeaTunnel Engine client (CLI and Java client)
+built from a revision that contains this correction — the current `3.1.1-SNAPSHOT` development
+line and the releases that include it. Client artifacts from older releases still mark the request
+retryable and keep their previous behavior, and a mixed-version client/cluster pair follows the
+client's own retry policy. This is a retry-policy correction, not a promise of consistent behavior
+for mixed-version clients.
+
 ### Restoring from a savepoint
 
 ```bash

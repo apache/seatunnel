@@ -105,6 +105,20 @@ curl -X POST http://<master>:8080/stop-job \
   }'
 ```
 
+### Master 丢失后的 Savepoint
+
+带 Savepoint 的停止请求**不会由 SeaTunnel Engine 客户端自动重试**。该请求会发送给负责执行 Savepoint 的 Master 成员；如果该成员在请求处理过程中丢失（例如发生主备切换），调用方会收到错误，客户端不会把同一个请求悄悄重发到新选举出的 Master 上。
+
+**调用失败并不能说明 Savepoint 没有被持久化。** 这个错误可能是客户端的连接错误，而不是 Savepoint 本身的失败：Savepoint 可能尚未开始就已失败，也可能已经完成但响应丢失，还可能在 Master 消失时仍在进行中。由于客户端已经失去与负责该操作的成员之间的连接，它无法区分这几种结果。
+
+**不要盲目重发停止/Savepoint 请求。** Master 丢失后，作业通常会在存活下来的 Master 上恢复，并可能重新处于运行状态；此时重发带 Savepoint 的停止请求，会让恢复后的作业再触发一次 Savepoint 并再次停止，而此前那次 Savepoint 可能已经完成。对已经停止的作业重发请求同样会失败，因此反复重试并不能说明第一次请求的真实结果。请先检查作业，确认确实需要时再显式重试：
+
+1. 作业状态：`$SEATUNNEL_HOME/bin/seatunnel.sh -j <job-id>`。`SAVEPOINT_DONE` 表示 Savepoint 已完成且作业已结束；`RUNNING` 表示作业正在重新运行（通常是在存活下来的 Master 上恢复的）；`DOING_SAVEPOINT` 表示 Savepoint 仍在进行，应等待它完成或失败。
+2. Checkpoint 记录：`$SEATUNNEL_HOME/bin/seatunnel.sh --checkpoint-history <job-id>` 会列出该作业的 Checkpoint 历史，其中 Savepoint 显示为 `SAVEPOINT_TYPE`。每个 pipeline 最新的 Savepoint 也可以通过 REST API v2 的 `GET /jobs/checkpoints/:jobId` 返回的 `latestSavepoint` 查看，Savepoint 数据本身位于该作业的 Checkpoint 目录下（见 [Savepoint 路径结构](#savepoint-路径结构)）。
+3. 只有在作业仍在运行、且没有符合需要的已完成 Savepoint 时，才显式发起一次**新的**带 Savepoint 的停止请求。请把它当作一个新请求，而不是对丢失请求的重放：它会再写一个 Savepoint 并再次停止作业，较早的 Checkpoint 仍受 `checkpoint.storage.max-retained` 保留数量限制。
+
+**版本范围。** 重试标志同时存在于请求协议定义及其生成的客户端编解码代码中，因此该行为适用于由此修正所包含的版本构建出的 SeaTunnel Engine 客户端（命令行工具和 Java 客户端），即当前的 `3.1.1-SNAPSHOT` 开发线及包含该修正的发布版本。更早版本构建的客户端仍将该请求标记为可重试，并保持原有行为；客户端与服务端版本不一致时，以客户端自身的重试策略为准。这是对重试策略的修正，并不承诺混合版本客户端之间行为一致。
+
 ### 从 Savepoint 恢复
 
 ```bash
