@@ -94,7 +94,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         } catch (IllegalArgumentException e) {
             prepareResponse(SC_400, httpPostCommand, exceptionResponse(e));
         } catch (Throwable e) {
-            logger.warning("An error occurred while handling request " + httpPostCommand, e);
+            logger.warning("An error occurred while handling a REST POST request", e);
             prepareResponse(SC_500, httpPostCommand, exceptionResponse(e));
         }
         this.textCommandService.sendResponse(httpPostCommand);

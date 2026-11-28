@@ -971,6 +971,7 @@ seatunnel:
 > | restoreMode          | optional | string | 作业恢复的数据来源：`CHECKPOINT` 或 `SAVEPOINT`。详见 [作业恢复与重启](rest-api-job-lifecycle.md#6-作业恢复与重启)。 |
 > | restoreSourceJobId   | optional | string | 要恢复的作业 ID，使用 `CHECKPOINT` 时必填。使用 `SAVEPOINT` 时，省略此参数则使用 `jobId`。 |
 > | format               | optional | string    | 配置风格,支持json、hocon 和 sql,默认 json   |
+> | variables            | optional | string    | 配置变量，逗号分隔的 `key=value` 列表，语法与命令行的 `-i` 相同，详见[配置变量](#配置变量) |
 
 **注意:** REST API 不支持 dry-run 功能。该功能仅通过 CLI 提供。
 
@@ -1082,6 +1083,64 @@ CREATE TABLE console_sink (
 
 INSERT INTO console_sink SELECT * FROM fake_source;
 ```
+#### 配置变量
+
+提交作业时可以填充作业配置中的 `${name}` 占位符，效果与命令行的 `-i` / `--variable` 相同。
+调度系统可以借此复用同一份配置，只替换日期、表名或连接参数等少量内容。变量通过 `variables`
+请求参数传入，格式为 URL 编码后的、逗号分隔的 `key=value` 列表，所有配置格式都支持。
+JSON 请求体还可以在顶层的 `variables` 对象中传入变量，该对象不属于作业配置。
+提交 SQL 时，变量在 SQL 解析完成后替换配置值，例如 `WITH` 子句中的选项值，不改写 SQL 标识符或表达式。
+
+未加引号的 HOCON 可选引用也会使用提交的变量。例如，先配置 `row.num = 3`，再配置
+`row.num = ${?rows}`，提交 `rows` 时使用该变量的值，未提交时保留 `3`。
+嵌套包含的配置文件中的可选引用仍不会回退到请求变量的根路径；必需引用保留该回退行为。
+仅用于替换的变量不会添加到作业配置中。
+
+对于下面的 `job.conf`：
+
+```hocon
+env {
+  job.mode = "BATCH"
+  job.name = "sync_${region}"
+}
+source {
+  FakeSource {
+    row.num = ${rows}
+    schema = { fields { name = "string" } }
+  }
+}
+sink {
+  Console {}
+}
+```
+
+以下两种提交方式得到的作业配置相同：
+
+```bash
+./bin/seatunnel.sh -c job.conf -i region=eu -i rows=100
+
+# variables=region=eu,rows=100，经过 URL 编码
+curl -X POST 'http://127.0.0.1:8080/submit-job?format=hocon&variables=region%3Deu%2Crows%3D100' \
+  -H 'Content-Type: text/plain' --data-binary @job.conf
+```
+
+同一个作业也可以用 JSON 请求体提交：
+
+```json
+{
+  "variables": {"region": "eu", "rows": 100},
+  "env": {"job.mode": "BATCH", "job.name": "sync_${region}"},
+  "source": [{"plugin_name": "FakeSource", "row.num": "${rows}", "schema": {"fields": {"name": "string"}}}],
+  "sink": [{"plugin_name": "Console"}]
+}
+```
+
+- 变量值遵循 `-i` 的规则：key 和 value 会去掉首尾空白，双引号中的值可以包含逗号，写成 `[...]` 或 `{...}` 的值会被解析为列表或对象。
+- 与命令行一致，没有对应变量的带引号占位符保持原样；传入了变量但没有变量能填充不带引号的占位符时，请求会以 HTTP 400 拒绝。`${table_name}` 等 sink 表占位符始终保留给 sink 处理。
+- 与命令行不同，占位符永远不会从引擎的系统属性或环境变量中取值，变量值也不能 `include` 文件或 URL。
+- 无效条目、空 key 或 `table_name` 等保留根路径会返回 HTTP 400。变量名按 HOCON 路径比较，因此即使通过不同输入传入，`rows` 和 `"rows"` 也会被视为重复。JSON 作业请求体中的重复属性和重复的 `variables` 查询参数同样会返回 HTTP 400。错误信息不会包含变量值。
+- 变量本身不会随作业保存，但替换后的配置会被保存。用在 `env` 或表名中的值会像其他配置项一样出现在 `/job-info` 中。请求参数可能出现在代理或访问日志中，敏感信息建议使用 JSON 的 `variables` 对象或[配置加密](../../introduction/configuration/config-encryption-decryption.md)。
+
 #### 响应
 
 ```json
@@ -1108,6 +1167,7 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 > | isStartWithSavePoint | optional | string | if job is started with save point |
 > | restoreMode          | optional | string | 作业恢复的数据来源：`CHECKPOINT` 或 `SAVEPOINT`。详见 [作业恢复与重启](rest-api-job-lifecycle.md#6-作业恢复与重启)。 |
 > | restoreSourceJobId   | optional | string | 要恢复的作业 ID，使用 `CHECKPOINT` 时必填。使用 `SAVEPOINT` 时，省略此参数则使用 `jobId`。 |
+> | variables            | optional | string | 配置变量，逗号分隔的 `key=value` 列表，详见[配置变量](#配置变量) |
 
 #### 请求体
 上传文件key的名称是config_file，支持以下格式：
@@ -1129,6 +1189,9 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 
 # 上传配置文件，并从上一个作业最新的 checkpoint 恢复
 curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&restoreSourceJobId=733584788375666689' --form 'config_file=@"/temp/fake_to_console.conf"'
+
+# 上传配置文件，并传入变量 region=eu,rows=100
+curl --location 'http://127.0.0.1:8080/submit-job/upload?variables=region%3Deu%2Crows%3D100' --form 'config_file=@"/temp/job.conf"'
 ```
 #### 响应
 
@@ -1155,8 +1218,9 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 > | jobId                | optional | string | job id                            |
 > | jobName              | optional | string | job name                          |
 > | isStartWithSavePoint | optional | string | if job is started with save point |
+> | variables            | optional | string | 该作业的配置变量，逗号分隔的 `key=value` 列表，详见[配置变量](#配置变量) |
 
-
+每个作业也可以在 `params` 旁边的顶层 `variables` 对象中传入变量。
 
 #### 请求体
 

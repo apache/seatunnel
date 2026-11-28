@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.rest.servlet;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.rest.ConfigFormat;
+import org.apache.seatunnel.engine.server.rest.RestConstant;
 
 import com.google.gson.Gson;
 import com.hazelcast.internal.json.JsonArray;
@@ -182,7 +183,15 @@ public class BaseServlet extends HttpServlet {
             int separator = pair.indexOf('=');
             String name = separator < 0 ? pair : pair.substring(0, separator);
             String value = separator < 0 ? "" : pair.substring(separator + 1);
-            reqParameterMap.put(decodeQueryComponent(name), decodeQueryComponent(value));
+            String decodedName = decodeQueryComponent(name);
+            if (RestConstant.VARIABLES.equals(decodedName)
+                    && reqParameterMap.containsKey(decodedName)) {
+                throw new IllegalArgumentException(
+                        "Pass all variables in one '"
+                                + RestConstant.VARIABLES
+                                + "' parameter, separated by commas");
+            }
+            reqParameterMap.put(decodedName, decodeQueryComponent(value));
         }
         return reqParameterMap;
     }
@@ -190,13 +199,12 @@ public class BaseServlet extends HttpServlet {
     private static String decodeQueryComponent(String component) {
         // UnsupportedEncodingException cannot occur for UTF-8, it is only declared by this
         // overload. IllegalArgumentException means a malformed escape such as "%zz". Both are
-        // rethrown as IllegalArgumentException naming the component, which ExceptionHandlingFilter
-        // turns into HTTP 400 instead of a 500.
+        // rethrown as IllegalArgumentException, which ExceptionHandlingFilter turns into HTTP 400
+        // instead of a 500. Do not include the component or decoder cause: they may contain values.
         try {
             return URLDecoder.decode(component, StandardCharsets.UTF_8.name());
         } catch (UnsupportedEncodingException | IllegalArgumentException e) {
-            throw new IllegalArgumentException(
-                    "Invalid URL encoding in query parameter: " + component, e);
+            throw new IllegalArgumentException("Invalid URL encoding in query parameter");
         }
     }
 
@@ -208,6 +216,12 @@ public class BaseServlet extends HttpServlet {
         for (Map.Entry<String, String[]> entry : parameterMap.entrySet()) {
             String paramName = entry.getKey();
             String[] paramValues = entry.getValue();
+            if (RestConstant.VARIABLES.equals(paramName) && paramValues.length > 1) {
+                throw new IllegalArgumentException(
+                        "Pass all variables in one '"
+                                + RestConstant.VARIABLES
+                                + "' parameter, separated by commas");
+            }
 
             for (String value : paramValues) {
                 reqParameterMap.put(paramName, value);
