@@ -56,7 +56,7 @@ Other SeaTunnel types are not supported by the current InfluxDB source converter
 | partition_num      | int    | no       | 0             | Number of query splits. `0` means the source runs the original `sql` as one split.                |
 | split_column       | string | no       | -             | Integer column used to split the query when parallel scan is enabled.                             |
 | where              | string | no       | -             | Reserved source option. The current split logic reads the lowercase `where` keyword from `sql` directly. |
-| epoch              | string | no       | n             | Time precision returned by InfluxDB. For example: `H`, `m`, `s`, `MS`, `u`, `n`.                 |
+| epoch              | string | no       | n             | Time precision returned by InfluxDB. Lowercase values: `h`, `m`, `s`, `ms`, `u`, `n`.                 |
 | connect_timeout_ms | long   | no       | 15000         | Timeout for connecting to InfluxDB, in milliseconds.                                             |
 | query_timeout_sec  | int    | no       | 3             | Timeout for querying InfluxDB, in seconds.                                                       |
 | common-options     | config | no       | -             | Source plugin common options. See [Source Common Options](../common-options/source-common-options.md). |
@@ -174,9 +174,10 @@ the query results overlap.
 
 :::caution Reserved option
 
-Single-table mode (root-level `sql`): setting `where` has no effect on the generated split
-queries — put the filter inside `sql` instead, for example `select * from test where age > 0`.
-That split parser is case-sensitive on the `where` keyword.
+Single-table mode (root-level `sql`): the split logic reads the lowercase `where` keyword directly
+from the `sql` option. Setting `where` has no effect on the generated split queries — put the filter
+inside `sql` instead, for example `select * from test where age > 0`. That split parser is
+case-sensitive on the `where` keyword.
 
 `tables_configs` multi-table mode: setting `where` in a table entry fails at build time with an
 `OptionValidationException` (`InfluxDBSourceFactory` rejects it); that split parser is
@@ -190,8 +191,8 @@ runtime split query generator does not read it.
 
 ### epoch [string]
 
-Time precision returned by InfluxDB. Valid values include `H`, `m`, `s`, `MS`, `u`, and `n`. The
-default value is `n`.
+Time precision returned by InfluxDB. The value is passed to the InfluxDB HTTP API as-is, so it must
+be lowercase: `h`, `m`, `s`, `ms`, `u`, or `n`. The default value is `n`.
 
 ### query_timeout_sec [int]
 

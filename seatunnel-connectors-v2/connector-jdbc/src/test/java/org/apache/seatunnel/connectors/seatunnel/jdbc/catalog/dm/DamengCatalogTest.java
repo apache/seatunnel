@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm;
 
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 
 import org.junit.jupiter.api.Assertions;
@@ -121,6 +122,18 @@ class DamengCatalogTest {
         Column charColumn = catalog().buildColumn(resultSet("CHAR", 10, 10, 10));
         Assertions.assertEquals("CHAR(10)", charColumn.getSourceType());
         Assertions.assertEquals(40, charColumn.getColumnLength());
+    }
+
+    @Test
+    void existenceCheckCoversTablesAndViews() {
+        String sql =
+                catalog().getTableWithConditionSql(TablePath.of("DAMENG", "SYSDBA", "V_ORDER"));
+        Assertions.assertEquals(
+                "SELECT OWNER, TABLE_NAME FROM ALL_TABLES"
+                        + " where OWNER = 'SYSDBA' and TABLE_NAME = 'V_ORDER'"
+                        + " UNION ALL SELECT OWNER, VIEW_NAME FROM ALL_VIEWS"
+                        + " where OWNER = 'SYSDBA' and VIEW_NAME = 'V_ORDER'",
+                sql);
     }
 
     private static DamengCatalog catalog() {
