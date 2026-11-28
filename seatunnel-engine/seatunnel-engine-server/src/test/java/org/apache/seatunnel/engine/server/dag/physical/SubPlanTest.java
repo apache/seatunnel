@@ -320,6 +320,103 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
     }
 
     @Test
+    void shouldCarryTheRestoreBudgetAcrossReconstruction() throws Exception {
+        // A master failover rebuilds every SubPlan from the same IMaps with no process-local
+        // state: the retry budget and the restore causes must survive that reconstruction,
+        // otherwise job.retry.times restarts at zero on every failover (#13323).
+        CheckpointManager checkpointManager = mock(CheckpointManager.class);
+        PhysicalPlan physicalPlan = mock(PhysicalPlan.class);
+        JobMaster jobMaster = mock(JobMaster.class);
+        when(jobMaster.getCheckpointManager()).thenReturn(checkpointManager);
+        when(jobMaster.getPhysicalPlan()).thenReturn(physicalPlan);
+        doAnswer(
+                        invocation -> {
+                            ((SubPlan) invocation.getArgument(0)).initStateFuture();
+                            return null;
+                        })
+                .when(physicalPlan)
+                .addPipelineEndCallback(any(SubPlan.class));
+
+        PhysicalVertex vertex = mockPhysicalVertex(ExecutionState.FAILED);
+        when(vertex.initStateFuture())
+                .thenReturn(new PassiveCompletableFuture<>(new CompletableFuture<>()));
+
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("test");
+        jobConfig.getEnvOptions().put(EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS.key(), 0);
+        JobImmutableInformation jobImmutableInformation = mock(JobImmutableInformation.class);
+        when(jobImmutableInformation.getJobId()).thenReturn(1L);
+        when(jobImmutableInformation.getJobConfig()).thenReturn(jobConfig);
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine
+                        .getHazelcastInstance()
+                        .getMap("sub-plan-restore-info-state-" + UUID.randomUUID());
+        IMap<Object, Long[]> runningJobStateTimestampsIMap =
+                nodeEngine
+                        .getHazelcastInstance()
+                        .getMap("sub-plan-restore-info-timestamps-" + UUID.randomUUID());
+
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            SubPlan first =
+                    new SubPlan(
+                            1,
+                            1,
+                            System.currentTimeMillis(),
+                            Collections.singletonList(vertex),
+                            Collections.emptyList(),
+                            jobImmutableInformation,
+                            executorService,
+                            runningJobStateIMap,
+                            runningJobStateTimestampsIMap,
+                            Collections.emptyMap());
+            first.setJobMaster(jobMaster);
+            first.setCurrPipelineStatus(PipelineStatus.FAILED);
+            setErrorByPhysicalVertex(first, "java.sql.SQLException: connection refused");
+            Assertions.assertTrue(
+                    invokePrepareRestorePipeline(first), "prepareRestorePipeline failed");
+
+            SubPlan rebuilt =
+                    new SubPlan(
+                            1,
+                            1,
+                            System.currentTimeMillis(),
+                            Collections.singletonList(mockPhysicalVertex(ExecutionState.FAILED)),
+                            Collections.emptyList(),
+                            jobImmutableInformation,
+                            executorService,
+                            runningJobStateIMap,
+                            runningJobStateTimestampsIMap,
+                            Collections.emptyMap());
+
+            Assertions.assertEquals(1, rebuilt.getPipelineRestoreNum());
+            Assertions.assertEquals(1, rebuilt.getRestoreCauses().size());
+            Assertions.assertTrue(
+                    rebuilt.getRestoreCauses().get(0).contains("connection refused"),
+                    "unexpected restored cause: " + rebuilt.getRestoreCauses().get(0));
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void shouldStartANewPipelineWithoutAnyRestore() {
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            SubPlan subPlan =
+                    newSubPlan(
+                            executorService,
+                            Collections.singletonList(mockPhysicalVertex(ExecutionState.FAILED)),
+                            Collections.emptyList());
+
+            Assertions.assertEquals(0, subPlan.getPipelineRestoreNum());
+            Assertions.assertTrue(subPlan.getRestoreCauses().isEmpty());
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
     void shouldCaptureTheRealErrorWhenARestoreIsPrepared() throws Exception {
         // The tests above call retainRestoreCause directly, which proves the retention works but
         // not that anything calls it. This drives prepareRestorePipeline instead.

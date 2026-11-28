@@ -126,6 +126,13 @@ public class SubPlan {
 
     private AtomicInteger pipelineRestoreNum;
 
+    /**
+     * IMap key under which the {@link PipelineRestoreInfo} of this pipeline is persisted on every
+     * restore, so a master failover does not reset the {@code job.retry.times} budget nor lose the
+     * recorded restore causes.
+     */
+    private final String restoreInfoImapKey;
+
     private final Object restoreLock = new Object();
 
     private volatile PipelineStatus currPipelineStatus;
@@ -161,7 +168,8 @@ public class SubPlan {
         this.pipelineFuture = new CompletableFuture<>();
         this.physicalVertexList = physicalVertexList;
         this.coordinatorVertexList = coordinatorVertexList;
-        pipelineRestoreNum = new AtomicInteger();
+        this.restoreInfoImapKey =
+                "pipeline_restore_" + jobImmutableInformation.getJobId() + "_" + pipelineId;
         pipelineMaxRestoreNum =
                 Integer.parseInt(
                         jobImmutableInformation
@@ -198,6 +206,18 @@ public class SubPlan {
         }
 
         this.currPipelineStatus = (PipelineStatus) runningJobStateIMap.get(pipelineLocation);
+
+        // A master failover rebuilds every SubPlan from scratch with no process-local state.
+        // Restore the retry budget and the recorded causes of this pipeline, so job.retry.times
+        // keeps bounding the total number of restarts across failovers (#13323).
+        Object persistedRestoreInfo = runningJobStateIMap.get(restoreInfoImapKey);
+        if (persistedRestoreInfo instanceof PipelineRestoreInfo) {
+            PipelineRestoreInfo restoreInfo = (PipelineRestoreInfo) persistedRestoreInfo;
+            this.pipelineRestoreNum = new AtomicInteger(restoreInfo.getRestoreCount());
+            this.restoreCauses.addAll(restoreInfo.getRestoreCauses());
+        } else {
+            this.pipelineRestoreNum = new AtomicInteger();
+        }
 
         this.pipelineFullName =
                 String.format(
@@ -602,6 +622,26 @@ public class SubPlan {
     }
 
     /**
+     * Best-effort persistence of the restore bookkeeping, so a master failover does not reset the
+     * {@code job.retry.times} budget nor lose the restore causes. Failing to persist must not break
+     * the restore itself: the worst case is the previous behavior (#13323).
+     */
+    private void persistRestoreInfo() {
+        try {
+            runningJobStateIMap.put(
+                    restoreInfoImapKey,
+                    new PipelineRestoreInfo(pipelineRestoreNum.get(), getRestoreCauses()));
+        } catch (Exception e) {
+            log.warn(
+                    String.format(
+                            "Persist the restore info of %s failed, the restore budget may be "
+                                    + "reset by a master failover",
+                            pipelineFullName),
+                    e);
+        }
+    }
+
+    /**
      * reset the pipeline and task state and init state future again
      *
      * @return
@@ -613,6 +653,7 @@ public class SubPlan {
                 // Record why this run ended before anything clears it: reset() runs just below
                 // and initStateFuture() replaces errorByPhysicalVertex outright.
                 retainRestoreCause(pipelineRestoreNum.get(), errorByPhysicalVertex.get());
+                persistRestoreInfo();
                 log.info(
                         String.format(
                                 "Restore time %s, pipeline %s",
@@ -773,6 +814,11 @@ public class SubPlan {
 
     public int getPipelineRestoreNum() {
         return pipelineRestoreNum.get();
+    }
+
+    /** IMap key of the persisted {@link PipelineRestoreInfo} of this pipeline. */
+    public String getRestoreInfoImapKey() {
+        return restoreInfoImapKey;
     }
 
     public void handleCheckpointError() {
