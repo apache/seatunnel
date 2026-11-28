@@ -24,6 +24,7 @@ import ChangeLog from '../changelog/connector-lance.md';
 Lance sink 用于把 SeaTunnel 数据写入 Lance 数据集。它可以根据上游 SeaTunnel 表结构创建 Lance 表，并按配置的 Lance 写入模式创建或追加数据。
 
 当前连接器支持基于目录的 Lance namespace。
+如需读取 Lance 数据集，请使用 [Lance source](../source/Lance.md)。
 ## 依赖
 
 ```xml

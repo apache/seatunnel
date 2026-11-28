@@ -303,6 +303,11 @@ kafka:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-kafka/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(kafka)/**'
+lance:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-lance/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(lance)/**'
 maxcompute:
   - all:
       - changed-files:

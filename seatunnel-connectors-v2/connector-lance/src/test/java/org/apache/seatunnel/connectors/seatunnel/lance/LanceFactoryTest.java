@@ -24,7 +24,9 @@ import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.seatunnel.lance.config.LanceCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.lance.config.LanceSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.lance.config.LanceSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.lance.config.LanceSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.lance.sink.LanceSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.lance.source.LanceSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -38,6 +40,8 @@ import java.util.Map;
 public class LanceFactoryTest {
 
     private final OptionRule optionRule = new LanceSinkFactory().optionRule();
+
+    private final OptionRule sourceOptionRule = new LanceSourceFactory().optionRule();
 
     @Test
     void optionRule() {
@@ -147,6 +151,74 @@ public class LanceFactoryTest {
                 error.getMessage());
     }
 
+    @Test
+    void sourceOptionRule() {
+        Assertions.assertNotNull(sourceOptionRule);
+    }
+
+    @Test
+    void testSourceNonblankValuesAccepted() {
+        Map<String, Object> config = validConfig();
+        Assertions.assertDoesNotThrow(() -> validateSource(config));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", " ", "\t", "\n", "\r", " \t\r\n "})
+    void testSourceBlankDatasetPathRejected(String value) {
+        Map<String, Object> config = validConfig();
+        config.put("dataset_path", value);
+        OptionValidationException error =
+                Assertions.assertThrows(
+                        OptionValidationException.class, () -> validateSource(config));
+        Assertions.assertTrue(error.getMessage().contains("dataset_path"), error.getMessage());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", " ", "\t", "\n", "\r", " \t\r\n "})
+    void testSourceBlankNamespaceTypeRejected(String value) {
+        Map<String, Object> config = validConfig();
+        config.put("namespace_type", value);
+        OptionValidationException error =
+                Assertions.assertThrows(
+                        OptionValidationException.class, () -> validateSource(config));
+        Assertions.assertTrue(error.getMessage().contains("namespace_type"), error.getMessage());
+    }
+
+    @Test
+    void testSourceOmittedOptionalKeysUseDefaults() {
+        ReadonlyConfig config =
+                Assertions.assertDoesNotThrow(() -> validateSource(Collections.emptyMap()));
+
+        Assertions.assertEquals("/test.lance", config.get(LanceCommonOptions.KEY_DATASET_PATH));
+        Assertions.assertEquals("dir", config.get(LanceCommonOptions.KEY_NAMESPACE_TYPE));
+        Assertions.assertEquals(
+                Collections.emptyMap(), config.get(LanceSourceOptions.READ_STORAGE_OPTIONS));
+    }
+
+    @Test
+    void testSourceStorageOptionsPreserved() {
+        Map<String, Object> config = validConfig();
+        Map<String, String> storage = new HashMap<>();
+        storage.put("aws_endpoint_url", "http://minio:9000");
+        storage.put("allow_http", "true");
+        config.put(LanceSourceOptions.READ_STORAGE_OPTIONS.key(), storage);
+
+        ReadonlyConfig readonlyConfig = Assertions.assertDoesNotThrow(() -> validateSource(config));
+
+        Assertions.assertEquals(
+                storage, readonlyConfig.get(LanceSourceOptions.READ_STORAGE_OPTIONS));
+    }
+
+    @Test
+    void testSourceTablePreserved() {
+        Map<String, Object> config = validConfig();
+        config.put("table", "users");
+
+        ReadonlyConfig readonlyConfig = Assertions.assertDoesNotThrow(() -> validateSource(config));
+
+        Assertions.assertEquals("users", readonlyConfig.get(LanceCommonOptions.KEY_TABLE));
+    }
+
     private void assertInvalidOption(String key, String value) {
         Map<String, Object> config = validConfig();
         config.put(key, value);
@@ -168,6 +240,13 @@ public class LanceFactoryTest {
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(config);
         ConfigValidator.validateUnknownKeys(readonlyConfig, optionRule, "Lance");
         ConfigValidator.of(readonlyConfig).validate(optionRule);
+        return readonlyConfig;
+    }
+
+    private ReadonlyConfig validateSource(Map<String, Object> config) {
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(config);
+        ConfigValidator.validateUnknownKeys(readonlyConfig, sourceOptionRule, "Lance");
+        ConfigValidator.of(readonlyConfig).validate(sourceOptionRule);
         return readonlyConfig;
     }
 }

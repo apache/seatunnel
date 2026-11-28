@@ -28,7 +28,11 @@ public enum LanceConnectorErrorCode implements SeaTunnelErrorCode {
 
     TABLE_DATASET_WRITE_ST_ROW_EXCEPTION("LANCE-04", "Dataset write seatunnelRow exception"),
 
-    UNSUPPORTED_MAP_TYPE("LANCE-05", "Lance does not support Map columns");
+    UNSUPPORTED_MAP_TYPE("LANCE-05", "Lance does not support Map columns"),
+
+    UNSUPPORTED_FIELD_TYPE("LANCE-06", "Unsupported lance field type"),
+
+    DATASET_READ_EXCEPTION("LANCE-07", "Lance dataset read exception");
 
     private final String code;
     private final String description;
