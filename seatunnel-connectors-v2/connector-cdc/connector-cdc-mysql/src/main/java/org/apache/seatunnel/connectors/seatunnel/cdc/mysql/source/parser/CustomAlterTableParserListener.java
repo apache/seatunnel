@@ -98,7 +98,8 @@ public class CustomAlterTableParserListener extends MySqlParserBaseListener
                 () -> {
                     Column column = columnDefinitionListener.getColumn();
                     org.apache.seatunnel.api.table.catalog.Column seatunnelColumn =
-                            toSeatunnelColumnWithFullTypeInfo(column);
+                            MySqlTypeUtils.convertAddedColumn(column, dbzConnectorConfig)
+                                    .reSourceType(getSourceColumnTypeWithLengthScale(column));
                     if (ctx.FIRST() != null) {
                         AlterTableAddColumnEvent alterTableAddColumnEvent =
                                 AlterTableAddColumnEvent.addFirst(tableIdentifier, seatunnelColumn);

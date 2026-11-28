@@ -350,6 +350,14 @@ sink {
 
 ```
 
+With schema evolution enabled, a MySQL CDC source and a MySQL JDBC sink using the same dialect preserve calendar `DATETIME` defaults on `ADD COLUMN`. For example:
+
+```sql
+ALTER TABLE products ADD COLUMN observed_at DATETIME(6) DEFAULT '2025-04-05 06:07:08.123456';
+```
+
+Use a valid calendar literal in `YYYY-MM-DD HH:MM:SS` form, optionally followed by one to six fractional digits within the column precision. This does not change `CURRENT_TIMESTAMP` or `NULL` handling and does not extend default preservation to `MODIFY COLUMN`, `CHANGE COLUMN`, or cross-dialect sinks.
+
 ### Schema change event filtering
 
 When `schema-changes.enabled = true`, you can further control which schema change event types are

@@ -31,8 +31,11 @@ import io.debezium.relational.Column;
 import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 /** Utilities for converting from MySQL types to SeaTunnel types. */
 @Slf4j
@@ -46,6 +49,12 @@ public class MySqlTypeUtils {
     private static final MySqlTypeConverter NO_INT_NARROWING_CONVERTER =
             new MySqlTypeConverter(MySqlVersion.V_5_7, false);
 
+    // Recognize calendar literals with four-digit MySQL years and up to six fractional digits.
+    // Invalid or unsupported values retain Debezium's default conversion.
+    private static final Pattern DATETIME_LITERAL =
+            Pattern.compile(
+                    "[1-9][0-9]{3}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?");
+
     public static SeaTunnelDataType<?> convertFromColumn(
             Column column, RelationalDatabaseConnectorConfig dbzConnectorConfig) {
         return convertToSeaTunnelColumn(column, dbzConnectorConfig).getDataType();
@@ -54,6 +63,40 @@ public class MySqlTypeUtils {
     public static org.apache.seatunnel.api.table.catalog.Column convertToSeaTunnelColumn(
             io.debezium.relational.Column column,
             RelationalDatabaseConnectorConfig dbzConnectorConfig) {
+        return convertToSeaTunnelColumn(column, dbzConnectorConfig, null);
+    }
+
+    /**
+     * Converts an ADD COLUMN event. A DATETIME literal is retained as SQL text without quotes so
+     * the matching JDBC sink can render it without interpreting a Debezium epoch value.
+     */
+    public static org.apache.seatunnel.api.table.catalog.Column convertAddedColumn(
+            Column column, RelationalDatabaseConnectorConfig dbzConnectorConfig) {
+        String datetimeDefault =
+                MySqlTypeConverter.MYSQL_DATETIME.equalsIgnoreCase(column.typeName())
+                        ? column.defaultValueExpression()
+                                .filter(MySqlTypeUtils::isDatetimeLiteral)
+                                .orElse(null)
+                        : null;
+        return convertToSeaTunnelColumn(column, dbzConnectorConfig, datetimeDefault);
+    }
+
+    private static boolean isDatetimeLiteral(String value) {
+        if (!DATETIME_LITERAL.matcher(value).matches()) {
+            return false;
+        }
+        try {
+            LocalDateTime.parse(value.replace(' ', 'T'));
+            return true;
+        } catch (DateTimeParseException e) {
+            return false;
+        }
+    }
+
+    private static org.apache.seatunnel.api.table.catalog.Column convertToSeaTunnelColumn(
+            Column column,
+            RelationalDatabaseConnectorConfig dbzConnectorConfig,
+            String datetimeDefault) {
         String bigIntUnsignedHandlingModeStr =
                 dbzConnectorConfig
                         .getConfig()
@@ -78,7 +121,9 @@ public class MySqlTypeUtils {
 
         Optional<String> defaultValueExpression = column.defaultValueExpression();
         Object defaultValue = defaultValueExpression.orElse(null);
-        if (defaultValueExpression.isPresent()
+        if (datetimeDefault != null) {
+            defaultValue = datetimeDefault;
+        } else if (defaultValueExpression.isPresent()
                 && !DefaultValueUtils.isMysqlSpecialDefaultValue(defaultValue)) {
             defaultValue =
                     mySqlDefaultValueConverter
