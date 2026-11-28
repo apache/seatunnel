@@ -43,6 +43,14 @@ TiDB CDC 连接器通过 `tikv-client-java` 客户端与 TiKV 的 Placement Driv
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户定义的拆分](../../introduction/concepts/connector-v2-features.md)
 
+## 聚簇主键
+
+对于 TiDB 非整数或组合聚簇主键，连接器在快照读取和流式读取时从完整记录键补齐行数据中缺失的主键值。行数据中已有的值会保留，包括新排序规则下的原始字符串。整数主键和非聚簇主键沿用原有的解码行为。
+
+连接器在创建数据源时使用现有 JDBC 连接配置读取一次表的 `TIDB_PK_TYPE` 元数据，无需增加配置。TiDB 5.0 之前的版本不支持 common handle，继续使用整数句柄路径。
+
+当流式 `DELETE` 既不带 `value` 也不带 `oldValue` 时，只能从记录键还原可逆的主键分量。只有当记录键字节就是原始值时字符串分量才可逆：`binary` 排序规则直接保存原始字节，按排序权重比较的排序规则则不是。对于 `VARCHAR`、`TEXT`，`*_bin` 是补齐（padding）排序规则，记录键会去掉尾随空格（存储的 `'bob '` 与 `'bob'` 编码相同）；只有 `CHAR` 因为类型本身会去掉尾随空格，在 `*_bin` 下仍然可逆。分量不可逆时，连接器会抛出包含表名、列名、排序规则和记录键的明确错误，而不是输出错误的主键。
+
 ## 数据类型映射
 
 | MySQL 数据类型                                                                                     | SeaTunnel 数据类型 |

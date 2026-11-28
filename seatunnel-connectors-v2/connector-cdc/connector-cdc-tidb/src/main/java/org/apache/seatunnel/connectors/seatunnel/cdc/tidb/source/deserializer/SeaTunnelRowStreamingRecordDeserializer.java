@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.converter.DataC
 import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.converter.DefaultDataConverter;
 
 import org.tikv.common.key.RowKey;
+import org.tikv.common.meta.Collation;
 import org.tikv.common.meta.TiColumnInfo;
 import org.tikv.common.meta.TiTableInfo;
 import org.tikv.kvproto.Cdcpb;
@@ -36,33 +37,45 @@ public class SeaTunnelRowStreamingRecordDeserializer
         extends AbstractSeaTunnelRowDeserializer<Cdcpb.Event.Row> {
 
     private final DataConverter converter;
+    private final boolean clusteredPrimaryKey;
 
     public SeaTunnelRowStreamingRecordDeserializer(
             TiTableInfo tableInfo, CatalogTable catalogTable) {
+        this(tableInfo, catalogTable, false);
+    }
+
+    /**
+     * Uses explicit table metadata to distinguish common handles from non-clustered row IDs.
+     * Common-handle bytes must never be decoded as an integer before restoring omitted columns.
+     */
+    public SeaTunnelRowStreamingRecordDeserializer(
+            TiTableInfo tableInfo, CatalogTable catalogTable, boolean clusteredPrimaryKey) {
         super(tableInfo, catalogTable);
+        this.clusteredPrimaryKey = clusteredPrimaryKey;
         converter = new DefaultDataConverter();
     }
 
     @Override
     public void deserialize(Cdcpb.Event.Row row, Collector<SeaTunnelRow> output) throws Exception {
 
-        final RowKey rowKey = RowKey.decode(row.getKey().toByteArray());
-        final long handle = rowKey.getHandle();
+        final byte[] key = row.getKey().toByteArray();
+        // Row-value decoding only consumes the integer handle for pk-handle tables.
+        final long handle = tableInfo.isPkHandle() ? RowKey.decode(key).getHandle() : 0L;
         Object[] values;
         switch (row.getOpType()) {
             case DELETE:
                 values = decodeDeleteValues(row, handle);
+                CommonHandleDecoder.restorePrimaryKeyColumns(
+                        key, values, tableInfo, clusteredPrimaryKey);
                 SeaTunnelRow record = converter.convert(values, tableInfo, rowType);
                 record.setRowKind(RowKind.DELETE);
                 collect(record, output);
                 break;
             case PUT:
                 try {
-                    values =
-                            decodeObjects(
-                                    row.getValue().toByteArray(),
-                                    RowKey.decode(row.getKey().toByteArray()).getHandle(),
-                                    tableInfo);
+                    values = decodeObjects(row.getValue().toByteArray(), handle, tableInfo);
+                    CommonHandleDecoder.restorePrimaryKeyColumns(
+                            key, values, tableInfo, clusteredPrimaryKey);
                     if (row.getOldValue() == null || row.getOldValue().isEmpty()) {
                         SeaTunnelRow insert = converter.convert(values, tableInfo, rowType);
                         insert.setRowKind(RowKind.INSERT);
@@ -99,6 +112,32 @@ public class SeaTunnelRowStreamingRecordDeserializer
     }
 
     private Object[] decodeDeleteValuesFromHandle(Cdcpb.Event.Row row, long handle) {
+        if (clusteredPrimaryKey && !tableInfo.isPkHandle()) {
+            // A key-only common-handle delete can still recover every primary-key column below.
+            // Non-key columns intentionally remain null, as on the integer-handle delete path.
+            // String key components under a non-binary collation hold collation weights instead
+            // of the stored value, so fail fast rather than emit a wrong identity.
+            TiColumnInfo unrecoverableColumn =
+                    CommonHandleDecoder.unrecoverableKeyOnlyColumn(tableInfo);
+            if (unrecoverableColumn != null) {
+                throw new IllegalStateException(
+                        String.format(
+                                "Cannot deserialize TiDB DELETE CDC row because both value and"
+                                        + " oldValue are empty, and primary-key column %s of table"
+                                        + " %s(%s) uses collation %s, which needs the row value to"
+                                        + " restore the stored string. key=%s, startTs=%s,"
+                                        + " commitTs=%s",
+                                unrecoverableColumn.getName(),
+                                tableInfo.getName(),
+                                tableInfo.getId(),
+                                Collation.translate(
+                                        unrecoverableColumn.getType().getCollationCode()),
+                                row.getKey(),
+                                row.getStartTs(),
+                                row.getCommitTs()));
+            }
+            return new Object[tableInfo.getColumns().size()];
+        }
         TiColumnInfo handleColumn = tableInfo.getPKIsHandleColumn();
         if (!tableInfo.isPkHandle() || handleColumn == null) {
             throw new IllegalStateException(
