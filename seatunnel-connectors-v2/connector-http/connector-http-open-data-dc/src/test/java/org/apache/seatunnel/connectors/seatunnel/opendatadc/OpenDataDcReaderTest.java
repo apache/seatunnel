@@ -336,50 +336,6 @@ class OpenDataDcReaderTest {
         assertEquals(1, calls.get());
     }
 
-    private static void assertCancelsWithoutEmitting(
-            CountDownLatch atCancellationPoint,
-            HttpHandler handler,
-            Function<String, CrashesApi> createApi,
-            Runnable releaseFixture)
-            throws Exception {
-        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/query", handler);
-        server.start();
-        ExecutorService workers = Executors.newFixedThreadPool(2);
-        RecordingContext context = new RecordingContext();
-        OpenDataDcReader reader =
-                new OpenDataDcReader(
-                        context,
-                        createApi.apply(
-                                "http://127.0.0.1:" + server.getAddress().getPort() + "/query"),
-                        2,
-                        0,
-                        "crashes");
-        Rows rows = new Rows();
-        try {
-            reader.open();
-            Future<?> poll =
-                    workers.submit(
-                            () -> {
-                                reader.pollNext(rows);
-                                return null;
-                            });
-            await(atCancellationPoint);
-            workers.submit(reader::cancel).get(3, TimeUnit.SECONDS);
-            poll.get(3, TimeUnit.SECONDS);
-            assertTrue(rows.values.isEmpty());
-            assertEquals(0, context.signals);
-        } finally {
-            releaseFixture.run();
-            try {
-                reader.close();
-            } finally {
-                server.stop(0);
-                workers.shutdownNow();
-            }
-        }
-    }
-
     @Test
     void stopsAtCapAndShrinksLastRequest() throws IOException {
         RecordingContext context = new RecordingContext();
@@ -581,6 +537,50 @@ class OpenDataDcReaderTest {
         assertThrows(
                 IOException.class,
                 () -> CrashesApi.retryDelayMillis("Sat, 21 Nov 2026 08:00:06 GMT", now, 500));
+    }
+
+    private static void assertCancelsWithoutEmitting(
+            CountDownLatch atCancellationPoint,
+            HttpHandler handler,
+            Function<String, CrashesApi> createApi,
+            Runnable releaseFixture)
+            throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/query", handler);
+        server.start();
+        ExecutorService workers = Executors.newFixedThreadPool(2);
+        RecordingContext context = new RecordingContext();
+        OpenDataDcReader reader =
+                new OpenDataDcReader(
+                        context,
+                        createApi.apply(
+                                "http://127.0.0.1:" + server.getAddress().getPort() + "/query"),
+                        2,
+                        0,
+                        "crashes");
+        Rows rows = new Rows();
+        try {
+            reader.open();
+            Future<?> poll =
+                    workers.submit(
+                            () -> {
+                                reader.pollNext(rows);
+                                return null;
+                            });
+            await(atCancellationPoint);
+            workers.submit(reader::cancel).get(3, TimeUnit.SECONDS);
+            poll.get(3, TimeUnit.SECONDS);
+            assertTrue(rows.values.isEmpty());
+            assertEquals(0, context.signals);
+        } finally {
+            releaseFixture.run();
+            try {
+                reader.close();
+            } finally {
+                server.stop(0);
+                workers.shutdownNow();
+            }
+        }
     }
 
     private static void await(CountDownLatch latch) throws IOException {

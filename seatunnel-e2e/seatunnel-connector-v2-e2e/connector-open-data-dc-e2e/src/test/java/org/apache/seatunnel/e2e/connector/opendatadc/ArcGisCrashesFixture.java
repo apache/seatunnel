@@ -83,6 +83,11 @@ final class ArcGisCrashesFixture implements AutoCloseable {
         return new ArrayList<>(queries);
     }
 
+    @Override
+    public void close() {
+        server.stop(0);
+    }
+
     private synchronized void handle(HttpExchange exchange) throws IOException {
         try {
             Map<String, String> params = queryParams(exchange);
@@ -206,10 +211,5 @@ final class ArcGisCrashesFixture implements AutoCloseable {
                 + id
                 + ",\"CCN\":\"00123456\",\"REPORTDATE\":1000,\"WARD\":\"Ward 1\","
                 + "\"TOTAL_VEHICLES\":2,\"LATITUDE\":38.9,\"LONGITUDE\":null}}]}";
-    }
-
-    @Override
-    public void close() {
-        server.stop(0);
     }
 }

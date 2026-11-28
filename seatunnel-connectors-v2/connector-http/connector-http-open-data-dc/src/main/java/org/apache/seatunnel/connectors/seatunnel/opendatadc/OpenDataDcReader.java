@@ -108,6 +108,30 @@ final class OpenDataDcReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     /**
+     * Serializes exactly 24 bytes: big-endian upperBound, lastId and rowCount longs. The engine
+     * checkpoint lock coordinates this state with the page commit in pollPage.
+     */
+    @Override
+    protected byte[] snapshotStateToBytes(long checkpointId) {
+        return ByteBuffer.allocate(3 * Long.BYTES)
+                .putLong(upperBound)
+                .putLong(lastId)
+                .putLong(rowCount)
+                .array();
+    }
+
+    /**
+     * Restores the same three-long layout so resumed pages keep both the scan bound and row cap.
+     */
+    @Override
+    protected void restoreState(byte[] restoredState) {
+        ByteBuffer buffer = ByteBuffer.wrap(restoredState);
+        upperBound = buffer.getLong();
+        lastId = buffer.getLong();
+        rowCount = buffer.getLong();
+    }
+
+    /**
      * Fetches and validates the full ordered page before taking the checkpoint lock. Emission,
      * upper bound, cursor and row count commit together under that lock. Short nonempty pages
      * continue by key; only an empty page, bound or row cap ends the scan.
@@ -222,29 +246,5 @@ final class OpenDataDcReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             return value.intValue();
         }
         throw new IOException("Open Data DC returned an invalid integer for " + key);
-    }
-
-    /**
-     * Serializes exactly 24 bytes: big-endian upperBound, lastId and rowCount longs. The engine
-     * checkpoint lock coordinates this state with the page commit in pollPage.
-     */
-    @Override
-    protected byte[] snapshotStateToBytes(long checkpointId) {
-        return ByteBuffer.allocate(3 * Long.BYTES)
-                .putLong(upperBound)
-                .putLong(lastId)
-                .putLong(rowCount)
-                .array();
-    }
-
-    /**
-     * Restores the same three-long layout so resumed pages keep both the scan bound and row cap.
-     */
-    @Override
-    protected void restoreState(byte[] restoredState) {
-        ByteBuffer buffer = ByteBuffer.wrap(restoredState);
-        upperBound = buffer.getLong();
-        lastId = buffer.getLong();
-        rowCount = buffer.getLong();
     }
 }

@@ -94,10 +94,6 @@ public class OpenDataDcSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                         "Open Data DC: Crashes in DC");
     }
 
-    private static PhysicalColumn column(String name, SeaTunnelDataType<?> type, boolean nullable) {
-        return PhysicalColumn.of(name, type, 0, nullable, null, null);
-    }
-
     @Override
     public String getPluginName() {
         return PLUGIN_NAME;
@@ -131,5 +127,9 @@ public class OpenDataDcSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                 pageSize,
                 maxRows,
                 table.getTableId().toTablePath().getFullName());
+    }
+
+    private static PhysicalColumn column(String name, SeaTunnelDataType<?> type, boolean nullable) {
+        return PhysicalColumn.of(name, type, 0, nullable, null, null);
     }
 }
