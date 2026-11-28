@@ -243,6 +243,10 @@ public class MysqlDialect implements JdbcDialect {
     public StringRangeSplitDecision validateStringRangeSplit(
             Connection connection, JdbcSourceTable table, String columnName, int sampleSize)
             throws SQLException {
+        if (getClass() != MysqlDialect.class) {
+            return StringRangeSplitDecision.unsafe(
+                    "ASCII string range splitting is only validated for the MySQL dialect");
+        }
         if (table.getTablePath() == null
                 || TablePath.DEFAULT.getFullName().equals(table.getTablePath().getFullName())) {
             return StringRangeSplitDecision.unsafe(
@@ -267,9 +271,12 @@ public class MysqlDialect implements JdbcDialect {
         }
         Integer sampleLength = null;
         for (String sample : samples) {
-            if (!isPrintableAscii(sample)) {
+            int nonPrintableAsciiIndex = findNonPrintableAsciiIndex(sample);
+            if (nonPrintableAsciiIndex >= 0) {
                 return StringRangeSplitDecision.unsafe(
-                        String.format("sample value contains non-ASCII characters: [%s]", sample));
+                        String.format(
+                                "sample value of length %s contains a non-printable ASCII character at index %s",
+                                sample.length(), nonPrintableAsciiIndex));
             }
             if (sampleLength == null) {
                 sampleLength = sample.length();
@@ -285,8 +292,20 @@ public class MysqlDialect implements JdbcDialect {
     }
 
     @Override
+    public StringRangeSplitDecision validateStringRangeSplitSession(Connection connection) {
+        if (getClass() != MysqlDialect.class) {
+            return StringRangeSplitDecision.unsafe(
+                    "ASCII string range splitting is only validated for the MySQL dialect");
+        }
+        // MySQL comparison is controlled by the column collation checked during planning, not by
+        // a reader-session setting, so no additional database query is required here.
+        return StringRangeSplitDecision.safe(
+                "reader String comparisons use the binary column collation validated at planning");
+    }
+
+    @Override
     public boolean supportStringRangeSplit() {
-        return true;
+        return getClass() == MysqlDialect.class;
     }
 
     private String queryColumnCollation(
@@ -346,14 +365,14 @@ public class MysqlDialect implements JdbcDialect {
         return samples;
     }
 
-    private boolean isPrintableAscii(String value) {
+    private int findNonPrintableAsciiIndex(String value) {
         for (int i = 0; i < value.length(); i++) {
             char ch = value.charAt(i);
             if (ch < 32 || ch > 126) {
-                return false;
+                return i;
             }
         }
-        return true;
+        return -1;
     }
 
     @Override
