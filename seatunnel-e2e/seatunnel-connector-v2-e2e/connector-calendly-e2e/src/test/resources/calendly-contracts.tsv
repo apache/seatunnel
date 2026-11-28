@@ -1,0 +1,33 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements. See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License. You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# Independent resource, path, query scope, sort, parent, count, time, identity shape.
+event_types	/event_types	organization	updated_at:desc	-	yes	updated_at	uri
+api_user	/users/me	-	-	-	no	-	user
+groups	/groups	organization	-	-	yes	-	uri
+organization_memberships	/organization_memberships	organization	-	-	yes	-	membership
+scheduled_events	/scheduled_events	organization	start_time:desc	-	yes	updated_at	event
+event_invitees	/scheduled_events/{event}/invitees	-	created_at:desc	event	yes	created_at	invitee
+teams	/teams	-	-	-	yes	-	uri
+event_type_memberships	/event_type_memberships	event_type	-	type	yes	-	uri
+event_type_availability_schedules	/event_type_availability_schedules	event_type	-	type	no	-	rule
+group_relationships	/group_relationships	group	-	group	yes	-	uri
+user_availability_schedules	/user_availability_schedules	user	-	user	no	-	uri
+locations	/locations	user	-	user	no	-	location
+organization_invitations	/organizations/{org}/invitations	-	created_at:asc	-	yes	-	invitation
+webhook_subscriptions	/webhook_subscriptions	organization	-	-	yes	-	uri
+routing_forms	/routing_forms	organization	-	-	yes	-	uri
+routing_form_submissions	/routing_form_submissions	form	created_at:asc	form	yes	-	uri
+contacts	/contacts	-	-	-	yes	-	uri
+outgoing_communications	/outgoing_communications	organization	-	-	yes	created_at	outgoing
+activity_log_entries	/activity_log_entries	organization	occurred_at:asc	-	yes	occurred_at	uri
+meeting_recaps	/meeting_recaps	-	-	-	yes	start_time	uri
