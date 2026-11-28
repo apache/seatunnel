@@ -10,10 +10,15 @@ import ChangeLog from '../changelog/connector-aerospike.md';
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-## License Compatibility Notice
+## License
 
-This connector depends on Aerospike Client Library which is licensed under AGPL 3.0.
-When using this connector, you need to comply with AGPL 3.0 license terms.
+The connector bundles the [Aerospike Java client 4.4.17](https://github.com/aerospike/aerospike-client-java/blob/4.4.17/LICENSE.md) under the Apache License 2.0.
+Its [Bouncy Castle crypto variant](https://github.com/aerospike/aerospike-client-java/blob/4.4.17/CRYPTO.md) uses the same RIPEMD-160 record key digests.
+The connector JAR includes the Bouncy Castle code it needs, so the standard connector installation is sufficient.
+
+The connector JAR includes `DoubleToDecimal` from [Fastjson2 2.0.33](https://github.com/alibaba/fastjson2/tree/2.0.33) under GPL-2.0-only with the Classpath Exception. The license and exception are in `META-INF/LICENSE`. The matching [upstream source archive](https://repo.maven.apache.org/maven2/com/alibaba/fastjson2/fastjson2/2.0.33/fastjson2-2.0.33-sources.jar) contains `com/alibaba/fastjson2/util/DoubleToDecimal.java`.
+
+For distributed Zeta jobs, install the connector at the same absolute path on the submission and engine hosts when [connector JAR upload](../../engines/zeta/engine-jar-storage-mode.md) is disabled.
 
 ## Key Features
 

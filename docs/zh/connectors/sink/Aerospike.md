@@ -10,10 +10,15 @@ import ChangeLog from '../changelog/connector-aerospike.md';
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-## 许可证兼容性通知
+## 许可证
 
-此连接器依赖于根据AGPL 3.0许可的Aerospike客户端库。
-使用此连接器时，您需要遵守AGPL 3.0许可条款。
+连接器打包了采用 Apache License 2.0 的 [Aerospike Java 客户端 4.4.17](https://github.com/aerospike/aerospike-client-java/blob/4.4.17/LICENSE.md)。
+客户端的 [Bouncy Castle 加密实现](https://github.com/aerospike/aerospike-client-java/blob/4.4.17/CRYPTO.md) 生成相同的 RIPEMD-160 记录键摘要。
+所需 Bouncy Castle 代码已包含在连接器 JAR 中，按常规方式安装连接器即可。
+
+连接器 JAR 包含 [Fastjson2 2.0.33](https://github.com/alibaba/fastjson2/tree/2.0.33) 的 `DoubleToDecimal`，适用 GPL-2.0-only 和 Classpath 例外。许可证和例外全文见 JAR 内的 `META-INF/LICENSE`。[对应的上游源码包](https://repo.maven.apache.org/maven2/com/alibaba/fastjson2/fastjson2/2.0.33/fastjson2-2.0.33-sources.jar) 包含 `com/alibaba/fastjson2/util/DoubleToDecimal.java`。
+
+运行分布式 Zeta 作业时，若未开启[连接器 JAR 上传](../../engines/zeta/engine-jar-storage-mode.md)，请在提交端和引擎节点使用相同的绝对路径安装连接器。
 
 ## 主要特性
 

@@ -536,6 +536,15 @@ applies to its copy in this module.
      See licenses/LICENSE-bouncycastle-1.76.txt, reproduced from the
      org.bouncycastle.LICENSE class in bcprov-jdk18on-1.76.jar.
 
+     (MIT) org.bouncycastle:bcprov-jdk18on:1.87 when the Aerospike connector is included.
+     See META-INF/LICENSE inside the Aerospike connector JAR for the exact license text.
+
+     (GPL-2.0-only WITH Classpath-exception-2.0) DoubleToDecimal in
+     com.alibaba.fastjson2:fastjson2:2.0.33 when the Aerospike connector is included.
+     https://github.com/alibaba/fastjson2
+     See META-INF/LICENSE inside the Aerospike connector JAR for the license,
+     exception, and upstream source location.
+
      (BSD-3-Clause) com.google.protobuf:protobuf-java:3.24.3
      https://github.com/protocolbuffers/protobuf/tree/v24.3
      See licenses/LICENSE-protobuf-java-3.24.3.txt, reproduced from
