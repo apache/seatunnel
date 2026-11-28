@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.feishu.source;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonFactory;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonFactoryBuilder;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
@@ -58,15 +60,26 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * Owns bounded tenant authentication and Bitable record requests for one reader worker. Token
+ * refresh and retries share the page deadline; close aborts active I/O without progress locks. Only
+ * validated pages cross to polling, and external transport/parser details stay out of errors.
+ */
 final class FeishuApiClient implements AutoCloseable {
 
+    // Provider codes permit one token refresh or bounded retry, never silent empty-page success.
     private static final int TOKEN_EXPIRED_CODE = 99991663;
     private static final int RATE_LIMIT_CODE = 99991400;
+    // Separate finite budgets apply before authentication or record JSON is materialized.
     private static final int MAX_TOKEN_RESPONSE_BYTES = 64 * 1024;
     private static final int MAX_PAGE_RESPONSE_BYTES = 16 * 1024 * 1024;
     static final int MAX_CURSOR_LENGTH = 4096;
+    // Settings only: response-local copies own parser symbols, with global interning disabled.
     private static final ObjectMapper MAPPER =
-            new ObjectMapper()
+            new ObjectMapper(
+                            new JsonFactoryBuilder()
+                                    .disable(JsonFactory.Feature.INTERN_FIELD_NAMES)
+                                    .build())
                     .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                     .enable(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
                     .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
@@ -74,6 +87,7 @@ final class FeishuApiClient implements AutoCloseable {
 
     private final FeishuSourceOptions config;
     private final CloseableHttpClient client;
+    // Publish before dispatch so an independent close can abort the current exchange.
     private final AtomicReference<HttpPost> activeRequest = new AtomicReference<>();
     private volatile boolean closed;
     // Only the I/O worker accesses authentication state.
@@ -114,6 +128,11 @@ final class FeishuApiClient implements AutoCloseable {
         client = HttpClients.createMinimal(connections);
     }
 
+    /**
+     * Shares one absolute page deadline across authentication, retries and at most one
+     * expired-token refresh. Full record validation finishes before a page can reach the polling
+     * thread.
+     */
     Page fetchPage(String cursor, long deadline) throws InterruptedException {
         URI uri = recordsUri(cursor);
         ensureTenantToken(deadline);
@@ -129,6 +148,33 @@ final class FeishuApiClient implements AutoCloseable {
         return page;
     }
 
+    /**
+     * Makes cancellation sticky and aborts the published exchange before closing owned transport.
+     * No collector or checkpoint-progress monitor is needed for this independent cleanup path.
+     */
+    @Override
+    public void close() throws IOException {
+        closed = true;
+        HttpPost request = activeRequest.get();
+        if (request != null) {
+            request.abort();
+        }
+        client.close();
+    }
+
+    /**
+     * Marks connector-owned diagnostics without attaching external exceptions whose text or causes
+     * can carry credentials, opaque cursors or response excerpts.
+     */
+    static HttpConnectorException failure(String message) {
+        return new HttpConnectorException(
+                HttpConnectorErrorCode.REQUEST_FAILED, "Feishu source: " + message);
+    }
+
+    /**
+     * Reuses only a worker-owned token that is still inside its refresh window. Refresh consumes
+     * the same page budget and does not publish authentication credentials into reader progress.
+     */
     private void ensureTenantToken(long deadline) throws InterruptedException {
         if (tenantToken != null && System.nanoTime() - refreshAfterNanos < 0L) {
             return;
@@ -159,6 +205,10 @@ final class FeishuApiClient implements AutoCloseable {
         tenantToken = token.textValue();
     }
 
+    /**
+     * Encodes an opaque continuation as a query value on the already validated table endpoint;
+     * provider cursor text cannot replace the configured origin or record-search path.
+     */
     private URI recordsUri(String cursor) {
         URIBuilder builder =
                 new URIBuilder(config.recordsUri)
@@ -173,6 +223,11 @@ final class FeishuApiClient implements AutoCloseable {
         }
     }
 
+    /**
+     * Retries only rate-limit and server failures within the configured count and shared deadline.
+     * A provider delay that cannot fit fails rather than retrying early or extending the page
+     * budget.
+     */
     private Response exchangeWithRetries(URI uri, String body, boolean login, long deadline)
             throws InterruptedException {
         for (int retry = 0; ; retry++) {
@@ -200,7 +255,10 @@ final class FeishuApiClient implements AutoCloseable {
         }
     }
 
-    /** Associate the request with this client before connecting so close can abort it. */
+    /**
+     * Publishes an abortable request before connecting and applies the remaining page budget.
+     * Response ownership bounds reads and cleanup while transport diagnostics remain sanitized.
+     */
     private Response exchange(URI uri, String body, boolean login, long deadline) {
         int timeoutMs = remainingMillis(deadline);
         HttpPost request = new HttpPost(uri);
@@ -257,6 +315,10 @@ final class FeishuApiClient implements AutoCloseable {
         }
     }
 
+    /**
+     * Bounds body growth before parsing and checks the page clock between reads. The response owns
+     * the stream so failure can close the connection without draining an oversized or stalled body.
+     */
     private static byte[] readBody(HttpEntity entity, int sizeLimit, long deadline)
             throws IOException {
         if (entity == null) {
@@ -283,9 +345,14 @@ final class FeishuApiClient implements AutoCloseable {
         }
     }
 
+    /**
+     * Accepts only a strict JSON object envelope from already bounded bytes. Parser excerpts are
+     * withheld because authentication and record responses can contain private data.
+     */
     private static JsonNode parse(byte[] bytes, boolean required) {
         try {
-            JsonNode body = MAPPER.readTree(bytes);
+            // Retain native byte/BOM validation while releasing symbol roots with this response.
+            JsonNode body = MAPPER.copy().readTree(bytes);
             if (body != null && body.isObject()) {
                 return body;
             }
@@ -298,12 +365,21 @@ final class FeishuApiClient implements AutoCloseable {
         return null;
     }
 
+    /**
+     * Requires both HTTP success and provider code zero; a successful HTTP exchange alone cannot
+     * turn a permission or authentication error into an empty table.
+     */
     private static void checkSuccess(Response response, String operation) {
         if (response.status < 200 || response.status >= 300 || response.code() != 0) {
             throw failure(operation + " failed with " + response.statusAndCode());
         }
     }
 
+    /**
+     * Validates continuation and all records before any row is emitted. Optional missing/null
+     * values remain nullable columns while the complete record JSON preserves their original
+     * distinction.
+     */
     private Page decodePage(JsonNode envelope) {
         JsonNode data = envelope.path("data");
         JsonNode hasMore = data.path("has_more");
@@ -352,6 +428,10 @@ final class FeishuApiClient implements AutoCloseable {
         return new Page(rows, nextCursor);
     }
 
+    /**
+     * Accepts numeric seconds or an HTTP date without shortening a valid provider delay. Overflow
+     * becomes an over-budget wait, which the shared page deadline rejects.
+     */
     private static long retryAfterMillis(Header header) {
         long seconds = secondsMillis(header);
         if (seconds >= 0 || header == null) {
@@ -369,6 +449,10 @@ final class FeishuApiClient implements AutoCloseable {
         }
     }
 
+    /**
+     * Distinguishes an absent/invalid delay from a valid zero, and saturates oversized numeric
+     * values so retry admission cannot wrap them into an immediate request.
+     */
     private static long secondsMillis(Header header) {
         if (header == null || !header.getValue().matches("[0-9]+")) {
             return -1L;
@@ -380,6 +464,10 @@ final class FeishuApiClient implements AutoCloseable {
         }
     }
 
+    /**
+     * Uses the monotonic page clock for authentication, I/O and retry admission; expiration fails
+     * instead of handing a nonpositive timeout to the HTTP client.
+     */
     private static int remainingMillis(long deadline) {
         long remainingNanos = deadline - System.nanoTime();
         if (remainingNanos <= 0) {
@@ -388,21 +476,10 @@ final class FeishuApiClient implements AutoCloseable {
         return (int) Math.max(1L, TimeUnit.NANOSECONDS.toMillis(remainingNanos));
     }
 
-    @Override
-    public void close() throws IOException {
-        closed = true;
-        HttpPost request = activeRequest.get();
-        if (request != null) {
-            request.abort();
-        }
-        client.close();
-    }
-
-    static HttpConnectorException failure(String message) {
-        return new HttpConnectorException(
-                HttpConnectorErrorCode.REQUEST_FAILED, "Feishu source: " + message);
-    }
-
+    /**
+     * Validated worker-to-poller handoff. Rows and continuation are transient; only the reader
+     * commits accepted-prefix and cursor progress under its checkpoint boundary.
+     */
     static final class Page {
         final List<SeaTunnelRow> rows;
         final String nextCursor;
@@ -413,6 +490,10 @@ final class FeishuApiClient implements AutoCloseable {
         }
     }
 
+    /**
+     * Keeps one bounded exchange result private to request handling. Numeric status/code drive
+     * retries and safe diagnostics while arbitrary provider message/body text stays internal.
+     */
     private static final class Response {
         private final int status;
         private final long retryDelayMs;

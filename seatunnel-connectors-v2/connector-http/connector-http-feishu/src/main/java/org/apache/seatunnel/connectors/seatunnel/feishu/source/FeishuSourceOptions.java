@@ -24,9 +24,14 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import java.io.Serializable;
 import java.net.URI;
 
+/**
+ * Validates source identifiers, a trusted API origin and finite page/retry budgets before I/O.
+ * Serializable reader copies share these settings; webhook Sink options retain their own contract.
+ */
 final class FeishuSourceOptions implements Serializable {
 
     private static final long serialVersionUID = 1L;
+    // Empty continuation pages also consume this finite full-refresh walk budget.
     static final int MAX_SCAN_PAGES = 10_000;
 
     static final Option<String> APP_ID =
@@ -82,6 +87,8 @@ final class FeishuSourceOptions implements Serializable {
                     .withDescription(
                             "Maximum rate-limit and server-error retries per request, from 0 to 5");
 
+    // Validated configuration supplies authentication and the origin/app/table scope. Reader
+    // snapshots store only that scope digest and progress, not authentication credentials.
     final String appId;
     final String clientSecret;
     final URI tokenUri;
@@ -91,6 +98,10 @@ final class FeishuSourceOptions implements Serializable {
     final int pageTimeoutMs;
     final int maxRetries;
 
+    /**
+     * Builds credential-bearing API paths only from validated identifiers and one trusted origin.
+     * Protocol budgets are finite before the reader creates transport or submits a request.
+     */
     FeishuSourceOptions(ReadonlyConfig config) {
         appId = requiredText(config, APP_ID);
         clientSecret = requiredText(config, CLIENT_SECRET);
@@ -111,6 +122,10 @@ final class FeishuSourceOptions implements Serializable {
         maxRetries = integer(config, MAX_RETRIES, 0, 5);
     }
 
+    /**
+     * Keeps authentication and record requests on an origin without embedded credentials or paths.
+     * Plain HTTP requires the explicit isolated-provider option; HTTPS remains the default.
+     */
     private static URI origin(String value, boolean allowInsecureHttp) {
         URI uri;
         try {
@@ -135,6 +150,10 @@ final class FeishuSourceOptions implements Serializable {
         return uri;
     }
 
+    /**
+     * Restricts Base/table identifiers before inserting them into credential-bearing API paths.
+     * Validation errors name the option without echoing its supplied value.
+     */
     private static String pathIdentifier(ReadonlyConfig config, Option<String> option) {
         String value = requiredText(config, option);
         if (!value.matches("[A-Za-z0-9_-]{1,256}")) {
@@ -144,6 +163,10 @@ final class FeishuSourceOptions implements Serializable {
         return value;
     }
 
+    /**
+     * Rejects missing, control-bearing or excessive credential/config text before transport setup.
+     * Only option names appear in failures so private values cannot enter construction diagnostics.
+     */
     private static String requiredText(ReadonlyConfig config, Option<String> option) {
         String value = config.get(option);
         if (value == null

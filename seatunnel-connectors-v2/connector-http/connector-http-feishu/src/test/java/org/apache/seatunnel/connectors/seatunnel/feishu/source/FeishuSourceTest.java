@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplit;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitEnumeratorState;
+import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -48,6 +49,8 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -57,9 +60,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -69,6 +74,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+/**
+ * Covers early split assignment and terminal checkpoint restore through real source readers. A real
+ * HTTP DEBUG positive control checks that credentials and private responses stay out of logs.
+ */
 class FeishuSourceTest {
 
     private static final String BASE_TOKEN = "base-debug-credential-93";
@@ -199,6 +208,123 @@ class FeishuSourceTest {
             }
             logging.updateLoggers();
             capture.stop();
+        }
+    }
+
+    /**
+     * Preserves long-key JSON values and both native BOM encodings through real authentication and
+     * record requests. Malformed UTF-8 rejection protects the parser path, not a heap-size claim.
+     */
+    @Test
+    void responseOwnedParsingPreservesLongKeysAndNativeByteValidation() throws Exception {
+        String longName = String.join("", Collections.nCopies(4096, "x"));
+        String firstFields = "{\"a-" + longName + "\":\"first-value\"}";
+        String secondFields = "{\"b-" + longName + "\":\"second-value\"}";
+        String firstRecord = "{\"record_id\":\"rec-a\",\"fields\":" + firstFields + "}";
+        String secondRecord = "{\"record_id\":\"rec-b\",\"fields\":" + secondFields + "}";
+        String first =
+                "{\"code\":0,\"envelope-a-"
+                        + longName
+                        + "\":null,\"data\":{\"has_more\":true,"
+                        + "\"page_token\":\"second\",\"items\":["
+                        + firstRecord
+                        + "]}}";
+        String second =
+                "{\"code\":0,\"envelope-b-"
+                        + longName
+                        + "\":null,\"data\":{\"has_more\":true,"
+                        + "\"page_token\":\"bad\",\"items\":["
+                        + secondRecord
+                        + "]}}";
+        String malformed =
+                "{\"code\":0,\"data\":{\"has_more\":false,\"items\":[{\"record_id\":\"rec-bad\","
+                        + "\"fields\":{\"text\":\"xy\"}}]}}";
+        byte[] invalid = malformed.getBytes(StandardCharsets.UTF_8);
+        int position = malformed.indexOf("xy");
+        invalid[position] = (byte) 0xc3;
+        invalid[position + 1] = (byte) '(';
+        List<byte[]> payloads =
+                Arrays.asList(
+                        ("\uFEFF" + first).getBytes(StandardCharsets.UTF_16BE),
+                        ("\uFEFF" + second).getBytes(StandardCharsets.UTF_8),
+                        invalid);
+        AtomicInteger requests = new AtomicInteger();
+        AtomicInteger searches = new AtomicInteger();
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext(
+                "/",
+                exchange -> {
+                    try {
+                        requests.incrementAndGet();
+                        byte[] payload;
+                        if ("/open-apis/auth/v3/tenant_access_token/internal"
+                                .equals(exchange.getRequestURI().getPath())) {
+                            payload =
+                                    ("{\"code\":0,\"tenant_access_token\":\""
+                                                    + BEARER_TOKEN
+                                                    + "\",\"expire\":7200}")
+                                            .getBytes(StandardCharsets.UTF_8);
+                        } else {
+                            payload = payloads.get(searches.getAndIncrement());
+                        }
+                        exchange.getResponseHeaders().set("Content-Type", "application/json");
+                        exchange.sendResponseHeaders(200, payload.length);
+                        exchange.getResponseBody().write(payload);
+                    } finally {
+                        exchange.close();
+                    }
+                });
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        Collector<SeaTunnelRow> output =
+                new Collector<SeaTunnelRow>() {
+                    @Override
+                    public void collect(SeaTunnelRow row) {
+                        assertTrue(Thread.holdsLock(this));
+                        rows.add(row);
+                    }
+
+                    @Override
+                    public Object getCheckpointLock() {
+                        return this;
+                    }
+                };
+        try (SourceReader<SeaTunnelRow, SingleSplit> reader =
+                source("http://127.0.0.1:" + server.getAddress().getPort())
+                        .createReader(mock(SourceReader.Context.class))) {
+            server.start();
+            reader.open();
+            reader.addSplits(Collections.singletonList(new SingleSplit(null)));
+            long end = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (rows.size() < 2 && System.nanoTime() - end < 0L) {
+                reader.pollNext(output);
+                Thread.sleep(5L);
+            }
+            assertEquals(2, rows.size());
+            assertArrayEquals(
+                    new Object[] {"rec-a", null, firstFields, firstRecord},
+                    rows.get(0).getFields());
+            assertArrayEquals(
+                    new Object[] {"rec-b", null, secondFields, secondRecord},
+                    rows.get(1).getFields());
+            byte[] before = reader.snapshotState(1).get(0).getState();
+            HttpConnectorException error =
+                    assertThrows(
+                            HttpConnectorException.class,
+                            () -> {
+                                long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+                                while (System.nanoTime() - deadline < 0L) {
+                                    reader.pollNext(output);
+                                    assertEquals(2, rows.size(), "Malformed UTF-8 cannot emit");
+                                    Thread.sleep(5L);
+                                }
+                                throw new AssertionError("Malformed UTF-8 was not rejected");
+                            });
+            assertTrue(error.getMessage().contains("invalid JSON response envelope"));
+            assertArrayEquals(before, reader.snapshotState(2).get(0).getState());
+            assertEquals(3, searches.get());
+            assertEquals(4, requests.get());
+        } finally {
+            server.stop(0);
         }
     }
 

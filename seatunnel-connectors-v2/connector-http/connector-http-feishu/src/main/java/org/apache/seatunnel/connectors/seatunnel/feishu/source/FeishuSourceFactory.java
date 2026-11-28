@@ -29,6 +29,10 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
+/**
+ * Registers Bitable Source discovery in the existing Feishu artifact using the source option
+ * definitions. Source construction owns validation; webhook Sink discovery remains separate.
+ */
 @AutoService(Factory.class)
 public class FeishuSourceFactory implements TableSourceFactory {
 

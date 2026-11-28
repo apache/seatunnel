@@ -56,6 +56,7 @@ import static org.apache.seatunnel.connectors.seatunnel.feishu.source.FeishuApiC
 @Slf4j
 final class FeishuSourceReader implements SourceReader<SeaTunnelRow, SingleSplit> {
 
+    // This unreleased accepted-prefix format deliberately rejects earlier development states.
     private static final int CHECKPOINT_VERSION = 2;
 
     private final FeishuSourceOptions config;
@@ -257,6 +258,10 @@ final class FeishuSourceReader implements SourceReader<SeaTunnelRow, SingleSplit
     @Override
     public void notifyCheckpointComplete(long checkpointId) {}
 
+    /**
+     * Routes engine cancellation through sticky owned cleanup without progress locks. Cleanup
+     * warnings withhold transport exception details that can contain private request information.
+     */
     @Override
     public void cancel() {
         try {
@@ -374,6 +379,11 @@ final class FeishuSourceReader implements SourceReader<SeaTunnelRow, SingleSplit
         return result;
     }
 
+    /**
+     * Frames each nullable String with a signed big-endian length (-1 for null), followed by exact
+     * UTF-16 big-endian code units. This keeps null, empty and malformed-surrogate values distinct
+     * without allocating an encoded copy or changing the v2 accepted-prefix contract.
+     */
     private static void hashString(MessageDigest hash, String value) {
         int length = value == null ? -1 : value.length();
         for (int shift = 24; shift >= 0; shift -= 8) {
@@ -393,8 +403,8 @@ final class FeishuSourceReader implements SourceReader<SeaTunnelRow, SingleSplit
     }
 
     /**
-     * Transient fully validated page and row digests survive only the current reader invocation.
-     * The index is durable only through Progress after a successful checkpoint-coordinated collect.
+     * Transient fully validated page and row digests survive only the current reader instance. The
+     * index is durable only through Progress after a successful checkpoint-coordinated collect.
      */
     private static final class PreparedPage {
         private final FeishuApiClient.Page page;

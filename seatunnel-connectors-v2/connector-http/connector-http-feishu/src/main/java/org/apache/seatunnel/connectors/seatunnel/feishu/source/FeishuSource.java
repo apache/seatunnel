@@ -38,6 +38,10 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitEnumer
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Defines one bounded Bitable table scan and its fixed four-String output schema. Split assignment
+ * gates reader I/O, while the existing webhook Sink remains independent in the same artifact.
+ */
 public class FeishuSource
         implements SeaTunnelSource<SeaTunnelRow, SingleSplit, SingleSplitEnumeratorState> {
 
@@ -46,8 +50,13 @@ public class FeishuSource
 
     private final FeishuSourceOptions config;
     private final CatalogTable catalogTable;
+    // Engine configuration is used to reject streaming execution before readers perform I/O.
     private JobContext jobContext;
 
+    /**
+     * Captures validated source settings and the fixed catalog once. Dynamic Bitable fields stay
+     * inside JSON columns rather than changing the schema during a paginated scan.
+     */
     FeishuSource(ReadonlyConfig options) {
         config = new FeishuSourceOptions(options);
         TableSchema schema =
@@ -104,6 +113,10 @@ public class FeishuSource
         this.jobContext = jobContext;
     }
 
+    /**
+     * Restricts this full-refresh implementation to batch execution; provider cursors are scan
+     * positions and do not provide a change-event stream or transactional snapshot.
+     */
     @Override
     public Boundedness getBoundedness() {
         if (jobContext != null && jobContext.getJobMode() != JobMode.BATCH) {
@@ -117,6 +130,10 @@ public class FeishuSource
         return Collections.singletonList(catalogTable);
     }
 
+    /**
+     * Creates the sole scan owner. Rejecting additional reader subtasks prevents independent
+     * readers from duplicating the same table refresh.
+     */
     @Override
     public SourceReader<SeaTunnelRow, SingleSplit> createReader(SourceReader.Context context) {
         if (context.getIndexOfSubtask() != 0) {
@@ -131,12 +148,20 @@ public class FeishuSource
         return new FeishuSplitEnumerator(context);
     }
 
+    /**
+     * Recreates assignment ownership while the engine restores row progress through reader splits.
+     * An early empty checkpoint must retain the normal first assignment instead of ending the scan.
+     */
     @Override
     public SourceSplitEnumerator<SingleSplit, SingleSplitEnumeratorState> restoreEnumerator(
             SourceSplitEnumerator.Context<SingleSplit> context, SingleSplitEnumeratorState state) {
         return createEnumerator(context);
     }
 
+    /**
+     * Serializes the existing single-split assignment hooks and preserves initial assignment for an
+     * early empty reader checkpoint. Nonempty restored progress follows the shared split path.
+     */
     private static final class FeishuSplitEnumerator extends SingleSplitEnumerator {
         private FeishuSplitEnumerator(Context<SingleSplit> context) {
             super(context);
