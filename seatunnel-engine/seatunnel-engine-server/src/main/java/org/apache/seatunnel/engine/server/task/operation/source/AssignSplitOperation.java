@@ -100,7 +100,7 @@ public class AssignSplitOperation<SplitT extends SourceSplit> extends TracingOpe
         for (int i = 0; i < splitCount; i++) {
             splits.add(in.readByteArray());
         }
-        taskID = in.readObject();
+        taskID = TaskLocation.readFrom(in, getClass().getName());
     }
 
     @Override

@@ -50,6 +50,6 @@ public abstract class TaskOperation extends TracingOperation implements Identifi
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        taskLocation = in.readObject(TaskLocation.class);
+        taskLocation = TaskLocation.readFrom(in, getClass().getName());
     }
 }

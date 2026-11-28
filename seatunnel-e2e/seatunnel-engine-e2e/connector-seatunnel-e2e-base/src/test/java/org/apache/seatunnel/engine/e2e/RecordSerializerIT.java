@@ -28,6 +28,8 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.RestoredSplitOperation;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -217,6 +219,51 @@ public class RecordSerializerIT {
         Assertions.assertTrue(actual.getClosedTasks().contains(taskLoc2));
 
         writerMap.remove(key);
+    }
+
+    @Test
+    public void testTaskOperationRoundTripAcrossMembers() {
+        TaskLocation location = new TaskLocation(new TaskGroupLocation(7L, 3, 11L), 5L, 2);
+        RestoredSplitOperation original =
+                new RestoredSplitOperation(
+                        location, Collections.singletonList(new byte[] {1, 2, 3}), 4);
+        IMap<String, RestoredSplitOperation> writerMap = instance1.getMap(MAP_NAME);
+        IMap<String, RestoredSplitOperation> readerMap = instance2.getMap(MAP_NAME);
+        String key = "restored-split-operation";
+        try {
+            writerMap.put(key, original);
+            RestoredSplitOperation decoded = readerMap.get(key);
+            Assertions.assertNotNull(decoded);
+            Assertions.assertEquals(location, decoded.getTaskLocation());
+            Assertions.assertEquals(
+                    location.getTaskIndex(), decoded.getTaskLocation().getTaskIndex());
+            Assertions.assertArrayEquals(
+                    instance1.getSerializationService().toData(original).toByteArray(),
+                    instance2.getSerializationService().toData(decoded).toByteArray());
+        } finally {
+            writerMap.remove(key);
+        }
+    }
+
+    @Test
+    public void testSplitAssignmentRoundTripAcrossMembers() {
+        TaskLocation location = new TaskLocation(new TaskGroupLocation(7L, 3, 11L), 5L, 2);
+        AssignSplitOperation<?> original =
+                new AssignSplitOperation<>(
+                        location, Collections.singletonList(new byte[] {1, 2, 3}));
+        IMap<String, AssignSplitOperation<?>> writerMap = instance1.getMap(MAP_NAME);
+        IMap<String, AssignSplitOperation<?>> readerMap = instance2.getMap(MAP_NAME);
+        String key = "assign-split-operation";
+        try {
+            writerMap.put(key, original);
+            AssignSplitOperation<?> decoded = readerMap.get(key);
+            Assertions.assertNotNull(decoded);
+            Assertions.assertArrayEquals(
+                    instance1.getSerializationService().toData(original).toByteArray(),
+                    instance2.getSerializationService().toData(decoded).toByteArray());
+        } finally {
+            writerMap.remove(key);
+        }
     }
 
     @Test
