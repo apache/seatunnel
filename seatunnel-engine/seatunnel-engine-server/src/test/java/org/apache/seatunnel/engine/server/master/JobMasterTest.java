@@ -35,6 +35,7 @@ import org.apache.seatunnel.engine.server.TestUtils;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorState;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorStatus;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointException;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
@@ -426,6 +427,37 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         Assertions.assertTrue(
                 isSavepointStartPreconditionFailure(jobMaster, savepointCompletionResult),
                 "all pre-start savepoint failures should keep the job retryable");
+    }
+
+    @Test
+    void testSavepointWithNoActivePipelineIsNotReportedAsSuccess() {
+        JobMaster.SavepointCompletionResult result =
+                JobMaster.waitSavepointCompleted(savepointFutures());
+
+        Assertions.assertFalse(
+                result.isCompleted(),
+                "a savepoint request with no participating pipeline must not be reported as completed");
+        Assertions.assertFalse(result.isAnyPipelineSuspended());
+        Assertions.assertEquals(1, result.getExceptions().size());
+        Assertions.assertEquals(
+                CheckpointCloseReason.NO_ACTIVE_PIPELINE_WHEN_SAVEPOINT,
+                ((CheckpointException) result.getExceptions().get(0)).getCheckpointFailureReason());
+    }
+
+    @Test
+    void testSavepointCompletionRequiresEveryParticipantToSuspend() {
+        java.util.concurrent.CompletableFuture<CheckpointCoordinatorState> suspendedFuture =
+                new java.util.concurrent.CompletableFuture<>();
+        suspendedFuture.complete(
+                new CheckpointCoordinatorState(CheckpointCoordinatorStatus.SUSPEND, null));
+
+        JobMaster.SavepointCompletionResult result =
+                JobMaster.waitSavepointCompleted(
+                        savepointFutures(new PassiveCompletableFuture<>(suspendedFuture)));
+
+        Assertions.assertTrue(
+                result.isCompleted(),
+                "a savepoint request where every participating pipeline suspended is a successful savepoint");
     }
 
     private void assertCloseIdleTask(JobMaster jobMaster) {

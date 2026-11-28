@@ -1462,8 +1462,21 @@ public class JobMaster {
      * decision must therefore be based on the whole result set, not on whichever pipeline fails
      * first or appears first in the pipeline list.
      */
-    private SavepointCompletionResult waitSavepointCompleted(
+    @VisibleForTesting
+    static SavepointCompletionResult waitSavepointCompleted(
             PassiveCompletableFuture<CheckpointCoordinatorState>[] passiveCompletableFutures) {
+        if (passiveCompletableFutures.length == 0) {
+            // Every pipeline already ended cleanly, so no coordinator took part. allOf(empty)
+            // completes immediately and the loop below would leave savepointCompleted at true,
+            // reporting a savepoint that does not exist and skipping the failure path. Report the
+            // request as a retryable pre-start failure: no pipeline state changed, so the job is
+            // restored to RUNNING and the caller gets an explicit error instead of a fake success.
+            List<Exception> exceptions = new ArrayList<>(1);
+            exceptions.add(
+                    new CheckpointException(
+                            CheckpointCloseReason.NO_ACTIVE_PIPELINE_WHEN_SAVEPOINT));
+            return new SavepointCompletionResult(false, exceptions, false);
+        }
         try {
             CompletableFuture.allOf(passiveCompletableFutures).join();
         } catch (Exception e) {
@@ -1534,7 +1547,8 @@ public class JobMaster {
         CheckpointCloseReason failureReason =
                 ((CheckpointException) rootException).getCheckpointFailureReason();
         return failureReason == CheckpointCloseReason.TASK_NOT_ALL_READY_WHEN_SAVEPOINT
-                || failureReason == CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN;
+                || failureReason == CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN
+                || failureReason == CheckpointCloseReason.NO_ACTIVE_PIPELINE_WHEN_SAVEPOINT;
     }
 
     /**
@@ -1544,32 +1558,32 @@ public class JobMaster {
      * rejections. A single genuine checkpoint failure or already-suspended pipeline means some
      * pipeline state may have changed, so the job must use the stop fallback.
      */
-    private static class SavepointCompletionResult {
+    static class SavepointCompletionResult {
 
         private final boolean completed;
         private final List<Exception> exceptions;
         private final boolean anyPipelineSuspended;
 
-        private SavepointCompletionResult(
+        SavepointCompletionResult(
                 boolean completed, List<Exception> exceptions, boolean anyPipelineSuspended) {
             this.completed = completed;
             this.exceptions = exceptions;
             this.anyPipelineSuspended = anyPipelineSuspended;
         }
 
-        private boolean isCompleted() {
+        boolean isCompleted() {
             return completed;
         }
 
-        private Optional<Exception> getFirstException() {
+        Optional<Exception> getFirstException() {
             return exceptions.stream().findFirst();
         }
 
-        private List<Exception> getExceptions() {
+        List<Exception> getExceptions() {
             return exceptions;
         }
 
-        private boolean isAnyPipelineSuspended() {
+        boolean isAnyPipelineSuspended() {
             return anyPipelineSuspended;
         }
     }

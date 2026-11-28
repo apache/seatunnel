@@ -1548,6 +1548,30 @@ public class CheckpointCoordinator {
                 && !latestCompletedCheckpoint.isRestored();
     }
 
+    /**
+     * Whether this pipeline ended cleanly, so a savepoint request of the job may skip it.
+     *
+     * <p>Only a pipeline that completed successfully ever records a completed point or a savepoint
+     * as its last completed checkpoint; a failed or cancelled pipeline keeps an earlier, non-final
+     * checkpoint. The persisted coordinator status is normally retired ({@code checkpoint_state_*}
+     * removed) by the time a sibling pipeline requests a savepoint, so it cannot be the primary
+     * signal; when it is still readable, a failed or cancelled status still vetoes the skip.
+     */
+    public boolean isCleanlyCompleted() {
+        if (latestCompletedCheckpoint == null || latestCompletedCheckpoint.isRestored()) {
+            return false;
+        }
+        CheckpointType checkpointType = latestCompletedCheckpoint.getCheckpointType();
+        if (checkpointType != CheckpointType.COMPLETED_POINT_TYPE
+                && checkpointType != CheckpointType.SAVEPOINT_TYPE) {
+            return false;
+        }
+        CheckpointCoordinatorStatus status =
+                (CheckpointCoordinatorStatus) runningJobStateIMap.get(checkpointStateImapKey);
+        return status != CheckpointCoordinatorStatus.FAILED
+                && status != CheckpointCoordinatorStatus.CANCELED;
+    }
+
     public boolean isEndOfSavePoint() {
         if (latestCompletedCheckpoint == null) {
             return false;

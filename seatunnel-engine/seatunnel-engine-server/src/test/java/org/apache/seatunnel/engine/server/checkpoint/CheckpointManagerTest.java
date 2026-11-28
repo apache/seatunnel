@@ -36,9 +36,13 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.mockito.Mockito;
 
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 import static org.apache.seatunnel.engine.common.Constant.IMAP_RUNNING_JOB_STATE;
@@ -226,10 +230,20 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
             long checkpointId,
             CheckpointType checkpointType)
             throws CheckpointStorageException {
+        storeCompletedCheckpoint(checkpointStorage, jobId, 1, checkpointId, checkpointType);
+    }
+
+    private void storeCompletedCheckpoint(
+            CheckpointStorage checkpointStorage,
+            long jobId,
+            int pipelineId,
+            long checkpointId,
+            CheckpointType checkpointType)
+            throws CheckpointStorageException {
         CompletedCheckpoint completedCheckpoint =
                 new CompletedCheckpoint(
                         jobId,
-                        1,
+                        pipelineId,
                         checkpointId,
                         Instant.now().toEpochMilli(),
                         checkpointType,
@@ -239,7 +253,7 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
         checkpointStorage.storeCheckPoint(
                 PipelineState.builder()
                         .jobId(jobId + "")
-                        .pipelineId(1)
+                        .pipelineId(pipelineId)
                         .checkpointId(checkpointId)
                         .states(new ProtoStuffSerializer().serialize(completedCheckpoint))
                         .build());
@@ -284,8 +298,30 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
             boolean masterFailoverRestore,
             CheckpointStorage checkpointStorage,
             CheckpointConfig checkpointConfig) {
+        return createCheckpointManager(
+                jobId,
+                isRestoreJob,
+                restoreMode,
+                restoreSourceJobId,
+                masterFailoverRestore,
+                checkpointStorage,
+                checkpointConfig,
+                1);
+    }
+
+    private CheckpointManager createCheckpointManager(
+            long jobId,
+            boolean isRestoreJob,
+            RestoreMode restoreMode,
+            Long restoreSourceJobId,
+            boolean masterFailoverRestore,
+            CheckpointStorage checkpointStorage,
+            CheckpointConfig checkpointConfig,
+            int pipelineCount) {
         Map<Integer, CheckpointPlan> planMap = new HashMap<>();
-        planMap.put(1, CheckpointPlan.builder().pipelineId(1).build());
+        for (int pipelineId = 1; pipelineId <= pipelineCount; pipelineId++) {
+            planMap.put(pipelineId, CheckpointPlan.builder().pipelineId(pipelineId).build());
+        }
         return new CheckpointManager(
                 jobId,
                 isRestoreJob,
@@ -357,5 +393,73 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
         Assertions.assertTrue(
                 checkpointStorage.getAllCheckpoints(jobId + "").isEmpty(),
                 "Checkpoint should be cleaned up after cancel when retain is disabled (default)");
+    }
+
+    /**
+     * The savepoint fan-out may only skip a pipeline that ended <em>without error</em>. A failed or
+     * cancelled pipeline also has a final checkpoint, but it must still take part so the request is
+     * reported as failed instead of silently succeeding; a request where every pipeline ended
+     * cleanly has no participant at all and is reported as a non-success by the caller.
+     */
+    @Test
+    public void testSavepointFanOutSkipsOnlyCleanlyCompletedPipelines() {
+        CheckpointCoordinator cleanlyCompleted = Mockito.mock(CheckpointCoordinator.class);
+        CheckpointCoordinator failed = Mockito.mock(CheckpointCoordinator.class);
+        CheckpointCoordinator running = Mockito.mock(CheckpointCoordinator.class);
+        Mockito.when(cleanlyCompleted.isCleanlyCompleted()).thenReturn(true);
+        Mockito.when(failed.isCleanlyCompleted()).thenReturn(false);
+        Mockito.when(running.isCleanlyCompleted()).thenReturn(false);
+
+        Map<Integer, CheckpointCoordinator> coordinators = new HashMap<>();
+        coordinators.put(1, cleanlyCompleted);
+        coordinators.put(2, failed);
+        coordinators.put(3, running);
+
+        Assertions.assertEquals(
+                new HashSet<>(Arrays.asList(2, 3)),
+                CheckpointManager.savepointCoordinators(coordinators).keySet(),
+                "Only a cleanly completed pipeline may be skipped; a failed or cancelled pipeline "
+                        + "must still make the savepoint fail");
+
+        Assertions.assertTrue(
+                CheckpointManager.savepointCoordinators(
+                                Collections.singletonMap(1, cleanlyCompleted))
+                        .isEmpty(),
+                "A request where every pipeline already completed cleanly has no participant");
+    }
+
+    /**
+     * A savepoint holds state only for the pipelines that were still running when it was taken. A
+     * pipeline of the source job without savepoint state but with a completed point checkpoint
+     * finished cleanly before the savepoint, so the restored job must keep it finished instead of
+     * running it again.
+     */
+    @Test
+    public void testSavepointRestoreSkipsPipelineThatCompletedBeforeTheSavepoint()
+            throws Exception {
+        long jobId = (long) (Math.random() * 1000000L);
+        CheckpointStorage checkpointStorage = createCheckpointStorage();
+        // Pipeline 1 finished cleanly before the savepoint; pipeline 2 took the savepoint.
+        storeCompletedCheckpoint(
+                checkpointStorage, jobId, 1, 4L, CheckpointType.COMPLETED_POINT_TYPE);
+        storeCompletedCheckpoint(checkpointStorage, jobId, 2, 9L, CheckpointType.SAVEPOINT_TYPE);
+
+        CheckpointManager checkpointManager =
+                createCheckpointManager(
+                        jobId,
+                        true,
+                        RestoreMode.SAVEPOINT,
+                        jobId,
+                        false,
+                        checkpointStorage,
+                        new CheckpointConfig(),
+                        2);
+
+        Assertions.assertTrue(
+                checkpointManager.isCompletedBeforeRestore(1),
+                "a pipeline that finished cleanly before the savepoint must stay finished on restore");
+        Assertions.assertFalse(
+                checkpointManager.isCompletedBeforeRestore(2),
+                "a pipeline with savepoint state must be restored and run again");
     }
 }
