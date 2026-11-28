@@ -80,11 +80,13 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -1375,10 +1377,19 @@ public abstract class BaseService {
                 .add(RestConstant.JOB_NAME, jobConfig.getName());
     }
 
+    /**
+     * Resolves the explicit restore contract before the legacy savepoint flag.
+     *
+     * <p>The explicit mode is normalized because REST callers are not limited to the Web UI. The
+     * legacy flag remains the fallback for existing clients that do not send {@code restoreMode}.
+     *
+     * @param requestParams REST query parameters.
+     * @return the requested restore mode, or {@link RestoreMode#NONE} when no restore is requested.
+     */
     private RestoreMode resolveRestoreMode(Map<String, String> requestParams) {
         String restoreModeValue = requestParams.get(RestConstant.RESTORE_MODE);
         if (StringUtils.isNotBlank(restoreModeValue)) {
-            return RestoreMode.valueOf(restoreModeValue.toUpperCase());
+            return RestoreMode.valueOf(restoreModeValue.trim().toUpperCase(Locale.ROOT));
         }
         if (Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT))) {
             return RestoreMode.SAVEPOINT;
@@ -1417,8 +1428,10 @@ public abstract class BaseService {
 
         Set<Member> members = cluster.getMembers();
         Map<Address, InternalCompletableFuture<Object>> futures = new LinkedHashMap<>();
+        Map<Address, Member> membersByAddress = new LinkedHashMap<>();
         for (Member member : members) {
             Address address = member.getAddress();
+            membersByAddress.put(address, member);
             try {
                 futures.put(
                         address,
@@ -1429,7 +1442,7 @@ public abstract class BaseService {
                 futures.put(address, null);
             }
         }
-        return collectHealthMetrics(futures);
+        return collectHealthMetrics(futures, membersByAddress);
     }
 
     int getHealthMetricsTimeoutSeconds() {
@@ -1449,15 +1462,41 @@ public abstract class BaseService {
         return memberInfo;
     }
 
+    /**
+     * Appends the member identity the Web UI needs to target the local REST node explicitly instead
+     * of updating the wrong worker: the member UUID, whether the member is the one serving this
+     * request, and its current tags. Error entries are decorated as well so a member that timed out
+     * is still identifiable in the UI. Entries whose member is unknown are returned unchanged.
+     */
+    private static JsonObject withMemberIdentity(JsonObject memberMetrics, Member member) {
+        if (member == null) {
+            return memberMetrics;
+        }
+        memberMetrics.add("uuid", member.getUuid().toString());
+        memberMetrics.add("localMember", member.localMember());
+        JsonObject tags = new JsonObject();
+        member.getAttributes().forEach((key, value) -> tags.add(key, value == null ? "" : value));
+        memberMetrics.add("tags", tags);
+        return memberMetrics;
+    }
+
     JsonArray collectHealthMetrics(Map<Address, InternalCompletableFuture<Object>> futures) {
+        return collectHealthMetrics(futures, Collections.emptyMap());
+    }
+
+    JsonArray collectHealthMetrics(
+            Map<Address, InternalCompletableFuture<Object>> futures,
+            Map<Address, Member> membersByAddress) {
         int timeoutSeconds = getHealthMetricsTimeoutSeconds();
         long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds);
         JsonArray jsonValues = new JsonArray();
         for (Map.Entry<Address, InternalCompletableFuture<Object>> entry : futures.entrySet()) {
             Address address = entry.getKey();
             InternalCompletableFuture<Object> future = entry.getValue();
+            Member member = membersByAddress.get(address);
             if (future == null) {
-                jsonValues.add(unfinishedMember(address, "dispatch-failure"));
+                jsonValues.add(
+                        withMemberIdentity(unfinishedMember(address, "dispatch-failure"), member));
                 continue;
             }
             // clamp to a positive remaining time so already-completed futures are still collected
@@ -1465,7 +1504,8 @@ public abstract class BaseService {
             long remainingNanos = Math.max(1L, deadlineNanos - System.nanoTime());
             try {
                 String input = (String) future.get(remainingNanos, TimeUnit.NANOSECONDS);
-                jsonValues.add(parseSystemMonitoringMetrics(input, address));
+                jsonValues.add(
+                        withMemberIdentity(parseSystemMonitoringMetrics(input, address), member));
             } catch (TimeoutException e) {
                 log.warn(
                         "Timeout after {}s waiting for health metrics from {}",
@@ -1473,7 +1513,7 @@ public abstract class BaseService {
                         address);
                 // cancel() only releases the local future; it cannot stop the remote operation
                 future.cancel(false);
-                jsonValues.add(unfinishedMember(address, "timeout"));
+                jsonValues.add(withMemberIdentity(unfinishedMember(address, "timeout"), member));
             } catch (InterruptedException e) {
                 future.cancel(false);
                 Thread.currentThread().interrupt();
@@ -1483,7 +1523,8 @@ public abstract class BaseService {
                 break;
             } catch (ExecutionException e) {
                 log.error("Failed to get cluster health metrics from {}", address, e);
-                jsonValues.add(unfinishedMember(address, "execution-failure"));
+                jsonValues.add(
+                        withMemberIdentity(unfinishedMember(address, "execution-failure"), member));
             }
         }
         return jsonValues;

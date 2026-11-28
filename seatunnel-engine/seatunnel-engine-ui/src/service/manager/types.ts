@@ -16,6 +16,9 @@
  */
 
 export interface Monitor {
+  uuid?: string
+  localMember?: boolean
+  tags?: Record<string, string>
   isMaster: 'true' | 'false'
   processors: string
   host: string
@@ -64,6 +67,16 @@ export interface Monitor {
   'connection.active.count': string
   'client.connection.count': string
   'connection.count': string
+}
+
+export interface UpdateTagsRequest {
+  uuid: string
+  tags: Record<string, string>
+}
+
+export interface UpdateTagsResponse {
+  status: string
+  message: string
 }
 
 export interface WorkerResource {

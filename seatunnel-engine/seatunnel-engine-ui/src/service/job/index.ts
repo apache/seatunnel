@@ -15,18 +15,91 @@
  * limitations under the License.
  */
 
-import { get } from '@/service/service'
-import type { Job, JobPage } from './types'
+import { get, post } from '@/service/service'
+import type {
+  Job,
+  JobPage,
+  CheckpointHistoryRecord,
+  CheckpointOverview,
+  StopJobRequest,
+  StopJobResponse,
+  SubmitJobFileRequest,
+  SubmitJobRequest,
+  SubmitJobResponse
+} from './types'
 
 export const getRunningJobs = (page: number, rows: number) =>
   get<JobPage>('/running-jobs/summary', {page: page, rows: rows})
 export const getFinishedJobs = (page: number, rows: number) => get<JobPage>('/finished-jobs', {page: page, rows: rows})
 export const getJobInfo = (jobId: string) => get<Job>(`/job-info/${jobId}`)
 export const getRunningJobInfo = (jobId: string) => get<Job>(`/running-job/${jobId}`)
+const optionalParam = (value?: string) => {
+  const normalized = value?.trim()
+  return normalized ? normalized : undefined
+}
+
+const operationRequestConfig = {
+  timeout: 0
+}
+
+export const submitJob = (request: SubmitJobRequest) =>
+  post<SubmitJobResponse>('/submit-job', request.config, {
+    ...operationRequestConfig,
+    params: {
+      format: request.format,
+      jobName: optionalParam(request.jobName),
+      jobId: optionalParam(request.jobId),
+      isStartWithSavePoint: request.isStartWithSavePoint || undefined,
+      restoreMode: request.restoreMode,
+      restoreSourceJobId: optionalParam(request.restoreSourceJobId)
+    },
+    headers: {
+      'Content-Type': 'text/plain;charset=UTF-8'
+    }
+  })
+
+export const submitJobByUploadFile = (request: SubmitJobFileRequest) => {
+  const formData = new FormData()
+  formData.append('config_file', request.file)
+  return post<SubmitJobResponse>('/submit-job/upload', formData, {
+    ...operationRequestConfig,
+    params: {
+      jobName: optionalParam(request.jobName),
+      jobId: optionalParam(request.jobId),
+      isStartWithSavePoint: request.isStartWithSavePoint || undefined,
+      restoreMode: request.restoreMode,
+      restoreSourceJobId: optionalParam(request.restoreSourceJobId)
+    }
+  })
+}
+
+export const stopJob = (request: StopJobRequest) =>
+  post<StopJobResponse>(
+    '/stop-job',
+    {
+      jobId: request.jobId,
+      isStopWithSavePoint: request.isStopWithSavePoint ?? false,
+      force: request.force ?? false
+    },
+    operationRequestConfig
+  )
+
+export const getCheckpointOverview = (jobId: string) =>
+  get<CheckpointOverview>(`/jobs/checkpoints/${jobId}`)
+
+export const getCheckpointHistory = (
+  jobId: string,
+  params?: { pipelineId?: number; limit?: number; status?: string }
+) => get<CheckpointHistoryRecord[]>(`/jobs/checkpoints/history/${jobId}`, params)
 
 export const JobsService = {
   getRunningJobs,
   getFinishedJobs,
   getJobInfo,
-  getRunningJobInfo
+  getRunningJobInfo,
+  submitJob,
+  submitJobByUploadFile,
+  stopJob,
+  getCheckpointOverview,
+  getCheckpointHistory
 }

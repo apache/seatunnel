@@ -23,6 +23,7 @@ export default {
     overview: 'Overview',
     exception: 'Exception',
     configuration: 'Configuration',
+    checkpoints: 'Checkpoints',
     log: 'Log'
   },
   table: {
@@ -52,6 +53,30 @@ export default {
     // Edge
     bpRatio: 'Downstream Wait Ratio',
     queueFillRatio: 'Queue Fill Ratio'
+  },
+  checkpoints: {
+    refresh: 'Refresh',
+    noSnapshot: 'No checkpoint snapshot',
+    updatedAt: 'Updated at {time}',
+    loadFailed: 'Failed to load checkpoint data.',
+    pipeline: 'Pipeline',
+    triggered: 'Triggered',
+    completed: 'Completed',
+    failed: 'Failed',
+    inProgress: 'In Progress',
+    restored: 'Restored',
+    latestCompleted: 'Latest Completed',
+    latestSavepoint: 'Latest Savepoint',
+    checkpoint: 'Checkpoint',
+    status: 'Status',
+    duration: 'Duration (ms)',
+    stateSize: 'State Size',
+    failureReason: 'Failure Reason',
+    action: 'Action',
+    restoreLatest: 'Restore Latest State',
+    restoreFromCheckpoint: 'Restore From Checkpoint',
+    restoreFromSavepoint: 'Restore From Savepoint',
+    stopBeforeRestore: 'Stop, savepoint-stop, or cancel this job before restoring its state.'
   },
   liveMetrics: {
     pinnedTitle: 'Pinned live metrics',

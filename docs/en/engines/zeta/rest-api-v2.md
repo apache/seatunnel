@@ -917,6 +917,9 @@ starting beyond the end of the result set also returns `400`, while a page start
 ```json
 [
   {
+    "uuid":"4f1c8c53-8d9f-4f5c-b9cc-278f3bbd2d2a",
+    "localMember":true,
+    "tags":{"node":"worker-1"},
     "processors":"8",
     "physical.memory.total":"16.0G",
     "physical.memory.free":"16.3M",
@@ -966,7 +969,7 @@ starting beyond the end of the result set also returns `400`, while a page start
 ]
 ```
 
-Each member is asked in parallel and awaited against one shared deadline (`seatunnel.engine.health-metrics-timeout-seconds`, default `3` seconds). A member that does not answer in time is reported as `{"host": "10.0.0.1", "port": 5801, "error": "timeout"}`; members whose request dispatch or response fails are reported with the corresponding `error` marker.
+Each member is asked in parallel and awaited against one shared deadline (`seatunnel.engine.health-metrics-timeout-seconds`, default `3` seconds). Every known member entry includes `uuid`, `localMember`, and its current string-valued `tags`, including entries with an `error` marker. A timeout entry also includes `host`, `port`, and `error: "timeout"`; dispatch and response failures carry the corresponding `error` marker. Tags are visible to anyone who can read this endpoint, including the member listener when enabled. Use tags only for non-secret scheduling metadata; never put credentials or tokens in them.
 
 
 </details>
@@ -1172,6 +1175,10 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 > | jobId                | optional     | string  | job id                                |
 > | jobName              | optional     | string  | job name                              |
 > | isStartWithSavePoint | optional     | string  | if the job is started with save point |
+> | restoreMode          | optional     | string  | `NONE`, `SAVEPOINT`, or `CHECKPOINT`   |
+> | restoreSourceJobId   | conditional  | string  | numeric source job ID; required for `CHECKPOINT`, or use `jobId` for `SAVEPOINT` |
+
+The server preflights job IDs, restore parameters and source status, dry-run and legacy savepoint requirements, and config decryption for the whole batch before submitting any job. A failure in this preflight leaves all jobs unsubmitted. Submission itself is not transactional: a later config or runtime failure may leave earlier jobs running. A source-status lookup failure returns `500` with a retry message; an active restore source returns `400`.
 
 #### Request Body
 
@@ -1429,12 +1436,15 @@ For more information about customize encryption, please refer to the documentati
 
 ### Update the tags of running node
 
-<details><summary><code>POST</code><code><b>/update-tags</b></code><code>Because the update can only target a specific node, the current node's `ip:port` needs to be used for the update</code><code>(If the update is successful, return a success message)</code></summary>
+<details><summary><code>POST</code><code><b>/update-tags</b></code><code>Updates the tags of the current REST node with the legacy flat-map request body</code><code>(If the update is successful, return a success message)</code></summary>
 
 
 #### update node tags
 ##### Body
-If the request parameter is a `Map` object, it indicates that the tags of the current node need to be updated
+`/update-tags` keeps the legacy flat `Map` contract: every top-level key is a tag name and every value is that tag's value. String values are recommended; for compatibility, the server converts non-string values to strings (and null to an empty string) rather than rejecting them. Nested objects are converted using Java's map representation, not retained as objects. No key is reserved, so a key literally named `uuid` or `tags` is stored as an ordinary tag instead of being read as a target member or a nested tag map. The request always applies to the REST node that serves it; to target a specific node, send the request to that node's own REST address.
+
+The legacy endpoint also remains available on the Hazelcast member REST listener, which does not inherit Jetty Basic Auth or mutual TLS. Restrict member-port access to trusted clients. Tag updates replace the entire map; concurrent edits may be overwritten.
+
 ```json
 {
   "tag1": "dev_1",
@@ -1451,7 +1461,8 @@ If the request parameter is a `Map` object, it indicates that the tags of the cu
 ```
 #### remove node tags
 ##### Body
-If the parameter is an empty `Map` object, it means that the tags of the current node need to be cleared
+An empty flat `Map` clears every tag of the current REST node:
+
 ```json
 {}
 ```
@@ -1484,6 +1495,77 @@ If the parameter is an empty `Map` object, it means that the tags of the current
   "message": "Invalid JSON format in request body."
 }
 ```
+</details>
+
+### Update Local Member Tags
+
+<details><summary><code>POST</code><code><b>/update-local-member-tags</b></code><code>Updates the tags of the REST node serving the request after validating the target member UUID</code><code>(If the update is successful, return a success message)</code></summary>
+
+This is the endpoint the Web UI Workers page uses. It is additive: `/update-tags` and its flat-map contract are unchanged.
+
+#### Authentication
+
+`/update-local-member-tags` is available only on the Jetty HTTP listener and uses its configured Basic Auth and mutual TLS settings. It is not available on the Hazelcast member REST listener. The legacy `/update-tags` route remains available there; restrict member-port access to trusted clients.
+
+#### Body
+
+| Field  | Required | Type   | Description                                                                                                                                                                 |
+|--------|----------|--------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `uuid` | yes      | string | Member UUID of the node that must serve this request. Read it from `/system-monitoring-information`, whose entries carry `uuid` and `localMember` for every cluster member. |
+| `tags` | yes      | object | Tag name to string value map that replaces the node's current tags. An empty object clears all tags. Non-string values are rejected.                                        |
+
+This is a whole-map, last-write-wins replacement. Re-read the member's current tags before editing; another writer's changes since that read may be overwritten.
+
+```json
+{
+  "uuid": "4f1c8c53-8d9f-4f5c-b9cc-278f3bbd2d2a",
+  "tags": {
+    "tag1": "dev_1",
+    "tag2": "dev_2"
+  }
+}
+```
+
+Clear every tag of the node:
+
+```json
+{
+  "uuid": "4f1c8c53-8d9f-4f5c-b9cc-278f3bbd2d2a",
+  "tags": {}
+}
+```
+
+#### Responses
+
+```json
+{
+  "status": "success",
+  "message": "update node tags done."
+}
+```
+
+#### Request parameter exception
+
+Each error is returned with HTTP status `400`. The shared REST exception filter prefixes `message` with the exception class name, so the exact text is `IllegalArgumentException: <explanation>`.
+
+| Condition                                                          | `message`                                                       |
+|--------------------------------------------------------------------|-----------------------------------------------------------------|
+| The request body is empty                                          | `IllegalArgumentException: Request body is empty.`                                        |
+| The request body is not a JSON object                              | `IllegalArgumentException: Invalid JSON format in request body.`                          |
+| `uuid` is missing or does not match the node serving the request   | `IllegalArgumentException: Target member uuid must match the REST node serving this request.` |
+| `tags` is missing or is not a JSON object                          | `IllegalArgumentException: The tags field must be an object.`                             |
+| Any value inside `tags` is not a string                             | `IllegalArgumentException: Tag values must be strings.`                                    |
+
+```json
+{
+  "status": "fail",
+  "message": "IllegalArgumentException: Target member uuid must match the REST node serving this request."
+}
+```
+
+#### Limitation
+
+The UUID check is local to the node serving the request. When the REST address is a load balancer or reverse proxy that fronts several masters, only the member that happens to serve the request can be updated, and requests for every other member are rejected with the UUID mismatch error. Send the request to the target member's own REST address instead.
 </details>
 
 ------------------------------------------------------------------------------------------
@@ -1765,6 +1847,51 @@ More information about `Telemetry` can be found in the [Telemetry](telemetry.md)
 
 </details>
 
+### Get HTTP Service Status
+
+<details>
+ <summary><code>GET</code> <code><b>/http-service/status</b></code> <code>(Return HTTP service runtime status.)</code></summary>
+
+#### Response
+
+Returns the HTTP service switches, configured ports, effective connector ports, context path, and authentication mode for the current node.
+Sensitive values such as passwords, user names, and keystore or truststore paths are never returned.
+The endpoint is registered on the same servlet context as every other REST endpoint, so it is protected by the same basic authentication and mutual TLS configuration.
+
+| Field                 | Type    | Description                                                                                                                                                      |
+|-----------------------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `httpEnabled`         | boolean | Whether the REST service is enabled on this node (`http.enable-http`).                                                                                           |
+| `httpsEnabled`        | boolean | Whether HTTPS is enabled on this node (`http.enable-https`).                                                                                                     |
+| `contextPath`         | string  | Context path the REST endpoints are served under; `/` when none is configured.                                                                                   |
+| `configuredHttpPort`  | number  | HTTP port from the configuration (`http.port`, default `8080`).                                                                                                  |
+| `configuredHttpsPort` | number  | HTTPS port from the configuration (`http.https-port`, default `8443`).                                                                                           |
+| `httpPort`            | number  | Port the active HTTP connector is bound to. It differs from `configuredHttpPort` when dynamic ports are enabled; it equals the configured port when no HTTP connector is active. |
+| `httpsPort`           | number  | Port the active HTTPS connector is bound to, with the same fallback rule as `httpPort`.                                                                           |
+| `dynamicPortEnabled`  | boolean | Whether the node may pick the next free port when the configured one is taken (`http.enable-dynamic-port`).                                                      |
+| `portRange`           | number  | Size of the port range searched when dynamic ports are enabled (`http.port-range`).                                                                              |
+| `basicAuthEnabled`    | boolean | Whether HTTP basic authentication is enforced on this node.                                                                                                      |
+| `mutualTlsEnabled`    | boolean | Whether the active HTTPS connector requires a client certificate. This reflects the effective TLS context, not merely whether a trust store is configured.         |
+
+#### Response Example
+
+```json
+{
+  "httpEnabled": true,
+  "httpsEnabled": false,
+  "contextPath": "/",
+  "configuredHttpPort": 8080,
+  "configuredHttpsPort": 8443,
+  "httpPort": 8080,
+  "httpsPort": 8443,
+  "dynamicPortEnabled": false,
+  "portRange": 100,
+  "basicAuthEnabled": false,
+  "mutualTlsEnabled": false
+}
+```
+
+</details>
+
 ### Get Job Checkpoint Overview
 
 <details>
@@ -2039,8 +2166,16 @@ There is no dedicated `pause`, `resume` or `delete` endpoint. Use the existing j
 | Goal                                   | How                                                                                                                                                                                                        |
 |-----------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Pause a running job (stop now, resume later) | Call [`/stop-job`](#stop-a-job) with `isStopWithSavePoint: true`. The job stops and a savepoint of its current state is persisted.                                                                       |
-| Resume a paused job                     | Call [`/submit-job`](#submit-a-job) again with `isStartWithSavePoint: true`, the **same** `jobId` that was stopped, and the same job config. The job restores from its latest savepoint for that `jobId`. |
+| Resume a paused job                     | Call [`/submit-job`](#submit-a-job) again with `restoreMode=SAVEPOINT`, `restoreSourceJobId=<stopped-job-id>`, and the same job config. The job restores from its latest savepoint for that source job. The legacy `isStartWithSavePoint: true` with the same `jobId` remains supported. |
 | Delete a job                            | There is no delete endpoint. Stop the job with [`/stop-job`](#stop-a-job) if it is still running. Once a job reaches a finished state, its record is removed automatically after `history-job-expire-minutes` (default 1440 minutes) elapses -- see [History Job Expiry Configuration](separated-cluster-deployment.md#44-history-job-expiry-configuration). |
 
-**Note:** `isStartWithSavePoint: true` requires `jobId` to be provided in the request; submitting
-without a `jobId` in that case fails with `Please provide jobId when start with save point.`
+**Note:** `CHECKPOINT` requires `restoreSourceJobId`; `SAVEPOINT` may use `jobId` when `restoreSourceJobId` is omitted. `isStartWithSavePoint: true` remains a legacy
+shortcut and requires `jobId` to be provided in the request; submitting without a `jobId` in that
+case fails with `Please provide jobId when start with save point.`
+
+**Restore guard:** a `restoreMode` submission is refused with HTTP `400` while the source job has
+not reached an end state (`FINISHED`, `FAILED`, `CANCELED` or `SAVEPOINT_DONE`), for example
+`restoreSourceJobId=42 is still RUNNING; stop or cancel the source job before restoring from its checkpoint state`.
+Stop, savepoint or cancel the source job first. If the source job's checkpoint or savepoint state
+has already been cleaned up, the submission fails with
+`No checkpoint found for jobId=..., restoreMode=..., restoreSourceJobId=...`.

@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.rest.service;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
@@ -53,6 +54,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -447,16 +449,7 @@ public class JobInfoService extends BaseService {
     }
 
     public JsonObject submitJob(Map<String, String> requestParams, byte[] requestBody) {
-
-        if (requestParams.containsKey(RestConstant.DRY_RUN)
-                && requestParams.get(RestConstant.DRY_RUN) != null) {
-            throw new IllegalArgumentException("Dry-run is only supported via CLI");
-        }
-        if (Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT))
-                && requestParams.get(RestConstant.JOB_ID) == null) {
-            throw new IllegalArgumentException("Please provide jobId when start with save point.");
-        }
-        validateCheckpointRestoreRequest(requestParams);
+        validateSubmitRequestParams(requestParams);
         Config config;
         ConfigFormat configFormat = ConfigFormat.fromString(requestParams.get(CONFIG_FORMAT));
 
@@ -481,54 +474,164 @@ public class JobInfoService extends BaseService {
     }
 
     public JsonObject submitJob(Map<String, String> requestParams, Config config) {
+        validateSubmitRequestParams(requestParams);
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
+        return submitJobInternal(config, requestParams, seaTunnelServer, nodeEngine.getNode());
+    }
+
+    private void validateSubmitRequestParams(Map<String, String> requestParams) {
         if (requestParams.containsKey(RestConstant.DRY_RUN)
                 && requestParams.get(RestConstant.DRY_RUN) != null) {
             throw new IllegalArgumentException("Dry-run is only supported via CLI");
         }
         if (Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT))
-                && requestParams.get(RestConstant.JOB_ID) == null) {
+                && StringUtils.isBlank(requestParams.get(RestConstant.JOB_ID))) {
             throw new IllegalArgumentException("Please provide jobId when start with save point.");
         }
+        for (String idKey :
+                new String[] {RestConstant.JOB_ID, RestConstant.RESTORE_SOURCE_JOB_ID}) {
+            String value = requestParams.get(idKey);
+            if (StringUtils.isNotBlank(value)) {
+                try {
+                    Long.parseLong(value);
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException(idKey + " must be a numeric job id.", e);
+                }
+            }
+        }
         validateCheckpointRestoreRequest(requestParams);
-        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
-        return submitJobInternal(config, requestParams, seaTunnelServer, nodeEngine.getNode());
     }
 
     public JsonArray submitJobs(byte[] requestBody) {
         List<Tuple2<Map<String, String>, Config>> configTuples =
                 RestUtil.buildConfigList(requestHandle(requestBody));
 
-        return configTuples.stream()
+        List<Tuple2<Map<String, String>, Config>> validatedJobs =
+                configTuples.stream()
+                        .map(
+                                tuple -> {
+                                    String urlParams = mapToUrlParams(tuple._1);
+                                    Map<String, String> requestParams = new HashMap<>();
+                                    RestUtil.buildRequestParams(requestParams, urlParams);
+                                    validateSubmitRequestParams(requestParams);
+                                    return new Tuple2<>(
+                                            requestParams,
+                                            ConfigShadeUtils.decryptConfig(tuple._2));
+                                })
+                        .collect(Collectors.toList());
+
+        return validatedJobs.stream()
                 .map(
                         tuple -> {
-                            String urlParams = mapToUrlParams(tuple._1);
-                            Map<String, String> requestParams = new HashMap<>();
-                            RestUtil.buildRequestParams(requestParams, urlParams);
-                            if (requestParams.containsKey(RestConstant.DRY_RUN)
-                                    && requestParams.get(RestConstant.DRY_RUN) != null) {
-                                throw new IllegalArgumentException(
-                                        "Dry-run is only supported via CLI");
-                            }
-                            validateCheckpointRestoreRequest(requestParams);
                             SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
-                            Config decryptConfig = ConfigShadeUtils.decryptConfig(tuple._2);
                             return submitJobInternal(
-                                    decryptConfig,
-                                    requestParams,
-                                    seaTunnelServer,
-                                    nodeEngine.getNode());
+                                    tuple._2, tuple._1, seaTunnelServer, nodeEngine.getNode());
                         })
                 .collect(JsonArray::new, JsonArray::add, JsonArray::add);
     }
 
+    /**
+     * Validates explicit and legacy restore parameters before parsing the submitted job
+     * configuration.
+     *
+     * <p>A blank source ID is equivalent to an omitted source ID. Rejecting it here prevents the
+     * restore path from issuing a lookup for a null source after configuration parsing begins. The
+     * source job must also have reached an end state: see {@link
+     * #rejectRestoreFromActiveSourceJob(RestoreMode, long, JobStatus)}.
+     *
+     * @param requestParams REST query parameters.
+     */
     private void validateCheckpointRestoreRequest(Map<String, String> requestParams) {
         String restoreModeValue = requestParams.get(RestConstant.RESTORE_MODE);
-        RestoreMode restoreMode =
-                restoreModeValue == null ? RestoreMode.NONE : RestoreMode.valueOf(restoreModeValue);
-        if (restoreMode.isRestore()
-                && requestParams.get(RestConstant.RESTORE_SOURCE_JOB_ID) == null) {
+        RestoreMode restoreMode;
+        try {
+            restoreMode =
+                    restoreModeValue == null || restoreModeValue.trim().isEmpty()
+                            ? (Boolean.parseBoolean(
+                                            requestParams.get(
+                                                    RestConstant.IS_START_WITH_SAVE_POINT))
+                                    ? RestoreMode.SAVEPOINT
+                                    : RestoreMode.NONE)
+                            : RestoreMode.valueOf(restoreModeValue.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "restoreMode must be one of NONE, SAVEPOINT, CHECKPOINT.", e);
+        }
+        if (!restoreMode.isRestore()) {
+            return;
+        }
+        String restoreSourceJobIdValue = requestParams.get(RestConstant.RESTORE_SOURCE_JOB_ID);
+        if (restoreMode == RestoreMode.SAVEPOINT && StringUtils.isBlank(restoreSourceJobIdValue)) {
+            restoreSourceJobIdValue = requestParams.get(RestConstant.JOB_ID);
+        }
+        if (restoreSourceJobIdValue == null || restoreSourceJobIdValue.trim().isEmpty()) {
             throw new IllegalArgumentException(
                     "restoreSourceJobId is required when restoreMode=" + restoreMode);
         }
+        long restoreSourceJobId;
+        try {
+            // No trimming: the submit path parses the raw value as well, so a padded ID must fail
+            // here with a clear message rather than later with a bare NumberFormatException.
+            restoreSourceJobId = Long.parseLong(restoreSourceJobIdValue);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                    "restoreSourceJobId must be a numeric job id, got: " + restoreSourceJobIdValue,
+                    e);
+        }
+        JobStatus sourceJobStatus;
+        try {
+            sourceJobStatus = getRestoreSourceJobStatus(restoreSourceJobId);
+        } catch (RuntimeException e) {
+            throw new IllegalStateException(
+                    "Unable to verify restoreSourceJobId="
+                            + restoreSourceJobId
+                            + " status; retry when the cluster is healthy.",
+                    e);
+        }
+        rejectRestoreFromActiveSourceJob(restoreMode, restoreSourceJobId, sourceJobStatus);
+    }
+
+    /**
+     * Rejects a restore whose source job has not reached an end state.
+     *
+     * <p>The Web UI exposes "Restore Latest State" on the Checkpoints tab of any job, including one
+     * that is still RUNNING. Restoring from a live job would start a second job from a checkpoint
+     * that the source keeps advancing past, so the operator must stop, savepoint or cancel the
+     * source first. A source job unknown to the cluster is reported as {@link JobStatus#UNKNOWABLE}
+     * and is deliberately not rejected here: the checkpoint lookup that follows returns the
+     * dedicated "No checkpoint found" error for it.
+     *
+     * @param restoreMode requested restore mode, used only for the error message.
+     * @param restoreSourceJobId source job whose state is restored.
+     * @param sourceJobStatus current status of the source job, or {@code null} when unknown.
+     */
+    static void rejectRestoreFromActiveSourceJob(
+            RestoreMode restoreMode, long restoreSourceJobId, JobStatus sourceJobStatus) {
+        if (sourceJobStatus == null || sourceJobStatus.isEndState()) {
+            return;
+        }
+        throw new IllegalArgumentException(
+                String.format(
+                        "restoreSourceJobId=%d is still %s; stop or cancel the source job before restoring from its %s state",
+                        restoreSourceJobId,
+                        sourceJobStatus,
+                        restoreMode.name().toLowerCase(Locale.ROOT)));
+    }
+
+    /**
+     * Resolves the source job status on the master, either locally or through {@link
+     * GetJobStatusOperation} when this REST node is not the master.
+     */
+    private JobStatus getRestoreSourceJobStatus(long restoreSourceJobId) {
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
+        if (seaTunnelServer != null) {
+            return seaTunnelServer.getCoordinatorService().getJobStatus(restoreSourceJobId);
+        }
+        Integer statusOrdinal =
+                (Integer)
+                        NodeEngineUtil.sendOperationToMasterNode(
+                                        nodeEngine, new GetJobStatusOperation(restoreSourceJobId))
+                                .join();
+        return statusOrdinal == null ? null : JobStatus.values()[statusOrdinal];
     }
 }
