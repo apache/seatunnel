@@ -42,6 +42,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 import org.apache.seatunnel.engine.server.checkpoint.StateStoreCheckpointIDCounter;
 import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
@@ -50,6 +51,7 @@ import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
@@ -73,6 +75,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class CheckpointCoordinatorFailoverIT {
@@ -712,6 +715,30 @@ public class CheckpointCoordinatorFailoverIT {
                                 Assertions.assertEquals(
                                         20,
                                         FileUtils.getFileLineNumberFromDir(resources.getLeft()));
+                                // Valid-path guard: all task identities survive master failover.
+                                JobMaster runningJobMaster = getJobMaster(originalMaster, jobId);
+                                Assertions.assertNotNull(runningJobMaster);
+                                CheckpointCoordinator coordinator =
+                                        runningJobMaster
+                                                .getCheckpointManager()
+                                                .getCheckpointCoordinator(
+                                                        runningJobMaster
+                                                                .getPhysicalPlan()
+                                                                .getPipelineList()
+                                                                .get(0)
+                                                                .getPipelineId());
+                                CheckpointPlan plan =
+                                        (CheckpointPlan)
+                                                ReflectionUtils.getField(coordinator, "plan")
+                                                        .orElseThrow(
+                                                                () ->
+                                                                        new AssertionError(
+                                                                                "CheckpointCoordinator.plan not found"));
+                                Assertions.assertEquals(
+                                        plan.getPipelineSubtasks().stream()
+                                                .map(TaskLocation::getTaskID)
+                                                .collect(Collectors.toSet()),
+                                        coordinator.getPipelineTaskStatus().keySet());
                             });
             JobMaster jobMaster = getJobMaster(first, jobId);
             PhysicalVertex idleReader =
