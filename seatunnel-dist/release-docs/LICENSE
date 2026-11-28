@@ -354,6 +354,10 @@ MOZILLA PUBLIC LICENSE License
 The following components are provided under the MOZILLA PUBLIC LICENSE License. See project link for details.
 The text of each license is also included at licenses/LICENSE-[project].txt.
 
+     Eclipse Californium 3.14.0 (californium-core, element-connector, californium-legal)
+     See licenses/LICENSE-californium.txt for the Eclipse Distribution License 1.0
+     and the connector JAR's META-INF/legal directory for the upstream notices.
+
 ========================================================================
 Apache-2.0 and BSD-2-Clause and BSD-3-Clause licenses
 ========================================================================
