@@ -626,6 +626,19 @@ public class SubPlan {
                         pipelineRestoreIntervalSeconds,
                         getPipelineFullName());
                 Thread.sleep(pipelineRestoreIntervalSeconds * 1000);
+                // A stop/cancel that lands while this pipeline is waiting to restore must win.
+                // forceStopPipeline() records the intent through JobMaster#neverNeedRestore()
+                // because the pipeline state is already FAILED at that point. Re-check it after
+                // the interval: otherwise a stop-with-savepoint whose savepoint failed while the
+                // owning worker exited would restore the pipeline behind the stop and leave the
+                // job stuck in DOING_SAVEPOINT with no pipeline left to decide the job state.
+                if (!jobMaster.isNeedRestore()) {
+                    log.info(
+                            "Skip restoring the pipeline {} because a stop/cancel was requested"
+                                    + " while waiting",
+                            getPipelineFullName());
+                    return false;
+                }
                 return true;
             } catch (Throwable e) {
                 if (this.currPipelineStatus.isEndState()) {
