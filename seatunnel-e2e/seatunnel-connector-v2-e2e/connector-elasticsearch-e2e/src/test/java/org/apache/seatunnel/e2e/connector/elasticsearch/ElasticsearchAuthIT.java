@@ -830,8 +830,12 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
     private void setupAuthTestData() throws Exception {
         // The source job of both API-key tests reads TEST_INDEX, which @BeforeEach already
         // populated with TEST_DOC_COUNT documents, so wait for the bulk below on top of that
-        // baseline instead of for "any document is visible".
-        long docsBeforeBulk = queryDocsCount(TEST_INDEX, new AtomicReference<>("no probe failure"));
+        // baseline instead of for "any document is visible". The baseline itself is awaited
+        // against the fixture total: a probe that cannot read the count returns -1, and using that
+        // sentinel as arithmetic would lower the readiness gate below by the unknown part and let
+        // the job read a partially refreshed index.
+        AtomicReference<String> baselineFailure = new AtomicReference<>("no probe failure");
+        long docsBeforeBulk = awaitDocsCount(TEST_INDEX, TEST_DOC_COUNT, baselineFailure);
 
         // Create index mapping
         String mapping =
@@ -859,7 +863,7 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
         String indexHeader = "{\"index\":{\"_index\":\"" + TEST_INDEX + "\"}}\n";
 
         String[] categories = {"electronics", "books", "clothing", "home", "sports"};
-        for (int i = 1; i <= 10; i++) {
+        for (int i = 1; i <= AUTH_SOURCE_DOC_COUNT; i++) {
             Map<String, Object> doc = new HashMap<>();
             doc.put("id", i);
             doc.put("name", "Auth Test Product " + i);
@@ -877,7 +881,8 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
             log.warn("Some documents might already exist: {}", response.getResponse());
         }
 
-        // Poll until every bulked document is visible before the job reads the index
+        // Poll until every bulked document is visible before the job reads the index. The baseline
+        // is a validated count, so the expected total is exact instead of a lowered estimate.
         long expectedDocs = docsBeforeBulk + AUTH_SOURCE_DOC_COUNT;
         AtomicReference<String> lastFailure = new AtomicReference<>("no probe failure");
         AtomicLong visibleDocs = new AtomicLong(-1L);
@@ -902,6 +907,45 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
                                             + ")");
                         });
         log.info("Test data setup completed - {} documents in source index", visibleDocs.get());
+    }
+
+    /**
+     * Waits until an index reports at least the expected document count and returns the observed
+     * value.
+     *
+     * <p>A probe that cannot read the count returns -1, which must never be used as a baseline: the
+     * readiness gate built on top of it would silently drop by the unknown part. The count is
+     * therefore awaited against a known fixture total, and the last probe failure is reported when
+     * the index never reaches it.
+     *
+     * @param indexName index to inspect
+     * @param expectedAtLeast known lower bound the fixture guarantees
+     * @param lastFailure holder updated with the reason of an unsuccessful probe
+     * @return the observed document count, at least {@code expectedAtLeast}
+     */
+    private long awaitDocsCount(
+            String indexName, long expectedAtLeast, AtomicReference<String> lastFailure) {
+        AtomicLong observedDocs = new AtomicLong(-1L);
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            long docsCount = queryDocsCount(indexName, lastFailure);
+                            observedDocs.set(docsCount);
+                            Assertions.assertTrue(
+                                    docsCount >= expectedAtLeast,
+                                    "expected at least "
+                                            + expectedAtLeast
+                                            + " visible documents in "
+                                            + indexName
+                                            + " but docsCount="
+                                            + docsCount
+                                            + " (last probe failure: "
+                                            + lastFailure.get()
+                                            + ")");
+                        });
+        return observedDocs.get();
     }
 
     /**
