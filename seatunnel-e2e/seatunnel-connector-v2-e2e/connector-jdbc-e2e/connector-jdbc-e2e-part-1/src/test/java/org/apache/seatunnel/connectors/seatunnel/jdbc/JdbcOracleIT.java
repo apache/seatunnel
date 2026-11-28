@@ -89,15 +89,20 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     private static final String SOURCE_TABLE = "E2E_TABLE_SOURCE";
     private static final String SINK_TABLE = "E2E_TABLE_SINK";
     private static final String CATALOG_TABLE = "E2E_TABLE_CATALOG";
-    private static final String STRING_RANGE_TABLE = "E2E_STRING_RANGE_SPLIT";
-    private static final int STRING_RANGE_ROWS = 300;
-    private static final int STRING_RANGE_PARTITIONS = 4;
+    private static final String VIEW_SOURCE = "E2E_VIEW_SOURCE";
+    private static final String VIEW_SINK = "E2E_VIEW_SINK";
+    private static final List<String> VIEW_COLUMNS =
+            Arrays.asList("VARCHAR_10_COL", "INTEGER_COL", "DATE_COL");
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList(
                     "/jdbc_oracle_source_to_sink.conf",
                     "/jdbc_oracle_source_to_sink_use_select1.conf",
                     "/jdbc_oracle_source_to_sink_use_select2.conf",
                     "/jdbc_oracle_source_to_sink_use_select3.conf");
+
+    private static final String STRING_RANGE_TABLE = "E2E_STRING_RANGE_SPLIT";
+    private static final int STRING_RANGE_ROWS = 300;
+    private static final int STRING_RANGE_PARTITIONS = 4;
 
     private static final String CREATE_SQL =
             "create table %s\n"
