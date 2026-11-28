@@ -23,7 +23,7 @@ package org.apache.seatunnel.engine.checkpoint.storage.hdfs;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
-import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractCheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractChunkSupportStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.AbstractConfiguration;
 import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.FileConfiguration;
@@ -40,6 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -48,7 +49,7 @@ import java.util.Set;
 import static org.apache.seatunnel.engine.checkpoint.storage.constants.StorageConstants.STORAGE_NAME_SPACE;
 
 @Slf4j
-public class HdfsStorage extends AbstractCheckpointStorage {
+public class HdfsStorage extends AbstractChunkSupportStorage {
 
     public FileSystem fs;
     private static final String STORAGE_TMP_SUFFIX = "tmp";
@@ -373,5 +374,91 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                             fileName, jobId),
                     e);
         }
+    }
+
+    private Path resolve(String relativePath) {
+        return new Path(getStorageParentDirectory() + relativePath);
+    }
+
+    @Override
+    protected void writeNewFile(String relativePath, byte[] data) throws IOException {
+        try (FSDataOutputStream out = fs.create(resolve(relativePath), false)) {
+            out.write(data);
+        }
+    }
+
+    /**
+     * Renames {@code source} to {@code target} if the target does not exist. On HDFS a rename is
+     * atomic and never overwrites an existing file, so a committed file is never deleted or
+     * modified: the publication fails instead. On object stores (S3/OSS/COS/GCS) a rename is a
+     * copy, which is why {@code _metadata} and chunks carry a CRC that readers validate.
+     */
+    @Override
+    protected void moveIfAbsent(String source, String target) throws IOException {
+        Path from = resolve(source);
+        Path to = resolve(target);
+        // HDFS refuses to rename onto an existing file, but not every FileSystem implementation
+        // does (e.g. the local one replaces it), so check explicitly. There is a single committer
+        // per file name, so check-then-rename is not racy.
+        if (fs.exists(to)) {
+            throw new FileAlreadyExistsException(to.toString());
+        }
+        if (!fs.rename(from, to)) {
+            if (fs.exists(to)) {
+                throw new FileAlreadyExistsException(to.toString());
+            }
+            throw new IOException(String.format("Failed to rename %s to %s", from, to));
+        }
+    }
+
+    @Override
+    protected void deleteIfExists(String relativePath) throws IOException {
+        // delete returns false when the file does not exist
+        fs.delete(resolve(relativePath), false);
+    }
+
+    @Override
+    protected byte[] readFile(String relativePath) throws IOException {
+        try (FSDataInputStream in = fs.open(resolve(relativePath));
+                ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
+            IOUtils.copyBytes(in, stream, 4096);
+            return stream.toByteArray();
+        }
+    }
+
+    @Override
+    protected boolean fileExists(String relativePath) throws IOException {
+        Path path = resolve(relativePath);
+        return fs.exists(path) && fs.getFileStatus(path).isFile();
+    }
+
+    @Override
+    protected List<String> listChildDirectories(String relativePath) throws IOException {
+        Path dir = resolve(relativePath);
+        List<String> names = new ArrayList<>();
+        if (!fs.exists(dir)) {
+            return names;
+        }
+        for (FileStatus status : fs.listStatus(dir)) {
+            if (status.isDirectory()) {
+                names.add(status.getPath().getName());
+            }
+        }
+        return names;
+    }
+
+    @Override
+    protected List<String> listFileNames(String relativePath) throws IOException {
+        Path dir = resolve(relativePath);
+        List<String> names = new ArrayList<>();
+        if (!fs.exists(dir)) {
+            return names;
+        }
+        for (FileStatus status : fs.listStatus(dir)) {
+            if (status.isFile()) {
+                names.add(status.getPath().getName());
+            }
+        }
+        return names;
     }
 }

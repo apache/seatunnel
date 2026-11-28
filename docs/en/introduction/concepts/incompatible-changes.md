@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Zeta: restore from an unreadable or corrupt checkpoint
+
+- **Behavior change: corrupt checkpoints are skipped and read failures fail the restore**
+  - **Description**: Applies to the `localfile` and `hdfs` checkpoint storage types (including OSS, COS, GCS and S3 through `hdfs`). Before, a corrupt newest checkpoint failed the restore even when an older checkpoint was valid. With `localfile`, a checkpoint file that could not be read was logged and treated as absent, so the job could start from the beginning. With `hdfs`, listing checkpoints silently skipped files that could not be read. Now a checkpoint whose content is invalid (it fails its length or CRC32 check, cannot be deserialized, or holds another job's, pipeline's or checkpoint's state) is skipped with a WARN log, and the next older checkpoint is restored. A checkpoint file that exists but cannot be read (an I/O or permission error) fails the restore. If every completed checkpoint is corrupt, the restore fails instead of starting from the beginning. A savepoint restore also fails if a corrupt checkpoint is newer than the newest valid savepoint.
+  - **Impact**: A job whose newest checkpoint is corrupt now resumes from the previous checkpoint and replays the data processed since then. A job that hits a storage read error now fails to restore instead of silently starting over. Other checkpoint storage plugins are not affected.
+  - **Migration Guide**: No configuration change is needed. If a restore fails with a read error, fix access to the checkpoint storage and restore the job again. If it fails because all checkpoints are corrupt, check the storage; to start the job without its state, submit it without restoring.
+
 ### File connectors: ORC ZSTD output requires compatible readers
 
 - **Affected component**: `connector-file-base` and file connectors using its ORC reader/writer.

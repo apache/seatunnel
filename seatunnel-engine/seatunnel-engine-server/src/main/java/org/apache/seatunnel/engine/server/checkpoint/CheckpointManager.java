@@ -30,8 +30,6 @@ import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.job.Job;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.core.job.RestoreMode;
-import org.apache.seatunnel.engine.serializer.api.Serializer;
-import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
@@ -48,7 +46,6 @@ import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
-import org.apache.seatunnel.engine.server.utils.CheckpointRestoreUtils;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.map.IMap;
@@ -57,8 +54,6 @@ import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
@@ -90,8 +85,6 @@ public class CheckpointManager {
     private final JobMaster jobMaster;
 
     private final CheckpointMonitorService checkpointMonitorService;
-
-    private final Serializer serializer = new ProtoStuffSerializer();
 
     public CheckpointManager(
             long jobId,
@@ -169,8 +162,9 @@ public class CheckpointManager {
                                         if (checkpointConfig.isCheckpointEnable() && isRestoreJob) {
                                             if (masterFailoverRestore) {
                                                 pipelineState =
-                                                        checkpointStorage
-                                                                .getLatestCheckpointByJobIdAndPipelineId(
+                                                        DualFormatCheckpointReader
+                                                                .getLatestCheckpoint(
+                                                                        checkpointStorage,
                                                                         String.valueOf(jobId),
                                                                         String.valueOf(
                                                                                 plan
@@ -187,7 +181,21 @@ public class CheckpointManager {
                                             }
                                             if (pipelineState != null) {
                                                 long checkpointId = pipelineState.getCheckpointId();
-                                                idCounter.setCount(checkpointId + 1);
+                                                // a committed v2 checkpoint id can never be
+                                                // written again, so continue above every id this
+                                                // job has on storage, also when restore skipped a
+                                                // newer corrupt checkpoint
+                                                long highestCommitted =
+                                                        DualFormatCheckpointReader
+                                                                .highestCommittedCheckpointId(
+                                                                        checkpointStorage,
+                                                                        String.valueOf(jobId),
+                                                                        String.valueOf(
+                                                                                plan
+                                                                                        .getPipelineId()));
+                                                idCounter.setCount(
+                                                        Math.max(checkpointId, highestCommitted)
+                                                                + 1);
                                                 log.info(
                                                         "pipeline({}) restore with {} on checkpointId({})",
                                                         plan.getPipelineId(),
@@ -220,27 +228,11 @@ public class CheckpointManager {
     private PipelineState getLatestCheckpointStateByType(
             String sourceJobId, String pipelineId, RestoreMode restoreMode) throws Exception {
         if (restoreMode == null || !restoreMode.isRestore()) {
-            return checkpointStorage.getLatestCheckpointByJobIdAndPipelineId(
-                    sourceJobId, pipelineId);
+            return DualFormatCheckpointReader.getLatestCheckpoint(
+                    checkpointStorage, sourceJobId, pipelineId);
         }
-        List<PipelineState> pipelineStates =
-                checkpointStorage.getCheckpointsByJobIdAndPipelineId(sourceJobId, pipelineId);
-        return pipelineStates.stream()
-                .filter(
-                        state ->
-                                CheckpointRestoreUtils.matchesRestoreCheckpointType(
-                                        deserializeCheckpoint(state).getCheckpointType(),
-                                        restoreMode))
-                .max(Comparator.comparingLong(PipelineState::getCheckpointId))
-                .orElse(null);
-    }
-
-    private CompletedCheckpoint deserializeCheckpoint(PipelineState pipelineState) {
-        try {
-            return serializer.deserialize(pipelineState.getStates(), CompletedCheckpoint.class);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        return DualFormatCheckpointReader.getLatestCheckpointOfType(
+                checkpointStorage, sourceJobId, pipelineId, restoreMode);
     }
 
     /**
