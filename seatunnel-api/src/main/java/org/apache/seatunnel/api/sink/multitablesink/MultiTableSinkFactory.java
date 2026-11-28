@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.api.sink.multitablesink;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
@@ -45,6 +47,11 @@ public class MultiTableSinkFactory implements TableSinkFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().build();
+        return OptionRule.builder()
+                .optional(
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
+                        Conditions.greaterThan(
+                                SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA, 0))
+                .build();
     }
 }

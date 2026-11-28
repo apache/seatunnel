@@ -292,6 +292,12 @@ public class MultiTableSinkCommitter<CommitInfoT>
 
 ### 5.2 Replica Configuration
 
+`multi_table_sink_replica` is an optional integer with a default of `1` and must be
+at least `1`. The factory validates this range before constructing the composite
+`MultiTableSink`, after per-table sink preparation. If the engine applies save modes
+during preparation, those operations may already have run. Invalid values produce
+an error naming the option and rejected value.
+
 ```hocon
 sink {
   JDBC {

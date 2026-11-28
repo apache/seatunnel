@@ -85,16 +85,14 @@ public class MultiTableSink
      * replicaNum} writers to fill the blocking queues in {@link MultiTableSinkWriter}.
      *
      * @param context the factory context containing per-table sinks and configuration options
+     * @throws IllegalArgumentException if the replica count is less than one
      */
     public MultiTableSink(MultiTableFactoryContext context) {
         this.sinks = context.getSinks();
         this.replicaNum =
                 context.getOptions().get(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA);
-        // replicaNum is the writer count per subtask and becomes the queue count and the
-        // thread-pool size in MultiTableSinkWriter. Below 1 there is no writer to route a row
-        // to, and Executors.newFixedThreadPool rejects the size with a message-less
-        // IllegalArgumentException that names neither this option nor its value. Fail here
-        // instead, with both.
+        // FactoryUtil validates the factory rule. Direct callers still need the guard because
+        // every replica becomes a writer with its own queue.
         if (replicaNum < 1) {
             throw new IllegalArgumentException(
                     String.format(
