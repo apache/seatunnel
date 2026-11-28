@@ -104,7 +104,7 @@ public class SinkExecuteProcessor
                 .map(
                         sinkConfig -> {
                             jarPaths.addAll(
-                                    sinkPluginDiscovery.getPluginJarPaths(
+                                    sinkPluginDiscovery.getPluginJarAndDependencyPaths(
                                             Lists.newArrayList(
                                                     PluginIdentifier.of(
                                                             EngineType.SEATUNNEL.getEngine(),
