@@ -40,6 +40,7 @@
         <module>connector-http-jira</module>
         <module>connector-http-gitlab</module>
         <module>connector-http-github</module>
+        <module>connector-http-open-data-dc</module>
         <module>connector-http-notion</module>
         <module>connector-http-persistiq</module>
         <module>connector-http-airtable</module>

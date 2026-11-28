@@ -79,6 +79,7 @@ connector-http-amplitude
 connector-http-feishu
 connector-http-gitlab
 connector-http-github
+connector-http-open-data-dc
 connector-http-jira
 connector-http-klaviyo
 connector-http-stripe

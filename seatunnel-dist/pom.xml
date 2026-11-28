@@ -755,6 +755,12 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-http-open-data-dc</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-http-jira</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
