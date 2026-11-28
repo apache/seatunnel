@@ -26,6 +26,7 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClie
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.auth.AuthenticationProvider;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.auth.AuthenticationProviderFactory;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexDocsCount;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -64,21 +65,26 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 @Slf4j
 public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
 
     private static final String ELASTICSEARCH_IMAGE = "elasticsearch:8.9.0";
-    private static final long INDEX_REFRESH_DELAY = 2000L;
+    private static final long INDEX_REFRESH_TIMEOUT_SECONDS = 60L;
     // Retry only the transient 503 returned while Elasticsearch initializes its security index.
     private static final int API_KEY_CREATION_MAX_ATTEMPTS = 15;
     private static final long API_KEY_CREATION_RETRY_DELAY_SECONDS = 2L;
 
     // Test data constants
     private static final String TEST_INDEX = "auth_test_index";
+    private static final int TEST_DOC_COUNT = 3;
+    private static final int AUTH_SOURCE_DOC_COUNT = 10;
     private static final String VALID_USERNAME = "elastic";
     private static final String VALID_PASSWORD = "elasticsearch";
     private static final String INVALID_USERNAME = "wrong_user";
@@ -348,7 +354,7 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
         StringBuilder requestBody = new StringBuilder();
         String indexHeader = "{\"index\":{\"_index\":\"" + TEST_INDEX + "\"}}\n";
 
-        for (int i = 1; i <= 3; i++) {
+        for (int i = 1; i <= TEST_DOC_COUNT; i++) {
             Map<String, Object> doc = new HashMap<>();
             doc.put("id", i);
             doc.put("name", "test_" + i);
@@ -368,8 +374,31 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
                 throw new RuntimeException("Failed to insert test data: " + response.getResponse());
             }
 
-            Thread.sleep(INDEX_REFRESH_DELAY);
-            log.info("Test data inserted successfully - {} documents", 3);
+            // Poll until all bulked documents are visible, instead of a fixed sleep that
+            // fails when index refresh is slower than expected. The observed count and the
+            // last probe failure are reported if the wait times out.
+            AtomicReference<String> lastFailure = new AtomicReference<>("no probe failure");
+            AtomicLong visibleDocs = new AtomicLong(-1L);
+            Awaitility.await()
+                    .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                long docsCount = queryDocsCount(TEST_INDEX, lastFailure);
+                                visibleDocs.set(docsCount);
+                                Assertions.assertTrue(
+                                        docsCount >= TEST_DOC_COUNT,
+                                        "expected "
+                                                + TEST_DOC_COUNT
+                                                + " visible documents in "
+                                                + TEST_INDEX
+                                                + " but docsCount="
+                                                + docsCount
+                                                + " (last probe failure: "
+                                                + lastFailure.get()
+                                                + ")");
+                            });
+            log.info("Test data inserted successfully - {} documents visible", visibleDocs.get());
         } catch (Exception e) {
             log.error("Failed to insert test data", e);
             throw new RuntimeException("Failed to insert test data", e);
@@ -602,15 +631,32 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(
                     0, execResult.getExitCode(), "Job should complete successfully");
 
-            // Wait for index refresh
-            Thread.sleep(2000);
-
             // Verify results
-            long targetCount =
-                    esRestClient.getIndexDocsCount("auth_test_apikey_target").get(0).getDocsCount();
-            log.info("✓ API Key auth E2E test completed - {} documents processed", targetCount);
-            Assertions.assertTrue(
-                    targetCount > 0, "Should have processed documents with API key auth");
+            AtomicReference<String> lastFailure = new AtomicReference<>("no probe failure");
+            AtomicLong processedDocs = new AtomicLong(-1L);
+            Awaitility.await()
+                    .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                long targetCount =
+                                        queryDocsCount("auth_test_apikey_target", lastFailure);
+                                processedDocs.set(targetCount);
+                                log.debug(
+                                        "auth_test_apikey_target currently has {} documents",
+                                        targetCount);
+                                Assertions.assertTrue(
+                                        targetCount > 0,
+                                        "Should have processed documents with API key auth, but"
+                                                + " auth_test_apikey_target docsCount="
+                                                + targetCount
+                                                + " (last probe failure: "
+                                                + lastFailure.get()
+                                                + ")");
+                            });
+            log.info(
+                    "✓ API Key auth E2E test completed - {} documents processed",
+                    processedDocs.get());
 
         } finally {
             // Clean up temporary file
@@ -649,20 +695,34 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(
                     0, execResult.getExitCode(), "Job should complete successfully");
 
-            // Wait for index refresh
-            Thread.sleep(2000);
-
             // Verify results
-            long targetCount =
-                    esRestClient
-                            .getIndexDocsCount("auth_test_apikey_encoded_target")
-                            .get(0)
-                            .getDocsCount();
+            AtomicReference<String> lastFailure = new AtomicReference<>("no probe failure");
+            AtomicLong processedDocs = new AtomicLong(-1L);
+            Awaitility.await()
+                    .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                long targetCount =
+                                        queryDocsCount(
+                                                "auth_test_apikey_encoded_target", lastFailure);
+                                processedDocs.set(targetCount);
+                                log.debug(
+                                        "auth_test_apikey_encoded_target currently has {} documents",
+                                        targetCount);
+                                Assertions.assertTrue(
+                                        targetCount > 0,
+                                        "Should have processed documents with encoded API key"
+                                                + " auth, but auth_test_apikey_encoded_target"
+                                                + " docsCount="
+                                                + targetCount
+                                                + " (last probe failure: "
+                                                + lastFailure.get()
+                                                + ")");
+                            });
             log.info(
                     "✓ API Key Encoded auth E2E test completed - {} documents processed",
-                    targetCount);
-            Assertions.assertTrue(
-                    targetCount > 0, "Should have processed documents with encoded API key auth");
+                    processedDocs.get());
 
         } finally {
             // Clean up temporary file
@@ -768,7 +828,14 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
 
     /** Setup test data for authentication tests */
     private void setupAuthTestData() throws Exception {
-        String testIndex = "auth_test_index";
+        // The source job of both API-key tests reads TEST_INDEX, which @BeforeEach already
+        // populated with TEST_DOC_COUNT documents, so wait for the bulk below on top of that
+        // baseline instead of for "any document is visible". The baseline itself is awaited
+        // against the fixture total: a probe that cannot read the count returns -1, and using that
+        // sentinel as arithmetic would lower the readiness gate below by the unknown part and let
+        // the job read a partially refreshed index.
+        AtomicReference<String> baselineFailure = new AtomicReference<>("no probe failure");
+        long docsBeforeBulk = awaitDocsCount(TEST_INDEX, TEST_DOC_COUNT, baselineFailure);
 
         // Create index mapping
         String mapping =
@@ -785,18 +852,18 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
                         + "}";
 
         try {
-            esRestClient.createIndex(testIndex, mapping);
-            log.info("Created test index: {}", testIndex);
+            esRestClient.createIndex(TEST_INDEX, mapping);
+            log.info("Created test index: {}", TEST_INDEX);
         } catch (Exception e) {
             log.warn("Index might already exist: {}", e.getMessage());
         }
 
         // Insert test data
         StringBuilder requestBody = new StringBuilder();
-        String indexHeader = "{\"index\":{\"_index\":\"" + testIndex + "\"}}\n";
+        String indexHeader = "{\"index\":{\"_index\":\"" + TEST_INDEX + "\"}}\n";
 
         String[] categories = {"electronics", "books", "clothing", "home", "sports"};
-        for (int i = 1; i <= 10; i++) {
+        for (int i = 1; i <= AUTH_SOURCE_DOC_COUNT; i++) {
             Map<String, Object> doc = new HashMap<>();
             doc.put("id", i);
             doc.put("name", "Auth Test Product " + i);
@@ -814,10 +881,93 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
             log.warn("Some documents might already exist: {}", response.getResponse());
         }
 
-        // Wait for index refresh
-        Thread.sleep(2000);
+        // Poll until every bulked document is visible before the job reads the index. The baseline
+        // is a validated count, so the expected total is exact instead of a lowered estimate.
+        long expectedDocs = docsBeforeBulk + AUTH_SOURCE_DOC_COUNT;
+        AtomicReference<String> lastFailure = new AtomicReference<>("no probe failure");
+        AtomicLong visibleDocs = new AtomicLong(-1L);
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            long docsCount = queryDocsCount(TEST_INDEX, lastFailure);
+                            visibleDocs.set(docsCount);
+                            log.debug("{} currently has {} documents", TEST_INDEX, docsCount);
+                            Assertions.assertTrue(
+                                    docsCount >= expectedDocs,
+                                    "expected at least "
+                                            + expectedDocs
+                                            + " visible documents in "
+                                            + TEST_INDEX
+                                            + " but docsCount="
+                                            + docsCount
+                                            + " (last probe failure: "
+                                            + lastFailure.get()
+                                            + ")");
+                        });
+        log.info("Test data setup completed - {} documents in source index", visibleDocs.get());
+    }
 
-        long docCount = esRestClient.getIndexDocsCount(testIndex).get(0).getDocsCount();
-        log.info("Test data setup completed - {} documents in source index", docCount);
+    /**
+     * Waits until an index reports at least the expected document count and returns the observed
+     * value.
+     *
+     * <p>A probe that cannot read the count returns -1, which must never be used as a baseline: the
+     * readiness gate built on top of it would silently drop by the unknown part. The count is
+     * therefore awaited against a known fixture total, and the last probe failure is reported when
+     * the index never reaches it.
+     *
+     * @param indexName index to inspect
+     * @param expectedAtLeast known lower bound the fixture guarantees
+     * @param lastFailure holder updated with the reason of an unsuccessful probe
+     * @return the observed document count, at least {@code expectedAtLeast}
+     */
+    private long awaitDocsCount(
+            String indexName, long expectedAtLeast, AtomicReference<String> lastFailure) {
+        AtomicLong observedDocs = new AtomicLong(-1L);
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            long docsCount = queryDocsCount(indexName, lastFailure);
+                            observedDocs.set(docsCount);
+                            Assertions.assertTrue(
+                                    docsCount >= expectedAtLeast,
+                                    "expected at least "
+                                            + expectedAtLeast
+                                            + " visible documents in "
+                                            + indexName
+                                            + " but docsCount="
+                                            + docsCount
+                                            + " (last probe failure: "
+                                            + lastFailure.get()
+                                            + ")");
+                        });
+        return observedDocs.get();
+    }
+
+    /**
+     * Reads the document count of an index while tolerating the brief window in which the index is
+     * not listed yet. The last failure is recorded so a polling timeout reports the real cause
+     * instead of only a bare timeout.
+     *
+     * @param indexName index to inspect
+     * @param lastFailure holder updated with the reason of an unsuccessful probe
+     * @return the observed document count, or -1 when the count could not be read
+     */
+    private long queryDocsCount(String indexName, AtomicReference<String> lastFailure) {
+        try {
+            List<IndexDocsCount> counts = esRestClient.getIndexDocsCount(indexName);
+            if (counts == null || counts.isEmpty()) {
+                lastFailure.set("_cat/indices returned no row for " + indexName);
+                return -1L;
+            }
+            return counts.get(0).getDocsCount();
+        } catch (Exception e) {
+            lastFailure.set(e.getClass().getSimpleName() + ": " + e.getMessage());
+            return -1L;
+        }
     }
 }
