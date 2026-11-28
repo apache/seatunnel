@@ -74,6 +74,7 @@ connector-mem0
 connector-http-asana
 connector-http-intercom
 connector-http-typeform
+connector-http-matomo
 connector-http-mailchimp
 connector-http-amplitude
 connector-http-feishu
