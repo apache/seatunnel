@@ -29,6 +29,8 @@ import org.testcontainers.containers.Container;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
 
 @DisabledOnContainer(
         value = {},
@@ -44,10 +46,119 @@ public class ExampleUdfIT extends TestSuiteBase {
     }
 
     @TestTemplate
+    public void testUdfOpenFailureFailsJob(TestContainer container)
+            throws IOException, InterruptedException {
+        assertStartupFailure(container.executeJob("/custom_udf_open_failure.conf"));
+    }
+
+    @TestTemplate
+    public void testWhereUdfOpenFailureWithEmptyInput(TestContainer container)
+            throws IOException, InterruptedException {
+        assertStartupFailure(
+                runStartupJob(
+                        container, 0, "SELECT name FROM dual WHERE FAIL_ON_OPEN(name) = 'never'"));
+    }
+
+    @TestTemplate
+    public void testUdfOpensInUntakenCaseBranch(TestContainer container)
+            throws IOException, InterruptedException {
+        assertStartupFailure(
+                runStartupJob(
+                        container,
+                        1,
+                        "SELECT CASE WHEN 1 = 0 THEN FAIL_ON_OPEN(name) ELSE name END AS name FROM dual"));
+    }
+
+    @TestTemplate
+    public void testTimeZoneUdfOpenFailureWithEmptyInput(TestContainer container)
+            throws IOException, InterruptedException {
+        assertStartupFailure(
+                runStartupJob(
+                        container,
+                        0,
+                        "SELECT TIMESTAMP '2025-01-01 00:00:00' AT TIME ZONE FAIL_ON_OPEN(name) AS ts FROM dual"));
+    }
+
+    @TestTemplate
+    public void testLateralViewUdfOpenFailureWithEmptyInput(TestContainer container)
+            throws IOException, InterruptedException {
+        assertStartupFailure(
+                runStartupJob(
+                        container,
+                        0,
+                        "SELECT name FROM dual LATERAL VIEW EXPLODE(SPLIT(FAIL_ON_OPEN(name), ',')) AS expanded"));
+    }
+
+    @TestTemplate
+    public void testUnusedUdfStaysClosedWithEmptyInput(TestContainer container)
+            throws IOException, InterruptedException {
+        assertSuccess(runStartupJob(container, 0, "SELECT name FROM dual"));
+    }
+
+    @TestTemplate
+    public void testUdfLinkageFailureFailsJobWithEmptyInput(TestContainer container)
+            throws IOException, InterruptedException {
+        assertStartupFailure(
+                runStartupJob(
+                        container,
+                        0,
+                        "SELECT CATALOG_CONTEXT(name) || LINKAGE_FAILURE(name) AS value FROM dual"),
+                "requested UDF startup linkage failure");
+    }
+
+    @TestTemplate
     public void testCustomUdfContextLifecycle(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/custom_udf/custom_udf_context_lifecycle.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testUdfInputCatalogForComposedTableRules(TestContainer container)
+            throws IOException, InterruptedException {
+        assertSuccess(
+                container.executeJob(
+                        "/custom_udf_composed_tables.conf",
+                        Collections.singletonList(
+                                sqlVariable("secondRule", "CATALOG_CONTEXT(name)"))));
+    }
+
+    @TestTemplate
+    public void testUdfOpenFailureInSecondComposedRule(TestContainer container)
+            throws IOException, InterruptedException {
+        assertStartupFailure(
+                container.executeJob(
+                        "/custom_udf_composed_tables.conf",
+                        Collections.singletonList(
+                                sqlVariable(
+                                        "secondRule",
+                                        "CASE WHEN 1 = 0 THEN FAIL_ON_OPEN(name) ELSE name END"))));
+    }
+
+    private Container.ExecResult runStartupJob(TestContainer container, int rowCount, String query)
+            throws IOException, InterruptedException {
+        return container.executeJob(
+                "/custom_udf_startup.conf",
+                Arrays.asList("sourceRows=" + rowCount, sqlVariable("startupQuery", query)));
+    }
+
+    private String sqlVariable(String name, String sql) {
+        // The test container joins command arguments into a Bash command string.
+        return "'" + name + "=" + sql.replace("'", "'\"'\"'") + "'";
+    }
+
+    private void assertSuccess(Container.ExecResult result) {
+        Assertions.assertEquals(0, result.getExitCode(), result.getStdout() + result.getStderr());
+    }
+
+    private void assertStartupFailure(Container.ExecResult result) {
+        assertStartupFailure(result, "requested UDF startup failure");
+    }
+
+    private void assertStartupFailure(Container.ExecResult result, String reason) {
+        String output = result.getStdout() + result.getStderr();
+        Assertions.assertNotEquals(0, result.getExitCode(), output);
+        Assertions.assertTrue(output.contains(reason), output);
     }
 }

@@ -803,10 +803,17 @@ public class SQLTransformSchemaChangeTest {
         CountingUdf udf = new CountingUdf();
         CountingSqlTransform transform =
                 new CountingSqlTransform(
-                        "select * from products where weight > 0", baseTable(), inits, closes, udf);
+                        "select * from products where weight > 0 and COUNTING_UDF(name) = 'counted'",
+                        baseTable(),
+                        inits,
+                        closes,
+                        udf);
         transform.getProducedCatalogTable();
         Assertions.assertEquals(1, inits.get());
         Assertions.assertEquals(0, closes.get());
+        Assertions.assertEquals(0, udf.opens.get(), "planning must not open runtime UDFs");
+        transform.open();
+        Assertions.assertEquals(1, udf.opens.get(), "runtime opens the referenced UDF");
 
         transform.flatMap(new SeaTunnelRow(new Object[] {1L, "a", 1.0d}));
         Assertions.assertEquals(1, udf.opens.get());
@@ -815,6 +822,7 @@ public class SQLTransformSchemaChangeTest {
         Assertions.assertEquals(2, inits.get(), "one candidate engine per change");
         Assertions.assertEquals(1, closes.get(), "the retired live engine is closed");
         Assertions.assertEquals(1, udf.closes.get(), "UDFs of the retired engine are closed");
+        Assertions.assertEquals(2, udf.opens.get(), "the replacement UDF is ready before any row");
         transform.flatMap(new SeaTunnelRow(new Object[] {1L, "a", 1.0d, 20}));
         Assertions.assertEquals(2, udf.opens.get());
 
@@ -1030,9 +1038,10 @@ public class SQLTransformSchemaChangeTest {
                 String inputTableName,
                 String catalogTableName,
                 SeaTunnelRowType inputRowType,
-                String sql) {
+                String sql,
+                CatalogTable inputCatalogTable) {
             inits.incrementAndGet();
-            super.init(inputTableName, catalogTableName, inputRowType, sql);
+            super.init(inputTableName, catalogTableName, inputRowType, sql, inputCatalogTable);
         }
 
         @Override

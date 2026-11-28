@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.api.transform.TransformOpenException;
 import org.apache.seatunnel.engine.common.config.DryRunSampleConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
@@ -64,8 +65,10 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.apache.seatunnel.api.common.metrics.MetricNames.TRANSFORM_PROCESS_NANOS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.TRANSFORM_RECORDS_IN;
@@ -81,6 +84,9 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
     private final List<SeaTunnelTransform<T>> transform;
 
     private final Collector<Record<?>> collector;
+
+    private final Set<SeaTunnelTransform<T>> closedAfterFailedOpen =
+            Collections.synchronizedSet(Collections.newSetFromMap(new IdentityHashMap<>()));
 
     private ErrorHandler<T> errorHandler;
 
@@ -123,21 +129,45 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
         this.recordsIn = metricsContext.counter(TRANSFORM_RECORDS_IN + "#" + action.getId());
         this.recordsOut = metricsContext.counter(TRANSFORM_RECORDS_OUT + "#" + action.getId());
         initErrorHandlingTransforms();
+        List<SeaTunnelTransform<T>> opened = new ArrayList<>();
         for (SeaTunnelTransform<T> t : transform) {
             try {
                 t.open();
+                opened.add(t);
                 if (dryRunSampleEnabled) {
                     log.info(
                             "Dry-run sample [transform:{}] schemas: {}",
                             t.getPluginName(),
                             describeProducedSchemas(t.getProducedCatalogTables()));
                 }
+            } catch (TransformOpenException e) {
+                closeAfterFailedOpen(t);
+                for (int i = opened.size() - 1; i >= 0; i--) {
+                    closeAfterFailedOpen(opened.get(i));
+                }
+                // Cooperative workers do not call close() on the flow whose open() failed.
+                try {
+                    closeErrorHandler();
+                } catch (IOException closeFailure) {
+                    e.addSuppressed(closeFailure);
+                }
+                throw e;
             } catch (Exception e) {
                 log.error(
                         "Open transform: {} failed, cause: {}",
                         t.getPluginName(),
                         e.getMessage(),
                         e);
+            }
+        }
+    }
+
+    private void closeAfterFailedOpen(SeaTunnelTransform<T> transform) {
+        if (closedAfterFailedOpen.add(transform)) {
+            try {
+                transform.close();
+            } catch (Exception failure) {
+                log.error("Failed to close transform after failed startup", failure);
             }
         }
     }
@@ -352,6 +382,9 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
     @Override
     public void close() throws IOException {
         for (SeaTunnelTransform<T> t : transform) {
+            if (closedAfterFailedOpen.contains(t)) {
+                continue;
+            }
             try {
                 t.close();
             } catch (Exception e) {
@@ -362,15 +395,22 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                         e);
             }
         }
-        if (errorHandler != null) {
+        if (closedAfterFailedOpen.isEmpty()) {
+            closeErrorHandler();
+        }
+        super.close();
+    }
+
+    private void closeErrorHandler() throws IOException {
+        ErrorHandler<T> handler = errorHandler;
+        if (handler != null) {
             try {
-                errorHandler.close();
+                handler.close();
             } catch (Exception e) {
                 log.error("Close ErrorHandler for transform stage failed", e);
                 throw new IOException("Close ErrorHandler for transform stage failed", e);
             }
         }
-        super.close();
     }
 
     private void flushErrorHandler() {

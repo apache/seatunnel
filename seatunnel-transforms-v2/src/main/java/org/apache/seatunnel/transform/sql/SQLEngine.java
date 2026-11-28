@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.sql;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
@@ -30,6 +31,17 @@ public interface SQLEngine {
             String catalogTableName,
             SeaTunnelRowType inputRowType,
             String sql);
+
+    default void init(
+            String inputTableName,
+            String catalogTableName,
+            SeaTunnelRowType inputRowType,
+            String sql,
+            CatalogTable inputCatalogTable) {
+        init(inputTableName, catalogTableName, inputRowType, sql);
+    }
+
+    default void openReferencedUdfs() {}
 
     SeaTunnelRowType typeMapping(List<String> inputColumnsMapping);
 

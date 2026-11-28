@@ -86,6 +86,9 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
 
     private transient SQLEngine sqlEngine;
 
+    /** Planning may initialize an engine without opening runtime-only UDF resources. */
+    private transient boolean runtimeOpened;
+
     private final String inputTableName;
 
     /**
@@ -132,13 +135,9 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
 
     @Override
     public void open() {
-        sqlEngine = createSqlEngine();
-        sqlEngine.init(
-                inputTableName,
-                inputCatalogTable.getTableId().getTableName(),
-                inputCatalogTable.getSeaTunnelRowType(),
-                query);
-        referencedInputColumns = new HashSet<>(sqlEngine.referencedInputColumns());
+        tryOpen();
+        sqlEngine.openReferencedUdfs();
+        runtimeOpened = true;
     }
 
     /**
@@ -154,7 +153,14 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
 
     private void tryOpen() {
         if (sqlEngine == null) {
-            open();
+            sqlEngine = createSqlEngine();
+            sqlEngine.init(
+                    inputTableName,
+                    inputCatalogTable.getTableId().getTableName(),
+                    inputCatalogTable.getSeaTunnelRowType(),
+                    query,
+                    inputCatalogTable);
+            referencedInputColumns = new HashSet<>(sqlEngine.referencedInputColumns());
         }
     }
 
@@ -442,6 +448,7 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
 
     @Override
     public void close() {
+        runtimeOpened = false;
         if (sqlEngine != null) {
             sqlEngine.close();
         }
@@ -521,7 +528,8 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
                     inputTableName,
                     candidateInput.getTableId().getTableName(),
                     candidateInput.getSeaTunnelRowType(),
-                    query);
+                    query,
+                    candidateInput);
             List<String> inputColumnsMapping = new ArrayList<>();
             SeaTunnelRowType candidateRowType = engine.typeMapping(inputColumnsMapping);
             TableSchema outputSchema =
@@ -556,6 +564,11 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
 
     /** Swaps the live state to the candidate and closes the retired engine exactly once. */
     private void commit(SQLOutputCandidate candidate) {
+        // Open the replacement before touching live state; a failed UDF must not retire the
+        // still-usable engine. Planning-only schema changes must not open runtime resources.
+        if (runtimeOpened) {
+            candidate.engine.openReferencedUdfs();
+        }
         SQLEngine retired = sqlEngine;
         inputCatalogTable = candidate.input;
         sqlEngine = candidate.engine;

@@ -24,19 +24,46 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.api.transform.TransformOpenException;
 import org.apache.seatunnel.transform.common.AbstractMultiCatalogFlatMapTransform;
 import org.apache.seatunnel.transform.common.IdentityFlatMapTransform;
 import org.apache.seatunnel.transform.exception.TransformCommonErrorCode;
 import org.apache.seatunnel.transform.exception.TransformException;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.List;
 
+@Slf4j
 public class SQLMultiCatalogFlatMapTransform extends AbstractMultiCatalogFlatMapTransform
         implements SupportRowLevelErrorClassifier<SeaTunnelRow> {
 
     public SQLMultiCatalogFlatMapTransform(
             List<CatalogTable> inputCatalogTables, ReadonlyConfig config) {
         super(inputCatalogTables, config);
+    }
+
+    @Override
+    public void open() {
+        try {
+            for (SeaTunnelTransform<SeaTunnelRow> transform : transformMap.values()) {
+                transform.open();
+            }
+        } catch (Exception failure) {
+            close();
+            throw new TransformOpenException("Failed to initialize SQL transform", failure);
+        }
+    }
+
+    @Override
+    public void close() {
+        for (SeaTunnelTransform<SeaTunnelRow> transform : transformMap.values()) {
+            try {
+                transform.close();
+            } catch (Exception failure) {
+                log.warn("Failed to close a SQL table transform", failure);
+            }
+        }
     }
 
     @Override
