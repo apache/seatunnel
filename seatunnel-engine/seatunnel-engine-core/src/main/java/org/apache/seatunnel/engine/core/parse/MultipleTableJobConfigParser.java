@@ -132,7 +132,17 @@ public class MultipleTableJobConfigParser {
     private final ReadonlyConfig envOptions;
 
     private final boolean isStartWithSavePoint;
-    private final List<JobPipelineCheckpointData> pipelineCheckpoints;
+
+    /**
+     * Savepoint state of the source job, keyed by pipeline id.
+     *
+     * <p>A savepoint only stores state for the pipelines that were still running when it was taken:
+     * a pipeline that had already completed cleanly has no entry. Such a pipeline is not restored
+     * and is not re-run; keeping the map keyed by pipeline id instead of the source index keeps the
+     * remaining entries aligned with their own source.
+     */
+    private final Map<Integer, JobPipelineCheckpointData> pipelineCheckpointByPipelineId;
+
     private final List<MultiTableFailedTable> failedTables = new ArrayList<>();
     private final List<MultiTableFailedTable> sourceFailedTables = new ArrayList<>();
 
@@ -208,7 +218,15 @@ public class MultipleTableJobConfigParser {
         this.isStartWithSavePoint = isStartWithSavePoint;
         this.seaTunnelJobConfig = handleDataSource(seaTunnelJobConfig, metaDataConfig);
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
-        this.pipelineCheckpoints = pipelineCheckpoints;
+        this.pipelineCheckpointByPipelineId =
+                pipelineCheckpoints == null || pipelineCheckpoints.isEmpty()
+                        ? Collections.emptyMap()
+                        : pipelineCheckpoints.stream()
+                                .collect(
+                                        Collectors.toMap(
+                                                JobPipelineCheckpointData::getPipelineId,
+                                                Function.identity(),
+                                                (first, second) -> first));
         this.metaDataConfig = metaDataConfig;
         ConfigValidator.of(this.envOptions).validate(new EnvOptionRule().optionRule());
     }
@@ -254,12 +272,19 @@ public class MultipleTableJobConfigParser {
                     new LinkedHashMap<>();
 
             log.info("start generating all sources.");
-            if (isStartWithSavePoint
-                    && pipelineCheckpoints != null
-                    && !pipelineCheckpoints.isEmpty()) {
+            if (isStartWithSavePoint && !pipelineCheckpointByPipelineId.isEmpty()) {
+                // A savepoint only has state for the pipelines that were still running, so fewer
+                // entries than sources is expected when a sibling pipeline had already completed.
+                // Every entry that is present must still belong to one source of this job.
                 Preconditions.checkState(
-                        sourceConfigs.size() == pipelineCheckpoints.size(),
-                        "The number of source configurations and pipeline checkpoints must be equal.");
+                        pipelineCheckpointByPipelineId.keySet().stream()
+                                .allMatch(
+                                        pipelineId ->
+                                                pipelineId >= 1
+                                                        && pipelineId <= sourceConfigs.size()),
+                        String.format(
+                                "The pipeline ids in the checkpoint data %s do not match the %s source configurations.",
+                                pipelineCheckpointByPipelineId.keySet(), sourceConfigs.size()));
             }
             for (int configIndex = 0; configIndex < sourceConfigs.size(); configIndex++) {
                 Config sourceConfig = sourceConfigs.get(configIndex);
@@ -443,9 +468,11 @@ public class MultipleTableJobConfigParser {
                     ClassLoader classLoader,
                     String factoryId,
                     Function<PluginIdentifier, SeaTunnelSource> fallbackCreateSource) {
-        if (isStartWithSavePoint && pipelineCheckpoints != null && !pipelineCheckpoints.isEmpty()) {
+        JobPipelineCheckpointData pipelineCheckpoint =
+                isStartWithSavePoint ? pipelineCheckpointByPipelineId.get(configIndex + 1) : null;
+        if (pipelineCheckpoint != null) {
             ChangeStreamTableSourceCheckpoint checkpoint =
-                    getSourceCheckpoint(configIndex, factoryId);
+                    getSourceCheckpoint(configIndex, factoryId, pipelineCheckpoint);
             return FactoryUtil.restoreAndPrepareSource(
                     readonlyConfig,
                     classLoader,
@@ -962,11 +989,11 @@ public class MultipleTableJobConfigParser {
     }
 
     private ChangeStreamTableSourceCheckpoint getSourceCheckpoint(
-            int sourceConfigIndex, String sourceFactoryId) {
+            int sourceConfigIndex,
+            String sourceFactoryId,
+            JobPipelineCheckpointData pipelineCheckpointData) {
         String sourceActionName =
                 JobConfigParser.createSourceActionName(sourceConfigIndex, sourceFactoryId);
-        JobPipelineCheckpointData pipelineCheckpointData =
-                pipelineCheckpoints.get(sourceConfigIndex);
         Preconditions.checkArgument(
                 pipelineCheckpointData.getPipelineId() == sourceConfigIndex + 1,
                 String.format(

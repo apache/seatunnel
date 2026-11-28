@@ -670,6 +670,17 @@ public class SubPlan {
         }
     }
 
+    /**
+     * Whether this pipeline completed cleanly before the savepoint the job is currently restored
+     * from, in which case the restored job must not deploy it again.
+     */
+    private boolean isPipelineCompletedBeforeSavepointRestore() {
+        if (jobMaster == null || jobMaster.getCheckpointManager() == null) {
+            return false;
+        }
+        return jobMaster.getCheckpointManager().isCompletedBeforeRestore(pipelineId);
+    }
+
     /** If the job state in CheckpointManager is complete, we need force this pipeline finish */
     private void forcePipelineFinish() {
         coordinatorVertexList.forEach(
@@ -803,6 +814,17 @@ public class SubPlan {
         PipelineStatus state = getCurrPipelineStatus();
         switch (state) {
             case CREATED:
+                if (isPipelineCompletedBeforeSavepointRestore()) {
+                    // The pipeline finished cleanly before the savepoint this job is restored from
+                    // and has no savepoint state of its own. Deploying it again would re-run data
+                    // that already reached the sinks, so the restored job keeps it finished.
+                    log.info(
+                            "{} already completed cleanly before the savepoint it is restored from, skip deploying it again",
+                            getPipelineFullName());
+                    forcePipelineFinish();
+                    updatePipelineState(PipelineStatus.FINISHED);
+                    break;
+                }
                 updatePipelineState(PipelineStatus.SCHEDULED);
                 break;
             case SCHEDULED:

@@ -46,6 +46,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -82,6 +83,41 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
             subPlan.restorePipelineState();
 
             verify(checkpointManager).reportedPipelineRunning(1, true);
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void shouldNotDeployPipelineThatCompletedBeforeTheSavepointBeingRestored() {
+        CheckpointManager checkpointManager = mock(CheckpointManager.class);
+        JobMaster jobMaster = mock(JobMaster.class);
+        when(jobMaster.getCheckpointManager()).thenReturn(checkpointManager);
+        when(checkpointManager.isCompletedBeforeRestore(1)).thenReturn(true);
+        when(checkpointManager.listenPipeline(1, PipelineStatus.FINISHED))
+                .thenReturn(CompletableFuture.completedFuture(null));
+
+        PhysicalVertex coordinator = mockPhysicalVertex(ExecutionState.CREATED);
+        PhysicalVertex reader = mockPhysicalVertex(ExecutionState.CREATED);
+
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            SubPlan subPlan =
+                    newSubPlan(
+                            executorService,
+                            Collections.singletonList(reader),
+                            Collections.singletonList(coordinator));
+            subPlan.setJobMaster(jobMaster);
+            subPlan.setCurrPipelineStatus(PipelineStatus.CREATED);
+
+            subPlan.startSubPlanStateProcess();
+
+            Assertions.assertEquals(
+                    PipelineStatus.FINISHED,
+                    subPlan.getPipelineState(),
+                    "A pipeline that completed cleanly before the savepoint must stay finished on restore");
+            verify(coordinator, never()).startPhysicalVertex();
+            verify(reader, never()).startPhysicalVertex();
         } finally {
             executorService.shutdownNow();
         }

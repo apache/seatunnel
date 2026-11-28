@@ -27,7 +27,9 @@ public enum CheckpointCloseReason {
     CHECKPOINT_INSIDE_ERROR("CheckpointCoordinator inside have error."),
     AGGREGATE_COMMIT_ERROR("Aggregate commit error."),
     TASK_NOT_ALL_READY_WHEN_SAVEPOINT("Task not all ready, savepoint error"),
-    CHECKPOINT_NOTIFY_COMPLETE_FAILED("Checkpoint notify complete failed");
+    CHECKPOINT_NOTIFY_COMPLETE_FAILED("Checkpoint notify complete failed"),
+    NO_ACTIVE_PIPELINE_WHEN_SAVEPOINT(
+            "No active pipeline to savepoint: every pipeline of the job already completed cleanly.");
 
     private final String message;
 

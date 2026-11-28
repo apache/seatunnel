@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.job.Job;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
@@ -63,6 +64,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -95,6 +97,17 @@ public class CheckpointManager {
      * the data written by the pipelines that did take one.
      */
     private volatile Set<Integer> completedPipelineIdsBeforeSavepoint = Collections.emptySet();
+
+    /**
+     * Pipelines that had already completed cleanly when the savepoint this job is restored from was
+     * taken.
+     *
+     * <p>A savepoint only stores state for the pipelines that were still running: the fan-out skips
+     * a cleanly completed pipeline, and a failed or cancelled one makes the savepoint fail. A
+     * pipeline of a successfully savepointed job that has no savepoint state therefore finished
+     * cleanly before the savepoint, and the restored job must not run it a second time.
+     */
+    private final Set<Integer> completedPipelineIdsBeforeRestore = ConcurrentHashMap.newKeySet();
 
     private final CheckpointStorage checkpointStorage;
 
@@ -206,6 +219,10 @@ public class CheckpointManager {
                                                         plan.getPipelineId(),
                                                         restoreMode,
                                                         checkpointId);
+                                            } else if (restoreMode == RestoreMode.SAVEPOINT
+                                                    && restoreSourceJobId != null) {
+                                                markPipelineCompletedBeforeSavepoint(
+                                                        restoreSourceJobId, plan.getPipelineId());
                                             }
                                         }
                                         return new CheckpointCoordinator(
@@ -248,6 +265,40 @@ public class CheckpointManager {
                 .orElse(null);
     }
 
+    /**
+     * Records a pipeline of the savepoint source job that finished cleanly before that savepoint.
+     *
+     * <p>The savepoint fan-out skips only cleanly completed pipelines and a failed or cancelled
+     * pipeline fails the request, so a successful savepoint has no state for a pipeline that is not
+     * in the savepoint but did finish. Requiring the last checkpoint of that pipeline to be a
+     * completed point keeps a pipeline that never checkpointed out of the decision.
+     */
+    private void markPipelineCompletedBeforeSavepoint(Long sourceJobId, int pipelineId)
+            throws Exception {
+        PipelineState latestCheckpoint =
+                checkpointStorage.getLatestCheckpointByJobIdAndPipelineId(
+                        String.valueOf(sourceJobId), String.valueOf(pipelineId));
+        if (latestCheckpoint == null) {
+            return;
+        }
+        if (deserializeCheckpoint(latestCheckpoint).getCheckpointType()
+                != CheckpointType.COMPLETED_POINT_TYPE) {
+            return;
+        }
+        completedPipelineIdsBeforeRestore.add(pipelineId);
+        log.info(
+                "pipeline({}) completed cleanly before the savepoint it is restored from; the restored job will not deploy it again",
+                pipelineId);
+    }
+
+    /**
+     * Returns whether the pipeline had already completed cleanly when the savepoint this job is
+     * restored from was taken, so the restored job must not run it again.
+     */
+    public boolean isCompletedBeforeRestore(int pipelineId) {
+        return completedPipelineIdsBeforeRestore.contains(pipelineId);
+    }
+
     private CompletedCheckpoint deserializeCheckpoint(PipelineState pipelineState) {
         try {
             return serializer.deserialize(pipelineState.getStates(), CompletedCheckpoint.class);
@@ -262,10 +313,7 @@ public class CheckpointManager {
      */
     @SuppressWarnings("unchecked")
     public PassiveCompletableFuture<CompletedCheckpoint>[] triggerSavePoints() {
-        return MDCTracer.tracing(
-                        coordinatorMap.values().stream()
-                                .filter(coordinator -> !coordinator.isCompleted())
-                                .parallel())
+        return MDCTracer.tracing(savepointCoordinators(coordinatorMap).values().stream().parallel())
                 .map(CheckpointCoordinator::startSavepoint)
                 .toArray(PassiveCompletableFuture[]::new);
     }
@@ -278,20 +326,45 @@ public class CheckpointManager {
     public PassiveCompletableFuture<CheckpointCoordinatorState>[]
             triggerSavePointsAndWaitComplete() {
         // A pipeline can finish while its siblings are still running, which keeps the job
-        // RUNNING. Its coordinator is completed and rejects startSavepoint() with
+        // RUNNING. Its coordinator is cleanly completed and rejects startSavepoint() with
         // CHECKPOINT_COORDINATOR_SHUTDOWN by contract, so it must not take part in the fan-out:
         // otherwise one cleanly finished pipeline turns a legitimate savepoint of the remaining
-        // pipelines into a job-level failure that force-stops them.
-        Map<Integer, CheckpointCoordinator> activeCoordinators =
-                coordinatorMap.entrySet().stream()
-                        .filter(entry -> !entry.getValue().isCompleted())
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        // pipelines into a job-level failure that force-stops them. A failed or cancelled pipeline
+        // is deliberately not skipped: it still has to make the request fail.
+        Map<Integer, CheckpointCoordinator> activeCoordinators = activeCoordinatorsForSavepoint();
         Set<Integer> completedPipelineIds = new HashSet<>(coordinatorMap.keySet());
         completedPipelineIds.removeAll(activeCoordinators.keySet());
         completedPipelineIdsBeforeSavepoint = completedPipelineIds;
         return MDCTracer.tracing(activeCoordinators.values().stream().parallel())
                 .map(CheckpointCoordinator::startSavepointAndWaitComplete)
                 .toArray(PassiveCompletableFuture[]::new);
+    }
+
+    /**
+     * Selects the coordinators that have to take part in a savepoint request.
+     *
+     * <p>Only a pipeline that completed without error can be skipped: it already ended and its
+     * coordinator rejects a savepoint by contract. A pipeline that failed or was cancelled may also
+     * have a final checkpoint, but it must still take part so the savepoint is reported as failed
+     * instead of silently succeeding. The returned map is empty when every pipeline already ended
+     * cleanly, and the caller has to report that request as a non-success.
+     */
+    static Map<Integer, CheckpointCoordinator> savepointCoordinators(
+            Map<Integer, CheckpointCoordinator> coordinators) {
+        return coordinators.entrySet().stream()
+                .filter(entry -> !entry.getValue().isCleanlyCompleted())
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    /**
+     * Coordinators that take part in a savepoint request of this job, excluding the pipelines that
+     * already completed cleanly before the savepoint this job was restored from.
+     */
+    private Map<Integer, CheckpointCoordinator> activeCoordinatorsForSavepoint() {
+        Map<Integer, CheckpointCoordinator> activeCoordinators =
+                savepointCoordinators(coordinatorMap);
+        completedPipelineIdsBeforeRestore.forEach(activeCoordinators::remove);
+        return activeCoordinators;
     }
 
     public void reportedPipelineRunning(int pipelineId, boolean alreadyStarted) {

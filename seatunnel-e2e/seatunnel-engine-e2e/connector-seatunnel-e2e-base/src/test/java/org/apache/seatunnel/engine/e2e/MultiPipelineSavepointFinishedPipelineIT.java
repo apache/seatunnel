@@ -210,6 +210,107 @@ public class MultiPipelineSavepointFinishedPipelineIT {
         }
     }
 
+    /**
+     * The restore half of the same contract: the savepoint only contains state for the pipeline
+     * that was still running, so a restore must resume that pipeline and must not deploy the
+     * sibling that had already finished cleanly before the savepoint.
+     */
+    @Test
+    public void testRestoreAfterSavepointWithFinishedSiblingDoesNotReviveIt() throws Exception {
+        String clusterName =
+                TestUtils.getClusterName(
+                        "MultiPipelineSavepointFinishedPipelineIT_testRestoreAfterSavepoint");
+        HazelcastInstanceImpl node = null;
+        SeaTunnelClient engineClient = null;
+        ClientJobProxy job = null;
+        ClientJobProxy restoredJob = null;
+
+        SeaTunnelConfig seaTunnelConfig = newSeaTunnelConfig(clusterName);
+        try {
+            node = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+            final HazelcastInstanceImpl testNode = node;
+            engineClient = new SeaTunnelClient(newClientConfig(clusterName));
+
+            job = submit(engineClient, seaTunnelConfig);
+            final long jobId = job.getJobId();
+            final int finishedPipelineId = awaitOneFinishedOneRunning(node, jobId);
+            final int runningPipelineId = otherPipeline(finishedPipelineId);
+
+            engineClient.savePointJob(jobId);
+            final ClientJobProxy savepointedJob = job;
+            Awaitility.await()
+                    .atMost(STATUS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .ignoreExceptions()
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.SAVEPOINT_DONE,
+                                            savepointedJob.getJobStatus(),
+                                            "The job must be savepointed before it is restored"));
+
+            JobConfig restoreJobConfig = new JobConfig();
+            restoreJobConfig.setName("multi_pipeline_finished_savepoint_restore");
+            final ClientJobProxy restored =
+                    engineClient
+                            .restoreExecutionContext(
+                                    TestUtils.getResource(JOB_CONF),
+                                    restoreJobConfig,
+                                    seaTunnelConfig,
+                                    jobId)
+                            .execute();
+            restoredJob = restored;
+            Assertions.assertEquals(
+                    jobId, restored.getJobId(), "A savepoint restore must keep the source job id");
+
+            // The savepointed pipeline must resume while the pipeline that ended before the
+            // savepoint stays finished: deploying it again would re-run data that already reached
+            // the sinks.
+            Awaitility.await()
+                    .atMost(STATUS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .pollInterval(200, TimeUnit.MILLISECONDS)
+                    .ignoreExceptions()
+                    .untilAsserted(
+                            () -> {
+                                Map<Integer, PipelineStatus> statuses =
+                                        pipelineStatuses(testNode, jobId);
+                                Assertions.assertEquals(
+                                        PipelineStatus.FINISHED,
+                                        statuses.get(finishedPipelineId),
+                                        "The pipeline that finished before the savepoint must not"
+                                                + " be deployed again by the restore: "
+                                                + statuses);
+                                Assertions.assertEquals(
+                                        PipelineStatus.RUNNING,
+                                        statuses.get(runningPipelineId),
+                                        "The savepointed pipeline must resume: " + statuses);
+                            });
+
+            Awaitility.await()
+                    .atMost(STATUS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .ignoreExceptions()
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.FINISHED,
+                                            restored.getJobStatus(),
+                                            "The restored batch job must finish"));
+            Assertions.assertEquals(
+                    PipelineStatus.FINISHED,
+                    pipelineStatuses(testNode, jobId).get(finishedPipelineId),
+                    "The already finished pipeline must stay finished through the restored run");
+        } finally {
+            cancelQuietly(restoredJob);
+            cancelQuietly(job);
+            if (engineClient != null) {
+                engineClient.close();
+            }
+            if (node != null) {
+                node.shutdown();
+            }
+        }
+    }
+
     private static SeaTunnelConfig newSeaTunnelConfig(String clusterName) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
