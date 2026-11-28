@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.slack.source;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonFactory;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonFactoryBuilder;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonParser;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
@@ -67,8 +69,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Fetches bounded Slack history on one owned HTTP worker. Only the polling thread emits complete
- * pages and commits checkpoint progress.
+ * Fetches bounded Slack history on one owned HTTP worker. Only the polling thread emits prepared
+ * rows and commits accepted-prefix progress.
  */
 public class SlackSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     // A poll must yield to the engine's graceful-close state machine even while HTTP is blocked.
@@ -91,8 +93,12 @@ public class SlackSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private final SlackSourceConfig config;
     private final SingleSplitReaderContext context;
+    // Checkpoint/settings owner only; each response copy owns independent parser-name tables.
     private final ObjectMapper mapper =
-            new ObjectMapper()
+            new ObjectMapper(
+                            new JsonFactoryBuilder()
+                                    .disable(JsonFactory.Feature.INTERN_FIELD_NAMES)
+                                    .build())
                     .enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
                     .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
                     .setNodeFactory(JsonNodeFactory.withExactBigDecimals(true));
@@ -624,10 +630,14 @@ public class SlackSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
      * errors.
      */
     private Page parsePage(String channel, byte[] bytes) {
+        // Keep native byte/BOM detection, but never merge response names into checkpoint roots.
+        // Interning is disabled on the template so copies cannot fill the global name cache.
+        ObjectMapper responseMapper = mapper.copy();
         JsonNode root;
         try {
             root =
-                    mapper.reader()
+                    responseMapper
+                            .reader()
                             .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                             .readTree(bytes);
         } catch (IOException e) {
@@ -739,6 +749,11 @@ public class SlackSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         return prepared;
     }
 
+    /**
+     * Frames each nullable String with a signed big-endian length (-1 for null), followed by exact
+     * UTF-16 big-endian code units. This keeps null, empty and malformed-surrogate values distinct
+     * without allocating an encoded copy or changing the v2 accepted-prefix contract.
+     */
     private static void hashString(MessageDigest digest, String value) {
         int length = value == null ? -1 : value.length();
         for (int shift = 24; shift >= 0; shift -= 8) {

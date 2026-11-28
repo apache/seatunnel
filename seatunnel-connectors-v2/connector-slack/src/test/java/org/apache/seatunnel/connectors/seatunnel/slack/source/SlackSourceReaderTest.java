@@ -500,6 +500,95 @@ class SlackSourceReaderTest {
     }
 
     /**
+     * Keeps exact long-key values and native BOM detection across separate responses. Malformed
+     * UTF-8 must still fail without progress; these modest inputs do not measure cache retention.
+     */
+    @Test
+    void responseOwnedParsingPreservesLongKeysAndNativeByteValidation() throws Exception {
+        String longName = String.join("", Collections.nCopies(4096, "x"));
+        String firstMessage =
+                "{\"ts\":\"1700000000.000001\",\"a-" + longName + "\":\"first-value\"}";
+        String secondMessage =
+                "{\"ts\":\"1700000000.000002\",\"b-" + longName + "\":\"second-value\"}";
+        String first =
+                "{\"ok\":true,\"envelope-a-"
+                        + longName
+                        + "\":null,\"messages\":["
+                        + firstMessage
+                        + "],\"response_metadata\":{\"next_cursor\":\"second\"}}";
+        String second =
+                "{\"ok\":true,\"envelope-b-"
+                        + longName
+                        + "\":null,\"messages\":["
+                        + secondMessage
+                        + "],\"response_metadata\":{\"next_cursor\":\"bad\"}}";
+        String malformed =
+                "{\"ok\":true,\"messages\":[{\"ts\":\"1700000000.000003\",\"text\":\"xy\"}]}";
+        byte[] invalid = malformed.getBytes(StandardCharsets.UTF_8);
+        int position = malformed.indexOf("xy");
+        invalid[position] = (byte) 0xc3;
+        invalid[position + 1] = (byte) '(';
+        List<byte[]> payloads =
+                Arrays.asList(
+                        ("\uFEFF" + first).getBytes(StandardCharsets.UTF_16BE),
+                        ("\uFEFF" + second).getBytes(StandardCharsets.UTF_8),
+                        invalid);
+        AtomicInteger requests = new AtomicInteger();
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext(
+                "/conversations.history",
+                exchange -> {
+                    try {
+                        int index = requests.getAndIncrement();
+                        byte[] payload = payloads.get(index);
+                        exchange.getResponseHeaders().set("Content-Type", "application/json");
+                        exchange.sendResponseHeaders(200, payload.length);
+                        try (OutputStream response = exchange.getResponseBody()) {
+                            response.write(payload);
+                        }
+                    } finally {
+                        exchange.close();
+                    }
+                });
+        RecordingCollector output = new RecordingCollector();
+        try (SlackSourceReader reader = reader(options(server), mock(SourceReader.Context.class))) {
+            server.start();
+            reader.open();
+            pollUntilProgress(reader, output, 0, 1, "second");
+            pollUntilProgress(reader, output, 0, 2, "bad");
+            Assertions.assertEquals(2, output.rows.size());
+            Assertions.assertArrayEquals(
+                    new Object[] {
+                        "C1", "1700000000.000001", null, null, null, null, null, firstMessage
+                    },
+                    output.rows.get(0).getFields());
+            Assertions.assertArrayEquals(
+                    new Object[] {
+                        "C1", "1700000000.000002", null, null, null, null, null, secondMessage
+                    },
+                    output.rows.get(1).getFields());
+            JsonNode before = state(reader);
+            IllegalStateException error =
+                    Assertions.assertThrows(
+                            IllegalStateException.class,
+                            () -> {
+                                long end = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+                                while (System.nanoTime() - end < 0L) {
+                                    poll(reader, output);
+                                    Assertions.assertEquals(
+                                            2, output.rows.size(), "Malformed UTF-8 cannot emit");
+                                }
+                                throw new AssertionError("Malformed UTF-8 was not rejected");
+                            });
+            Assertions.assertTrue(error.getMessage().contains("malformed JSON response"));
+            Assertions.assertEquals(before, state(reader));
+            Assertions.assertEquals(3, requests.get());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    /**
      * Allows expected fixture disconnects after cancellation or deadline expiry. Unexpected
      * transport failures still fail the driving output/error assertions.
      */

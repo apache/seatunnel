@@ -100,16 +100,20 @@ public final class SlackSourceConfig implements Serializable {
                 "oldest/latest");
     }
 
-    private static int bounded(ReadonlyConfig config, Option<Integer> option, int min, int max) {
-        int value = config.get(option);
-        require(value >= min && value <= max, option.key());
-        return value;
-    }
-
+    /**
+     * Validates configured, restored and provider timestamp strings without narrowing precision.
+     * Frozen windows and message identifiers retain the same exact representation across copies.
+     */
     static void validateTimestamp(String value, String key) {
         require(
                 value != null && value.length() <= 40 && value.matches("[0-9]+(?:\\.[0-9]+)?"),
                 key);
+    }
+
+    private static int bounded(ReadonlyConfig config, Option<Integer> option, int min, int max) {
+        int value = config.get(option);
+        require(value >= min && value <= max, option.key());
+        return value;
     }
 
     private static void require(boolean condition, String key) {
