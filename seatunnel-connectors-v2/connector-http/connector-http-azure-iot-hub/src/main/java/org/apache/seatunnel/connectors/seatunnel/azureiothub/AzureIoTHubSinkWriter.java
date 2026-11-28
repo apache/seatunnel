@@ -21,11 +21,8 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -34,12 +31,16 @@ import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.azureiothub.AzureIoTHubClient.failure;
 
-/** Does not complete write or prepareCommit while an unacknowledged request is pending. */
+/**
+ * Admits and acknowledges one INSERT row synchronously. The same monitor protects checkpoint
+ * preparation, while close can interrupt transport independently without waiting for that monitor.
+ */
 final class AzureIoTHubSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     private final AzureIoTHubConfig config;
     private final AzureIoTHubClient client;
-    private final JsonSerializationSchema json;
+    private final AzureIoTHubPayload json;
     private final int arity;
+    // Sticky safe failure prevents checkpoints or later rows from passing a failed delivery.
     private String failed;
 
     AzureIoTHubSinkWriter(AzureIoTHubConfig config, SeaTunnelRowType rowType) {
@@ -47,11 +48,15 @@ final class AzureIoTHubSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void
         client = new AzureIoTHubClient(config);
         json =
                 config.format == AzureIoTHubConfig.Format.JSON
-                        ? new JsonSerializationSchema(rowType)
+                        ? new AzureIoTHubPayload(rowType)
                         : null;
         arity = rowType.getTotalFields();
     }
 
+    /**
+     * Validates and acknowledges one row before releasing its input values. Any safe delivery
+     * failure becomes sticky so a later checkpoint cannot turn it into a successful write.
+     */
     @Override
     public synchronized void write(SeaTunnelRow row) throws IOException {
         ensureHealthy();
@@ -68,20 +73,45 @@ final class AzureIoTHubSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void
         }
     }
 
+    /**
+     * A checkpoint cannot pass a write waiting for acknowledgement. Successful writes leave no
+     * transaction or pending batch state to commit or serialize.
+     */
+    @Override
+    public synchronized Optional<Void> prepareCommit() throws IOException {
+        ensureHealthy();
+        return Optional.empty();
+    }
+
+    /**
+     * Aborts local transport only; Azure cannot roll back a previously accepted telemetry event.
+     */
+    @Override
+    public void abortPrepare() {
+        client.close();
+    }
+
+    /**
+     * Closes the client without acquiring the write monitor, allowing a pending I/O wait to end.
+     */
+    @Override
+    public void close() {
+        client.close();
+    }
+
+    /*
+     * JSON traversal and exact output are independently bounded before network admission. TEXT
+     * retains strict Unicode encoding; BINARY remains owned by this synchronous write call.
+     */
     private byte[] payload(SeaTunnelRow row) throws IOException {
         if (row.getRowKind() != RowKind.INSERT || row.getArity() != arity) {
             throw failure("expected an INSERT row matching the input schema");
         }
         if (json != null) {
-            LimitedBody body = new LimitedBody(config.maxBodyBytes);
             try {
-                json.getMapper().writeValue(body, json.convert(row));
-                return body.bytes.toByteArray();
+                return json.json(row, config.maxBodyBytes);
             } catch (IOException | RuntimeException e) {
-                if (body.exceeded) {
-                    throw failure("payload exceeds configured or service size limit");
-                }
-                throw failure("could not encode input row as JSON");
+                throw failure("could not encode input row as JSON within the payload budget");
             }
         }
         Object field = row.getField(config.fieldIndex);
@@ -109,55 +139,9 @@ final class AzureIoTHubSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void
         throw failure("selected field is null or does not match the configured format");
     }
 
-    /** Successful rows are acknowledged synchronously, and the writer has no commit state. */
-    @Override
-    public synchronized Optional<Void> prepareCommit() throws IOException {
-        ensureHealthy();
-        return Optional.empty();
-    }
-
-    @Override
-    public void abortPrepare() {
-        client.close();
-    }
-
-    @Override
-    public void close() {
-        client.close();
-    }
-
     private void ensureHealthy() throws IOException {
         if (failed != null) {
             throw new IOException(failed);
-        }
-    }
-
-    private static final class LimitedBody extends OutputStream {
-        private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        private final int limit;
-        private boolean exceeded;
-
-        private LimitedBody(int limit) {
-            this.limit = limit;
-        }
-
-        @Override
-        public void write(int value) throws IOException {
-            reserve(1);
-            bytes.write(value);
-        }
-
-        @Override
-        public void write(byte[] value, int offset, int length) throws IOException {
-            reserve(length);
-            bytes.write(value, offset, length);
-        }
-
-        private void reserve(int length) throws IOException {
-            if (length > limit - bytes.size()) {
-                exceeded = true;
-                throw failure("payload exceeds configured or service size limit");
-            }
         }
     }
 }

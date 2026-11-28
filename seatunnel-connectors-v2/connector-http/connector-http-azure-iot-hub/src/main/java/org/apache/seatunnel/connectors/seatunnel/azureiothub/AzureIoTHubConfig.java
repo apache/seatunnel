@@ -45,12 +45,19 @@ import static org.apache.seatunnel.connectors.seatunnel.azureiothub.AzureIoTHubS
 import static org.apache.seatunnel.connectors.seatunnel.azureiothub.AzureIoTHubSinkOptions.SAS_TTL;
 import static org.apache.seatunnel.connectors.seatunnel.azureiothub.AzureIoTHubSinkOptions.SECRET_KEY;
 
+/**
+ * Validates the device endpoint, payload admission and finite network settings before any writer
+ * resources are created. Serialized configuration owns credentials but no open resources.
+ */
 final class AzureIoTHubConfig implements Serializable {
     private static final long serialVersionUID = 1L;
     private static final int HUB_MESSAGE_BYTES = 256 * 1024;
     // Leave room for the system properties supplied by IoT Hub.
     private static final int SYSTEM_PROPERTY_RESERVE = 1024;
 
+    /**
+     * Defines the exact body content type and optional IoT Hub routing encoding for each format.
+     */
     enum Format {
         JSON("application/json", "utf-8"),
         TEXT("text/plain", "utf-8"),
@@ -65,18 +72,28 @@ final class AzureIoTHubConfig implements Serializable {
         }
     }
 
+    // The normalized TLS origin is separate from the encoded device path and SAS resource.
     final URI origin;
+    // Fixed official telemetry API path/version; device punctuation is encoded as one segment.
     final String target;
+    // SAS signs this encoded resource; the device identity remains case-sensitive.
     final String scope;
+    // Device-scoped HMAC key; never include it or generated tokens in diagnostics.
     final byte[] key;
     final Format format;
+    // JSON uses the whole schema; TEXT/BINARY select one non-null input column.
     final int fieldIndex;
+    // Immutable public routing metadata is bounded separately from the body.
     final Map<String, String> properties;
+    // Reserve metadata within the service cap before admitting body conversion or encoded bytes.
     final int maxBodyBytes;
+    // Each attempt gets a fresh expiry; all attempts still share one row I/O deadline.
     final int sasTtl;
+    // Phase inactivity limits cannot extend the enclosing row I/O deadline.
     final int connectTimeout;
     final int readTimeout;
     final int rowTimeout;
+    // Includes the initial request; only an explicit 429 may consume another attempt.
     final int attempts;
 
     AzureIoTHubConfig(ReadonlyConfig options, SeaTunnelRowType type) {
@@ -119,6 +136,30 @@ final class AzureIoTHubConfig implements Serializable {
         return origin.getPort() == -1 ? 443 : origin.getPort();
     }
 
+    /*
+     * Request path and SAS signing use their respective percent-hex casing without changing the
+     * case-sensitive device identity or interpreting its punctuation as path syntax.
+     */
+    static String encode(String value, boolean lowerHex) {
+        String hex = lowerHex ? "0123456789abcdef" : "0123456789ABCDEF";
+        StringBuilder result = new StringBuilder(value.length());
+        for (byte item : value.getBytes(StandardCharsets.UTF_8)) {
+            int c = item & 255;
+            if ((c >= 'a' && c <= 'z')
+                    || (c >= 'A' && c <= 'Z')
+                    || (c >= '0' && c <= '9')
+                    || c == '-'
+                    || c == '_'
+                    || c == '.'
+                    || c == '~') {
+                result.append((char) c);
+            } else {
+                result.append('%').append(hex.charAt(c >>> 4)).append(hex.charAt(c & 15));
+            }
+        }
+        return result.toString();
+    }
+
     private int fieldIndex(SeaTunnelRowType type, String field) {
         if (format == Format.JSON) {
             if (field != null) {
@@ -135,6 +176,10 @@ final class AzureIoTHubConfig implements Serializable {
         return index;
     }
 
+    /*
+     * HTTPS properties use the product token alphabet, not arbitrary HTTP field text. Reject
+     * unsupported characters rather than trim or encode values and alter routing meaning.
+     */
     private static Map<String, String> properties(Map<String, String> input) {
         Map<String, String> result = new LinkedHashMap<>();
         int total = 0;
@@ -148,7 +193,7 @@ final class AzureIoTHubConfig implements Serializable {
                     || !name.matches("[A-Za-z0-9_.-]{1,64}")
                     || value == null
                     || value.length() > 1024
-                    || value.chars().anyMatch(c -> c < 32 || c > 126)) {
+                    || value.chars().anyMatch(c -> !propertyCharacter(c))) {
                 throw invalid("invalid application property name or ASCII value");
             }
             if (result.put(name.toLowerCase(Locale.ROOT), value) != null) {
@@ -160,6 +205,13 @@ final class AzureIoTHubConfig implements Serializable {
             }
         }
         return Collections.unmodifiableMap(result);
+    }
+
+    private static boolean propertyCharacter(int c) {
+        return (c >= 'A' && c <= 'Z')
+                || (c >= 'a' && c <= 'z')
+                || (c >= '0' && c <= '9')
+                || "!#$%&'*+-.^_`|~".indexOf(c) >= 0;
     }
 
     private static URI origin(String value) {
@@ -201,26 +253,6 @@ final class AzureIoTHubConfig implements Serializable {
             throw invalid("secret_key must contain 16 to 128 Base64-encoded key bytes");
         }
         return decoded;
-    }
-
-    static String encode(String value, boolean lowerHex) {
-        String hex = lowerHex ? "0123456789abcdef" : "0123456789ABCDEF";
-        StringBuilder result = new StringBuilder(value.length());
-        for (byte item : value.getBytes(StandardCharsets.UTF_8)) {
-            int c = item & 255;
-            if ((c >= 'a' && c <= 'z')
-                    || (c >= 'A' && c <= 'Z')
-                    || (c >= '0' && c <= '9')
-                    || c == '-'
-                    || c == '_'
-                    || c == '.'
-                    || c == '~') {
-                result.append((char) c);
-            } else {
-                result.append('%').append(hex.charAt(c >>> 4)).append(hex.charAt(c & 15));
-            }
-        }
-        return result.toString();
     }
 
     private static int bounded(

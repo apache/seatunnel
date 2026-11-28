@@ -25,6 +25,10 @@ import org.apache.seatunnel.api.configuration.Options;
 import java.util.Collections;
 import java.util.Map;
 
+/**
+ * Declares the registered-device options used by Factory validation and worker admission. Limits
+ * apply to one writer and do not provide endpoint transactions or recovery deduplication.
+ */
 public final class AzureIoTHubSinkOptions {
     public static final Option<String> HUB_URL =
             Options.key("hub_url")
@@ -56,7 +60,8 @@ public final class AzureIoTHubSinkOptions {
             Options.key("application_properties")
                     .type(new TypeReference<Map<String, String>>() {})
                     .defaultValue(Collections.emptyMap())
-                    .withDescription("Public ASCII IoT Hub message properties.");
+                    .withDescription(
+                            "Public IoT Hub HTTPS token-alphabet properties; whitespace, slash and colon are invalid.");
     public static final Option<Integer> SAS_TTL =
             Options.key("sas_ttl_seconds")
                     .intType()

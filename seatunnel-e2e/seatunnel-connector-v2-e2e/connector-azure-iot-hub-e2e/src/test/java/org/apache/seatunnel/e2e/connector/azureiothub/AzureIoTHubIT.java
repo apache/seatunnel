@@ -66,6 +66,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Runs the installed sink in Zeta against independently authenticated HTTPS peers. Exact receipts
+ * and bounded fault responses cover payload fidelity, retries, shutdown and checkpoint recovery.
+ */
 @DisabledOnContainer(
         value = {},
         type = {EngineType.SPARK, EngineType.FLINK})
@@ -75,6 +79,7 @@ class AzureIoTHubIT extends TestSuiteBase {
     private static final String JSON = "/fake_to_azure_iot_hub_json.conf";
     private static final String VALUE = "/fake_to_azure_iot_hub_value.conf";
     private static final String CHECKPOINT = "/fake_to_azure_iot_hub_checkpoint.conf";
+    private static final String PROPERTIES = "/fake_to_azure_iot_hub_properties.conf";
     private static final String INVALID_DEVICE = "/fake_to_azure_iot_hub_invalid_device.conf";
     private static final String RESPONSE_PRIVATE_TEXT = "fixture-do-not-log-response-body";
     private static final String CONTAINER_TRUST_STORE = "/tmp/azure-iot-hub-test-trust.jks";
@@ -437,6 +442,44 @@ class AzureIoTHubIT extends TestSuiteBase {
         }
     }
 
+    @Test
+    void rejectsJsonConversionBudgetBeforeOpeningTheEndpoint() throws Exception {
+        AzureIoTHubFixture.Scenario scenario = accepting(hub);
+        expectFailure(JSON, args(hub, 8000, 3, 64), "JSON within the payload budget");
+        assertEquals(1, scenario.started.getCount());
+        assertTrue(scenario.attempts().isEmpty());
+        assertTrue(scenario.receipts().isEmpty());
+    }
+
+    @Test
+    void validatesPropertyAlphabetBeforeNetworkAndPreservesAllowedPunctuation() throws Exception {
+        String punctuation = "value!#$%&'*+-.^_`|~";
+        AzureIoTHubFixture.Scenario scenario =
+                scenario(
+                        hub,
+                        (state, index, request, exchange) -> {
+                            assertEquals(
+                                    punctuation,
+                                    exchange.getRequestHeaders().getFirst("iothub-app-detail"));
+                            state.persist(request);
+                            reply(exchange, 204);
+                        });
+        for (String value : Arrays.asList("room 1", "a/b", "east:1", " east ")) {
+            List<String> invalid = valueArgs(hub, 8000, 3, 8, "TEXT", "label");
+            invalid.add(shellArgument("property.value=" + value));
+            expectFailure(PROPERTIES, invalid, "invalid application property");
+        }
+        assertEquals(1, scenario.started.getCount());
+        assertTrue(scenario.attempts().isEmpty());
+        assertTrue(scenario.receipts().isEmpty());
+        List<String> valid = valueArgs(hub, 8000, 3, 8, "TEXT", "label");
+        valid.add(shellArgument("property.value=" + punctuation));
+        runSuccessfully(PROPERTIES, valid);
+        assertEquals(1, scenario.attempts().size());
+        assertEquals(1, scenario.receipts().size());
+        assertArrayEquals(TEXT, scenario.receipts().get(0));
+    }
+
     private AzureIoTHubFixture.Scenario accepting(AzureIoTHubFixture peer) throws Exception {
         return scenario(
                 peer,
@@ -510,6 +553,11 @@ class AzureIoTHubIT extends TestSuiteBase {
                         "row.timeout=" + budget,
                         "max.attempts=" + attempts,
                         "max.payload=" + payload));
+    }
+
+    // The harness joins arguments into bash -c; preserve all property bytes as one CLI argument.
+    private static String shellArgument(String value) {
+        return "'" + value.replace("'", "'\\''") + "'";
     }
 
     private static String jobId() {

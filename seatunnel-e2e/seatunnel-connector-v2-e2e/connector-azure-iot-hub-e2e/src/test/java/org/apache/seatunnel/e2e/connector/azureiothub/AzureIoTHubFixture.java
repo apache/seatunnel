@@ -45,6 +45,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -53,7 +54,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Independent Azure-compatible peer that verifies requests before writing durable test receipts.
+ * Independent HTTPS peer that verifies scope/HMAC, product property syntax and exact payloads. File
+ * receipts observe accepted attempts; the fixture does not claim live-service acceptance.
  */
 final class AzureIoTHubFixture implements AutoCloseable {
     static final String HOST = "host.testcontainers.internal";
@@ -63,6 +65,7 @@ final class AzureIoTHubFixture implements AutoCloseable {
 
     private final HttpsServer server;
     private final ExecutorService threads = Executors.newCachedThreadPool();
+    // Each sequential test publishes its own script and receipt window to HTTPS callbacks.
     private volatile Scenario scenario;
 
     AzureIoTHubFixture(KeyStore keys) throws Exception {
@@ -83,12 +86,23 @@ final class AzureIoTHubFixture implements AutoCloseable {
         return "https://" + hostHeader();
     }
 
-    private String hostHeader() {
-        return HOST + ":" + server.getAddress().getPort();
+    @Override
+    public void close() throws InterruptedException {
+        server.stop(0);
+        threads.shutdownNow();
+        Assertions.assertTrue(threads.awaitTermination(15, TimeUnit.SECONDS));
     }
 
     void serve(Scenario script) {
         scenario = script;
+    }
+
+    static void reply(HttpExchange exchange, int code) throws IOException {
+        exchange.sendResponseHeaders(code, -1);
+    }
+
+    private String hostHeader() {
+        return HOST + ":" + server.getAddress().getPort();
     }
 
     private void dispatch(HttpExchange exchange) throws IOException {
@@ -134,6 +148,16 @@ final class AzureIoTHubFixture implements AutoCloseable {
                 || !hostHeader().equals(exchange.getRequestHeaders().getFirst("Host"))
                 || !"sensor".equals(exchange.getRequestHeaders().getFirst("iothub-app-route"))) {
             throw new IllegalArgumentException("Unexpected request metadata");
+        }
+        // Verify the documented HTTPS property alphabet independently of production validation.
+        for (Map.Entry<String, List<String>> header : exchange.getRequestHeaders().entrySet()) {
+            if (header.getKey().toLowerCase(Locale.ROOT).startsWith("iothub-app-")) {
+                for (String value : header.getValue()) {
+                    if (!value.matches("[A-Za-z0-9!#$%&'*+.^_`|~-]*")) {
+                        throw new IllegalArgumentException("Unsupported HTTPS property value");
+                    }
+                }
+            }
         }
         String auth = exchange.getRequestHeaders().getFirst("Authorization");
         String prefix = "SharedAccessSignature ";
@@ -185,23 +209,22 @@ final class AzureIoTHubFixture implements AutoCloseable {
         return output.toByteArray();
     }
 
-    static void reply(HttpExchange exchange, int code) throws IOException {
-        exchange.sendResponseHeaders(code, -1);
-    }
-
-    @Override
-    public void close() throws InterruptedException {
-        server.stop(0);
-        threads.shutdownNow();
-        Assertions.assertTrue(threads.awaitTermination(15, TimeUnit.SECONDS));
-    }
-
+    /**
+     * Controls fault responses only after independent authentication and bounded request
+     * validation. The test decides acceptance separately from whether an HTTP acknowledgement is
+     * returned.
+     */
     @FunctionalInterface
     interface Script {
         void respond(Scenario scenario, int index, Attempt attempt, HttpExchange exchange)
                 throws IOException, InterruptedException;
     }
 
+    /**
+     * Records one independently validated request and its observed wire metadata. Receipt
+     * acceptance is separate because an acknowledgement can be lost after the service stores the
+     * event.
+     */
     static final class Attempt {
         final long arrival;
         final long expiry;
@@ -226,6 +249,11 @@ final class AzureIoTHubFixture implements AutoCloseable {
         }
     }
 
+    /**
+     * Owns synchronized request and receipt observations for one isolated test. Script failures
+     * remain visible to test assertions rather than being mistaken for a successful endpoint
+     * response.
+     */
     static final class Scenario {
         final Script script;
         final Path receipts;

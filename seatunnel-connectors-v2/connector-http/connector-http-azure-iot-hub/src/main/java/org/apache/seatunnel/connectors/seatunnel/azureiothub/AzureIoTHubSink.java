@@ -23,7 +23,10 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
-/** Writes insert rows as telemetry from a registered Azure IoT Hub device. */
+/**
+ * Writes INSERT telemetry under one registered device identity. Restored writers have no pending
+ * transactions, so replayed source rows can produce duplicate endpoint messages.
+ */
 public final class AzureIoTHubSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> {
     private static final long serialVersionUID = 1L;
 
@@ -40,6 +43,10 @@ public final class AzureIoTHubSink implements SeaTunnelSink<SeaTunnelRow, Void, 
         return AzureIoTHubSinkFactory.IDENTIFIER;
     }
 
+    /**
+     * Each worker subtask owns its transport. Serializing the Sink must never transfer an open
+     * socket, executor or mutable writer between coordinator and worker processes.
+     */
     @Override
     public SinkWriter<SeaTunnelRow, Void, Void> createWriter(SinkWriter.Context context) {
         return new AzureIoTHubSinkWriter(config, rowType);

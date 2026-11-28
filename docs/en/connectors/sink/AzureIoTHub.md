@@ -32,13 +32,15 @@ Register the device in your IoT hub with symmetric-key authentication and supply
 | `secret_key` | String | Yes | | Registered device symmetric key, with 16–128 bytes after Base64 decoding. Inject it from a secret store or environment variable. |
 | `format` | String | No | `JSON` | `JSON` encodes the entire row as one UTF-8 JSON object. `TEXT` emits a UTF-8 string and `BINARY` emits raw bytes. Format names are case-insensitive. |
 | `field` | String | For `TEXT` and `BINARY` | | The input STRING column for `TEXT` or BYTES column for `BINARY`. The selected value must be non-null. Empty strings and byte arrays are valid. |
-| `application_properties` | Map&lt;String, String&gt; | No | `{}` | Public message properties, suitable for routing. Up to 32 names of 1–64 ASCII letters, digits, underscores, periods, or hyphens. Names are normalized to lowercase and must be distinct ignoring case. Each value supports up to 1,024 printable ASCII characters. Names and values together may use up to 4,096 bytes. |
+| `application_properties` | Map&lt;String, String&gt; | No | `{}` | Public message properties, suitable for routing. Up to 32 names of 1–64 ASCII letters, digits, underscores, periods, or hyphens. Names are normalized to lowercase and must be distinct ignoring case. Each value supports up to 1,024 characters from the [HTTPS message-property alphabet](https://learn.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-messages-construct): ASCII letters/digits and <code>!#$%&amp;'*+-.^_&#96;&#124;~</code>. Spaces, slash and colon are rejected before network use. Names and values together may use up to 4,096 bytes. |
 | `sas_ttl_seconds` | Integer | No | `3600` | Lifetime in seconds of each generated SAS token. Range 30–86,400. |
 | `max_payload_bytes` | Integer | No | `262144` | Maximum body size in bytes. Range 1–262,144. The effective limit also reserves space for system and application properties within the IoT Hub 256 KiB message limit. |
 | `connect_timeout_ms` | Integer | No | `10000` | TCP connect timeout in milliseconds. Range 1–300,000. |
 | `read_timeout_ms` | Integer | No | `10000` | TLS handshake and response read inactivity timeout in milliseconds. Range 1–300,000. |
 | `row_timeout_ms` | Integer | No | `30000` | End-to-end I/O budget per row in milliseconds, including connection, TLS, writing, reading, and any retry delay. Range 1–300,000. |
 | `max_attempts` | Integer | No | `3` | Maximum HTTP attempts per row including the initial attempt. Range 1–10. |
+
+JSON conversion also uses the effective body cap as a work budget before allocating its tree: every logical value/container occurrence costs one unit, plus field-name/string UTF-8 bytes, Base64 body bytes and numeric representation work. Shared values and overwritten map entries are charged each time. Extremely large or repeatedly normalized inputs can therefore be rejected even when their final JSON would be smaller. Schema checks, conversion and container output are iterative, with no arbitrary fixed depth limit. Exact escaped output bytes are checked separately. TEXT and BINARY retain their existing byte and type checks.
 
 ## Delivery behavior
 

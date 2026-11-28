@@ -59,8 +59,12 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-/** Issues one acknowledged device event at a time without an HTTP retry or wire logging chain. */
+/**
+ * Issues synchronous device events using one owned, daemon network executor. Only HTTP 204 confirms
+ * delivery; a transport failure leaves the mutation outcome unknown and must not trigger replay.
+ */
 final class AzureIoTHubClient implements AutoCloseable {
+    // Bound response line/header admission before accepting a peer-controlled HTTP response.
     private static final DefaultBHttpClientConnectionFactory CONNECTIONS =
             new DefaultBHttpClientConnectionFactory(
                     ConnectionConfig.custom()
@@ -72,6 +76,7 @@ final class AzureIoTHubClient implements AutoCloseable {
                             .build());
 
     private final AzureIoTHubConfig config;
+    // The writer admits one send at a time; this executor never accumulates a row queue.
     private final ExecutorService network =
             Executors.newSingleThreadExecutor(
                     task -> {
@@ -79,15 +84,21 @@ final class AzureIoTHubClient implements AutoCloseable {
                         thread.setDaemon(true);
                         return thread;
                     });
+    // Sticky close wins races with submit/socket publication and forbids later attempts.
     private final AtomicBoolean closed = new AtomicBoolean();
+    // Publish the raw socket before connect so deadline/close can interrupt every transport phase.
     private final AtomicReference<Socket> socket = new AtomicReference<>();
+    // The caller owns this pending operation until completion; close cancels it without a monitor.
     private final AtomicReference<Future<?>> operation = new AtomicReference<>();
 
     AzureIoTHubClient(AzureIoTHubConfig config) {
         this.config = config;
     }
 
-    /** A successful return means Azure acknowledged the row with HTTP 204. */
+    /**
+     * Waits within one total I/O deadline. A successful return means HTTP 204 acknowledged the row;
+     * timeout/interruption closes transport without attempting to replay an unknown mutation.
+     */
     void send(byte[] payload) throws IOException {
         checkOpen();
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(config.rowTimeout);
@@ -127,6 +138,37 @@ final class AzureIoTHubClient implements AutoCloseable {
         }
     }
 
+    static Failure failure(String detail) {
+        return new Failure("Azure IoT Hub sink: " + detail);
+    }
+
+    /*
+     * Only a completed 429 explicitly rejects this attempt and permits a bounded later attempt.
+     * Missing/unusable timing uses finite jittered backoff; a valid hint is a minimum delay.
+     */
+    /**
+     * Idempotently aborts the published transport and operation without waiting on the network
+     * executor itself. The socket owner also closes its resources on every exit path.
+     */
+    @Override
+    public void close() {
+        if (closed.compareAndSet(false, true)) {
+            Socket current = socket.getAndSet(null);
+            if (current != null) {
+                try {
+                    current.close();
+                } catch (IOException ignored) {
+                    // The owning network task also closes the socket.
+                }
+            }
+            Future<?> pending = operation.getAndSet(null);
+            if (pending != null) {
+                pending.cancel(true);
+            }
+            network.shutdownNow();
+        }
+    }
+
     private void sendWithThrottleRetry(byte[] payload, long deadline) throws IOException {
         for (int attempt = 1; attempt <= config.attempts; attempt++) {
             checkOpen();
@@ -152,7 +194,10 @@ final class AzureIoTHubClient implements AutoCloseable {
         }
     }
 
-    /** Returns -1 for an acknowledged row, otherwise the minimum delay after HTTP 429. */
+    /**
+     * Owns one TCP/TLS attempt under the caller deadline. Returns -1 only for a valid HTTP 204;
+     * otherwise returns the minimum wait explicitly authorized by HTTP 429.
+     */
     private long request(byte[] payload, long deadline) throws IOException {
         Socket raw = new Socket();
         socket.set(raw);
@@ -194,6 +239,10 @@ final class AzureIoTHubClient implements AutoCloseable {
         }
     }
 
+    /*
+     * The low-level executor has no automatic retry, redirect or wire-logging interceptor. Response
+     * bodies are never retained; 204 framing and 429 timing are validated before acknowledging.
+     */
     private long sendRequest(Socket tls, byte[] payload) throws IOException, HttpException {
         DefaultBHttpClientConnection connection = CONNECTIONS.createConnection(tls);
         try {
@@ -249,6 +298,10 @@ final class AzureIoTHubClient implements AutoCloseable {
         }
     }
 
+    /*
+     * Sign the encoded device resource and fresh expiry with the registered-device symmetric key.
+     * Neither the key, signed token nor endpoint response text is attached to a diagnostic cause.
+     */
     private String authorization() throws IOException {
         long expires = Instant.now().getEpochSecond() + config.sasTtl;
         try {
@@ -269,6 +322,7 @@ final class AzureIoTHubClient implements AutoCloseable {
         }
     }
 
+    // Reject a numeric delay beyond every supported row budget without overflowing its parser.
     private static long retryDelay(String value) {
         if (!value.isEmpty() && value.chars().allMatch(c -> c >= '0' && c <= '9')) {
             int seconds = 0;
@@ -298,29 +352,10 @@ final class AzureIoTHubClient implements AutoCloseable {
         }
     }
 
-    @Override
-    public void close() {
-        if (closed.compareAndSet(false, true)) {
-            Socket current = socket.getAndSet(null);
-            if (current != null) {
-                try {
-                    current.close();
-                } catch (IOException ignored) {
-                    // The owning network task also closes the socket.
-                }
-            }
-            Future<?> pending = operation.getAndSet(null);
-            if (pending != null) {
-                pending.cancel(true);
-            }
-            network.shutdownNow();
-        }
-    }
-
-    static Failure failure(String detail) {
-        return new Failure("Azure IoT Hub sink: " + detail);
-    }
-
+    /**
+     * Carries only connector-authored safe diagnostics; third-party causes and response text are
+     * deliberately excluded because they can contain authentication material.
+     */
     static final class Failure extends IOException {
         private static final long serialVersionUID = 1L;
 

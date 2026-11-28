@@ -39,6 +39,10 @@ import static org.apache.seatunnel.connectors.seatunnel.azureiothub.AzureIoTHubS
 import static org.apache.seatunnel.connectors.seatunnel.azureiothub.AzureIoTHubSinkOptions.SAS_TTL;
 import static org.apache.seatunnel.connectors.seatunnel.azureiothub.AzureIoTHubSinkOptions.SECRET_KEY;
 
+/**
+ * Registers only the dedicated device-to-cloud sink. Configuration is validated before a worker
+ * creates network resources; the Factory owns neither sockets nor pending delivery state.
+ */
 @AutoService(Factory.class)
 public final class AzureIoTHubSinkFactory
         implements TableSinkFactory<SeaTunnelRow, Void, Void, Void> {
