@@ -40,6 +40,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+/**
+ * Decodes a complete bounded response before exposing rows, with canonical recovery fingerprints.
+ */
 final class ConfluencePage {
     private static final int MAX_JSON_TOKENS = 200000;
     private static final ObjectMapper JSON =
@@ -56,6 +59,7 @@ final class ConfluencePage {
                     .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                     .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
 
+    // Rows retain provider JSON; next is a validated raw cursor or normalized decimal offset.
     final List<Row> rows;
     final String next;
 
@@ -64,6 +68,10 @@ final class ConfluencePage {
         this.next = next;
     }
 
+    /**
+     * Validates the entire response and continuation before any row can reach the collector. Each
+     * prefix includes all earlier records on this page to detect a changed committed prefix.
+     */
     static ConfluencePage decode(
             ConfluenceConfig config, byte[] bytes, Header[] links, String current) {
         JsonNode envelope;
@@ -106,6 +114,9 @@ final class ConfluencePage {
         return new ConfluencePage(rows, next);
     }
 
+    /**
+     * Normalizes object field order for replay checks while preserving array order and null values.
+     */
     private static JsonNode canonical(JsonNode node) {
         if (node.isObject()) {
             Map<String, JsonNode> fields = new TreeMap<>();
@@ -122,6 +133,9 @@ final class ConfluencePage {
         return node;
     }
 
+    /**
+     * Preserves textual and arbitrary-precision integer IDs without narrowing them to a Java long.
+     */
     private static String id(ConfluenceConfig config, JsonNode id) {
         if (id.isNull() || id.isMissingNode()) {
             return null;
@@ -132,6 +146,9 @@ final class ConfluencePage {
         return id.asText();
     }
 
+    /*
+     * Exposes only integral audit timestamps, leaving absent and non-audit values null.
+     */
     private static Long auditDate(ConfluenceConfig config, JsonNode date) {
         if (config.resource != ConfluenceConfig.Resource.AUDIT
                 || date.isNull()
@@ -144,6 +161,11 @@ final class ConfluencePage {
         return date.longValue();
     }
 
+    /**
+     * Couples an output row with the cumulative fingerprint committed after its collection.
+     *
+     * @see ConfluenceReader
+     */
     static final class Row {
         final SeaTunnelRow value;
         final String prefix;

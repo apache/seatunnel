@@ -32,6 +32,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.MountableFile;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -52,6 +53,10 @@ import static org.apache.seatunnel.e2e.connector.confluence.ConfluenceFixture.gz
 import static org.apache.seatunnel.e2e.connector.confluence.ConfluenceFixture.json;
 import static org.apache.seatunnel.e2e.connector.confluence.ConfluenceFixture.status;
 
+/**
+ * Exercises exact extraction, finite failure paths, cancellation and checkpoint/savepoint recovery
+ * through a private Zeta engine and a scripted HTTPS provider, without claiming live-tenant access.
+ */
 @Timeout(value = 4, unit = TimeUnit.MINUTES)
 @Execution(ExecutionMode.SAME_THREAD)
 class ConfluenceIT extends TestSuiteBase {
@@ -247,11 +252,7 @@ class ConfluenceIT extends TestSuiteBase {
                             if (i == 0) {
                                 exchange.sendResponseHeaders(200, 1000);
                                 exchange.getResponseBody()
-                                        .write(
-                                                results(FIRST)
-                                                        .getBytes(
-                                                                java.nio.charset.StandardCharsets
-                                                                        .UTF_8));
+                                        .write(results(FIRST).getBytes(StandardCharsets.UTF_8));
                             } else {
                                 json(exchange, results(TAIL));
                             }
@@ -501,6 +502,10 @@ class ConfluenceIT extends TestSuiteBase {
         restoreMidPage(true);
     }
 
+    /**
+     * Stops within a decoded page and checks either exact remaining output or changed-prefix
+     * rejection.
+     */
     private void restoreMidPage(boolean changePrefix) throws Exception {
         List<String> payloads = new ArrayList<>();
         List<String> expected = new ArrayList<>();
@@ -560,6 +565,10 @@ class ConfluenceIT extends TestSuiteBase {
         }
     }
 
+    /**
+     * Holds the next HTTP response while the engine checkpoints or stops, then verifies
+     * saved-position recovery independently of the original in-flight request.
+     */
     private void restoreAcrossHeldPage(boolean savepoint) throws Exception {
         String resource = savepoint ? "pages" : "group";
         String firstTarget = savepoint ? PAGE : GROUP + "0";

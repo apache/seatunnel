@@ -32,6 +32,9 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 
+/**
+ * Validates provider continuations and extracts only positions for the fixed configured endpoint.
+ */
 final class ConfluencePagination {
     private static final int MAX_LINK_LENGTH = 8192;
     private final ConfluenceConfig config;
@@ -40,6 +43,10 @@ final class ConfluencePagination {
         this.config = config;
     }
 
+    /**
+     * Reconciles body and Link continuations. Cursor scans follow links even on empty pages; offset
+     * scans validate metadata and infer another page only when the effective limit is full.
+     */
     String next(JsonNode envelope, Header[] headers, String current, int rows) {
         String fromBody = bodyLink(envelope);
         String fromHeader = headerLink(headers);
@@ -106,6 +113,10 @@ final class ConfluencePagination {
         return next.textValue();
     }
 
+    /**
+     * Splits Link entries outside URI targets and quoted attributes, rejecting ambiguous next
+     * links.
+     */
     private String headerLink(Header[] headers) {
         String next = null;
         for (Header header : headers) {
@@ -170,6 +181,10 @@ final class ConfluencePagination {
         return next ? value.substring(1, end) : null;
     }
 
+    /**
+     * Allows relative or absolute continuations only within the configured origin and resource. The
+     * validated query is reduced to a position so subsequent requests retain fixed parameters.
+     */
     private String continuation(String value, String current) {
         if (value.isEmpty()
                 || value.length() > MAX_LINK_LENGTH
@@ -212,6 +227,10 @@ final class ConfluencePagination {
         return queryPosition(next.getRawQuery());
     }
 
+    /**
+     * Rejects duplicate or unexpected query parameters instead of forwarding provider-supplied
+     * options.
+     */
     private String queryPosition(String query) {
         String position = null;
         Set<String> seen = new HashSet<>();
@@ -248,6 +267,9 @@ final class ConfluencePagination {
         return config.resource.cursor() ? position : Integer.toString(offset(config, position));
     }
 
+    /**
+     * Accepts bounded raw query tokens without permitting separators or malformed percent escapes.
+     */
     static boolean cursorToken(String value) {
         if (value.isEmpty() || value.length() > 4096) {
             return false;
@@ -269,6 +291,9 @@ final class ConfluencePagination {
         return true;
     }
 
+    /*
+     * Accepts only nonnegative decimal offsets within the supported integer range.
+     */
     static int offset(ConfluenceConfig config, String value) {
         if (value.matches("[0-9]{1,10}")) {
             try {
@@ -280,6 +305,10 @@ final class ConfluencePagination {
         throw config.failure("invalid offset in pagination state");
     }
 
+    /**
+     * Normalizes equivalent permitted percent encodings before hashing positions for cycle
+     * detection.
+     */
     static String fingerprint(String value) {
         StringBuilder canonical = new StringBuilder(value.length());
         for (int i = 0; i < value.length(); i++) {

@@ -42,9 +42,18 @@ import static org.apache.seatunnel.connectors.seatunnel.confluence.ConfluenceSou
 import static org.apache.seatunnel.connectors.seatunnel.confluence.ConfluenceSourceOptions.TOKEN;
 import static org.apache.seatunnel.connectors.seatunnel.confluence.ConfluenceSourceOptions.USERNAME;
 
+/**
+ * Validates the bounded Cloud API configuration before it is serialized to workers. Credentials
+ * belong to source configuration and are excluded from checkpoint positions.
+ */
 final class ConfluenceConfig implements Serializable {
     private static final long serialVersionUID = 1L;
 
+    /**
+     * Binds each resource to its fixed endpoint and cursor or offset pagination contract.
+     *
+     * @see ConfluencePagination
+     */
     enum Resource {
         PAGES("pages", "/wiki/api/v2/pages", "&body-format="),
         BLOG_POSTS("blog_posts", "/wiki/api/v2/blogposts", "&body-format="),
@@ -71,11 +80,13 @@ final class ConfluenceConfig implements Serializable {
         }
     }
 
+    // These request-shaping values bind restored positions to the same logical scan.
     final URI origin;
     final Resource resource;
     final String bodyFormat;
     final String binding;
     final int pageSize;
+    // Finite budgets bound retries, response parsing and the total pagination sequence.
     final int maxPages;
     final int maxAttempts;
     final int connectTimeout;
@@ -123,6 +134,9 @@ final class ConfluenceConfig implements Serializable {
                         .encodeToString((username + ":" + token).getBytes(StandardCharsets.UTF_8));
     }
 
+    /*
+     * Rebuilds only the fixed endpoint query; positions are already validated raw query values.
+     */
     String target(String position) {
         String query = resource.path + "?limit=" + pageSize + resource.parameters;
         if (resource.hasBodyFormat()) {
@@ -162,6 +176,10 @@ final class ConfluenceConfig implements Serializable {
         return new Failure("Confluence " + resource.name + ": " + reason);
     }
 
+    /**
+     * Accepts only a credential-free HTTPS origin, so endpoint paths cannot be redirected by
+     * config.
+     */
     private static URI origin(String value) {
         try {
             URI uri = new URI(value);

@@ -35,7 +35,11 @@ import org.apache.seatunnel.common.constants.JobMode;
 import java.util.Collections;
 import java.util.List;
 
-/** Extracts one Confluence Cloud resource per bounded source. */
+/**
+ * Extracts one Confluence Cloud resource per bounded source.
+ *
+ * @see ConfluenceReader
+ */
 public final class ConfluenceSource
         implements SeaTunnelSource<SeaTunnelRow, ConfluenceSplit, ConfluenceEnumerator.State> {
     private static final long serialVersionUID = 1L;
@@ -56,6 +60,9 @@ public final class ConfluenceSource
         return Boundedness.BOUNDED;
     }
 
+    /*
+     * Rejects streaming execution because the connector exposes a single bounded full refresh.
+     */
     @Override
     public void setJobContext(JobContext context) {
         if (context.getJobMode() != JobMode.BATCH) {
@@ -63,6 +70,10 @@ public final class ConfluenceSource
         }
     }
 
+    /**
+     * Keeps one fixed schema across resources, retaining provider-specific fields inside content
+     * JSON.
+     */
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
         TableSchema schema =
@@ -92,6 +103,9 @@ public final class ConfluenceSource
                         null));
     }
 
+    /**
+     * Creates the sole pagination reader; a scan cannot be partitioned across independent cursors.
+     */
     @Override
     public SourceReader<SeaTunnelRow, ConfluenceSplit> createReader(SourceReader.Context context) {
         if (context.getIndexOfSubtask() != 0) {
@@ -106,6 +120,9 @@ public final class ConfluenceSource
         return new ConfluenceEnumerator(context, ConfluenceSplit.initial(config), null);
     }
 
+    /*
+     * Restores unassigned work while the engine returns committed reader progress separately.
+     */
     @Override
     public SourceSplitEnumerator<ConfluenceSplit, ConfluenceEnumerator.State> restoreEnumerator(
             SourceSplitEnumerator.Context<ConfluenceSplit> context,

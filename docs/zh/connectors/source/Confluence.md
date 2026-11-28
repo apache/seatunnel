@@ -102,22 +102,22 @@ source {
     username = "reader@example.com"
     token = "replace-with-classic-api-token"
     resource = "pages"
-    result_table_name = "confluence_pages"
+    plugin_output = "confluence_pages"
   }
   Confluence {
     site_url = "https://example.atlassian.net"
     username = "reader@example.com"
     token = "replace-with-classic-api-token"
     resource = "space"
-    result_table_name = "confluence_spaces"
+    plugin_output = "confluence_spaces"
   }
 }
 sink {
   Console {
-    source_table_name = "confluence_pages"
+    plugin_input = "confluence_pages"
   }
   Console {
-    source_table_name = "confluence_spaces"
+    plugin_input = "confluence_spaces"
   }
 }
 ```

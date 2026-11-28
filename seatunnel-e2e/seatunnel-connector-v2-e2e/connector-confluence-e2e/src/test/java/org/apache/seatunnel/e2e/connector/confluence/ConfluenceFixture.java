@@ -47,6 +47,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPOutputStream;
 
+/**
+ * Provides a local verified-TLS endpoint with scripted responses, exact request recording and held
+ * I/O.
+ */
 final class ConfluenceFixture implements AutoCloseable {
     static final String HOST = "host.testcontainers.internal";
     static final String USERNAME = "fixture@example.test";
@@ -182,6 +186,10 @@ final class ConfluenceFixture implements AutoCloseable {
         }
     }
 
+    /**
+     * Trickles a partial response until release, exposing socket disconnects for deadline/cancel
+     * checks.
+     */
     static final class Hold {
         final CountDownLatch entered = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
@@ -207,11 +215,19 @@ final class ConfluenceFixture implements AutoCloseable {
         }
     }
 
+    /**
+     * Supplies one response for the recorded request index in the active scenario.
+     *
+     * @see ConfluenceIT
+     */
     @FunctionalInterface
     interface Script {
         void reply(int index, HttpExchange exchange) throws IOException;
     }
 
+    /**
+     * Records ordered requests and authentication problems shared with the engine assertion thread.
+     */
     static final class Scenario {
         final Script script;
         final List<String> problems = new CopyOnWriteArrayList<>();

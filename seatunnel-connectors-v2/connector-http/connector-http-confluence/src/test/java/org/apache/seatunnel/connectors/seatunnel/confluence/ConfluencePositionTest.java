@@ -44,6 +44,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+/**
+ * Protects pre-assignment and terminal recovery, split return ordering and canonical prefix checks.
+ */
 class ConfluencePositionTest {
     private final ConfluenceConfig config = config();
 

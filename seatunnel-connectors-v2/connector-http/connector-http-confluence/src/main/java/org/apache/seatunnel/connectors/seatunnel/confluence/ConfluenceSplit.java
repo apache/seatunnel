@@ -23,17 +23,25 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-/** A versioned, secret-free position in a bounded API scan. */
+/**
+ * A versioned, secret-free position in a bounded API scan.
+ *
+ * @see ConfluenceReader
+ */
 final class ConfluenceSplit implements SourceSplit {
     private static final long serialVersionUID = 1L;
     private static final int VERSION = 1;
 
+    // Version and binding reject state from a different schema or logical request configuration.
     final int version;
     final String binding;
+    // Position identifies the current page; emitted/prefix identify its committed ordered prefix.
     final String position;
     final int pages;
     final int emitted;
     final String prefix;
+    // Terminal state prevents refetching completed scans; visited contains only cursor
+    // fingerprints.
     final boolean finished;
     final Set<String> visited;
 
@@ -64,6 +72,9 @@ final class ConfluenceSplit implements SourceSplit {
         return new ConfluenceSplit(config.binding, position, 0, 0, null, false, history);
     }
 
+    /*
+     * Rejects incompatible or unsafe positions before recovery can issue a remote request.
+     */
     void check(ConfluenceConfig config) {
         if (version != VERSION
                 || !config.binding.equals(binding)

@@ -22,11 +22,17 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import java.io.Serializable;
 import java.util.List;
 
-/** Assigns one independent pagination sequence to the sole reader. */
+/**
+ * Assigns one independent pagination sequence to the sole reader.
+ *
+ * @see ConfluenceSplit
+ */
 final class ConfluenceEnumerator
         implements SourceSplitEnumerator<ConfluenceSplit, ConfluenceEnumerator.State> {
     private final Context<ConfluenceSplit> context;
     private final ConfluenceSplit initial;
+    // A restored null pending value waits for the reader checkpoint returned by addSplitsBack.
+    // All mutable assignment state is guarded by the enumeration context monitor.
     private ConfluenceSplit pending;
     private boolean running;
     private boolean assigned;
@@ -55,6 +61,10 @@ final class ConfluenceEnumerator
     @Override
     public void close() {}
 
+    /**
+     * Restores reader-owned progress. An explicit empty restore reissues the initial split only
+     * when the enumerator has neither pending nor assigned work.
+     */
     @Override
     public void addSplitsBack(List<ConfluenceSplit> splits, int subtaskId) {
         synchronized (context) {
@@ -93,6 +103,9 @@ final class ConfluenceEnumerator
         handleSplitRequest(subtaskId);
     }
 
+    /*
+     * Saves only unassigned work; assigned progress is captured by the reader checkpoint.
+     */
     @Override
     public State snapshotState(long checkpointId) {
         synchronized (context) {
@@ -103,6 +116,9 @@ final class ConfluenceEnumerator
     @Override
     public void notifyCheckpointComplete(long checkpointId) {}
 
+    /*
+     * Transfers pending work once the sole reader is registered and enumeration is running.
+     */
     private void assign() {
         if (!running || assigned || pending == null || !context.registeredReaders().contains(0)) {
             return;
@@ -113,6 +129,9 @@ final class ConfluenceEnumerator
         pending = null;
     }
 
+    /**
+     * Keeps unassigned work across restore without duplicating the reader-owned committed position.
+     */
     static final class State implements Serializable {
         private static final long serialVersionUID = 1L;
         private final ConfluenceSplit pending;

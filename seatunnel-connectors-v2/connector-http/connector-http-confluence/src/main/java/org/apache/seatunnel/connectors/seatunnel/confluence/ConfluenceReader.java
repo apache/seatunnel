@@ -36,7 +36,11 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Keeps remote I/O and retry waits outside the engine's source checkpoint lock. */
+/**
+ * Keeps remote I/O and retry waits outside the engine's source checkpoint lock.
+ *
+ * @see SourceReader
+ */
 final class ConfluenceReader implements SourceReader<SeaTunnelRow, ConfluenceSplit> {
     private static final int ROWS_PER_POLL = 16;
     private final ConfluenceConfig config;
@@ -52,16 +56,22 @@ final class ConfluenceReader implements SourceReader<SeaTunnelRow, ConfluenceSpl
                         return thread;
                     });
 
+    // The poll thread owns request/page progress; only cancellation accesses the future
+    // concurrently.
     private volatile Future<ConfluencePage> request;
     private ConfluencePage page;
+    // splitStateLock protects the current page position and its committed ordered prefix.
+    // Snapshots copy these values while emission also owns the collector checkpoint lock.
     private String position;
     private Set<String> visited;
     private int pages;
     private int emitted;
     private String prefix;
+    // Assignment publishes restored progress before polling is allowed to submit any request.
     private volatile boolean assigned;
     private boolean finished;
     private boolean completionSignalled;
+    // Retry timing is local to one page and intentionally restarts after checkpoint recovery.
     private int attempts;
     private long deadline;
     private long nextAttempt;
@@ -77,6 +87,10 @@ final class ConfluenceReader implements SourceReader<SeaTunnelRow, ConfluenceSpl
     @Override
     public void open() {}
 
+    /**
+     * Yields while remote work is pending and commits at most one small batch under checkpoint
+     * lock.
+     */
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         if (cancelled.get() || !assigned) {
@@ -97,6 +111,10 @@ final class ConfluenceReader implements SourceReader<SeaTunnelRow, ConfluenceSpl
         signalCompletion();
     }
 
+    /**
+     * Polls the worker without blocking checkpoint progress and validates any restored committed
+     * prefix before attaching the decoded page to reader state.
+     */
     private boolean loadPage() throws InterruptedException {
         long now = System.nanoTime();
         if (attempts > 0 && now - deadline >= 0) {
@@ -153,6 +171,9 @@ final class ConfluenceReader implements SourceReader<SeaTunnelRow, ConfluenceSpl
         }
     }
 
+    /*
+     * Starts one page attempt; all retries share the deadline established by the first attempt.
+     */
     private void submit(long now) {
         if (attempts == 0) {
             deadline = now + TimeUnit.MILLISECONDS.toNanos(config.pageTimeout);
@@ -172,6 +193,9 @@ final class ConfluenceReader implements SourceReader<SeaTunnelRow, ConfluenceSpl
         }
     }
 
+    /*
+     * Honors provider delay within the remaining page deadline and finite attempt budget.
+     */
     private void retry(ConfluenceHttp.Retry retry) {
         if (cancelled.get()) {
             return;
@@ -190,6 +214,10 @@ final class ConfluenceReader implements SourceReader<SeaTunnelRow, ConfluenceSpl
         nextAttempt = now + TimeUnit.MILLISECONDS.toNanos(delay);
     }
 
+    /**
+     * Advances committed prefix only after collect succeeds, then advances the position at page
+     * end. The caller owns both checkpoint and split-state locks throughout these transitions.
+     */
     private void emitBatch(Collector<SeaTunnelRow> output) {
         int end = Math.min(emitted + ROWS_PER_POLL, page.rows.size());
         while (!cancelled.get() && emitted < end) {
@@ -215,6 +243,9 @@ final class ConfluenceReader implements SourceReader<SeaTunnelRow, ConfluenceSpl
         }
     }
 
+    /*
+     * Signals terminal completion once, including when a finished checkpoint is restored.
+     */
     private void signalCompletion() {
         if (finished && !completionSignalled && !cancelled.get()) {
             completionSignalled = true;
@@ -222,6 +253,10 @@ final class ConfluenceReader implements SourceReader<SeaTunnelRow, ConfluenceSpl
         }
     }
 
+    /**
+     * Copies secret-free progress, including a terminal or pre-assignment position, for engine
+     * recovery.
+     */
     @Override
     public List<ConfluenceSplit> snapshotState(long checkpointId) {
         // A pre-assignment barrier owns the initial position. On restore it can be handed back
@@ -233,6 +268,9 @@ final class ConfluenceReader implements SourceReader<SeaTunnelRow, ConfluenceSpl
         }
     }
 
+    /*
+     * Installs exactly one validated initial or restored position before publishing assignment.
+     */
     @Override
     public void addSplits(List<ConfluenceSplit> splits) {
         if (splits.isEmpty()) {
@@ -260,6 +298,10 @@ final class ConfluenceReader implements SourceReader<SeaTunnelRow, ConfluenceSpl
     @Override
     public void notifyCheckpointComplete(long checkpointId) {}
 
+    /**
+     * Closes active I/O as well as cancelling the future, so blocked socket reads can leave
+     * promptly.
+     */
     @Override
     public void cancel() {
         cancelled.set(true);
@@ -270,6 +312,9 @@ final class ConfluenceReader implements SourceReader<SeaTunnelRow, ConfluenceSpl
         }
     }
 
+    /*
+     * Cancels I/O and stops the reader-owned worker; no shared executor is affected.
+     */
     @Override
     public void close() {
         cancel();

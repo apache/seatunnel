@@ -20,6 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.confluence;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+/**
+ * Defines stable user options for bounded Confluence Cloud extraction and request budgets.
+ *
+ * @see ConfluenceSourceFactory
+ */
 public final class ConfluenceSourceOptions {
     public static final Option<String> SITE_URL =
             Options.key("site_url")

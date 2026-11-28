@@ -48,7 +48,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipException;
 
-/** A direct, non-logging HTTP GET transport. Credentials stay in the TLS request header. */
+/**
+ * A direct, non-logging HTTP GET transport. Credentials stay in the TLS request header.
+ *
+ * @see ConfluenceReader
+ */
 final class ConfluenceHttp {
     private static final ConnectionConfig CONNECTION_CONFIG =
             ConnectionConfig.custom()
@@ -68,6 +72,10 @@ final class ConfluenceHttp {
         this.cancelled = cancelled;
     }
 
+    /**
+     * Owns one cancellable socket through connect, verified TLS and response decoding. Only
+     * transport I/O failures are retryable here; diagnostics never expose remote payloads.
+     */
     ConfluencePage fetch(String position) throws Retry {
         Socket socket = new Socket();
         active.set(socket);
@@ -100,6 +108,10 @@ final class ConfluenceHttp {
         }
     }
 
+    /**
+     * Checks status before body decoding and always shuts down without draining a rejected
+     * response.
+     */
     private ConfluencePage execute(Socket socket, String position)
             throws IOException, HttpException, Retry {
         DefaultBHttpClientConnection connection =
@@ -142,6 +154,9 @@ final class ConfluenceHttp {
         }
     }
 
+    /**
+     * Closes the active raw socket without draining a rejected or still-streaming response body.
+     */
     void abort() {
         Socket socket = active.getAndSet(null);
         if (socket != null) {
@@ -153,6 +168,9 @@ final class ConfluenceHttp {
         }
     }
 
+    /**
+     * Rejects conflicting length/transfer declarations before consuming a successful response body.
+     */
     private void validateFraming(HttpResponse response) {
         String length = singleHeader(response, "Content-Length");
         String transfer = singleHeader(response, "Transfer-Encoding");
@@ -164,6 +182,9 @@ final class ConfluenceHttp {
         }
     }
 
+    /**
+     * Bounds decompressed bytes and closes gzip without letting framing streams drain on rejection.
+     */
     private byte[] readBody(HttpResponse response) throws IOException {
         HttpEntity entity = response.getEntity();
         if (entity == null) {
@@ -216,6 +237,9 @@ final class ConfluenceHttp {
         return values.length == 0 ? null : values[0].getValue().trim();
     }
 
+    /**
+     * Treats provider hints as minimum delays; values above the maximum page budget force failure.
+     */
     private static long retryAfter(String header) {
         if (header == null || header.isEmpty()) {
             return 0;
@@ -234,6 +258,11 @@ final class ConfluenceHttp {
         return date == null ? 0 : Math.max(0, date.getTime() - System.currentTimeMillis());
     }
 
+    /**
+     * Carries a sanitized retry reason and provider minimum delay back to the polling thread.
+     *
+     * @see ConfluenceReader
+     */
     static final class Retry extends Exception {
         private static final long serialVersionUID = 1L;
         final long delayMillis;

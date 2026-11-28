@@ -42,6 +42,11 @@ import static org.apache.seatunnel.connectors.seatunnel.confluence.ConfluenceSou
 import static org.apache.seatunnel.connectors.seatunnel.confluence.ConfluenceSourceOptions.TOKEN;
 import static org.apache.seatunnel.connectors.seatunnel.confluence.ConfluenceSourceOptions.USERNAME;
 
+/**
+ * Registers the isolated Confluence source and exposes its validated configuration contract.
+ *
+ * @see ConfluenceSource
+ */
 @AutoService(Factory.class)
 public final class ConfluenceSourceFactory implements TableSourceFactory {
     static final String IDENTIFIER = "Confluence";
