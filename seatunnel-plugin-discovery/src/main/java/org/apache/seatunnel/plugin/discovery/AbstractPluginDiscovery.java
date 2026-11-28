@@ -216,7 +216,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
 
     @Override
     public Optional<T> createOptionalPluginInstance(
-            PluginIdentifier pluginIdentifier, Collection<URL> pluginJars) {
+            PluginIdentifier pluginIdentifier, Collection<URL> additionalPluginJars) {
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         T pluginInstance = loadPluginInstance(pluginIdentifier, classLoader);
         if (pluginInstance != null) {
@@ -230,19 +230,14 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                 // use current thread classloader to avoid different classloader load same class
                 // error.
                 addURLToClassLoaderConsumer.accept(classLoader, pluginJarPaths.get());
-                addURLToClassLoaderConsumer.accept(classLoader, (List<URL>) pluginJars);
+                addURLToClassLoaderConsumer.accept(classLoader, (List<URL>) additionalPluginJars);
             } catch (Exception e) {
                 log.warn(
                         "can't load jar use current thread classloader, use URLClassLoader instead now."
                                 + " message: "
                                 + e.getMessage());
-                URL[] urls = new URL[pluginJars.size() + 1];
-                int i = 0;
-                for (URL pluginJar : pluginJars) {
-                    urls[i++] = pluginJar;
-                }
-                urls =
-                        Stream.concat(Arrays.stream(urls), pluginJarPaths.get().stream())
+                URL[] urls =
+                        Stream.concat(additionalPluginJars.stream(), pluginJarPaths.get().stream())
                                 .distinct()
                                 .toArray(URL[]::new);
                 classLoader =
@@ -262,8 +257,9 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     }
 
     @Override
-    public T createPluginInstance(PluginIdentifier pluginIdentifier, Collection<URL> pluginJars) {
-        Optional<T> instance = createOptionalPluginInstance(pluginIdentifier, pluginJars);
+    public T createPluginInstance(
+            PluginIdentifier pluginIdentifier, Collection<URL> additionalPluginJars) {
+        Optional<T> instance = createOptionalPluginInstance(pluginIdentifier, additionalPluginJars);
         if (instance.isPresent()) {
             return instance.get();
         }
