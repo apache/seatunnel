@@ -171,4 +171,34 @@ class Handler(BaseHTTPRequestHandler):
             self.send(400, {"ok": False, "error": "fixture unexpected scenario"})
 
 
-ThreadingHTTPServer(("0.0.0.0", 1080), Handler).serve_forever()
+class PrefixHandler(Handler):
+    """Adds decoded-page checkpoint scenarios without changing the original protocol modes."""
+
+    def do_GET(self):
+        parsed = urlsplit(self.path)
+        scenario = parsed.path.split("/")[1]
+        if scenario not in ("prefix-stable", "prefix-changed"):
+            return super().do_GET()
+        query = parse_qs(parsed.query)
+        channel = query.get("channel", [""])[0]
+        cursor = query.get("cursor", [""])[0]
+        record = {"scenario": scenario, "channel": channel, "cursor": cursor,
+                  "latest": query.get("latest", [""])[0],
+                  "oldest": query.get("oldest", [""])[0],
+                  "limit": query.get("limit", [""])[0],
+                  "inclusive": query.get("inclusive", [""])[0]}
+        with LOCK:
+            REQUESTS.append(record)
+            attempt = sum(item["scenario"] == scenario for item in REQUESTS)
+        if (self.headers.get("Authorization") != "Bearer fixture-token"
+                or channel != "C1" or cursor or record["limit"] != "100"):
+            self.send(400, {"ok": False, "error": "fixture unexpected prefix request"})
+            return
+        messages = [{"ts": f"1700000000.{index + 1:06d}", "text": f"row-{index:03d}"}
+                    for index in range(100)]
+        if scenario == "prefix-changed" and attempt > 1:
+            messages[0]["text"] = "changed-accepted-record"
+        self.send(200, page(messages))
+
+
+ThreadingHTTPServer(("0.0.0.0", 1080), PrefixHandler).serve_forever()

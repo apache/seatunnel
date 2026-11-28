@@ -23,11 +23,16 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -44,6 +49,9 @@ import org.testcontainers.utility.MountableFile;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -51,7 +59,11 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
@@ -237,6 +249,205 @@ public class SlackSourceIT extends TestSuiteBase {
         // No engine is skipped: every invocation executes all bounded success/failure jobs above.
         if (container.identifier() == TestContainerId.SEATUNNEL) {
             checkpointRestore(container);
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK})
+    void checkpointsDecodedPageAndRejectsChangedAcceptedPrefix(TestContainer container)
+            throws Exception {
+        for (boolean changed : Arrays.asList(false, true)) {
+            PostgreSQLContainer<?> database =
+                    new PostgreSQLContainer<>(DockerImageName.parse("postgres:14-alpine"))
+                            .withDatabaseName("test")
+                            .withUsername("test")
+                            .withPassword("test")
+                            .withNetwork(NETWORK)
+                            .withNetworkAliases("slack-prefix-postgres")
+                            .withCommand("postgres -c max_prepared_transactions=100");
+            ExecutorService jobs = Executors.newSingleThreadExecutor();
+            try {
+                container.executeExtraCommands(
+                        engine ->
+                                DependencyJar.of(Driver.class)
+                                        .copyTo(
+                                                engine,
+                                                "/tmp/seatunnel/plugins/Jdbc/lib",
+                                                "postgresql.jar"));
+                database.start();
+                try (Connection connection = prefixConnection(database);
+                        Statement statement = connection.createStatement()) {
+                    statement.execute(
+                            "CREATE TABLE prefix_rows (\"channel_id\" TEXT, \"ts\" TEXT, \"thread_ts\" TEXT, \"user\" TEXT, \"text\" TEXT, \"type\" TEXT, \"subtype\" TEXT, \"raw_json\" TEXT)");
+                }
+                fixture("/reset");
+                String scenario = changed ? "prefix-changed" : "prefix-stable";
+                String initial = Long.toString(JobIdGenerator.newJobId());
+                String resumed = Long.toString(JobIdGenerator.newJobId());
+                Path file = prefixConfig(scenario);
+                String resource = "/" + file.getFileName();
+                try {
+                    Future<Container.ExecResult> running =
+                            jobs.submit(() -> container.executeJob(resource, initial));
+                    Awaitility.await()
+                            .atMost(90, TimeUnit.SECONDS)
+                            .until(() -> fixture("/requests").size() == 1);
+                    // The old page-wide critical section drains for about 50 seconds; it cannot
+                    // commit this partial transaction within the shorter observation interval.
+                    Awaitility.await()
+                            .atMost(20, TimeUnit.SECONDS)
+                            .untilAsserted(
+                                    () -> {
+                                        int count = prefixRows(database).size();
+                                        Assertions.assertTrue(count >= 5 && count < 100);
+                                    });
+                    long baseline = container.getCompletedCheckpointCount(initial);
+                    Awaitility.await()
+                            .atMost(10, TimeUnit.SECONDS)
+                            .until(() -> container.getCompletedCheckpointCount(initial) > baseline);
+                    Assertions.assertEquals(1, fixture("/requests").size());
+                    Assertions.assertTrue(prefixRows(database).size() < 100);
+                    container.stopJob(initial);
+                    Awaitility.await()
+                            .atMost(30, TimeUnit.SECONDS)
+                            .until(() -> "CANCELED".equals(container.getJobStatus(initial)));
+                    running.get(60, TimeUnit.SECONDS);
+                    List<List<String>> committed = prefixRows(database);
+                    Assertions.assertTrue(committed.size() >= 5 && committed.size() < 100);
+                    String before = container.getServerLogs();
+                    Container.ExecResult result =
+                            container.restoreJobWithCheckpoint(resource, initial, resumed);
+                    if (changed) {
+                        String logs =
+                                result.getStdout()
+                                        + result.getStderr()
+                                        + container.getServerLogs().substring(before.length());
+                        Assertions.assertNotEquals(0, result.getExitCode(), logs);
+                        Assertions.assertTrue(
+                                logs.contains("checkpoint page prefix changed or is missing"),
+                                logs);
+                        Assertions.assertEquals(committed, prefixRows(database));
+                    } else {
+                        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+                        List<List<String>> rows = prefixRows(database);
+                        Assertions.assertEquals(100, rows.size());
+                        for (int index = 0; index < 100; index++) {
+                            Assertions.assertEquals("C1", rows.get(index).get(0));
+                            String timestamp =
+                                    String.format(Locale.ROOT, "1700000000.%06d", index + 1);
+                            String text = String.format(Locale.ROOT, "row-%03d", index);
+                            Assertions.assertEquals(
+                                    Arrays.asList(
+                                            "C1",
+                                            timestamp,
+                                            null,
+                                            null,
+                                            text,
+                                            null,
+                                            null,
+                                            "{\"ts\":\""
+                                                    + timestamp
+                                                    + "\",\"text\":\""
+                                                    + text
+                                                    + "\"}"),
+                                    rows.get(index));
+                        }
+                    }
+                    Assertions.assertEquals(
+                            2,
+                            fixture("/requests").size(),
+                            "Restore refetches only the same partial page");
+                } finally {
+                    try {
+                        cancelPrefixJob(container, initial);
+                    } finally {
+                        try {
+                            cancelPrefixJob(container, resumed);
+                        } finally {
+                            Files.deleteIfExists(file);
+                        }
+                    }
+                }
+            } finally {
+                try {
+                    jobs.shutdownNow();
+                } finally {
+                    database.close();
+                }
+            }
+        }
+    }
+
+    /**
+     * Transactional append-only JDBC receipts expose committed prefixes without an upsert hiding
+     * replay. This configuration uses only the existing HTTP E2E JDBC/driver dependency closure.
+     */
+    private static Path prefixConfig(String scenario) throws Exception {
+        String source =
+                "Slack { token=\"fixture-token\"\n channel_ids=[\"C1\"]\n"
+                        + " api_root=\"http://slack-fixture:1080/"
+                        + scenario
+                        + "/\"\n"
+                        + " page_size=100\n oldest=\"1699999999.999999\"\n latest=\"1700000100.000000\"\n"
+                        + " max_retries=0\n request_timeout_ms=30000\n max_response_bytes=65536\n"
+                        + " max_pages_per_channel=10\n}";
+        String config =
+                "env {\n parallelism=1\n job.mode=BATCH\n job.retry.times=0\n"
+                        + " read_limit.rows_per_second=2\n checkpoint.interval=1000\n"
+                        + " checkpoint.timeout=30000\n checkpoint.retain-after-job-cancelled=true\n}\n"
+                        + "source {\n"
+                        + source
+                        + "\n}\nsink { Jdbc {\n"
+                        + " driver=org.postgresql.Driver\n url=\"jdbc:postgresql://slack-prefix-postgres:5432/test\"\n"
+                        + " username=test\n password=test\n batch_size=1\n max_retries=0\n"
+                        + " is_exactly_once=true\n xa_data_source_class_name=org.postgresql.xa.PGXADataSource\n"
+                        + " transaction_timeout_sec=3600\n query=\"\"\"INSERT INTO prefix_rows (\"channel_id\", \"ts\", \"thread_ts\", \"user\", \"text\", \"type\", \"subtype\", \"raw_json\")"
+                        + " VALUES (:channel_id, :ts, :thread_ts, :user, :text, :type, :subtype, :raw_json)\"\"\"\n} }\n";
+        Path file =
+                Files.createTempFile(
+                        ContainerUtil.getCurrentModulePath().resolve("src/test/resources"),
+                        "slack-prefix-",
+                        ".conf");
+        Files.write(file, config.getBytes(StandardCharsets.UTF_8));
+        return file;
+    }
+
+    private static Connection prefixConnection(PostgreSQLContainer<?> database) throws Exception {
+        return DriverManager.getConnection(
+                database.getJdbcUrl(), database.getUsername(), database.getPassword());
+    }
+
+    /**
+     * Reads committed append-only rows in provider order. Duplicate rows remain visible and make
+     * the exact row/count assertion fail instead of being hidden by a primary key or upsert.
+     */
+    private static List<List<String>> prefixRows(PostgreSQLContainer<?> database) throws Exception {
+        List<List<String>> rows = new ArrayList<>();
+        try (Connection connection = prefixConnection(database);
+                Statement statement = connection.createStatement();
+                ResultSet values =
+                        statement.executeQuery(
+                                "SELECT \"channel_id\", \"ts\", \"thread_ts\", \"user\", \"text\", \"type\", \"subtype\", \"raw_json\" FROM prefix_rows ORDER BY ts")) {
+            while (values.next()) {
+                List<String> row = new ArrayList<>();
+                for (int column = 1; column <= 8; column++) {
+                    row.add(values.getString(column));
+                }
+                rows.add(row);
+            }
+        }
+        return rows;
+    }
+
+    private static void cancelPrefixJob(TestContainer container, String id) throws Exception {
+        String state = container.getJobStatus(id);
+        if ("RUNNING".equals(state)
+                || "SCHEDULED".equals(state)
+                || "FAILING".equals(state)
+                || "RESTARTING".equals(state)) {
+            container.cancelJob(id);
         }
     }
 

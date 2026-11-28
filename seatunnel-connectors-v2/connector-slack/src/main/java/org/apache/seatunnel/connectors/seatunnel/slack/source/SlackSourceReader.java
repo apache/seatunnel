@@ -50,6 +50,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -127,6 +128,8 @@ public class SlackSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
      * close cancels it. The worker publishes a validated Page through Future, never rows or state.
      */
     private Future<Page> pendingPage;
+    // Poll-owned decoded tail; only its accepted count/digest are durable checkpoint fields.
+    private PreparedPage preparedPage;
 
     // Committed progress belongs to the polling thread under stateLock; restore runs before
     // polling.
@@ -134,6 +137,8 @@ public class SlackSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private int pages;
     private String cursor = "";
     private String latest;
+    private int acceptedCount;
+    private String acceptedHash;
 
     /**
      * Captures the frozen source window; open owns creation of the worker, client and deadline
@@ -208,8 +213,8 @@ public class SlackSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     /**
      * Waits briefly for one owned HTTP task, then yields even if a response or retry wait is
-     * blocked. Only this polling thread may emit a completed page and commit its continuation
-     * together. Completion callbacks run after releasing the checkpoint/state locks.
+     * blocked. Complete-page validation is outside engine locks; one accepted row and its prefix
+     * share each poll boundary. The final row advances continuation and completion atomically.
      */
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
@@ -238,76 +243,255 @@ public class SlackSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             context.signalNoMoreElement();
             return;
         }
-        Future<Page> pending;
-        synchronized (lifecycleLock) {
-            if (closed) {
+        if (preparedPage == null) {
+            Future<Page> pending;
+            synchronized (lifecycleLock) {
+                if (closed) {
+                    return;
+                }
+                if (pendingPage == null) {
+                    pendingPage =
+                            httpWorker.submit(
+                                    () -> readPage(channel, requestCursor, requestLatest));
+                }
+                pending = pendingPage;
+            }
+            Page page;
+            try {
+                page = pending.get(POLL_WAIT_MILLIS, TimeUnit.MILLISECONDS);
+            } catch (TimeoutException e) {
                 return;
+            } catch (CancellationException e) {
+                if (closed) {
+                    return;
+                }
+                throw failure("HTTP page task canceled");
+            } catch (ExecutionException e) {
+                if (closed) {
+                    return;
+                }
+                Throwable cause = e.getCause();
+                // Only sanitized connector errors cross the worker boundary unchanged.
+                if (cause instanceof SlackSourceException) {
+                    throw (SlackSourceException) cause;
+                }
+                throw failure("HTTP page task failed");
             }
-            if (pendingPage == null) {
-                pendingPage =
-                        httpWorker.submit(() -> readPage(channel, requestCursor, requestLatest));
+            int count;
+            String prefix;
+            Set<String> seen;
+            synchronized (stateLock) {
+                count = acceptedCount;
+                prefix = acceptedHash;
+                seen = new HashSet<>(seenCursors);
             }
-            pending = pendingPage;
+            String nextDigest = page.nextCursor.isEmpty() ? null : digest(page.nextCursor);
+            if (nextDigest != null
+                    && (page.nextCursor.equals(requestCursor) || seen.contains(nextDigest))) {
+                throw failure("non-progressing pagination cursor");
+            }
+            // Full response and accepted-prefix validation finish before acquiring engine locks.
+            preparedPage = prepare(page, nextDigest, count, prefix);
+            synchronized (lifecycleLock) {
+                if (pendingPage == pending) {
+                    pendingPage = null;
+                }
+            }
         }
-        Page page;
-        try {
-            page = pending.get(POLL_WAIT_MILLIS, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-            // Returning allows a successful savepoint stop to reach the engine's close hook.
-            return;
-        } catch (CancellationException e) {
-            if (closed) {
-                return;
-            }
-            throw failure("HTTP page task canceled");
-        } catch (ExecutionException e) {
-            if (closed) {
-                return;
-            }
-            Throwable cause = e.getCause();
-            // Only our own sanitized protocol errors may cross the worker boundary unchanged.
-            if (cause instanceof SlackSourceException) {
-                throw (SlackSourceException) cause;
-            }
-            throw failure("HTTP page task failed");
-        }
-        if (closed) {
-            return;
-        }
-        boolean finished;
+        boolean finished = false;
         synchronized (output.getCheckpointLock()) {
             synchronized (stateLock) {
                 if (closed) {
                     return;
                 }
-                String digest = page.nextCursor.isEmpty() ? null : digest(page.nextCursor);
-                if (digest != null
-                        && (page.nextCursor.equals(cursor) || seenCursors.contains(digest))) {
-                    throw failure("non-progressing pagination cursor");
+                PreparedPage current = preparedPage;
+                if (current.index < current.page.rows.size()) {
+                    output.collect(current.page.rows.get(current.index));
+                    acceptedHash = current.prefixes.get(current.index++);
+                    acceptedCount = current.index;
                 }
-                for (SeaTunnelRow row : page.rows) {
-                    output.collect(row);
+                if (current.index == current.page.rows.size()) {
+                    // Last-row acceptance, continuation and prefix reset share one boundary.
+                    pages++;
+                    cursor = current.page.nextCursor;
+                    if (cursor.isEmpty()) {
+                        channelIndex++;
+                        pages = 0;
+                        seenCursors.clear();
+                    } else {
+                        seenCursors.add(current.nextDigest);
+                    }
+                    acceptedCount = 0;
+                    acceptedHash = null;
+                    preparedPage = null;
+                    finished = channelIndex == config.channels.size();
+                    noMoreSplits = finished;
                 }
-                pages++;
-                cursor = page.nextCursor;
-                if (cursor.isEmpty()) {
-                    channelIndex++;
-                    pages = 0;
-                    seenCursors.clear();
-                } else {
-                    seenCursors.add(digest);
-                }
-                finished = channelIndex == config.channels.size();
-                noMoreSplits = finished;
-            }
-        }
-        synchronized (lifecycleLock) {
-            if (pendingPage == pending) {
-                pendingPage = null;
             }
         }
         if (finished && !closed) {
             context.signalNoMoreElement();
+        }
+    }
+
+    /**
+     * State is immutable bytes captured with the accepted row prefix. The complete page stays
+     * transient; its cursor advances only with the final accepted row and a joint prefix reset.
+     */
+    @Override
+    protected byte[] snapshotStateToBytes(long checkpointId) throws Exception {
+        synchronized (stateLock) {
+            ObjectNode state = mapper.createObjectNode();
+            state.put("version", 2)
+                    .put("channel", channelIndex)
+                    .put("pages", pages)
+                    .put("cursor", cursor)
+                    .put("latest", latest)
+                    .put("accepted_count", acceptedCount)
+                    .put("accepted_hash", acceptedHash);
+            state.put("oldest", config.oldest);
+            state.set("channels", mapper.valueToTree(config.channels));
+            ArrayNode seen = state.putArray("seen");
+            seenCursors.forEach(seen::add);
+            return mapper.writeValueAsBytes(state);
+        }
+    }
+
+    /**
+     * Restores the frozen window and accepted prefix before polling starts. The current page is
+     * refetched and checked before its saved prefix can be skipped; later rows retain replay
+     * limits.
+     */
+    @Override
+    protected void restoreState(byte[] restoredState) {
+        synchronized (stateLock) {
+            try {
+                JsonNode state = mapper.readTree(restoredState);
+                if (state == null
+                        || !state.isObject()
+                        || !state.path("version").isInt()
+                        || state.path("version").intValue() != 2
+                        || !state.path("channel").isInt()
+                        || !state.path("pages").isInt()
+                        || !state.path("cursor").isTextual()
+                        || !state.path("latest").isTextual()
+                        || !state.path("seen").isArray()
+                        || !state.path("accepted_count").isInt()
+                        || !(state.path("accepted_hash").isNull()
+                                || state.path("accepted_hash").isTextual())) {
+                    throw failure("invalid checkpoint state");
+                }
+                if (!mapper.valueToTree(config.channels).equals(state.get("channels"))
+                        || !Objects.equals(
+                                config.oldest,
+                                state.path("oldest").isNull()
+                                        ? null
+                                        : state.path("oldest").asText())) {
+                    throw failure("checkpoint conversation/window settings changed");
+                }
+                int restoredChannel = state.get("channel").intValue();
+                int restoredPages = state.get("pages").intValue();
+                String restoredCursor = state.get("cursor").textValue();
+                String restoredLatest = state.get("latest").textValue();
+                int restoredCount = state.get("accepted_count").intValue();
+                String restoredHash = state.get("accepted_hash").textValue();
+                SlackSourceConfig.validateTimestamp(restoredLatest, "checkpoint latest");
+                if (restoredChannel < 0
+                        || restoredChannel > config.channels.size()
+                        || restoredPages < 0
+                        || restoredPages > config.maxPages
+                        || restoredCursor.length() > 4096
+                        || state.get("seen").size() > config.maxPages
+                        || restoredCount < 0
+                        // parsePage already enforces this existing decoded-row cap.
+                        || restoredCount > config.pageSize
+                        || (restoredCount == 0 && restoredHash != null)
+                        || (restoredCount > 0
+                                && (restoredHash == null
+                                        || !restoredHash.matches("[A-Za-z0-9_-]{43}")))
+                        || (restoredChannel == config.channels.size() && restoredCount != 0)) {
+                    throw failure("invalid checkpoint bounds");
+                }
+                seenCursors.clear();
+                for (JsonNode seen : state.get("seen")) {
+                    if (!seen.isTextual() || !seen.textValue().matches("[0-9a-f]{64}")) {
+                        throw failure("invalid checkpoint cursor digest");
+                    }
+                    seenCursors.add(seen.textValue());
+                }
+                channelIndex = restoredChannel;
+                pages = restoredPages;
+                cursor = restoredCursor;
+                latest = restoredLatest;
+                acceptedCount = restoredCount;
+                acceptedHash = restoredHash;
+                preparedPage = null;
+                noMoreSplits = false;
+            } catch (IOException | IllegalArgumentException e) {
+                throw failure("invalid checkpoint state");
+            }
+        }
+    }
+
+    /**
+     * Cancellation shares normal close cleanup and aborts blocked HTTP or retry waits. It must
+     * never acquire the checkpoint or committed-state locks.
+     */
+    @Override
+    public void cancel() {
+        try {
+            close();
+        } catch (IOException e) {
+            throw failure("HTTP resource cleanup failed");
+        }
+    }
+
+    /**
+     * Owns cleanup for both graceful stop and external cancel. Abort/cancel/shutdown are requested
+     * under lifecycleLock; client close and bounded termination waits happen outside every lock.
+     */
+    @Override
+    public void close() throws IOException {
+        synchronized (lifecycleLock) {
+            closed = true;
+            if (activeRequest != null) {
+                activeRequest.abort();
+            }
+            if (pendingPage != null) {
+                pendingPage.cancel(true);
+                pendingPage = null;
+            }
+            if (httpWorker != null) {
+                httpWorker.shutdownNow();
+            }
+            if (deadlines != null) {
+                deadlines.shutdownNow();
+            }
+            lifecycleLock.notifyAll();
+        }
+        IOException cleanupFailure = null;
+        if (client != null) {
+            try {
+                client.close();
+            } catch (IOException e) {
+                cleanupFailure = new IOException("Slack source HTTP client close failed");
+            }
+        }
+        for (ExecutorService executor : Arrays.asList(httpWorker, deadlines)) {
+            if (executor != null) {
+                try {
+                    if (!executor.awaitTermination(CLOSE_WAIT_SECONDS, TimeUnit.SECONDS)) {
+                        cleanupFailure =
+                                new IOException("Slack source HTTP resources did not terminate");
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    cleanupFailure = new IOException("Slack source HTTP cleanup interrupted");
+                }
+            }
+        }
+        if (cleanupFailure != null) {
+            throw cleanupFailure;
         }
     }
 
@@ -529,81 +713,42 @@ public class SlackSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     /**
-     * State is immutable bytes, atomically captured with the last emitted page. A fetched pending
-     * page is excluded until the polling thread emits it and commits its continuation.
+     * Verifies the exact accepted output prefix before exposing any refetched tail. Every logical
+     * occurrence is hashed, including nulls, Unicode code units and complete raw JSON strings.
      */
-    @Override
-    protected byte[] snapshotStateToBytes(long checkpointId) throws Exception {
-        synchronized (stateLock) {
-            ObjectNode state = mapper.createObjectNode();
-            state.put("version", 1)
-                    .put("channel", channelIndex)
-                    .put("pages", pages)
-                    .put("cursor", cursor)
-                    .put("latest", latest);
-            state.put("oldest", config.oldest);
-            state.set("channels", mapper.valueToTree(config.channels));
-            ArrayNode seen = state.putArray("seen");
-            seenCursors.forEach(seen::add);
-            return mapper.writeValueAsBytes(state);
+    private PreparedPage prepare(Page page, String nextDigest, int count, String saved)
+            throws Exception {
+        PreparedPage prepared = new PreparedPage(page, nextDigest, count);
+        String previous = null;
+        for (SeaTunnelRow row : page.rows) {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            if (previous != null) {
+                digest.update(previous.getBytes(StandardCharsets.US_ASCII));
+            }
+            for (int column = 0; column < 8; column++) {
+                hashString(digest, (String) row.getField(column));
+            }
+            previous = Base64.getUrlEncoder().withoutPadding().encodeToString(digest.digest());
+            prepared.prefixes.add(previous);
         }
+        if (count > page.rows.size()
+                || (count == 0 && saved != null)
+                || (count > 0 && !prepared.prefixes.get(count - 1).equals(saved))) {
+            throw failure("checkpoint page prefix changed or is missing");
+        }
+        return prepared;
     }
 
-    /**
-     * Restores committed progress before polling starts. Pages fetched after the checkpoint are
-     * refetched; downstream idempotence is required for pages emitted after that checkpoint.
-     */
-    @Override
-    protected void restoreState(byte[] restoredState) {
-        synchronized (stateLock) {
-            try {
-                JsonNode state = mapper.readTree(restoredState);
-                if (state == null
-                        || !state.isObject()
-                        || !state.path("version").isInt()
-                        || state.path("version").intValue() != 1
-                        || !state.path("channel").isInt()
-                        || !state.path("pages").isInt()
-                        || !state.path("cursor").isTextual()
-                        || !state.path("latest").isTextual()
-                        || !state.path("seen").isArray()) {
-                    throw failure("invalid checkpoint state");
-                }
-                if (!mapper.valueToTree(config.channels).equals(state.get("channels"))
-                        || !Objects.equals(
-                                config.oldest,
-                                state.path("oldest").isNull()
-                                        ? null
-                                        : state.path("oldest").asText())) {
-                    throw failure("checkpoint conversation/window settings changed");
-                }
-                int restoredChannel = state.get("channel").intValue();
-                int restoredPages = state.get("pages").intValue();
-                String restoredCursor = state.get("cursor").textValue();
-                String restoredLatest = state.get("latest").textValue();
-                SlackSourceConfig.validateTimestamp(restoredLatest, "checkpoint latest");
-                if (restoredChannel < 0
-                        || restoredChannel > config.channels.size()
-                        || restoredPages < 0
-                        || restoredPages > config.maxPages
-                        || restoredCursor.length() > 4096
-                        || state.get("seen").size() > config.maxPages) {
-                    throw failure("invalid checkpoint bounds");
-                }
-                seenCursors.clear();
-                for (JsonNode seen : state.get("seen")) {
-                    if (!seen.isTextual() || !seen.textValue().matches("[0-9a-f]{64}")) {
-                        throw failure("invalid checkpoint cursor digest");
-                    }
-                    seenCursors.add(seen.textValue());
-                }
-                channelIndex = restoredChannel;
-                pages = restoredPages;
-                cursor = restoredCursor;
-                latest = restoredLatest;
-                noMoreSplits = false;
-            } catch (IOException | IllegalArgumentException e) {
-                throw failure("invalid checkpoint state");
+    private static void hashString(MessageDigest digest, String value) {
+        int length = value == null ? -1 : value.length();
+        for (int shift = 24; shift >= 0; shift -= 8) {
+            digest.update((byte) (length >>> shift));
+        }
+        if (value != null) {
+            for (int i = 0; i < value.length(); i++) {
+                char unit = value.charAt(i);
+                digest.update((byte) (unit >>> 8));
+                digest.update((byte) unit);
             }
         }
     }
@@ -626,74 +771,29 @@ public class SlackSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     /**
-     * Cancellation shares normal close cleanup and aborts blocked HTTP or retry waits. It must
-     * never acquire the checkpoint or committed-state locks.
-     */
-    @Override
-    public void cancel() {
-        try {
-            close();
-        } catch (IOException e) {
-            throw failure("HTTP resource cleanup failed");
-        }
-    }
-
-    /**
-     * Owns cleanup for both graceful stop and external cancel. Abort/cancel/shutdown are requested
-     * under lifecycleLock; client close and bounded termination waits happen outside every lock.
-     */
-    @Override
-    public void close() throws IOException {
-        synchronized (lifecycleLock) {
-            closed = true;
-            if (activeRequest != null) {
-                activeRequest.abort();
-            }
-            if (pendingPage != null) {
-                pendingPage.cancel(true);
-                pendingPage = null;
-            }
-            if (httpWorker != null) {
-                httpWorker.shutdownNow();
-            }
-            if (deadlines != null) {
-                deadlines.shutdownNow();
-            }
-            lifecycleLock.notifyAll();
-        }
-        IOException cleanupFailure = null;
-        if (client != null) {
-            try {
-                client.close();
-            } catch (IOException e) {
-                cleanupFailure = new IOException("Slack source HTTP client close failed");
-            }
-        }
-        for (ExecutorService executor : Arrays.asList(httpWorker, deadlines)) {
-            if (executor != null) {
-                try {
-                    if (!executor.awaitTermination(CLOSE_WAIT_SECONDS, TimeUnit.SECONDS)) {
-                        cleanupFailure =
-                                new IOException("Slack source HTTP resources did not terminate");
-                    }
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    cleanupFailure = new IOException("Slack source HTTP cleanup interrupted");
-                }
-            }
-        }
-        if (cleanupFailure != null) {
-            throw cleanupFailure;
-        }
-    }
-
-    /**
      * Marks connector-owned sanitized failures so the polling thread can rethrow them without
      * exposing arbitrary client/parser exception messages from the HTTP worker.
      */
     private static final class SlackSourceException extends IllegalStateException {
         private SlackSourceException(String message) {
             super(message);
+        }
+    }
+
+    /**
+     * Poll-owned decoded page and per-row hashes are transient. The current index is published as
+     * durable count/hash only after collect succeeds, and discarded with complete-page advancement.
+     */
+    private static final class PreparedPage {
+        private final Page page;
+        private final String nextDigest;
+        private final List<String> prefixes = new ArrayList<>();
+        private int index;
+
+        private PreparedPage(Page page, String nextDigest, int index) {
+            this.page = page;
+            this.nextDigest = nextDigest;
+            this.index = index;
         }
     }
 
