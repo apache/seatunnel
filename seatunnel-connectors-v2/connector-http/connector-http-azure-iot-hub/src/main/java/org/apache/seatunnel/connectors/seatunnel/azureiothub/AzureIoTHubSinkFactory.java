@@ -72,8 +72,6 @@ public final class AzureIoTHubSinkFactory
 
     @Override
     public TableSink<SeaTunnelRow, Void, Void, Void> createSink(TableSinkFactoryContext context) {
-        return () ->
-                new AzureIoTHubSink(
-                        context.getOptions(), context.getCatalogTable().getSeaTunnelRowType());
+        return () -> new AzureIoTHubSink(context.getOptions(), context.getCatalogTable());
     }
 }

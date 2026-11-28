@@ -20,8 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.azureiothub;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+
+import java.util.Optional;
 
 /**
  * Writes INSERT telemetry under one registered device identity. Restored writers have no pending
@@ -32,8 +35,12 @@ public final class AzureIoTHubSink implements SeaTunnelSink<SeaTunnelRow, Void, 
 
     private final AzureIoTHubConfig config;
     private final SeaTunnelRowType rowType;
+    // Keep the factory's complete table identity for the modern sink metadata contract.
+    private final CatalogTable table;
 
-    AzureIoTHubSink(ReadonlyConfig options, SeaTunnelRowType rowType) {
+    AzureIoTHubSink(ReadonlyConfig options, CatalogTable table) {
+        this.table = table;
+        SeaTunnelRowType rowType = table.getSeaTunnelRowType();
         this.config = new AzureIoTHubConfig(options, rowType);
         this.rowType = rowType;
     }
@@ -41,6 +48,11 @@ public final class AzureIoTHubSink implements SeaTunnelSink<SeaTunnelRow, Void, 
     @Override
     public String getPluginName() {
         return AzureIoTHubSinkFactory.IDENTIFIER;
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.of(table);
     }
 
     /**
