@@ -43,17 +43,28 @@ class WebSocketSourceClientReconnectTest {
     }
 
     @Test
-    void failedOpenMessageSendCountsTowardReconnectBudget() throws Exception {
-        WebSocketSourceClient client = clientWith(2);
+    void sendFailuresStopAfterExactlyMaxReconnectTimesAndFailTheSource() throws Exception {
+        int maxReconnectTimes = 2;
+        WebSocketSourceClient client = clientWith(maxReconnectTimes);
         WebSocketSourceClient.SourceWebSocketListener listener =
                 client.new SourceWebSocketListener();
         WebSocket webSocket = rejectingSocket();
 
-        for (int attempt = 1; attempt <= 3; attempt++) {
+        // every attempt completes the handshake but the open-message send is rejected. While the
+        // reconnect budget is not yet exhausted the source must keep retrying, not fail.
+        for (int attempt = 1; attempt <= maxReconnectTimes; attempt++) {
             listener.onOpen(webSocket, null);
-            listener.onFailure(webSocket, new IOException("transport drop " + attempt), null);
+            listener.onFailure(
+                    webSocket, new IOException("open-message rejected, attempt " + attempt), null);
+            Assertions.assertDoesNotThrow(
+                    client::rethrowFatalIfNeeded,
+                    "source must keep retrying until max_reconnect_times is reached");
         }
 
+        // the attempt after the budget is exhausted must fail the source with a terminal error
+        listener.onOpen(webSocket, null);
+        listener.onFailure(
+                webSocket, new IOException("open-message rejected, final attempt"), null);
         WebSocketConnectorException terminal =
                 Assertions.assertThrows(
                         WebSocketConnectorException.class, client::rethrowFatalIfNeeded);
