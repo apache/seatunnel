@@ -1378,11 +1378,16 @@ public class JobMaster {
                                                     return;
                                                 }
 
-                                                task.updateStateByExecutionService(
-                                                        taskExecutionState);
-                                                if (taskExecutionState
-                                                        .getExecutionState()
-                                                        .isEndState()) {
+                                                boolean applied =
+                                                        task.updateStateByExecutionService(
+                                                                taskExecutionState);
+                                                // A dropped event belonged to a previous
+                                                // deployment attempt: releasing here would free
+                                                // the slot the current attempt just obtained.
+                                                if (applied
+                                                        && taskExecutionState
+                                                                .getExecutionState()
+                                                                .isEndState()) {
                                                     releaseTaskGroupResource(
                                                             pipeline.getPipelineLocation(),
                                                             task.getTaskGroupLocation());

@@ -699,8 +699,11 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
         // Second deploy while task is still active — simulates master-failover re-deploy.
         // Before this fix this threw RuntimeException("TaskGroupLocation: ... already exists").
+        // The skip response reports the kept deployment's executionId, so the master tracks the
+        // deployment that really runs instead of the id it generated for the skipped redeploy.
         TaskDeployState secondResult = taskExecutionService.deployTask(data);
-        assertEquals(TaskDeployState.success(), secondResult);
+        Assertions.assertTrue(secondResult.isSuccess());
+        Assertions.assertEquals(info.getExecutionId(), secondResult.getExistingExecutionId());
 
         // The original task group must still be active — not interrupted by the second deploy.
         Assertions.assertNotNull(taskExecutionService.getActiveExecutionContext(location));

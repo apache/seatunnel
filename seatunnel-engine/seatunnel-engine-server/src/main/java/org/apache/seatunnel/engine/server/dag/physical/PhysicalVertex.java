@@ -121,6 +121,14 @@ public class PhysicalVertex {
 
     private volatile ExecutionState currExecutionState;
 
+    /**
+     * The executionId of the deployment this vertex currently tracks. Each deployment generates a
+     * fresh id ({@link #getTaskGroupImmutableInformation()}); a terminal event carrying a
+     * different, non-null id belongs to a previous attempt and must not be applied to the restored
+     * one.
+     */
+    private volatile Long currentExecutionId;
+
     public volatile boolean isRunning = false;
 
     /** The error throw by physicalVertex, should be set when physicalVertex throw error. */
@@ -330,6 +338,13 @@ public class PhysicalVertex {
     @VisibleForTesting
     TaskDeployState finishDeployment(TaskDeployState state) {
         if (state.isSuccess()) {
+            // A worker that skipped the redeploy kept the deployment of a previous attempt (a
+            // master-failover restore re-deploys tasks that never stopped on the worker): adopt
+            // that deployment's executionId, so its terminal events are matched instead of
+            // dropped as if they belonged to a superseded attempt (#13317).
+            if (state.getExistingExecutionId() != null) {
+                this.currentExecutionId = state.getExistingExecutionId();
+            }
             updateTaskState(ExecutionState.RUNNING);
         }
         return state;
@@ -341,9 +356,11 @@ public class PhysicalVertex {
                 this.taskGroup.getTasks().stream()
                         .map(task -> (Data) nodeEngine.getSerializationService().toData(task))
                         .collect(Collectors.toList());
+        long executionId = flakeIdGenerator.newId();
+        this.currentExecutionId = executionId;
         return new TaskGroupImmutableInformation(
                 this.taskGroup.getTaskGroupLocation().getJobId(),
-                flakeIdGenerator.newId(),
+                executionId,
                 this.taskGroup.getTaskGroupType(),
                 this.taskGroup.getTaskGroupLocation(),
                 this.taskGroup.getTaskGroupName(),
@@ -536,6 +553,9 @@ public class PhysicalVertex {
                 log.error(message);
                 throw new IllegalStateException(message);
             }
+            // Forget the deployment of the previous attempt so terminal events from it are not
+            // mistaken for events of the next one; the next deployment registers its own id.
+            this.currentExecutionId = null;
             try {
                 RetryUtils.retryWithException(
                         () -> {
@@ -572,15 +592,40 @@ public class PhysicalVertex {
         return taskFullName;
     }
 
-    public void updateStateByExecutionService(TaskExecutionState taskExecutionState) {
+    /**
+     * Applies a terminal execution state reported for this task group.
+     *
+     * <p>Terminal reports are delivered with indefinite retries and can therefore outlive their
+     * attempt: after a restore, the report of the previous attempt would otherwise fail the healthy
+     * new attempt and release its slot. An event that carries the executionId of another deployment
+     * is dropped.
+     *
+     * @return whether the event was applied; {@code false} means it belonged to a previous attempt
+     *     and the caller must not act on it (e.g. release the slot)
+     */
+    public boolean updateStateByExecutionService(TaskExecutionState taskExecutionState) {
         if (!taskExecutionState.getExecutionState().isEndState()) {
             throw new SeaTunnelEngineException(
                     String.format(
                             "The state must be end state from ExecutionService, can not be %s",
                             taskExecutionState.getExecutionState()));
         }
+        Long eventExecutionId = taskExecutionState.getExecutionId();
+        if (eventExecutionId != null
+                && currentExecutionId != null
+                && !eventExecutionId.equals(currentExecutionId)) {
+            log.warn(
+                    "{} dropped a terminal {} event from a previous deployment attempt (event"
+                            + " executionId {}, current executionId {})",
+                    taskFullName,
+                    taskExecutionState.getExecutionState(),
+                    eventExecutionId,
+                    currentExecutionId);
+            return false;
+        }
         errorByPhysicalVertex.compareAndSet(null, taskExecutionState.getThrowableMsg());
         updateTaskState(taskExecutionState.getExecutionState());
+        return true;
     }
 
     public synchronized void forceStop() {

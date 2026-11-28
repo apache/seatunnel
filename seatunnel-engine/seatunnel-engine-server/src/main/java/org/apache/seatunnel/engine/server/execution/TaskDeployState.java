@@ -32,10 +32,36 @@ public class TaskDeployState implements Serializable {
     private static final long serialVersionUID = 2646079648150626562L;
 
     private final boolean success;
+
     private final String throwableMsg;
+
+    /**
+     * The executionId of the deployment the worker actually kept, when a redeploy was skipped
+     * because that deployment is still active (master-failover recovery). {@code null} for a
+     * regular deployment: the worker accepted the executionId the master sent.
+     */
+    private final Long existingExecutionId;
+
+    public TaskDeployState(boolean success, String throwableMsg) {
+        this(success, throwableMsg, null);
+    }
+
+    public TaskDeployState(boolean success, String throwableMsg, Long existingExecutionId) {
+        this.success = success;
+        this.throwableMsg = throwableMsg;
+        this.existingExecutionId = existingExecutionId;
+    }
 
     public static TaskDeployState success() {
         return new TaskDeployState(true, null);
+    }
+
+    /**
+     * A successful deploy on which the worker skipped the redeploy and kept the given active
+     * deployment; the master should adopt {@code existingExecutionId} as the current one.
+     */
+    public static TaskDeployState success(long existingExecutionId) {
+        return new TaskDeployState(true, null, existingExecutionId);
     }
 
     public static TaskDeployState failed(Throwable e) {
