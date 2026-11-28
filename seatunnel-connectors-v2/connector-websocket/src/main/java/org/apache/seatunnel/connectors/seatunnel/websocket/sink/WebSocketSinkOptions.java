@@ -20,7 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.websocket.sink;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-/** Configuration of the outbound WebSocket client. */
+/**
+ * Defines the Sink-only payload, receive and finite lifecycle configuration contracts.
+ *
+ * @see WebSocketSinkConfig
+ */
 public final class WebSocketSinkOptions {
     public static final Option<String> URL =
             Options.key("url")
@@ -73,6 +77,13 @@ public final class WebSocketSinkOptions {
                     .intType()
                     .defaultValue(4194304)
                     .withDescription("Maximum outstanding uncompressed payload bytes per writer.");
+
+    public static final Option<Integer> MAX_INBOUND_BYTES =
+            Options.key("max_inbound_message_bytes")
+                    .intType()
+                    .defaultValue(1048576)
+                    .withDescription(
+                            "Maximum bytes per incoming message, including all continuation fragments (1 to 16777216).");
 
     private WebSocketSinkOptions() {}
 }

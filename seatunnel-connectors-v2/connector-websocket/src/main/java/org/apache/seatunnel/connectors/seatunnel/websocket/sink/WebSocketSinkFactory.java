@@ -32,11 +32,18 @@ import static org.apache.seatunnel.connectors.seatunnel.websocket.sink.WebSocket
 import static org.apache.seatunnel.connectors.seatunnel.websocket.sink.WebSocketSinkOptions.FLUSH_TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.websocket.sink.WebSocketSinkOptions.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.websocket.sink.WebSocketSinkOptions.MAX_FRAME_BYTES;
+import static org.apache.seatunnel.connectors.seatunnel.websocket.sink.WebSocketSinkOptions.MAX_INBOUND_BYTES;
 import static org.apache.seatunnel.connectors.seatunnel.websocket.sink.WebSocketSinkOptions.MAX_QUEUE_BYTES;
 import static org.apache.seatunnel.connectors.seatunnel.websocket.sink.WebSocketSinkOptions.TOKEN;
 import static org.apache.seatunnel.connectors.seatunnel.websocket.sink.WebSocketSinkOptions.URL;
 import static org.apache.seatunnel.connectors.seatunnel.websocket.sink.WebSocketSinkOptions.WRITE_TIMEOUT;
 
+/**
+ * Registers only the Sink role in the existing artifact; the Source factory retains its own
+ * options.
+ *
+ * @see WebSocketSink
+ */
 @AutoService(Factory.class)
 public final class WebSocketSinkFactory
         implements TableSinkFactory<SeaTunnelRow, Void, Void, Void> {
@@ -60,7 +67,8 @@ public final class WebSocketSinkFactory
                         FLUSH_TIMEOUT,
                         CLOSE_TIMEOUT,
                         MAX_FRAME_BYTES,
-                        MAX_QUEUE_BYTES)
+                        MAX_QUEUE_BYTES,
+                        MAX_INBOUND_BYTES)
                 .build();
     }
 

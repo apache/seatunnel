@@ -23,7 +23,11 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
-/** Sends insert rows to a WebSocket server over one connection per active writer. */
+/**
+ * Sends insert rows over one lazy connection per writer, without transactional delivery state.
+ *
+ * @see WebSocketSinkWriter
+ */
 public final class WebSocketSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> {
     private static final long serialVersionUID = 1L;
 
@@ -40,6 +44,9 @@ public final class WebSocketSink implements SeaTunnelSink<SeaTunnelRow, Void, Vo
         return WebSocketSinkFactory.IDENTIFIER;
     }
 
+    /*
+     * Registers periodic flush through the existing engine hook; checkpoints and final close also drain.
+     */
     @Override
     public SinkWriter<SeaTunnelRow, Void, Void> createWriter(SinkWriter.Context context) {
         WebSocketSinkWriter writer = new WebSocketSinkWriter(config, rowType);

@@ -33,30 +33,46 @@ import static org.apache.seatunnel.connectors.seatunnel.websocket.sink.WebSocket
 import static org.apache.seatunnel.connectors.seatunnel.websocket.sink.WebSocketSinkOptions.FLUSH_TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.websocket.sink.WebSocketSinkOptions.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.websocket.sink.WebSocketSinkOptions.MAX_FRAME_BYTES;
+import static org.apache.seatunnel.connectors.seatunnel.websocket.sink.WebSocketSinkOptions.MAX_INBOUND_BYTES;
 import static org.apache.seatunnel.connectors.seatunnel.websocket.sink.WebSocketSinkOptions.MAX_QUEUE_BYTES;
 import static org.apache.seatunnel.connectors.seatunnel.websocket.sink.WebSocketSinkOptions.TOKEN;
 import static org.apache.seatunnel.connectors.seatunnel.websocket.sink.WebSocketSinkOptions.URL;
 import static org.apache.seatunnel.connectors.seatunnel.websocket.sink.WebSocketSinkOptions.WRITE_TIMEOUT;
 
+/**
+ * Validates Sink-only endpoint, input-column and transport budgets before worker serialization.
+ *
+ * @see WebSocketSinkOptions
+ */
 final class WebSocketSinkConfig implements Serializable {
     private static final long serialVersionUID = 1L;
+    // Keeps per-writer payload and receive limits finite, independently of the engine heap size.
     private static final int MAX_PENDING_BYTES = 16 * 1024 * 1024;
 
+    /**
+     * Selects complete-row JSON or one raw typed input column per outgoing message.
+     *
+     * @see WebSocketSinkWriter
+     */
     enum Format {
         JSON,
         TEXT,
         BINARY
     }
 
+    // These immutable values shape the Sink request only; Source configuration stays independent.
     final URI endpoint;
     final Format format;
     final int fieldIndex;
+    // Every blocking writer wait has its own finite budget; no reconnect or resend is attempted.
     final int connectTimeout;
     final int writeTimeout;
     final int flushTimeout;
     final int closeTimeout;
     final int frameBytes;
     final int queueBytes;
+    // Applies before incoming frame allocation and across all continuation frames.
+    final int inboundBytes;
     private final String token;
 
     WebSocketSinkConfig(ReadonlyConfig options, SeaTunnelRowType type) {
@@ -77,12 +93,16 @@ final class WebSocketSinkConfig implements Serializable {
         closeTimeout = bounded(options, CLOSE_TIMEOUT, 300000);
         queueBytes = bounded(options, MAX_QUEUE_BYTES, MAX_PENDING_BYTES);
         frameBytes = bounded(options, MAX_FRAME_BYTES, queueBytes);
+        inboundBytes = bounded(options, MAX_INBOUND_BYTES, MAX_PENDING_BYTES);
     }
 
     String authorization() {
         return token == null ? null : "Bearer " + token;
     }
 
+    /*
+     * Validates the selected column against the upstream schema before any network connection opens.
+     */
     private int findField(String field, SeaTunnelRowType type) {
         if (format == Format.JSON) {
             if (field != null) {
@@ -102,6 +122,9 @@ final class WebSocketSinkConfig implements Serializable {
         return index;
     }
 
+    /*
+     * Keeps credentials out of URLs and disallows query/fragment fields that could reach diagnostics.
+     */
     private static URI validateEndpoint(String url) {
         if (url == null || url.length() > 2048) {
             throw invalid("url must identify a ws or wss endpoint");

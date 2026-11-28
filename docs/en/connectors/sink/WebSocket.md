@@ -43,8 +43,11 @@ TEXT and BINARY require a non-null, nonempty selected value. Update and delete r
 | close_timeout_ms | Int | No | `10000` | Normal closing handshake deadline after draining, 1–300000 milliseconds. |
 | max_frame_bytes | Int | No | `1048576` | Maximum uncompressed bytes per outbound message, 1 through `max_queue_bytes`. |
 | max_queue_bytes | Int | No | `4194304` | Maximum outstanding payload bytes per writer, 1–16777216. |
+| max_inbound_message_bytes | Int | No | `1048576` | Maximum bytes per incoming message, including all continuation fragments; 1–16777216. Oversized input fails before unbounded aggregation. |
 
-The client uses standard TLS trust and hostname validation and rejects redirects. The outgoing queue is bounded by bytes and message count. A message that exceeds its configured limit fails before enqueue. Connection, write and lifecycle failures fail the writer. Use a trusted receiving service. Inbound data messages do not acknowledge exported rows.
+The client retains the deployment JVM default proxy selector: plain `ws` uses HTTP proxy forwarding, `wss` uses HTTP CONNECT before TLS, and SOCKS5 routes resolve the origin at the proxy. Existing JVM proxy and bypass settings apply; the connector does not change the global selector. SOCKS5 password challenges use the default JVM authenticator, or `user.name` with an empty password when it supplies no credentials. HTTP proxy authentication is not configured by this sink.
+
+The client uses standard TLS trust and hostname validation and rejects redirects. This sink does not negotiate WebSocket extensions, including permessage-deflate; extension frames fail explicitly. The outgoing queue is bounded by bytes and message count. Incoming application frames are discarded without aggregation; wire frames and cumulative message sizes are bounded by `max_inbound_message_bytes`. A message that exceeds its configured limit fails before enqueue. Connection, write and lifecycle failures fail the writer. Use a trusted receiving service. Inbound data messages do not acknowledge exported rows.
 
 ## Delivery and recovery
 

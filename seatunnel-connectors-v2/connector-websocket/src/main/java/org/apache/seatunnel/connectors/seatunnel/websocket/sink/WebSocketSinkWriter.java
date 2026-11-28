@@ -29,11 +29,16 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
+/**
+ * Serializes write, flush and close so JSON conversion and send admission have one producer. A
+ * failure aborts the owned client; no retry or receiver acknowledgement state is created.
+ */
 final class WebSocketSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     private final WebSocketSinkConfig config;
     private final WebSocketSinkClient client;
     private final JsonSerializationSchema json;
     private final int arity;
+    // Guarded by the writer monitor; abortPrepare deliberately cancels without acquiring it.
     private boolean closed;
 
     WebSocketSinkWriter(WebSocketSinkConfig config, SeaTunnelRowType type) {
@@ -46,6 +51,9 @@ final class WebSocketSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> 
         arity = type.getTotalFields();
     }
 
+    /*
+     * Rejects invalid rows before lazy open and checks asynchronous failures at each write boundary.
+     */
     @Override
     public synchronized void write(SeaTunnelRow row) throws IOException {
         if (closed) {
@@ -67,6 +75,50 @@ final class WebSocketSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> 
         }
     }
 
+    /*
+     * Drains only local writes and rethrows delayed failures; no receiver acknowledgement is implied.
+     */
+    synchronized void flush() throws IOException {
+        try {
+            client.drain();
+        } catch (IOException e) {
+            client.abort(e.getMessage());
+            throw e;
+        }
+    }
+
+    /*
+     * Checkpoints drain local sends but return no commit info or transactional recovery guarantee.
+     */
+    @Override
+    public Optional<Void> prepareCommit() throws IOException {
+        flush();
+        return Optional.empty();
+    }
+
+    /*
+     * Releases an in-flight client wait without needing the writer monitor held by that wait.
+     */
+    @Override
+    public void abortPrepare() {
+        client.abort("WebSocket sink: writer aborted");
+    }
+
+    /*
+     * Closes once; any drain or close-handshake failure remains visible to the engine.
+     */
+    @Override
+    public synchronized void close() throws IOException {
+        if (!closed) {
+            closed = true;
+            client.close();
+        }
+    }
+
+    /*
+     * Uses the existing JSON converter with bounded serialized output, or the selected raw typed value.
+     * The client copies outgoing bytes before asynchronous ownership crosses to the event loop.
+     */
     private byte[] encode(SeaTunnelRow row) throws IOException {
         if (row.getRowKind() != RowKind.INSERT || row.getArity() != arity) {
             throw problem("expected an INSERT row matching the configured input schema");
@@ -98,39 +150,13 @@ final class WebSocketSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> 
         throw problem("selected field must have a non-null value matching the message format");
     }
 
-    /** Drains the local send queue. No receiver acknowledgement is implied. */
-    synchronized void flush() throws IOException {
-        try {
-            client.drain();
-        } catch (IOException e) {
-            client.abort(e.getMessage());
-            throw e;
-        }
-    }
-
-    @Override
-    public Optional<Void> prepareCommit() throws IOException {
-        flush();
-        return Optional.empty();
-    }
-
-    @Override
-    public void abortPrepare() {
-        client.abort("WebSocket sink: writer aborted");
-    }
-
-    @Override
-    public synchronized void close() throws IOException {
-        if (!closed) {
-            closed = true;
-            client.close();
-        }
-    }
-
     private static IOException problem(String message) {
         return new IOException("WebSocket sink: " + message);
     }
 
+    /**
+     * Enforces the serialized JSON limit during writes, before an oversized output array is built.
+     */
     private static final class FrameBuffer extends OutputStream {
         private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         private final int limit;

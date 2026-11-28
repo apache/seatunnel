@@ -1,0 +1,7 @@
+Apache SeaTunnel WebSocket Sink - Netty attribution
+
+This artifact includes Netty 4.1.118.Final. Its unmodified upstream license and
+notices, including upstream descriptions of optional components, are reproduced
+under META-INF/licenses/netty-4.1.118.Final/. README.txt there identifies the actual
+ten-artifact runtime closure and distinguishes unbundled optional/native code.
+This supplementary notice does not replace inherited Apache SeaTunnel notices.

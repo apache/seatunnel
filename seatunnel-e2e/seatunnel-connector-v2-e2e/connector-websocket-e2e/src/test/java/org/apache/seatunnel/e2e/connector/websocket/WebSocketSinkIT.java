@@ -71,6 +71,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
+/**
+ * Checks exact wire output, finite transport failure, checkpoint replay and pre-aggregation receive
+ * rejection through a private Zeta engine with independent HTTPS/WebSocket/TCP fixtures.
+ */
 @Timeout(value = 4, unit = TimeUnit.MINUTES)
 @Execution(ExecutionMode.SAME_THREAD)
 class WebSocketSinkIT extends TestSuiteBase {
@@ -92,6 +96,7 @@ class WebSocketSinkIT extends TestSuiteBase {
     private MockWebServer tls;
     private MockWebServer untrusted;
     private WebSocketFaultPeer raw;
+    private WebSocketProxyFixture proxy;
     private Path directory;
     private SeaTunnelContainer engine;
     private ExecutorService commands;
@@ -112,6 +117,7 @@ class WebSocketSinkIT extends TestSuiteBase {
         tls = server(trustedKey, request -> tlsResponder.apply(request));
         untrusted = server(untrustedKey, request -> new MockResponse().setResponseCode(403));
         raw = new WebSocketFaultPeer();
+        proxy = new WebSocketProxyFixture(plain.getPort(), tls.getPort());
         commands = Executors.newCachedThreadPool();
         engine =
                 new SeaTunnelContainer() {
@@ -119,7 +125,18 @@ class WebSocketSinkIT extends TestSuiteBase {
                     protected String getJavaToolOptions() {
                         return "-Djavax.net.ssl.trustStore=/tmp/websocket-sink-test-trust.jks "
                                 + "-Djavax.net.ssl.trustStorePassword="
-                                + PASSWORD;
+                                + PASSWORD
+                                + " -Dhttp.proxyHost="
+                                + HOST
+                                + " -Dhttp.proxyPort="
+                                + proxy.port()
+                                + " -Dhttps.proxyHost="
+                                + HOST
+                                + " -Dhttps.proxyPort="
+                                + proxy.port()
+                                + " -Dhttp.nonProxyHosts="
+                                + HOST
+                                + "|localhost|127.*|[::1]";
                     }
 
                     @Override
@@ -142,6 +159,9 @@ class WebSocketSinkIT extends TestSuiteBase {
             if (commands != null) {
                 commands.shutdownNow();
                 Assertions.assertTrue(commands.awaitTermination(30, TimeUnit.SECONDS));
+            }
+            if (proxy != null) {
+                proxy.close();
             }
             if (raw != null) {
                 raw.close();
@@ -315,6 +335,9 @@ class WebSocketSinkIT extends TestSuiteBase {
             Assertions.assertEquals(
                     1, scenario.release.getCount(), "failed before peer permitted reads");
             Assertions.assertTrue(
+                    scenario.applicationFramesSent.get() > 1,
+                    "peer sent repeated valid application frames while withholding reads");
+            Assertions.assertTrue(
                     System.nanoTime() - scenario.upgradedAt < TimeUnit.SECONDS.toNanos(30),
                     "failure must precede the peer's own cleanup deadline");
             Assertions.assertNull(scenario.failure);
@@ -337,6 +360,9 @@ class WebSocketSinkIT extends TestSuiteBase {
             Assertions.assertEquals(1, scenario.connections.get());
             Assertions.assertEquals(
                     1, scenario.release.getCount(), "failed before peer permitted reads");
+            Assertions.assertTrue(
+                    scenario.applicationFramesSent.get() > 1,
+                    "peer sent repeated valid application frames while withholding reads");
             Assertions.assertTrue(
                     System.nanoTime() - scenario.upgradedAt < TimeUnit.SECONDS.toNanos(30),
                     "failure must precede the peer's own cleanup deadline");
@@ -414,6 +440,112 @@ class WebSocketSinkIT extends TestSuiteBase {
         }
     }
 
+    @Test
+    void rejectsInboundLengthsContinuationsAndExtensionsBeforeMessageAggregation()
+            throws Exception {
+        for (WebSocketFaultPeer.Mode mode :
+                Arrays.asList(
+                        WebSocketFaultPeer.Mode.OVERSIZED_INBOUND,
+                        WebSocketFaultPeer.Mode.FRAGMENTED_INBOUND,
+                        WebSocketFaultPeer.Mode.EXTENSION_INBOUND)) {
+            WebSocketFaultPeer.Scenario scenario = new WebSocketFaultPeer.Scenario(mode);
+            raw.use(scenario);
+            String[] args = typed(raw.url(), "TEXT", "text", 8, 2000);
+            args[3] = "inbound.bytes=128";
+            rejected(
+                    PAYLOAD_CONF,
+                    args,
+                    mode == WebSocketFaultPeer.Mode.EXTENSION_INBOUND
+                            ? "unsupported or malformed incoming WebSocket frame"
+                            : "max_inbound_message_bytes");
+            Assertions.assertTrue(scenario.challengeSent.await(10, TimeUnit.SECONDS));
+            Assertions.assertTrue(scenario.disconnected.await(10, TimeUnit.SECONDS));
+            Assertions.assertEquals(1, scenario.connections.get());
+            Assertions.assertFalse(scenario.extensionOffered);
+            Assertions.assertNull(scenario.failure);
+        }
+    }
+
+    @Test
+    void preservesJvmHttpForwardingAndConnectWithVerifiedTls() throws Exception {
+        int before = proxy.routes.size();
+        Capture text = new Capture(true);
+        plainResponder = request -> text.upgrade();
+        succeeded(execute(PAYLOAD_CONF, typed(proxy.url(false), "TEXT", "text", 8, 10000)));
+        text.assertClosed();
+        Assertions.assertEquals(Collections.singletonList(TEXT), text.text);
+        Capture json = new Capture(true);
+        List<String> authorization = new CopyOnWriteArrayList<>();
+        tlsResponder =
+                request -> {
+                    authorization.add(request.getHeader("Authorization"));
+                    return json.upgrade();
+                };
+        succeeded(execute(JSON_CONF, arguments(proxy.url(true), 10000, 10000)));
+        json.assertClosed();
+        Assertions.assertEquals(2, json.text.size());
+        Assertions.assertEquals(Collections.singletonList("Bearer " + TOKEN), authorization);
+        Assertions.assertEquals(
+                Arrays.asList(
+                        "GET http://"
+                                + WebSocketProxyFixture.ORIGIN
+                                + ":"
+                                + plain.getPort()
+                                + "/sink HTTP/1.1",
+                        "CONNECT "
+                                + WebSocketProxyFixture.ORIGIN
+                                + ":"
+                                + tls.getPort()
+                                + " HTTP/1.1"),
+                proxy.routes.subList(before, proxy.routes.size()));
+        Assertions.assertTrue(proxy.failures.isEmpty(), proxy.failures.toString());
+    }
+
+    @Test
+    void preservesJvmSocksRemoteDnsAndLazyUsernameFallback() throws Exception {
+        Capture capture = new Capture(true);
+        plainResponder = request -> capture.upgrade();
+        int before = proxy.routes.size();
+        int users = proxy.users.size();
+        SeaTunnelContainer socks =
+                new SeaTunnelContainer() {
+                    @Override
+                    protected String getJavaToolOptions() {
+                        return "-DsocksProxyHost="
+                                + HOST
+                                + " -DsocksProxyPort="
+                                + proxy.port()
+                                + " -Dhttp.nonProxyHosts="
+                                + HOST
+                                + "|localhost|127.*|[::1]"
+                                + " -Duser.name=websocket-proxy-user";
+                    }
+                };
+        socks.startUp();
+        try {
+            String job = nextJob();
+            succeeded(
+                    socks.executeJob(
+                            PAYLOAD_CONF, job, typed(proxy.url(false), "TEXT", "text", 8, 10000)));
+            Awaitility.await()
+                    .atMost(20, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertEquals("FINISHED", socks.getJobStatus(job)));
+            capture.assertClosed();
+            Assertions.assertEquals(Collections.singletonList(TEXT), capture.text);
+            Assertions.assertEquals(
+                    Collections.singletonList(
+                            "SOCKS5 " + WebSocketProxyFixture.ORIGIN + ":" + plain.getPort()),
+                    proxy.routes.subList(before, proxy.routes.size()));
+            Assertions.assertEquals(
+                    Collections.singletonList("websocket-proxy-user"),
+                    proxy.users.subList(users, proxy.users.size()));
+            Assertions.assertTrue(proxy.failures.isEmpty(), proxy.failures.toString());
+        } finally {
+            socks.tearDown();
+        }
+    }
+
     private Container.ExecResult execute(String conf, String[] args) throws Exception {
         String job = nextJob();
         Container.ExecResult result = engine.executeJob(conf, job, args);
@@ -443,7 +575,10 @@ class WebSocketSinkIT extends TestSuiteBase {
 
     private static String[] arguments(String target, int connection, int close) {
         return new String[] {
-            "sink.url=" + target, "connect.timeout=" + connection, "close.timeout=" + close
+            "sink.url=" + target,
+            "connect.timeout=" + connection,
+            "close.timeout=" + close,
+            "inbound.bytes=1048576"
         };
     }
 
@@ -509,7 +644,7 @@ class WebSocketSinkIT extends TestSuiteBase {
                                 "-dname",
                                 "CN=" + HOST,
                                 "-ext",
-                                "SAN=dns:" + HOST,
+                                "SAN=dns:" + HOST + ",dns:" + WebSocketProxyFixture.ORIGIN,
                                 "-validity",
                                 "2",
                                 "-storetype",
@@ -557,6 +692,11 @@ class WebSocketSinkIT extends TestSuiteBase {
         return server;
     }
 
+    /**
+     * Captures only client-emitted messages and verifies one completed normal close handshake.
+     *
+     * @see WebSocketFaultPeer
+     */
     private static final class Capture extends WebSocketListener {
         final List<String> text = new CopyOnWriteArrayList<>();
         final List<ByteString> binary = new CopyOnWriteArrayList<>();
@@ -574,6 +714,13 @@ class WebSocketSinkIT extends TestSuiteBase {
         MockResponse upgrade() {
             connections.incrementAndGet();
             return new MockResponse().withWebSocketUpgrade(this);
+        }
+
+        @Override
+        public void onOpen(WebSocket socket, Response response) {
+            // Valid small inbound messages are ignored, without acknowledging exported rows.
+            socket.send("{\"status\":\"ready\"}");
+            socket.send(ByteString.of((byte) 1, (byte) 2));
         }
 
         @Override

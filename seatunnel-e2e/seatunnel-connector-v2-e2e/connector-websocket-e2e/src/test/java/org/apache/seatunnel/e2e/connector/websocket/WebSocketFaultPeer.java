@@ -27,9 +27,11 @@ import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -37,25 +39,46 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/** A fixture that can withhold reads after the handshake or reset the underlying TCP connection. */
+/**
+ * Provides real TCP stall/reset and incomplete incoming-frame scenarios for Sink engine assertions.
+ *
+ * @see WebSocketSinkIT
+ */
 final class WebSocketFaultPeer implements AutoCloseable {
     private static final String HOST = "host.testcontainers.internal";
     private static final String GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
+    /**
+     * Selects one wire failure independently of the Sink implementation under test.
+     *
+     * @see WebSocketSinkIT
+     */
     enum Mode {
         STALL,
         RESET_AFTER_UPGRADE,
-        RESET_AFTER_MESSAGE
+        RESET_AFTER_MESSAGE,
+        OVERSIZED_INBOUND,
+        FRAGMENTED_INBOUND,
+        EXTENSION_INBOUND
     }
 
+    /**
+     * Exposes observed connections, challenge transmission and disconnect to the assertion thread.
+     */
     static final class Scenario {
         final Mode mode;
         final AtomicInteger connections = new AtomicInteger();
+        final AtomicInteger applicationFramesSent = new AtomicInteger();
         final CountDownLatch upgraded = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
         volatile long upgradedAt;
         volatile String message;
         volatile IOException failure;
+        // Incoming challenges remain incomplete; successful rejection cannot wait for a final
+        // message.
+        final CountDownLatch challengeSent = new CountDownLatch(1);
+        final CountDownLatch disconnected = new CountDownLatch(1);
+        volatile boolean extensionOffered;
 
         Scenario(Mode mode) {
             this.mode = mode;
@@ -104,7 +127,7 @@ final class WebSocketFaultPeer implements AutoCloseable {
         try (Socket socket = client) {
             socket.setSoTimeout(15000);
             socket.setReceiveBufferSize(1024);
-            String key = key(socket.getInputStream());
+            String key = key(socket.getInputStream(), plan);
             String response =
                     "HTTP/1.1 101 Switching Protocols\r\n"
                             + "Connection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Accept: "
@@ -115,9 +138,13 @@ final class WebSocketFaultPeer implements AutoCloseable {
             plan.upgradedAt = System.nanoTime();
             plan.upgraded.countDown();
             if (plan.mode == Mode.STALL) {
-                plan.release.await(60, TimeUnit.SECONDS);
+                sendWhileStalled(plan, socket);
             } else if (plan.mode == Mode.RESET_AFTER_MESSAGE) {
                 plan.message = readSmallTextFrame(socket.getInputStream());
+            } else if (plan.mode == Mode.OVERSIZED_INBOUND
+                    || plan.mode == Mode.FRAGMENTED_INBOUND
+                    || plan.mode == Mode.EXTENSION_INBOUND) {
+                sendInboundChallenge(plan, socket);
             }
             socket.setSoLinger(true, 0);
         } catch (IOException e) {
@@ -127,7 +154,63 @@ final class WebSocketFaultPeer implements AutoCloseable {
         }
     }
 
-    private static String key(InputStream input) throws IOException {
+    /*
+     * Withholds all upstream reads while sending harmless complete application frames. They require
+     * no control response and must not replace the writer's precise queue/drain deadline diagnostic.
+     */
+    private static void sendWhileStalled(Scenario plan, Socket socket) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
+        while (System.nanoTime() < deadline && plan.release.getCount() != 0) {
+            try {
+                socket.getOutputStream().write(new byte[] {(byte) 0x81, 2, 'o', 'k'});
+                socket.getOutputStream().flush();
+                plan.applicationFramesSent.incrementAndGet();
+            } catch (IOException ignored) {
+                // The timed-out writer closes while this mode is still withholding upstream reads.
+                plan.disconnected.countDown();
+                return;
+            }
+            if (plan.release.await(100, TimeUnit.MILLISECONDS)) {
+                return;
+            }
+        }
+    }
+
+    /*
+     * Sends only an oversized length header, nonterminal fragments, or an unsupported extension bit.
+     * The engine must fail without waiting for a completed incoming application message.
+     */
+    private static void sendInboundChallenge(Scenario plan, Socket socket) throws IOException {
+        if (plan.mode == Mode.OVERSIZED_INBOUND) {
+            // 129 bytes declared against the case's 128-byte limit; no payload is sent.
+            socket.getOutputStream().write(new byte[] {(byte) 0x82, 126, 0, (byte) 129});
+        } else if (plan.mode == Mode.FRAGMENTED_INBOUND) {
+            byte[] payload = new byte[80];
+            Arrays.fill(payload, (byte) 'a');
+            socket.getOutputStream().write(new byte[] {2, 80});
+            socket.getOutputStream().write(payload);
+            socket.getOutputStream().write(new byte[] {0, 80});
+            socket.getOutputStream().write(payload);
+        } else {
+            // RSV1 must be rejected before reading this data: no extension was negotiated.
+            socket.getOutputStream().write(new byte[] {(byte) 0xc2, 1});
+        }
+        socket.getOutputStream().flush();
+        plan.challengeSent.countDown();
+        try {
+            while (socket.getInputStream().read() != -1) {
+                // Drain only the client's already-sent data/close frames while observing
+                // disconnect.
+            }
+        } catch (SocketTimeoutException timeout) {
+            throw timeout;
+        } catch (IOException ignored) {
+            // An abortive disconnect is also the expected rejection outcome.
+        }
+        plan.disconnected.countDown();
+    }
+
+    private static String key(InputStream input, Scenario plan) throws IOException {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         int end = 0;
         while (bytes.size() < 8192) {
@@ -139,10 +222,17 @@ final class WebSocketFaultPeer implements AutoCloseable {
             end = (end << 8) | next;
             if (end == 0x0d0a0d0a) {
                 String headers = new String(bytes.toByteArray(), StandardCharsets.US_ASCII);
+                String key = null;
                 for (String header : headers.split("\r\n")) {
                     if (header.regionMatches(true, 0, "Sec-WebSocket-Key:", 0, 18)) {
-                        return header.substring(18).trim();
+                        key = header.substring(18).trim();
                     }
+                    if (header.regionMatches(true, 0, "Sec-WebSocket-Extensions:", 0, 25)) {
+                        plan.extensionOffered = true;
+                    }
+                }
+                if (key != null) {
+                    return key;
                 }
                 break;
             }
