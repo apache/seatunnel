@@ -42,6 +42,7 @@ import org.apache.seatunnel.api.table.schema.handler.AlterTableSchemaEventHandle
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.api.table.type.MetadataUtil;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -855,6 +856,47 @@ public class SQLTransformSchemaChangeTest {
         transform.close();
         Assertions.assertEquals(inits.get(), closes.get());
         Assertions.assertEquals(udf.opens.get(), udf.closes.get());
+    }
+
+    /**
+     * A schema change replaces the live engine with the candidate it evaluated. The candidate must
+     * keep {@code where_rejected_update_as_delete}, so a rejected UPDATE_AFTER after the change is
+     * still emitted as a DELETE, and still dropped with the default.
+     */
+    @Test
+    public void testSchemaChangeKeepsWhereRejectedUpdateAsDelete() {
+        for (boolean asDelete : new boolean[] {false, true}) {
+            Map<String, Object> cfg = new HashMap<>();
+            cfg.put("query", "select * from products where name = 'a'");
+            cfg.put("where_rejected_update_as_delete", asDelete);
+            SQLTransform transform = new SQLTransform(ReadonlyConfig.fromMap(cfg), baseTable());
+            try {
+                transform.getProducedCatalogTable();
+                assertRejectedUpdateAfter(
+                        transform, asDelete, new SeaTunnelRow(new Object[] {1L, "b", 1.0d}));
+
+                transform.mapSchemaChangeEvent(composite(addAge()));
+
+                assertRejectedUpdateAfter(
+                        transform, asDelete, new SeaTunnelRow(new Object[] {1L, "b", 1.0d, 20}));
+            } finally {
+                transform.close();
+            }
+        }
+    }
+
+    private static void assertRejectedUpdateAfter(
+            SQLTransform transform, boolean asDelete, SeaTunnelRow row) {
+        row.setRowKind(RowKind.UPDATE_AFTER);
+        List<SeaTunnelRow> rows = transform.flatMap(row);
+        if (!asDelete) {
+            Assertions.assertTrue(rows == null || rows.isEmpty());
+            return;
+        }
+        Assertions.assertNotNull(rows, "the rejected UPDATE_AFTER was dropped");
+        Assertions.assertEquals(1, rows.size());
+        Assertions.assertEquals(RowKind.DELETE, rows.get(0).getRowKind());
+        Assertions.assertArrayEquals(row.getFields(), rows.get(0).getFields());
     }
 
     private static PhysicalColumn column(

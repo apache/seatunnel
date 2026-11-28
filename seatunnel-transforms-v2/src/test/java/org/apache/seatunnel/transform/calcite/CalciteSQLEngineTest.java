@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.transform.calcite;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -38,6 +41,8 @@ import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -4310,6 +4315,219 @@ class CalciteSQLEngineTest {
             }
         } finally {
             Locale.setDefault(original);
+        }
+    }
+
+    private SeaTunnelRowType changelogRowType() {
+        return new SeaTunnelRowType(
+                new String[] {"id", "status"},
+                new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+    }
+
+    private static SeaTunnelRow changelogRow(RowKind kind, Object... fields) {
+        SeaTunnelRow row = new SeaTunnelRow(fields);
+        row.setRowKind(kind);
+        row.setTableId("db.t");
+        Map<String, Object> options = new HashMap<>();
+        options.put("offset", "42");
+        row.setOptions(options);
+        return row;
+    }
+
+    private CalciteSQLEngine createAndInit(
+            String sql, SeaTunnelRowType rowType, boolean whereRejectedUpdateAsDelete) {
+        CalciteSQLEngine engine =
+                new CalciteSQLEngine(sql, "t", rowType, whereRejectedUpdateAsDelete);
+        engine.init();
+        return engine;
+    }
+
+    /**
+     * By default the WHERE clause keeps every row kind that matches and drops every row kind that
+     * does not, including UPDATE_AFTER, as before {@code where_rejected_update_as_delete} existed.
+     */
+    @Test
+    void testWhereOnChangelogRowsByDefault() {
+        String sql = "SELECT id, UPPER(status) AS status FROM t WHERE status = 'active'";
+        try (CalciteSQLEngine engine = createAndInit(sql, "t", changelogRowType());
+                CalciteSQLEngine disabled = createAndInit(sql, changelogRowType(), false)) {
+            for (CalciteSQLEngine current : Arrays.asList(engine, disabled)) {
+                for (RowKind kind : RowKind.values()) {
+                    List<SeaTunnelRow> kept = current.execute(changelogRow(kind, 1, "active"));
+                    Assertions.assertEquals(1, kept.size(), kind.name());
+                    Assertions.assertEquals(kind, kept.get(0).getRowKind());
+                    Assertions.assertArrayEquals(
+                            new Object[] {1, "ACTIVE"}, kept.get(0).getFields());
+                    Assertions.assertTrue(
+                            current.execute(changelogRow(kind, 1, "inactive")).isEmpty(),
+                            kind.name());
+                }
+            }
+        }
+    }
+
+    /**
+     * With {@code where_rejected_update_as_delete}, a WHERE clause that rejects an UPDATE_AFTER
+     * emits its projected new image as a DELETE, so that a sink which writes UPDATE_AFTER as an
+     * upsert and skips UPDATE_BEFORE removes the row. Every other row kind is kept when it matches
+     * and dropped when it does not.
+     */
+    @Test
+    void testWhereOnChangelogRowsWithRejectedUpdateAsDelete() {
+        try (CalciteSQLEngine engine =
+                createAndInit(
+                        "SELECT id, UPPER(status) AS status FROM t WHERE status = 'active'",
+                        changelogRowType(),
+                        true)) {
+            for (RowKind kind : RowKind.values()) {
+                List<SeaTunnelRow> kept = engine.execute(changelogRow(kind, 1, "active"));
+                Assertions.assertEquals(1, kept.size(), kind.name());
+                Assertions.assertEquals(kind, kept.get(0).getRowKind());
+                Assertions.assertArrayEquals(new Object[] {1, "ACTIVE"}, kept.get(0).getFields());
+
+                List<SeaTunnelRow> rejected = engine.execute(changelogRow(kind, 1, "inactive"));
+                if (kind != RowKind.UPDATE_AFTER) {
+                    Assertions.assertTrue(rejected.isEmpty(), kind.name());
+                    continue;
+                }
+                Assertions.assertEquals(1, rejected.size());
+                SeaTunnelRow delete = rejected.get(0);
+                Assertions.assertEquals(RowKind.DELETE, delete.getRowKind());
+                Assertions.assertArrayEquals(new Object[] {1, "INACTIVE"}, delete.getFields());
+                Assertions.assertEquals("db.t", delete.getTableId());
+                Assertions.assertEquals("42", delete.getOptions().get("offset"));
+            }
+        }
+    }
+
+    @Test
+    void testWhereWithOrderByOnRejectedUpdateAfter() {
+        try (CalciteSQLEngine engine =
+                createAndInit(
+                        "SELECT id, status FROM t WHERE status = 'active' ORDER BY id",
+                        changelogRowType(),
+                        true)) {
+            List<SeaTunnelRow> rows =
+                    engine.execute(changelogRow(RowKind.UPDATE_AFTER, 1, "inactive"));
+            Assertions.assertEquals(1, rows.size());
+            Assertions.assertEquals(RowKind.DELETE, rows.get(0).getRowKind());
+            Assertions.assertArrayEquals(new Object[] {1, "inactive"}, rows.get(0).getFields());
+        }
+    }
+
+    @Test
+    void testQueryWithoutWhereKeepsRowKinds() {
+        for (boolean asDelete : new boolean[] {false, true}) {
+            try (CalciteSQLEngine engine =
+                    createAndInit("SELECT id, status FROM t", changelogRowType(), asDelete)) {
+                for (RowKind kind : RowKind.values()) {
+                    List<SeaTunnelRow> rows = engine.execute(changelogRow(kind, 1, "inactive"));
+                    Assertions.assertEquals(1, rows.size());
+                    Assertions.assertEquals(kind, rows.get(0).getRowKind());
+                }
+            }
+        }
+    }
+
+    /**
+     * The WHERE clause may guard the projection. When the projection of a rejected UPDATE_AFTER
+     * fails, the row is dropped as before instead of failing the job.
+     */
+    @Test
+    void testWhereRejectedUpdateAfterWithFailingProjection() {
+        try (CalciteSQLEngine engine =
+                createAndInit(
+                        "SELECT id, CAST(status AS INTEGER) AS status FROM t WHERE status <> 'x'",
+                        changelogRowType(),
+                        true)) {
+            List<SeaTunnelRow> kept = engine.execute(changelogRow(RowKind.UPDATE_AFTER, 1, "7"));
+            Assertions.assertEquals(RowKind.UPDATE_AFTER, kept.get(0).getRowKind());
+            Assertions.assertEquals(7, kept.get(0).getField(1));
+            Assertions.assertTrue(
+                    engine.execute(changelogRow(RowKind.UPDATE_AFTER, 1, "x")).isEmpty());
+        }
+    }
+
+    /**
+     * The DELETE image is built only for a single SELECT without GROUP BY or HAVING. For any other
+     * query shape a rejected UPDATE_AFTER is dropped, as with the option disabled.
+     */
+    @Test
+    void testRejectedUpdateAfterWithUnsupportedQueryShapeIsDropped() {
+        try (CalciteSQLEngine engine =
+                createAndInit(
+                        "SELECT id, COUNT(*) AS c FROM t WHERE status = 'active' GROUP BY id",
+                        changelogRowType(),
+                        true)) {
+            List<SeaTunnelRow> kept =
+                    engine.execute(changelogRow(RowKind.UPDATE_AFTER, 1, "active"));
+            Assertions.assertEquals(1, kept.size());
+            Assertions.assertEquals(RowKind.UPDATE_AFTER, kept.get(0).getRowKind());
+            Assertions.assertTrue(
+                    engine.execute(changelogRow(RowKind.UPDATE_AFTER, 1, "inactive")).isEmpty());
+        }
+    }
+
+    /**
+     * A {@code table_transform} entry is a complete rule of its own, so it reads {@code
+     * where_rejected_update_as_delete} from the entry.
+     */
+    @Test
+    void testTableTransformEntryReadsRejectedUpdateAsDelete() {
+        CatalogTable catalogTable =
+                CatalogTableUtil.getCatalogTable("test", "test", "test", "t", changelogRowType());
+        for (boolean asDelete : new boolean[] {false, true}) {
+            Map<String, Object> entry = new HashMap<>();
+            entry.put("table_path", catalogTable.getTableId().toTablePath().toString());
+            entry.put("sql", "SELECT id, status FROM t WHERE status = 'active'");
+            entry.put("where_rejected_update_as_delete", asDelete);
+            CalciteMultiCatalogTransform transform =
+                    new CalciteMultiCatalogTransform(
+                            Collections.singletonList(catalogTable),
+                            ReadonlyConfig.fromMap(
+                                    Collections.singletonMap(
+                                            "table_transform", Collections.singletonList(entry))));
+            try {
+                List<SeaTunnelRow> rows =
+                        transform.flatMap(changelogRow(RowKind.UPDATE_AFTER, 1, "inactive"));
+                if (asDelete) {
+                    Assertions.assertEquals(1, rows.size());
+                    Assertions.assertEquals(RowKind.DELETE, rows.get(0).getRowKind());
+                } else {
+                    Assertions.assertTrue(rows == null || rows.isEmpty());
+                }
+            } finally {
+                transform.close();
+            }
+        }
+    }
+
+    /** The transform reads {@code where_rejected_update_as_delete} from its configuration. */
+    @Test
+    void testCalciteTransformReadsRejectedUpdateAsDelete() {
+        for (boolean asDelete : new boolean[] {false, true}) {
+            Map<String, Object> config = new HashMap<>();
+            config.put("sql", "SELECT id, status FROM t WHERE status = 'active'");
+            if (asDelete) {
+                config.put("where_rejected_update_as_delete", true);
+            }
+            CalciteTransform transform =
+                    new CalciteTransform(
+                            ReadonlyConfig.fromMap(config),
+                            CatalogTableUtil.getCatalogTable("t", changelogRowType()));
+            try {
+                transform.open();
+                List<SeaTunnelRow> rows =
+                        transform.transformRow(changelogRow(RowKind.UPDATE_AFTER, 1, "inactive"));
+                if (asDelete) {
+                    Assertions.assertEquals(1, rows.size());
+                    Assertions.assertEquals(RowKind.DELETE, rows.get(0).getRowKind());
+                } else {
+                    Assertions.assertTrue(rows.isEmpty());
+                }
+            } finally {
+                transform.close();
+            }
         }
     }
 }

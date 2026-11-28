@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
@@ -36,6 +37,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -141,6 +143,52 @@ class SQLMultiCatalogFlatMapTransformTest {
         Assertions.assertEquals(
                 RowErrorClassification.SYSTEM_ERROR,
                 transform.classifyRowError(new RuntimeException("error"), row));
+    }
+
+    /**
+     * A {@code table_transform} entry is a complete rule of its own, so it reads {@code
+     * where_rejected_update_as_delete} from the entry.
+     */
+    @Test
+    void testTableTransformEntryReadsRejectedUpdateAsDelete() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "status"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, BasicType.STRING_TYPE
+                        });
+        CatalogTable catalogTable =
+                CatalogTableUtil.getCatalogTable("test", "test", "test", "test", rowType);
+        for (boolean asDelete : new boolean[] {false, true}) {
+            Map<String, Object> entry = new HashMap<>();
+            entry.put(
+                    TransformCommonOptions.TABLE_PATH.key(),
+                    catalogTable.getTableId().toTablePath().toString());
+            entry.put(
+                    SQLTransform.KEY_QUERY.key(),
+                    "select id, status from dual where status = 'active'");
+            entry.put(TransformCommonOptions.WHERE_REJECTED_UPDATE_AS_DELETE.key(), asDelete);
+            SQLMultiCatalogFlatMapTransform transform =
+                    new SQLMultiCatalogFlatMapTransform(
+                            Collections.singletonList(catalogTable),
+                            ReadonlyConfig.fromMap(
+                                    Collections.singletonMap(
+                                            TransformCommonOptions.MULTI_TABLES.key(),
+                                            Collections.singletonList(entry))));
+            try {
+                SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "inactive"});
+                row.setRowKind(RowKind.UPDATE_AFTER);
+                List<SeaTunnelRow> rows = transform.flatMap(row);
+                if (asDelete) {
+                    Assertions.assertEquals(1, rows.size());
+                    Assertions.assertEquals(RowKind.DELETE, rows.get(0).getRowKind());
+                } else {
+                    Assertions.assertTrue(rows == null || rows.isEmpty());
+                }
+            } finally {
+                transform.close();
+            }
+        }
     }
 
     private static class TestSQLMultiCatalogFlatMapTransform

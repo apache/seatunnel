@@ -19,6 +19,7 @@ SQL 转换使用内存中的 SQL 引擎，我们可以通过 SQL 函数和 SQL �
 | table_match_regex | string | no   | `.*` |
 | table_transform   | array  | no   | -   |
 | rule_match_mode   | string | no   | `FIRST_MATCH` |
+| where_rejected_update_as_delete | boolean | no | false |
 
 ### table_match_regex [string]
 
@@ -46,6 +47,10 @@ SQL 转换使用内存中的 SQL 引擎，我们可以通过 SQL 函数和 SQL �
 ### engine [string]
 
 该 Transform 使用的 SQL 引擎。支持 `ZETA` 和 `INTERNAL`。如果不配置，默认使用 `ZETA`。
+
+### where_rejected_update_as_delete [boolean]
+
+是否把被 `WHERE` 子句拒绝的 `UPDATE_AFTER` 行作为其投影结果的 `DELETE` 发出。为 `false`（默认）时，它会像其他不满足条件的行一样被丢弃。仅当查询选出了更新不会改变的键、且 Sink 按该键删除行时才启用；参见 [CDC 流上的 WHERE](#cdc-流上的-where)。在 `table_transform` 中，请在每个需要的条目中单独设置：条目不会继承 Transform 级别的设置。
 
 ## 数值比较
 
@@ -79,6 +84,44 @@ SQL 转换使用内存中的 SQL 引擎，我们可以通过 SQL 函数和 SQL �
 但 `id IN (9007199254740992, 9007199254740992.0)` 为真，因为第二次比较使用 `DOUBLE`。
 因此，在精确类型与浮点类型混用时，等号不一定满足传递性；需要精度保证时，请统一使用精确类型的操作数。
 以上规则适用于 `ZETA` 和 `INTERNAL` 两种 SQL 引擎设置。
+
+## CDC 流上的 WHERE
+
+`WHERE` 子句逐行判断，并保留行类型。在 CDC 流中，一次更新由一条带旧值的 `UPDATE_BEFORE` 行和一条带新值的 `UPDATE_AFTER` 行组成。当更新使某行不再满足条件时，`UPDATE_BEFORE` 满足条件而被保留，`UPDATE_AFTER` 被丢弃。把 `UPDATE_AFTER` 写成 upsert 并跳过 `UPDATE_BEFORE` 的 Sink（例如带主键的 Jdbc）因此会保留旧行。
+
+设置 `where_rejected_update_as_delete = true` 后，该 Transform 的输出如下：
+
+| 行类型 | 是否满足 `WHERE` 子句 | 输出 |
+|--------|-----------------------|------|
+| 任意 | 是 | 投影后的行，行类型不变 |
+| `UPDATE_AFTER` | 否 | 投影后的行，作为 `DELETE` |
+| `INSERT`、`UPDATE_BEFORE`、`DELETE` | 否 | 无 |
+
+这样，使某行不再满足条件的更新会以 `DELETE` 到达 Sink，按键写入的 Sink 会删除该行。使用默认值 `false` 时，所有不满足条件的行都会被丢弃，与之前的版本相同。
+
+```hocon
+transform {
+  Sql {
+    plugin_input = "cdc"
+    plugin_output = "active_users"
+    query = "select id, name, status from dual where status = 'active'"
+    where_rejected_update_as_delete = true
+  }
+}
+```
+
+仅在以下两点同时成立时启用：
+
+- **稳定的键：** 查询选出了 Sink 用来删除的键列，并且更新不会改变这些列。`DELETE` 只由新值构造，因此只能通过更新前后相同的键找到对应的行。键可以来自源表 Schema 的主键，也可以来自 Sink 的配置，例如 Jdbc 的 `primary_keys`。
+- **会删除的 Sink：** Sink 按该键删除行。没有键的 Sink 会追加收到的每一行；例如，既没有 `primary_keys`、Schema 中也没有主键的 Jdbc Sink 会把 `DELETE` 写成一条新行。
+
+投影的限制：
+
+- 如果查询没有选出键，例如 Sink 以 `id` 为键时使用 `select name, status from dual where status = 'active'`，输出 Schema 中没有主键，`DELETE` 只包含被选出的列，Sink 无法找到对应的行。`primary_keys` 指定了查询未选出的列时，无论是否启用该选项，Jdbc Sink 都会在启动时失败。
+- 旧值同样不满足条件时也会发送 `DELETE`。按键写入的 Sink 会删除一个它没有的键，数据不会改变，但 Sink 需要删除权限。Kudu Sink 在这种删除上会失败，除非设置 `ignore_not_found = true`。
+- 使用 `LATERAL VIEW` 时，由被拒绝的 `UPDATE_AFTER` 产生的每一行都是 `DELETE`。
+- 如果被拒绝的 `UPDATE_AFTER` 投影失败（例如 `select 10 / x as r from dual where x <> 0` 且 `x = 0`），该行会被丢弃，并记录一条警告日志。
+- 启用该选项之前已经写入的目标表仍可能保留不再满足条件的行；请从源端重新加载以删除它们。
 
 ## 示例
 

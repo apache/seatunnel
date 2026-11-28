@@ -44,7 +44,8 @@ public class CalciteTransformFactory implements TableTransformFactory {
                 .optional(
                         CalciteTransformConfig.SQL,
                         TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION,
-                        TransformCommonOptions.COLUMN_ERROR_HANDLE_WAY_OPTION)
+                        TransformCommonOptions.COLUMN_ERROR_HANDLE_WAY_OPTION,
+                        TransformCommonOptions.WHERE_REJECTED_UPDATE_AS_DELETE)
                 .optional(
                         TransformCommonOptions.MULTI_TABLES,
                         Conditions.extension(
