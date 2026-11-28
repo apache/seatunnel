@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oceanbase;
 
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -31,6 +32,7 @@ import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMySqlTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMysqlType;
@@ -45,11 +47,13 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
@@ -242,13 +246,7 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
                         connection
                                 .getMetaData()
                                 .getPrimaryKeys(catalogName, schemaName, tableName)) {
-            while (primaryKeys.next()) {
-                String primaryKeyColumnName = primaryKeys.getString("COLUMN_NAME");
-                schemaBuilder.primaryKey(
-                        PrimaryKey.of(
-                                primaryKeyColumnName,
-                                Collections.singletonList(primaryKeyColumnName)));
-            }
+            buildPrimaryKey(primaryKeys).ifPresent(schemaBuilder::primaryKey);
             while (columnResultSet.next()) {
                 schemaBuilder.column(buildColumn(columnResultSet));
             }
@@ -260,6 +258,50 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
                 new ArrayList<>(),
                 "",
                 catalogName);
+    }
+
+    /**
+     * Builds the primary key of the table from the result set of {@link
+     * DatabaseMetaData#getPrimaryKeys}.
+     *
+     * <p>According to the Javadoc of {@code DatabaseMetaData#getPrimaryKeys}, the returned rows are
+     * ordered by {@code COLUMN_NAME}, not by the order of the columns in the key, so the columns
+     * are sorted by {@code KEY_SEQ} (1-based). All the columns must be kept, otherwise a composite
+     * primary key would lose every column but the last one.
+     *
+     * @param primaryKeys result set returned by {@code DatabaseMetaData#getPrimaryKeys}
+     * @return the primary key, or empty when the table has no primary key
+     */
+    static Optional<PrimaryKey> buildPrimaryKey(ResultSet primaryKeys) throws SQLException {
+        // KEY_SEQ (1-based) -> COLUMN_NAME
+        List<Pair<Integer, String>> primaryKeyColumns = new ArrayList<>();
+        String primaryKeyName = null;
+        while (primaryKeys.next()) {
+            String columnName = primaryKeys.getString("COLUMN_NAME");
+            if (StringUtils.isBlank(columnName)) {
+                continue;
+            }
+            // all the PK_NAME of one primary key should be the same
+            String pkName = CatalogUtils.cleanKeyName(primaryKeys.getString("PK_NAME"));
+            if (StringUtils.isNotBlank(pkName)) {
+                primaryKeyName = pkName;
+            }
+            primaryKeyColumns.add(Pair.of(primaryKeys.getInt("KEY_SEQ"), columnName));
+        }
+        if (primaryKeyColumns.isEmpty()) {
+            return Optional.empty();
+        }
+        List<String> primaryKeyFields =
+                primaryKeyColumns.stream()
+                        .sorted(Comparator.comparingInt(Pair::getKey))
+                        .map(Pair::getValue)
+                        .distinct()
+                        .collect(Collectors.toList());
+        if (StringUtils.isBlank(primaryKeyName)) {
+            // the driver did not report a key name, use the first column instead
+            primaryKeyName = primaryKeyFields.get(0);
+        }
+        return Optional.of(PrimaryKey.of(primaryKeyName, primaryKeyFields));
     }
 
     @Override
