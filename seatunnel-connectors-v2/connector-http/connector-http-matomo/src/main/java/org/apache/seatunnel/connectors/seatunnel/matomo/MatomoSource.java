@@ -27,13 +27,13 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
 import java.net.URI;
+import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
@@ -111,20 +111,6 @@ public final class MatomoSource extends AbstractSingleSplitSource<SeaTunnelRow> 
         }
     }
 
-    /*
-     * Accepts calendar dates in YYYY-MM-DD form without exposing submitted values.
-     */
-    private static LocalDate readDate(String value) {
-        try {
-            if (value.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) {
-                return LocalDate.parse(value);
-            }
-        } catch (java.time.DateTimeException ignored) {
-            // Do not put untrusted option values into logs.
-        }
-        throw new IllegalArgumentException("Matomo report dates must be valid YYYY-MM-DD values");
-    }
-
     @Override
     public String getPluginName() {
         return IDENTIFIER;
@@ -149,11 +135,10 @@ public final class MatomoSource extends AbstractSingleSplitSource<SeaTunnelRow> 
         return Boundedness.BOUNDED;
     }
 
-    @Override
-    public SeaTunnelRowType getProducedType() {
-        return table.getSeaTunnelRowType();
-    }
-
+    /**
+     * Keeps catalog tables as the schema contract; the inherited legacy type adapter derives its
+     * result from this same table without a redundant connector override.
+     */
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
         return Collections.singletonList(table);
@@ -170,5 +155,18 @@ public final class MatomoSource extends AbstractSingleSplitSource<SeaTunnelRow> 
                 timeoutMs,
                 context,
                 table.getTablePath().toString());
+    }
+    /*
+     * Accepts calendar dates in YYYY-MM-DD form without exposing submitted values.
+     */
+    private static LocalDate readDate(String value) {
+        try {
+            if (value.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) {
+                return LocalDate.parse(value);
+            }
+        } catch (DateTimeException ignored) {
+            // Do not put untrusted option values into logs.
+        }
+        throw new IllegalArgumentException("Matomo report dates must be valid YYYY-MM-DD values");
     }
 }
