@@ -25,6 +25,15 @@ public interface SlotService {
 
     void init();
 
+    /**
+     * Rebuilds the slot service when the master asks a worker it has not registered to start over.
+     *
+     * <p>The service is rebuilt only while it has no assigned slots and no live slot contexts,
+     * which gives it a new slot service sequence and a full set of unassigned slots. Otherwise it
+     * is a no-op that logs a warning, so running tasks keep their slots and contexts. Slots kept
+     * this way are not reconciled with the master; they are freed only by a normal {@link
+     * #releaseSlot} call.
+     */
     void reset();
 
     SlotAndWorkerProfile requestSlot(long jobID, ResourceProfile resourceProfile);
