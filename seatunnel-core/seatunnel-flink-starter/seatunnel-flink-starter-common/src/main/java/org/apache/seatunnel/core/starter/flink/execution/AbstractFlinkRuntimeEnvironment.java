@@ -111,9 +111,18 @@ public abstract class AbstractFlinkRuntimeEnvironment implements RuntimeEnvironm
         } else if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.CHECKPOINT_TIMEOUT)) {
             long timeout = config.getLong(ConfigKeyName.CHECKPOINT_TIMEOUT);
             checkpointConfig.setCheckpointTimeout(timeout);
-        } else if (config.hasPath(EnvCommonOptions.CHECKPOINT_MIN_PAUSE.key())) {
+        }
+
+        // min-pause is independent of timeout, so it must not be chained to the timeout branches
+        if (config.hasPath(EnvCommonOptions.CHECKPOINT_MIN_PAUSE.key())) {
             long minPause = config.getLong(EnvCommonOptions.CHECKPOINT_MIN_PAUSE.key());
-            checkpointConfig.setMinPauseBetweenCheckpoints(minPause);
+            if (minPause < 0) {
+                LOGGER.warn(
+                        "min-pause is set to {} which is negative, fallback to no minimum pause between checkpoints.",
+                        minPause);
+            } else {
+                checkpointConfig.setMinPauseBetweenCheckpoints(minPause);
+            }
         }
 
         if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.CHECKPOINT_MODE)) {
