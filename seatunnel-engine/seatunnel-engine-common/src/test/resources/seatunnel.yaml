@@ -19,6 +19,8 @@ seatunnel:
     engine:
         backup-count: 1
         print-execution-info-interval: 2
+        max-promoted-cooperative-workers: 8
+        max-promoted-cooperative-workers-per-job: 4
         slot-service:
             dynamic-slot: false
             slot-num: 5
