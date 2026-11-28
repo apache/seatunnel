@@ -66,11 +66,13 @@ import io.kubernetes.client.openapi.models.V1Role;
 import io.kubernetes.client.openapi.models.V1RoleBinding;
 import io.kubernetes.client.openapi.models.V1ServiceAccount;
 import io.kubernetes.client.util.Config;
+import io.kubernetes.client.util.KubeConfig;
 import io.kubernetes.client.util.Yaml;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -178,6 +180,62 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
         return getResourcesFile("/kubernetes/" + scenario + "/" + name);
     }
 
+    /** Creates short-lived, token-only credentials while retaining the disposable cluster's CA. */
+    protected static Path serviceAccountKubeconfig(String serviceAccount) throws Exception {
+        Container.ExecResult issued =
+                execInCluster(
+                        "kubectl",
+                        "create",
+                        "token",
+                        serviceAccount,
+                        "--namespace=" + namespace,
+                        "--duration=1h");
+        assertEquals(0, issued.getExitCode(), "Cannot issue the fixture ServiceAccount token");
+        KubeConfig cluster;
+        try (Reader input = Files.newBufferedReader(kubeconfig, StandardCharsets.UTF_8)) {
+            cluster = KubeConfig.loadKubeConfig(input);
+        }
+        Map<String, Object> configuration = new HashMap<>();
+        configuration.put("apiVersion", "v1");
+        configuration.put("kind", "Config");
+        configuration.put("current-context", "fixture");
+        configuration.put(
+                "clusters",
+                Collections.singletonList(
+                        Map.of(
+                                "name",
+                                "fixture",
+                                "cluster",
+                                Map.of(
+                                        "server", cluster.getServer(),
+                                        "certificate-authority-data",
+                                                cluster.getCertificateAuthorityData()))));
+        configuration.put(
+                "users",
+                Collections.singletonList(
+                        Map.of(
+                                "name",
+                                "fixture",
+                                "user",
+                                Map.of("token", issued.getStdout().trim()))));
+        configuration.put(
+                "contexts",
+                Collections.singletonList(
+                        Map.of(
+                                "name",
+                                "fixture",
+                                "context",
+                                Map.of("cluster", "fixture", "user", "fixture"))));
+        Path credentials = Files.createTempFile("kubernetes-application-rbac-", ".yaml");
+        try {
+            Files.writeString(credentials, Yaml.dump(configuration), StandardCharsets.UTF_8);
+            return credentials;
+        } catch (Exception failure) {
+            Files.deleteIfExists(credentials);
+            throw failure;
+        }
+    }
+
     /** Runs one command inside the disposable cluster for scenario-level fault injection. */
     protected static Container.ExecResult execInCluster(String... command) throws Exception {
         return k3s.execInContainer(command);
@@ -194,6 +252,11 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
                 SeatunnelApplicationConfig.load(
                         scenarioFile(scenario, "application.config").toPath(),
                         Collections.emptyMap());
+        return deployApplication(specification, options);
+    }
+
+    protected static KubernetesApplicationClient deployApplication(
+            ApplicationSpecification specification, Map<String, String> options) throws Exception {
         ApplicationClusterDeployer applicationDeployer =
                 new ApplicationClusterDeployer(DeployType.KUBERNETES, specification, options);
         return new KubernetesApplicationClient(platformMonitor, applicationDeployer.run());
@@ -232,6 +295,11 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
      * startup failure is detected, so the Job state and events are the durable evidence.
      */
     protected static void recordApplicationDiagnostics(KubernetesApplicationClient application) {
+        recordApplicationDiagnostics(application, 200);
+    }
+
+    protected static void recordApplicationDiagnostics(
+            KubernetesApplicationClient application, Integer tailLines) {
         String applicationId = application.getClusterId();
         try {
             LOG.error("Application {} status: {}", applicationId, application.getStatus());
@@ -257,13 +325,45 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
                                     null,
                                     false,
                                     null,
-                                    200,
+                                    tailLines,
                                     false);
                     Files.write(
-                            reports.resolve(name + ".log"), logs.getBytes(StandardCharsets.UTF_8));
+                            reports.resolve(name + ".log"),
+                            (logs == null ? "" : logs).getBytes(StandardCharsets.UTF_8));
                     LOG.error("Application Pod {} logs: {}", name, logs);
                 } catch (ApiException e) {
                     LOG.warn("Cannot read logs for Pod {}", name, e);
+                }
+                if (pod.getStatus() != null
+                        && pod.getStatus().getContainerStatuses() != null
+                        && pod.getStatus().getContainerStatuses().stream()
+                                .anyMatch(
+                                        status ->
+                                                status.getRestartCount() != null
+                                                        && status.getRestartCount() > 0)) {
+                    try {
+                        String previous =
+                                core.readNamespacedPodLog(
+                                        name,
+                                        namespace,
+                                        CONTAINER_NAME,
+                                        false,
+                                        false,
+                                        null,
+                                        null,
+                                        true,
+                                        null,
+                                        tailLines,
+                                        false);
+                        Files.writeString(
+                                reports.resolve(name + "-previous.log"),
+                                previous == null ? "" : previous);
+                    } catch (ApiException unavailable) {
+                        LOG.warn(
+                                "Cannot read previous container logs for Pod {}",
+                                name,
+                                unavailable);
+                    }
                 }
             }
         } catch (Exception e) {
@@ -384,38 +484,32 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
     private static void awaitAllResourcesRemoved(KubernetesApplicationClient application) {
         Awaitility.await()
                 .atMost(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () -> {
-                            assertTrue(pods(application, null).isEmpty());
-                            assertTrue(
-                                    missing(
-                                            () ->
-                                                    batch.readNamespacedJob(
-                                                            application.getClusterId(),
-                                                            namespace,
-                                                            null)));
-                            assertTrue(
-                                    missing(
-                                            () ->
-                                                    core.readNamespacedService(
-                                                            application.getClusterId(),
-                                                            namespace,
-                                                            null)));
-                            assertTrue(
-                                    missing(
-                                            () ->
-                                                    core.readNamespacedSecret(
-                                                            application.getClusterId(),
-                                                            namespace,
-                                                            null)));
-                            assertTrue(
-                                    missing(
-                                            () ->
-                                                    core.readNamespacedConfigMap(
-                                                            application.getClusterId(),
-                                                            namespace,
-                                                            null)));
-                        });
+                .untilAsserted(() -> assertAllResourcesRemoved(application));
+    }
+
+    protected static void assertAllResourcesRemoved(KubernetesApplicationClient application)
+            throws Exception {
+        assertTrue(pods(application, null).isEmpty());
+        assertTrue(
+                missing(
+                        () ->
+                                batch.readNamespacedJob(
+                                        application.getClusterId(), namespace, null)));
+        assertTrue(
+                missing(
+                        () ->
+                                core.readNamespacedService(
+                                        application.getClusterId(), namespace, null)));
+        assertTrue(
+                missing(
+                        () ->
+                                core.readNamespacedSecret(
+                                        application.getClusterId(), namespace, null)));
+        assertTrue(
+                missing(
+                        () ->
+                                core.readNamespacedConfigMap(
+                                        application.getClusterId(), namespace, null)));
     }
 
     protected static boolean missing(ApiRead read) throws Exception {
@@ -479,18 +573,21 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
     /** Reads retained Pod logs even after the application has finished, for failure diagnostics. */
     protected static String retainedPodLogs(String name) throws Exception {
         try {
-            return core.readNamespacedPodLog(
-                    name,
-                    namespace,
-                    CONTAINER_NAME,
-                    false,
-                    false,
-                    null,
-                    null,
-                    false,
-                    null,
-                    null,
-                    false);
+            String logs =
+                    core.readNamespacedPodLog(
+                            name,
+                            namespace,
+                            CONTAINER_NAME,
+                            false,
+                            false,
+                            null,
+                            null,
+                            false,
+                            null,
+                            null,
+                            false);
+            // The SDK returns null for an empty successful response while logs are starting.
+            return logs == null ? "" : logs;
         } catch (ApiException failure) {
             // Pod phase can become Running before kubelet makes its container log available.
             if (failure.getCode() == 400 || failure.getCode() == 404) {
@@ -537,7 +634,7 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
             createSharedFixtures();
             deployer = new KubernetesApplicationClusterDescriptorFactory().create(options);
             platformMonitor = KubernetesClientFactory.create(options, false);
-        } catch (Exception failure) {
+        } catch (Exception | AssertionError failure) {
             stopCluster();
             throw failure;
         }
@@ -763,7 +860,7 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
             Files.copy(
                     DependencyJar.staged("seatunnel-shade-hadoop3-uber.jar").path(),
                     lib.resolve("seatunnel-shade-hadoop3-uber.jar"));
-            for (String connector : Arrays.asList("fake", "console", "assert")) {
+            for (String connector : Arrays.asList("fake", "console", "assert", "file-local")) {
                 String name = "connector-" + connector + ".jar";
                 Files.copy(DependencyJar.staged(name).path(), connectors.resolve(name));
             }
@@ -780,8 +877,66 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
             Files.copy(
                     Paths.get(PROJECT_ROOT_PATH, "plugin-mapping.properties"),
                     connectors.resolve("plugin-mapping.properties"));
+            // Ship only the tiny gate fixture and its existing checkpointable split protocol.
+            // No production connector or worker checkpoint-volume behavior changes.
+            try (java.util.jar.JarOutputStream jar =
+                    new java.util.jar.JarOutputStream(
+                            Files.newOutputStream(
+                                    connectors.resolve("connector-kubernetes-gated.jar")))) {
+                java.util.List<Class<?>> classes = new java.util.ArrayList<>();
+                classes.add(KubernetesGatedSequenceSource.class);
+                classes.addAll(
+                        Arrays.asList(KubernetesGatedSequenceSource.class.getDeclaredClasses()));
+                for (String name :
+                        Arrays.asList(
+                                "CheckpointableSequenceSource",
+                                "CheckpointableSequenceSourceFactory",
+                                "CheckpointableSequenceSourceReader",
+                                "CheckpointableSequenceSplit",
+                                "CheckpointableSequenceSplitEnumerator",
+                                "CheckpointableSequenceState")) {
+                    classes.add(
+                            Class.forName(
+                                    "org.apache.seatunnel.e2e.source.checkpointable." + name));
+                }
+                for (Class<?> type : classes) {
+                    String resource = type.getName().replace('.', '/') + ".class";
+                    jar.putNextEntry(new java.util.jar.JarEntry(resource));
+                    try (InputStream input = type.getClassLoader().getResourceAsStream(resource)) {
+                        if (input == null)
+                            throw new IOException("Missing test fixture " + resource);
+                        input.transferTo(jar);
+                    }
+                    jar.closeEntry();
+                }
+                jar.putNextEntry(
+                        new java.util.jar.JarEntry(
+                                "META-INF/services/org.apache.seatunnel.api.table.factory.Factory"));
+                jar.write(
+                        (KubernetesGatedSequenceSource.Factory.class.getName() + "\n")
+                                .getBytes(StandardCharsets.UTF_8));
+                jar.closeEntry();
+            }
+            Files.writeString(
+                    connectors.resolve("plugin-mapping.properties"),
+                    "\nseatunnel.source.KubernetesGatedSequence = connector-kubernetes-gated\n",
+                    java.nio.file.StandardOpenOption.APPEND);
+            String probeClass =
+                    KubernetesApplicationProbe.class.getName().replace('.', '/') + ".class";
+            Path probe = home.resolve("test-probe").resolve(probeClass);
+            Files.createDirectories(probe.getParent());
+            try (InputStream input =
+                    KubernetesApplicationProbe.class
+                            .getClassLoader()
+                            .getResourceAsStream(probeClass)) {
+                if (input == null) {
+                    throw new IOException("Missing compiled Kubernetes test probe");
+                }
+                Files.copy(input, probe);
+            }
             Files.copy(suiteFile("Dockerfile").toPath(), context.resolve("Dockerfile"));
             docker().buildImageCmd(context.toFile())
+                    .withBuildArg("JAVA_VERSION", String.valueOf(Runtime.version().feature()))
                     .withTags(Collections.singleton(image))
                     .start()
                     .awaitImageId();

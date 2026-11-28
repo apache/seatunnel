@@ -52,4 +52,9 @@ public class KubernetesClientException extends SeaTunnelEngineException {
     public int getCode() {
         return code;
     }
+
+    /** A transport error, throttling, HTTP timeout, or server-side failure. */
+    public boolean isTransientFailure() {
+        return code == 0 || code == 408 || code == 429 || (code >= 500 && code < 600);
+    }
 }
