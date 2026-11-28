@@ -34,7 +34,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -106,13 +105,11 @@ class SubPlanDeploymentTest {
         when(jobInformation.getJobConfig()).thenReturn(jobConfig);
         IMap<Object, Object> states = mock(IMap.class);
         when(states.get(any())).thenAnswer(ignored -> state.get());
-        doAnswer(
-                        invocation -> {
-                            state.set(invocation.getArgument(1));
-                            return null;
-                        })
-                .when(states)
-                .set(any(), any());
+        when(states.replace(any(), any(), any()))
+                .thenAnswer(
+                        invocation ->
+                                state.compareAndSet(
+                                        invocation.getArgument(1), invocation.getArgument(2)));
         IMap<Object, Long[]> timestamps = mock(IMap.class);
         when(timestamps.get(any())).thenReturn(new Long[PipelineStatus.values().length]);
         return new SubPlan(

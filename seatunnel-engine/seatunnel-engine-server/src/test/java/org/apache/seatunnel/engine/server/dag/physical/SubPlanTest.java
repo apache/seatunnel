@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.core.job.PipelineExecutionState;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
@@ -30,6 +31,8 @@ import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import com.hazelcast.map.IMap;
 
@@ -41,11 +44,14 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -333,6 +339,7 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
         PhysicalPlan physicalPlan = mock(PhysicalPlan.class);
         JobMaster jobMaster = mock(JobMaster.class);
         when(jobMaster.getCheckpointManager()).thenReturn(checkpointManager);
+        when(jobMaster.isStatePersistenceAllowed()).thenReturn(true);
         when(jobMaster.getPhysicalPlan()).thenReturn(physicalPlan);
         doAnswer(
                         invocation -> {
@@ -354,7 +361,7 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
                             Collections.singletonList(vertex),
                             Collections.emptyList());
             subPlan.setJobMaster(jobMaster);
-            subPlan.setCurrPipelineStatus(PipelineStatus.FAILED);
+            subPlan.updatePipelineState(PipelineStatus.FAILED);
 
             String failure = "java.sql.SQLException: Access denied for user 'etl'@'10.0.1.7'";
             setErrorByPhysicalVertex(subPlan, failure);
@@ -370,6 +377,55 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
                     causes.get(0).contains("Access denied for user"),
                     "captured the placeholder instead of the real error: " + causes.get(0));
             Assertions.assertTrue(causes.get(0).startsWith("restore 1: "));
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+            value = PipelineStatus.class,
+            names = {"FAILED", "CANCELED"})
+    void shouldNotAdmitRestoreWhenVertexResetIsRefused(PipelineStatus terminalState)
+            throws Exception {
+        JobMaster jobMaster = mock(JobMaster.class);
+        CheckpointManager checkpointManager = mock(CheckpointManager.class);
+        PhysicalPlan physicalPlan = mock(PhysicalPlan.class);
+        when(jobMaster.getCheckpointManager()).thenReturn(checkpointManager);
+        when(jobMaster.isStatePersistenceAllowed()).thenReturn(true);
+        when(jobMaster.getPhysicalPlan()).thenReturn(physicalPlan);
+        when(jobMaster.isNeedRestore()).thenReturn(true);
+        when(checkpointManager.listenPipeline(1, terminalState))
+                .thenReturn(CompletableFuture.completedFuture(null));
+        PhysicalVertex vertex = mockPhysicalVertex(ExecutionState.FAILED);
+        when(vertex.initStateFuture())
+                .thenReturn(new PassiveCompletableFuture<>(new CompletableFuture<>()));
+        doThrow(new IllegalStateException("vertex reset was fenced")).when(vertex).reset();
+
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            SubPlan subPlan =
+                    newSubPlan(
+                            executorService,
+                            Collections.singletonList(vertex),
+                            Collections.emptyList());
+            subPlan.setJobMaster(jobMaster);
+            PassiveCompletableFuture<PipelineExecutionState> completion = subPlan.initStateFuture();
+            subPlan.updatePipelineState(terminalState);
+            Assertions.assertFalse(completion.isDone());
+
+            subPlan.startSubPlanStateProcess();
+
+            PipelineExecutionState result = completion.get(5, TimeUnit.SECONDS);
+            Assertions.assertEquals(terminalState, result.getPipelineStatus());
+            Assertions.assertTrue(result.getThrowableMsg().contains("vertex reset was fenced"));
+            Assertions.assertEquals(terminalState, subPlan.getPipelineState());
+            verify(vertex).reset();
+            verify(checkpointManager, never()).reportedPipelineRunning(1, false);
+            verify(physicalPlan, never()).addPipelineEndCallback(subPlan);
+            verify(jobMaster, never()).preApplyResources(subPlan);
+            verify(vertex, never()).makeTaskGroupDeploy();
+            verify(checkpointManager).listenPipeline(1, terminalState);
         } finally {
             executorService.shutdownNow();
         }

@@ -20,12 +20,14 @@ package org.apache.seatunnel.engine.server.dag.physical;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.Task;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -49,6 +51,40 @@ import static org.mockito.Mockito.when;
  * running-pipeline master restore.
  */
 class PhysicalVertexTest extends AbstractSeaTunnelServerTest<PhysicalVertexTest> {
+
+    @Test
+    public void shouldMatchOnlyCoordinatorOfflineFailureMessage() {
+        Assertions.assertTrue(
+                PhysicalVertex.isDeployedNodeOfflineFailure(
+                        "The taskGroup(taskGroupLocation) deployed node(127.0.0.1:5801) offline"));
+        Assertions.assertFalse(
+                PhysicalVertex.isDeployedNodeOfflineFailure(
+                        "The taskGroup(taskGroupLocation) deployed node(127.0.0.1:5801) restarted"));
+        Assertions.assertFalse(
+                PhysicalVertex.isDeployedNodeOfflineFailure(
+                        "deployed node(127.0.0.1:5801) offline"));
+        Assertions.assertFalse(
+                PhysicalVertex.isDeployedNodeOfflineFailure(
+                        "The taskGroup(taskGroupLocation) deployed node(127.0.0.1:5801) offline"
+                                + " while retrying"));
+    }
+
+    @Test
+    public void shouldMatchCoordinatorOfflineFailureAfterExceptionFlattening() {
+        TaskGroupLocation taskGroupLocation = new TaskGroupLocation(1L, 2, 3L);
+        String deployedAddress = "127.0.0.1:5801";
+        String throwableMsg =
+                new TaskExecutionState(
+                                taskGroupLocation,
+                                ExecutionState.FAILED,
+                                new JobException(
+                                        String.format(
+                                                "The taskGroup(%s) deployed node(%s) offline",
+                                                taskGroupLocation, deployedAddress)))
+                        .getThrowableMsg();
+
+        Assertions.assertTrue(PhysicalVertex.isDeployedNodeOfflineFailure(throwableMsg));
+    }
 
     @Test
     void shouldTreatFinishedUnboundedSourceTaskGroupAsRecoverable() {
