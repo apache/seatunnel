@@ -1359,6 +1359,85 @@ public class CheckpointCoordinatorTest
         }
     }
 
+    /** A completion callback must not discharge a checkpoint that cleanup already removed. */
+    @Test
+    void testCompletePendingCheckpointShouldNotThrowWhenPendingCheckpointRemovedConcurrently() {
+        assertPendingAccountingAfterNotification(true);
+    }
+
+    @Test
+    void testCompletePendingCheckpointDischargesOneLiveReservation() {
+        assertPendingAccountingAfterNotification(false);
+    }
+
+    private void assertPendingAccountingAfterNotification(boolean resetBeforeRemoval) {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointCoordinator coordinator = buildMinimalCoordinator(executorService);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+
+            long checkpointId = 1L;
+            PendingCheckpoint pendingCheckpoint =
+                    new PendingCheckpoint(
+                            1L,
+                            1,
+                            checkpointId,
+                            System.currentTimeMillis(),
+                            CheckpointType.CHECKPOINT_TYPE,
+                            new HashSet<>(),
+                            new HashMap<>(),
+                            new HashMap<>());
+
+            @SuppressWarnings("unchecked")
+            ConcurrentHashMap<Long, PendingCheckpoint> pendingCheckpoints =
+                    (ConcurrentHashMap<Long, PendingCheckpoint>)
+                            ReflectionUtils.getField(spy, "pendingCheckpoints")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCheckpoints field not found"));
+            pendingCheckpoints.put(checkpointId, pendingCheckpoint);
+
+            AtomicInteger pendingCounter =
+                    (AtomicInteger)
+                            ReflectionUtils.getField(spy, "pendingCounter")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCounter field not found"));
+            pendingCounter.set(1);
+
+            Mockito.doAnswer(
+                            invocation -> {
+                                if (resetBeforeRemoval) {
+                                    spy.cleanPendingCheckpoint(
+                                            CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET);
+                                }
+                                return true;
+                            })
+                    .when(spy)
+                    .notifyCompleted(Mockito.any());
+
+            CompletedCheckpoint completedCheckpoint =
+                    new CompletedCheckpoint(
+                            1L,
+                            1,
+                            checkpointId,
+                            System.currentTimeMillis(),
+                            CheckpointType.CHECKPOINT_TYPE,
+                            System.currentTimeMillis(),
+                            new HashMap<>(),
+                            new HashMap<>());
+
+            Assertions.assertDoesNotThrow(() -> spy.completePendingCheckpoint(completedCheckpoint));
+            Assertions.assertTrue(pendingCheckpoints.isEmpty());
+            Assertions.assertEquals(
+                    0, pendingCounter.get(), "each reservation must be released once");
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
     /**
      * Regression for the per-subtask state remap in {@code CheckpointCoordinator#restoreTaskState}:
      * for every old/new parallelism pair in 1..4 x 1..4, every subtask state recorded in the
