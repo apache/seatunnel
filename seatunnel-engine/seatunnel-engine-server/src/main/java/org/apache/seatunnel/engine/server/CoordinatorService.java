@@ -124,6 +124,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.options.EnvCommonOptions.CHECKPOINT_INTERVAL;
@@ -188,6 +189,33 @@ public class CoordinatorService {
      * value: job master;
      */
     private final Map<Long, JobMaster> runningJobMasterMap = new ConcurrentHashMap<>();
+
+    /**
+     * Submissions that have been accepted by this coordinator but whose {@link JobMaster} is not in
+     * {@link #pendingJobQueue} yet, keyed by job id.
+     *
+     * <p>{@link #submitJob} performs the "is this job id already known" check and the call that
+     * publishes the new {@link JobMaster} on different threads: the check runs on the caller thread
+     * and the publication happens inside the asynchronous admission task. Without this registry two
+     * client retries that reach the coordinator before the first admission task finishes both pass
+     * the check, both build a {@link JobMaster} for the same job id and both enqueue it. The
+     * duplicate JobMasters then drive the same {@code PhysicalPlan} task groups through the state
+     * machine at the same time, which leaves the job RUNNING forever after its tasks have already
+     * finished. The registry makes admission of one job id atomic: the first caller owns the
+     * future, every concurrent duplicate gets that same future instead of starting a second
+     * admission.
+     */
+    private final Map<Long, CompletableFuture<Void>> submittingJobFutures =
+            new ConcurrentHashMap<>();
+
+    /**
+     * Test-only gate invoked after the "job already known" check and before the job id is claimed
+     * in {@link #submittingJobFutures}.
+     *
+     * <p>It exists so a regression test can hold a duplicate submission inside the window where the
+     * job is not visible yet but the claim has not been taken. Production code never installs it.
+     */
+    @VisibleForTesting static volatile Consumer<Long> submissionClaimGate;
 
     private final PeekBlockingQueue<PendingJobInfo> pendingJobQueue =
             new PeekBlockingQueue<>(PendingJobInfo::getJobId);
@@ -1319,6 +1347,18 @@ public class CoordinatorService {
         schedulingJobMasters.forEach(JobMaster::interrupt);
         schedulingJobMasters.clear();
         schedulingPendingJobIds.clear();
+        // Fail the submissions this coordinator generation has accepted but not finished admitting
+        // yet. The executor is interrupted below, so an admission task that is still running will
+        // observe it and stop; a task cancelled before it started would otherwise leave its
+        // in-flight future in the map and make a retry against the next generation wait forever.
+        submittingJobFutures
+                .values()
+                .forEach(
+                        future ->
+                                future.completeExceptionally(
+                                        new JobException(
+                                                "The coordinator service is no longer active; the job submission was not completed.")));
+        submittingJobFutures.clear();
         pendingJobQueue.release();
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
@@ -1433,90 +1473,139 @@ public class CoordinatorService {
             return new PassiveCompletableFuture<>(jobSubmitFuture);
         }
 
-        MDCExecutorService mdcExecutorService = MDCTracer.tracing(jobId, executorService);
-        mdcExecutorService.submit(
-                () -> {
-                    JobMaster jobMaster = null;
-                    JobInfo submittedJobInfo = null;
-                    try {
-                        JobImmutableInformation submittedJobImmutableInformation =
-                                deserializeJobImmutableInformation(jobImmutableInformation);
-                        validateCheckpointRestoreSourceJobIsTerminal(
-                                submittedJobImmutableInformation, jobId);
-                        if (isStartWithSavePoint) {
-                            cleanupPendingPipelineCleanupForRestore(jobId);
-                        }
-                        JobCleanupRecord pendingCleanupRecord =
-                                pendingJobCleanupIMap != null
-                                        ? pendingJobCleanupIMap.get(jobId)
-                                        : null;
-                        if (pendingCleanupRecord != null
-                                && isCleanupOwnedByCurrentJob(jobId, pendingCleanupRecord)) {
-                            if (isStartWithSavePoint) {
-                                cleanupPendingJobStateForRestore(jobId, pendingCleanupRecord);
-                            } else {
-                                throw new JobException(
-                                        String.format(
-                                                "The job id %s is waiting for terminal state cleanup, please retry later.",
-                                                jobId));
-                            }
-                        }
+        // The running-job check above only sees JobMasters that have already been published to the
+        // pending queue. Admission publishes that JobMaster asynchronously, so two retries of the
+        // same job id can both pass the check before either admission finishes. Claim the job id
+        // atomically here and let concurrent duplicates share the owner's future; otherwise both
+        // callers build a JobMaster and the duplicate state machines corrupt the job's terminal
+        // state.
+        Consumer<Long> claimGate = submissionClaimGate;
+        if (claimGate != null) {
+            claimGate.accept(jobId);
+        }
+        CompletableFuture<Void> inFlightSubmission =
+                submittingJobFutures.putIfAbsent(jobId, jobSubmitFuture);
+        if (inFlightSubmission != null) {
+            logger.warning(
+                    String.format(
+                            "The job %s is currently being submitted; no need to submit again.",
+                            jobId));
+            return new PassiveCompletableFuture<>(inFlightSubmission);
+        }
+        // The claim above only serializes callers that overlap with an in-flight admission. A
+        // caller that passed the running-job check, was delayed, and arrives after the owner
+        // published its JobMaster and released the claim would take a free slot while the job is
+        // already known, and start a second admission for the same id. Recheck visibility after
+        // the claim: if the job is already published, release the claim and resolve like the
+        // already-running case instead of admitting it again.
+        if (getJobMaster(jobId) != null) {
+            submittingJobFutures.remove(jobId, jobSubmitFuture);
+            logger.warning(
+                    String.format(
+                            "The job %s is currently running; no need to submit again.", jobId));
+            jobSubmitFuture.complete(null);
+            return new PassiveCompletableFuture<>(jobSubmitFuture);
+        }
 
-                        jobMaster =
-                                new JobMaster(
-                                        jobId,
-                                        jobImmutableInformation,
-                                        this.nodeEngine,
-                                        mdcExecutorService,
-                                        getResourceManager(),
-                                        getJobHistoryService(),
-                                        runningJobStateIMap,
-                                        runningJobStateTimestampsIMap,
-                                        ownedSlotProfilesIMap,
-                                        runningJobInfoIMap,
-                                        engineConfig,
-                                        seaTunnelServer);
-                        if (!isStartWithSavePoint
-                                && getJobHistoryService().getJobMetrics(jobId)
-                                        != JobMetrics.empty()) {
-                            throw new JobException(
-                                    String.format(
-                                            "The job id %s has already been submitted and is not starting with a savepoint.",
-                                            jobId));
+        MDCExecutorService mdcExecutorService = MDCTracer.tracing(jobId, executorService);
+        try {
+            mdcExecutorService.submit(
+                    () -> {
+                        try {
+                            JobMaster jobMaster = null;
+                            JobInfo submittedJobInfo = null;
+                            try {
+                                JobImmutableInformation submittedJobImmutableInformation =
+                                        deserializeJobImmutableInformation(jobImmutableInformation);
+                                validateCheckpointRestoreSourceJobIsTerminal(
+                                        submittedJobImmutableInformation, jobId);
+                                if (isStartWithSavePoint) {
+                                    cleanupPendingPipelineCleanupForRestore(jobId);
+                                }
+                                JobCleanupRecord pendingCleanupRecord =
+                                        pendingJobCleanupIMap != null
+                                                ? pendingJobCleanupIMap.get(jobId)
+                                                : null;
+                                if (pendingCleanupRecord != null
+                                        && isCleanupOwnedByCurrentJob(
+                                                jobId, pendingCleanupRecord)) {
+                                    if (isStartWithSavePoint) {
+                                        cleanupPendingJobStateForRestore(
+                                                jobId, pendingCleanupRecord);
+                                    } else {
+                                        throw new JobException(
+                                                String.format(
+                                                        "The job id %s is waiting for terminal state cleanup, please retry later.",
+                                                        jobId));
+                                    }
+                                }
+
+                                jobMaster =
+                                        new JobMaster(
+                                                jobId,
+                                                jobImmutableInformation,
+                                                this.nodeEngine,
+                                                mdcExecutorService,
+                                                getResourceManager(),
+                                                getJobHistoryService(),
+                                                runningJobStateIMap,
+                                                runningJobStateTimestampsIMap,
+                                                ownedSlotProfilesIMap,
+                                                runningJobInfoIMap,
+                                                engineConfig,
+                                                seaTunnelServer);
+                                if (!isStartWithSavePoint
+                                        && getJobHistoryService().getJobMetrics(jobId)
+                                                != JobMetrics.empty()) {
+                                    throw new JobException(
+                                            String.format(
+                                                    "The job id %s has already been submitted and is not starting with a savepoint.",
+                                                    jobId));
+                                }
+                                long initializationTimestamp = System.currentTimeMillis();
+                                submittedJobInfo =
+                                        new JobInfo(
+                                                initializationTimestamp, jobImmutableInformation);
+                                runningJobInfoIMap.put(jobId, submittedJobInfo);
+                                jobMaster.init(initializationTimestamp, false);
+                                // Initialize the JobMaster and add it to the pendingJobQueue,
+                                // ensuring that calling the getJobMaster method does not return
+                                // NULL when the jobSubmitFuture is still running.
+                                PendingJobInfo pendingJobInfo =
+                                        new PendingJobInfo(PendingSourceState.SUBMIT, jobMaster);
+                                pendingJobQueue.put(pendingJobInfo);
+                                // We specify that when init is complete, the submitJob is complete.
+                                jobSubmitFuture.complete(null);
+                            } catch (Throwable e) {
+                                String errorMsg = ExceptionUtils.getMessage(e);
+                                logger.severe(
+                                        String.format("submit job %s error %s ", jobId, errorMsg));
+                                jobSubmitFuture.completeExceptionally(new JobException(errorMsg));
+                            }
+                            if (!jobSubmitFuture.isCompletedExceptionally()) {
+                                jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
+                                logger.info(
+                                        String.format(
+                                                "The submit job enter the pending queue , jobId: %s , jobName: %s",
+                                                jobId,
+                                                jobMaster
+                                                        .getJobImmutableInformation()
+                                                        .getJobName()));
+                            } else {
+                                if (submittedJobInfo != null) {
+                                    runningJobInfoIMap.remove(jobId, submittedJobInfo);
+                                }
+                                runningJobMasterMap.remove(jobId);
+                                pendingJobQueue.removeById(jobId);
+                            }
+                        } finally {
+                            submittingJobFutures.remove(jobId, jobSubmitFuture);
                         }
-                        long initializationTimestamp = System.currentTimeMillis();
-                        submittedJobInfo =
-                                new JobInfo(initializationTimestamp, jobImmutableInformation);
-                        runningJobInfoIMap.put(jobId, submittedJobInfo);
-                        jobMaster.init(initializationTimestamp, false);
-                        // Initialize the JobMaster and add it to the pendingJobQueue, ensuring that
-                        // calling the getJobMaster method does not return NULL when the
-                        // jobSubmitFuture is still running.
-                        PendingJobInfo pendingJobInfo =
-                                new PendingJobInfo(PendingSourceState.SUBMIT, jobMaster);
-                        pendingJobQueue.put(pendingJobInfo);
-                        // We specify that when init is complete, the submitJob is complete.
-                        jobSubmitFuture.complete(null);
-                    } catch (Throwable e) {
-                        String errorMsg = ExceptionUtils.getMessage(e);
-                        logger.severe(String.format("submit job %s error %s ", jobId, errorMsg));
-                        jobSubmitFuture.completeExceptionally(new JobException(errorMsg));
-                    }
-                    if (!jobSubmitFuture.isCompletedExceptionally()) {
-                        jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
-                        logger.info(
-                                String.format(
-                                        "The submit job enter the pending queue , jobId: %s , jobName: %s",
-                                        jobId,
-                                        jobMaster.getJobImmutableInformation().getJobName()));
-                    } else {
-                        if (submittedJobInfo != null) {
-                            runningJobInfoIMap.remove(jobId, submittedJobInfo);
-                        }
-                        runningJobMasterMap.remove(jobId);
-                        pendingJobQueue.removeById(jobId);
-                    }
-                });
+                    });
+        } catch (Throwable e) {
+            submittingJobFutures.remove(jobId, jobSubmitFuture);
+            jobSubmitFuture.completeExceptionally(new JobException(ExceptionUtils.getMessage(e)));
+        }
         return new PassiveCompletableFuture<>(jobSubmitFuture);
     }
 
