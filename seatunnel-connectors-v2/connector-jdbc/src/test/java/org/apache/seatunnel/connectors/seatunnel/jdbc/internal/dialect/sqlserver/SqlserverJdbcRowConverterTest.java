@@ -18,19 +18,90 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver;
 
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.junit.jupiter.api.Test;
 
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.Types;
+import java.util.Collections;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.powermock.api.mockito.PowerMockito.mock;
 
 public class SqlserverJdbcRowConverterTest {
+
+    @Test
+    void testReadAfterSchemaChange() throws Exception {
+        SqlserverJdbcRowConverter converter = new SqlserverJdbcRowConverter();
+        TableSchema integerSchema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "value", BasicType.INT_TYPE, 0L, true, null, null))
+                        .build();
+        TableSchema stringSchema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "value", BasicType.STRING_TYPE, 0L, true, null, null))
+                        .build();
+        ResultSet resultSet = mock(ResultSet.class);
+        when(resultSet.getInt(1)).thenReturn(42);
+        when(resultSet.getObject(1)).thenReturn("text");
+        when(resultSet.getString(1)).thenReturn("text");
+
+        assertEquals(42, converter.toInternal(resultSet, integerSchema).getField(0));
+        assertEquals("text", converter.toInternal(resultSet, stringSchema).getField(0));
+        assertEquals(42, converter.toInternal(resultSet, integerSchema).getField(0));
+    }
+
+    @Test
+    void testBindNullAfterSchemaChange() throws Exception {
+        SqlserverJdbcRowConverter converter = new SqlserverJdbcRowConverter();
+        PhysicalColumn imageColumn =
+                PhysicalColumn.of(
+                        "payload",
+                        PrimitiveByteArrayType.INSTANCE,
+                        0L,
+                        true,
+                        null,
+                        null,
+                        SqlServerTypeConverter.SQLSERVER_IMAGE,
+                        Collections.emptyMap());
+        TableSchema imageSchema = TableSchema.builder().column(imageColumn).build();
+        TableSchema binarySchema =
+                TableSchema.builder().column(imageColumn.reSourceType("varbinary")).build();
+        TableSchema reorderedSchema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.INT_TYPE, 0L, false, null, null))
+                        .column(imageColumn)
+                        .build();
+        PreparedStatement imageStatement = mock(PreparedStatement.class);
+        PreparedStatement binaryStatement = mock(PreparedStatement.class);
+        PreparedStatement reorderedStatement = mock(PreparedStatement.class);
+
+        converter.toExternal(imageSchema, imageSchema, new SeaTunnelRow(1), imageStatement);
+        converter.toExternal(imageSchema, binarySchema, new SeaTunnelRow(1), binaryStatement);
+        converter.toExternal(
+                reorderedSchema,
+                binarySchema,
+                new SeaTunnelRow(new Object[] {1, null}),
+                reorderedStatement);
+
+        verify(imageStatement).setNull(1, Types.LONGVARBINARY);
+        verify(binaryStatement).setNull(1, Types.VARBINARY);
+        verify(reorderedStatement).setInt(1, 1);
+        verify(reorderedStatement).setNull(2, Types.VARBINARY);
+    }
 
     @Test
     void testSetNullToStatementByDataTypeForImage() throws Exception {

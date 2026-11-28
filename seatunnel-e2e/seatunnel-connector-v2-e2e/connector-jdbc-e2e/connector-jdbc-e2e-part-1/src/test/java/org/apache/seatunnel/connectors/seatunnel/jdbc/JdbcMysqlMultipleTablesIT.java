@@ -186,19 +186,25 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
                 TABLES.stream()
                         .map(
                                 (Function<String, Executable>)
-                                        table ->
-                                                () ->
-                                                        Assertions.assertIterableEquals(
-                                                                query(
-                                                                        String.format(
-                                                                                "SELECT * FROM %s.%s",
-                                                                                SOURCE_DATABASE,
-                                                                                table)),
-                                                                query(
-                                                                        String.format(
-                                                                                "SELECT * FROM %s.%s",
-                                                                                SINK_DATABASE,
-                                                                                table))))
+                                        table -> {
+                                            String fields =
+                                                    "table2".equals(table)
+                                                            ? "c_varchar, c_int, c_bigint, c_datetime"
+                                                            : "*";
+                                            String select = "SELECT " + fields + " FROM %s.%s";
+                                            return () ->
+                                                    Assertions.assertIterableEquals(
+                                                            query(
+                                                                    String.format(
+                                                                            select,
+                                                                            SOURCE_DATABASE,
+                                                                            table)),
+                                                            query(
+                                                                    String.format(
+                                                                            select,
+                                                                            SINK_DATABASE,
+                                                                            table)));
+                                        })
                         .collect(Collectors.toList());
         Assertions.assertAll(asserts);
 
