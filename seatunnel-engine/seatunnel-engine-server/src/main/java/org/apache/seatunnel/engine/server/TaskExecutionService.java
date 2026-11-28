@@ -106,7 +106,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
 import static com.hazelcast.jet.impl.util.Util.uncheckRun;
@@ -361,34 +360,82 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     /**
-     * Submits tasks to the thread-share queue for cooperative execution. Each task is wrapped in a
-     * TaskTracker and initialized before being added to the queue.
+     * Initializes the thread-share tasks of a task group and queues them for the cooperative
+     * workers.
+     *
+     * <p>Every task in {@code tasks} either reaches the queue or is reported done here. A task
+     * whose {@code init()} throws is closed, so that what it already created is released, and its
+     * error is recorded. Once the group has failed or was cancelled, the remaining tasks of this
+     * list are not initialized. A task whose {@code init()} is already running when a cancel
+     * arrives finishes {@code init()} and is queued, and a cooperative worker then closes it and
+     * reports it done, as it does with every queued task of a group that failed or was cancelled.
+     * The blocking tasks of the same group are still started by {@link #submitBlockingTask} and
+     * stop once they see the failure. The completion latch of the group counts all its tasks, so a
+     * task that is neither queued nor done would keep the group from ever finishing: its context
+     * would stay published, a redeploy of the location would be skipped, and the job would hang.
      *
      * @param taskGroupExecutionTracker the tracker for the task group execution
-     * @param tasks the list of tasks to submit
+     * @param tasks the thread-share tasks of the group to submit
      */
     private void submitThreadShareTask(
             TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
-        Stream<TaskTracker> taskTrackerStream =
-                tasks.stream()
-                        .map(
-                                t -> {
-                                    if (!taskGroupExecutionTracker
-                                            .executionCompletedExceptionally()) {
-                                        try {
-                                            TaskTracker taskTracker =
-                                                    new TaskTracker(t, taskGroupExecutionTracker);
-                                            taskTracker.task.init();
-                                            return taskTracker;
-                                        } catch (Exception e) {
-                                            taskGroupExecutionTracker.exception(e);
-                                            taskGroupExecutionTracker.taskDone(t);
-                                        }
-                                    }
-                                    return null;
-                                });
-        if (!taskGroupExecutionTracker.executionCompletedExceptionally()) {
-            taskTrackerStream.forEach(threadShareTaskQueue::add);
+        for (Task task : tasks) {
+            if (taskGroupExecutionTracker.executionCompletedExceptionally()) {
+                logger.info(
+                        String.format(
+                                "Skip init of task %d, task group %s has already failed or was cancelled",
+                                task.getTaskID(),
+                                taskGroupExecutionTracker.taskGroup.getTaskGroupLocation()));
+                taskGroupExecutionTracker.taskDone(task);
+                continue;
+            }
+            try {
+                TaskTracker taskTracker = new TaskTracker(task, taskGroupExecutionTracker);
+                taskTracker.task.init();
+                threadShareTaskQueue.add(taskTracker);
+            } catch (Throwable e) {
+                logger.warning("Exception in init of " + task, e);
+                closeTaskAfterFailedInit(task, e);
+                taskGroupExecutionTracker.exception(e);
+                taskGroupExecutionTracker.taskDone(task);
+            }
+        }
+    }
+
+    /**
+     * Closes a thread-share task whose {@code init()} threw, as {@code BlockingWorker} does for a
+     * blocking task that did not finish: {@code init()} may have created part of the task, such as
+     * the reader of a source, before it failed. A failure to close is logged and added to {@code
+     * initFailure} as suppressed, so the error of {@code init()} stays the one that is reported.
+     *
+     * @param task the task whose {@code init()} threw
+     * @param initFailure the error thrown by {@code init()}
+     */
+    private void closeTaskAfterFailedInit(Task task, Throwable initFailure) {
+        try {
+            task.close();
+        } catch (Throwable closeFailure) {
+            logger.warning("Close task error after a failed init of " + task, closeFailure);
+            initFailure.addSuppressed(closeFailure);
+        }
+    }
+
+    /**
+     * Closes an initialized thread-share task that a cooperative worker takes off the queue for
+     * good before it finished: its group failed or was cancelled, or its {@code call()} threw. This
+     * is what {@code BlockingWorker} does for a blocking task that did not finish, so the reader,
+     * writer or committer the task created is released. A task whose {@code call()} reported done
+     * does not come here. The worker calls this only for a task it holds and is not running, before
+     * it reports the task done. A failure to close is logged, so the error of the group stays the
+     * one that is reported.
+     *
+     * @param task the initialized task that will not be called again
+     */
+    private void closeUnfinishedTask(Task task) {
+        try {
+            task.close();
+        } catch (Throwable closeFailure) {
+            logger.warning("Close task error of unfinished task " + task, closeFailure);
         }
     }
 
@@ -1388,12 +1435,17 @@ public class TaskExecutionService implements DynamicMetricsProvider {
          *
          * <ol>
          *   <li>Wait for a task from the queue or exclusive tracker
-         *   <li>Check if execution completed exceptionally, handle accordingly
+         *   <li>If the task group already failed or was cancelled, close the task and mark it done
          *   <li>Start the task call timer for timeout detection
-         *   <li>Execute the task via {@link Task#call()}
+         *   <li>Execute the task via {@link Task#call()}; if it throws, close the task and mark it
+         *       done
          *   <li>Stop the timer and check the result
          *   <li>If task is done, mark it complete; otherwise, re-queue for next iteration
          * </ol>
+         *
+         * <p>Every task in the queue was initialized, so a task this worker drops before it
+         * finished is closed first, as {@code BlockingWorker} closes a blocking task that did not
+         * finish.
          */
         @SneakyThrows
         @Override
@@ -1409,6 +1461,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 TaskGroupExecutionTracker taskGroupExecutionTracker =
                         taskTracker.taskGroupExecutionTracker;
                 if (taskGroupExecutionTracker.executionCompletedExceptionally()) {
+                    closeUnfinishedTask(taskTracker.task);
                     taskGroupExecutionTracker.taskDone(taskTracker.task);
                     if (null != exclusiveTaskTracker.get()) {
                         // If it's exclusive need to end the work
@@ -1441,6 +1494,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             && !taskGroupExecutionTracker.isCancel.get()) {
                         taskGroupExecutionTracker.exception(e);
                     }
+                    closeUnfinishedTask(taskTracker.task);
                     taskGroupExecutionTracker.taskDone(taskTracker.task);
                     logger.warning("Exception in " + taskTracker.task, e);
                     if (null != exclusiveTaskTracker.get()) {
@@ -1449,6 +1503,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 } catch (Throwable e) {
                     // task Failure and complete
                     taskGroupExecutionTracker.exception(e);
+                    closeUnfinishedTask(taskTracker.task);
                     taskGroupExecutionTracker.taskDone(taskTracker.task);
                     // If it's exclusive need to end the work
                     logger.warning("Exception in " + taskTracker.task, e);

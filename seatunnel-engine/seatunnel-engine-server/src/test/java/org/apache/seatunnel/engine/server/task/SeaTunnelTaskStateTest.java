@@ -19,7 +19,9 @@ package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
+import org.apache.seatunnel.engine.server.dag.physical.flow.Flow;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.flow.AbstractFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.FlowLifeCycle;
@@ -34,6 +36,7 @@ import org.mockito.Mockito;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ScheduledFuture;
 
@@ -431,6 +434,25 @@ public class SeaTunnelTaskStateTest {
         verify(secondCycle, times(1)).open();
         verify(sourceLifeCycle, times(1)).hook();
         verify(secondCycle, times(1)).hook();
+    }
+
+    // ==================== Close Tests ====================
+
+    /**
+     * A task whose {@code init()} failed before the flow lifecycles were built is still closed by
+     * the task execution service; that close must not fail on the missing lifecycles.
+     */
+    @Test
+    void testCloseBeforeFlowLifeCyclesAreBuilt() {
+        TransformSeaTunnelTask notInitialized =
+                new TransformSeaTunnelTask(
+                        1L,
+                        new TaskLocation(new TaskGroupLocation(1L, 1, 1), 0, 0),
+                        0,
+                        mock(Flow.class),
+                        Collections.emptyMap());
+
+        Assertions.assertDoesNotThrow(notInitialized::close);
     }
 
     private void advanceTo(SeaTunnelTaskState target) throws Exception {

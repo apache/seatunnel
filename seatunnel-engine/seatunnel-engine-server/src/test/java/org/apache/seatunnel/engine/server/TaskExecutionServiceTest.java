@@ -20,6 +20,8 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
@@ -47,6 +49,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
@@ -242,6 +245,321 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
             workers.awaitTermination(10, TimeUnit.SECONDS);
             deployer.awaitTermination(10, TimeUnit.SECONDS);
             ReflectionUtils.setField(service, "executorService", originalExecutor);
+        }
+    }
+
+    /**
+     * In thread-share mode a task whose {@code init()} fails used to make the submission queue a
+     * null tracker, which threw a NullPointerException and left the tasks after it neither queued
+     * nor done. The completion latch of the group then never reached zero, so the group never
+     * finished and its context stayed published. Now the group completes FAILED with the error of
+     * {@code init()}, whether it is an {@link Exception} or an {@link Error}: the failing task is
+     * closed, the tasks after it are neither initialized nor closed, a sibling that was already
+     * initialized and running is closed exactly once and then never called again, and the context
+     * is removed. When closing the failing task or the sibling throws, the group still completes
+     * and the error of {@code init()} stays the reported one.
+     */
+    @ParameterizedTest
+    @CsvSource({"0, false, false", "1, false, false", "1, true, false", "1, false, true"})
+    public void testThreadShareTaskInitFailureCompletesTheGroup(
+            int failingTaskIndex, boolean throwError, boolean closeThrows) throws Exception {
+        TaskExecutionService service = server.getTaskExecutionService();
+        SeaTunnelConfig config = getField(service, "seaTunnelConfig");
+        ThreadShareMode originalMode = config.getEngineConfig().getTaskExecutionThreadShareMode();
+        String failureMessage = "Source permission denied during initialization";
+        AtomicInteger initAfterFailure = new AtomicInteger();
+        AtomicInteger failingTaskCloses = new AtomicInteger();
+        AtomicInteger skippedTaskCloses = new AtomicInteger();
+        AtomicInteger runningSiblingCalls = new AtomicInteger();
+        AtomicInteger runningSiblingCloses = new AtomicInteger();
+        AtomicInteger runningSiblingCallsAfterClose = new AtomicInteger();
+        CountDownLatch runningSiblingCalled = new CountDownLatch(1);
+        String failingCloseMessage = "Close of the failing task failed";
+        List<Task> tasks = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            boolean failing = i == failingTaskIndex;
+            boolean afterFailure = i > failingTaskIndex;
+            // The task before the failing one keeps running until the group fails.
+            boolean runningSibling = i == failingTaskIndex - 1;
+            tasks.add(
+                    new TestTask(new AtomicBoolean(!runningSibling), 10, true) {
+                        @Override
+                        public void init() throws Exception {
+                            if (failing) {
+                                if (failingTaskIndex > 0) {
+                                    assertTrue(runningSiblingCalled.await(10, TimeUnit.SECONDS));
+                                }
+                                if (throwError) {
+                                    throw new NoClassDefFoundError(failureMessage);
+                                }
+                                throw new IllegalStateException(failureMessage);
+                            }
+                            if (afterFailure) {
+                                initAfterFailure.incrementAndGet();
+                            }
+                            super.init();
+                        }
+
+                        @NonNull @Override
+                        public ProgressState call() {
+                            if (runningSibling) {
+                                if (runningSiblingCloses.get() > 0) {
+                                    runningSiblingCallsAfterClose.incrementAndGet();
+                                }
+                                runningSiblingCalls.incrementAndGet();
+                                runningSiblingCalled.countDown();
+                            }
+                            return super.call();
+                        }
+
+                        @Override
+                        public void close() throws IOException {
+                            if (failing) {
+                                failingTaskCloses.incrementAndGet();
+                                if (closeThrows) {
+                                    throw new IOException(failingCloseMessage);
+                                }
+                            } else if (afterFailure) {
+                                skippedTaskCloses.incrementAndGet();
+                            } else if (runningSibling) {
+                                runningSiblingCloses.incrementAndGet();
+                                if (closeThrows) {
+                                    throw new IllegalStateException("Close of the sibling failed");
+                                }
+                            }
+                        }
+                    });
+        }
+        TaskGroupLocation location = newTaskGroupLocation();
+        TaskGroup group = new TaskGroupDefaultImpl(location, "thread-share-init-failure", tasks);
+        ConcurrentHashMap<Long, ClassLoader> classLoaders = new ConcurrentHashMap<>();
+        for (Task task : tasks) {
+            classLoaders.put(task.getTaskID(), Thread.currentThread().getContextClassLoader());
+        }
+        Map<TaskGroupLocation, TaskGroupContext> executionContexts =
+                getField(service, "executionContexts");
+        config.getEngineConfig().setTaskExecutionThreadShareMode(ThreadShareMode.PART);
+        try {
+            PassiveCompletableFuture<TaskExecutionState> result =
+                    service.deployLocalTask(
+                            FLAKE_ID_GENERATOR.newId(),
+                            group,
+                            classLoaders,
+                            new ConcurrentHashMap<>(),
+                            () -> {},
+                            failure -> {});
+
+            TaskExecutionState state = result.get(10, TimeUnit.SECONDS);
+            assertEquals(FAILED, state.getExecutionState());
+            assertTrue(state.getThrowableMsg().contains(failureMessage), state.getThrowableMsg());
+            assertEquals(0, initAfterFailure.get());
+            if (closeThrows) {
+                // The close error of the failing task is kept as suppressed, under the init error.
+                assertTrue(
+                        state.getThrowableMsg().indexOf(failureMessage)
+                                < state.getThrowableMsg().indexOf(failingCloseMessage),
+                        state.getThrowableMsg());
+            }
+            assertEquals(1, failingTaskCloses.get());
+            assertEquals(0, skippedTaskCloses.get());
+            await().atMost(10, TimeUnit.SECONDS)
+                    .until(() -> !executionContexts.containsKey(location));
+            if (failingTaskIndex > 0) {
+                // The group can only finish after a worker took the initialized running sibling
+                // off the queue for good. The worker closes it before it reports it done, so
+                // the close is visible here, and the sibling is not called after it.
+                assertTrue(runningSiblingCalls.get() > 0);
+                assertEquals(1, runningSiblingCloses.get());
+                assertEquals(0, runningSiblingCallsAfterClose.get());
+            }
+
+            // deployTask skips a location that is still active, so a group that never
+            // finished would block every later deployment there. A redeploy must start.
+            long redeployExecutionId = FLAKE_ID_GENERATOR.newId();
+            TaskGroupImmutableInformation redeploy =
+                    new TaskGroupImmutableInformation(
+                            location.getJobId(),
+                            redeployExecutionId,
+                            TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
+                            location,
+                            "thread-share-init-failure-redeploy",
+                            Arrays.asList(
+                                    nodeEngine
+                                            .getSerializationService()
+                                            .toData(
+                                                    new TestTask(
+                                                            new AtomicBoolean(false), 100, true)),
+                                    nodeEngine
+                                            .getSerializationService()
+                                            .toData(
+                                                    new TestTask(
+                                                            new AtomicBoolean(false), 100, false))),
+                            Arrays.asList(emptySet(), emptySet()),
+                            Arrays.asList(emptySet(), emptySet()));
+            assertEquals(TaskDeployState.success(), service.deployTask(redeploy));
+            assertEquals(
+                    redeployExecutionId,
+                    service.getActiveExecutionContext(location).getExecutionId());
+
+            // The redeployed tasks never finish on their own; wait for the cancel so that
+            // nothing keeps running on the shared server.
+            service.cancelTaskGroup(location);
+            await().atMost(10, TimeUnit.SECONDS)
+                    .until(() -> !executionContexts.containsKey(location));
+        } finally {
+            config.getEngineConfig().setTaskExecutionThreadShareMode(originalMode);
+            service.cancelTaskGroup(location);
+        }
+    }
+
+    /**
+     * A thread-share group cancelled while one of its tasks is still in {@code init()} completes
+     * CANCELED: the task in {@code init()} finishes it and is queued, a cooperative worker closes
+     * it exactly once and reports it done, the tasks after it are neither initialized nor closed,
+     * and the context is removed.
+     */
+    @Test
+    public void testThreadShareTaskCancelledDuringInitCompletesTheGroup() throws Exception {
+        TaskExecutionService service = server.getTaskExecutionService();
+        SeaTunnelConfig config = getField(service, "seaTunnelConfig");
+        ThreadShareMode originalMode = config.getEngineConfig().getTaskExecutionThreadShareMode();
+        CountDownLatch inInit = new CountDownLatch(1);
+        CountDownLatch releaseInit = new CountDownLatch(1);
+        AtomicInteger initAfterCancel = new AtomicInteger();
+        AtomicInteger firstTaskCloses = new AtomicInteger();
+        AtomicInteger skippedTaskCloses = new AtomicInteger();
+        List<Task> tasks = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            boolean first = i == 0;
+            tasks.add(
+                    new TestTask(new AtomicBoolean(true), 0, true) {
+                        @Override
+                        public void init() throws Exception {
+                            if (first) {
+                                inInit.countDown();
+                                assertTrue(releaseInit.await(10, TimeUnit.SECONDS));
+                            } else {
+                                initAfterCancel.incrementAndGet();
+                            }
+                            super.init();
+                        }
+
+                        @Override
+                        public void close() {
+                            if (first) {
+                                firstTaskCloses.incrementAndGet();
+                            } else {
+                                skippedTaskCloses.incrementAndGet();
+                            }
+                        }
+                    });
+        }
+        TaskGroupLocation location = newTaskGroupLocation();
+        TaskGroup group = new TaskGroupDefaultImpl(location, "thread-share-init-cancel", tasks);
+        ConcurrentHashMap<Long, ClassLoader> classLoaders = new ConcurrentHashMap<>();
+        for (Task task : tasks) {
+            classLoaders.put(task.getTaskID(), Thread.currentThread().getContextClassLoader());
+        }
+        Map<TaskGroupLocation, TaskGroupContext> executionContexts =
+                getField(service, "executionContexts");
+        ExecutorService deployer = Executors.newSingleThreadExecutor();
+        config.getEngineConfig().setTaskExecutionThreadShareMode(ThreadShareMode.PART);
+        try {
+            Future<PassiveCompletableFuture<TaskExecutionState>> deployment =
+                    deployer.submit(
+                            () ->
+                                    service.deployLocalTask(
+                                            FLAKE_ID_GENERATOR.newId(),
+                                            group,
+                                            classLoaders,
+                                            new ConcurrentHashMap<>(),
+                                            () -> {},
+                                            failure -> {}));
+            assertTrue(inInit.await(10, TimeUnit.SECONDS));
+            service.cancelTaskGroup(location);
+            releaseInit.countDown();
+
+            TaskExecutionState state =
+                    deployment.get(10, TimeUnit.SECONDS).get(10, TimeUnit.SECONDS);
+            assertEquals(CANCELED, state.getExecutionState());
+            assertEquals(0, initAfterCancel.get());
+            // The worker closes the initialized task before it reports it done.
+            assertEquals(1, firstTaskCloses.get());
+            assertEquals(0, skippedTaskCloses.get());
+            await().atMost(10, TimeUnit.SECONDS)
+                    .until(() -> !executionContexts.containsKey(location));
+        } finally {
+            releaseInit.countDown();
+            config.getEngineConfig().setTaskExecutionThreadShareMode(originalMode);
+            service.cancelTaskGroup(location);
+            deployer.shutdownNow();
+            deployer.awaitTermination(10, TimeUnit.SECONDS);
+        }
+    }
+
+    /**
+     * A thread-share task whose {@code call()} throws completes the group FAILED with that error.
+     * The cooperative worker closes both initialized tasks exactly once before it reports them
+     * done: the task that threw, and its sibling, which never finishes on its own, once the worker
+     * takes it off the queue. A blocking worker does the same for a blocking task that did not
+     * finish.
+     */
+    @Test
+    public void testThreadShareTaskCallFailureClosesTheInitializedTasks() throws Exception {
+        TaskExecutionService service = server.getTaskExecutionService();
+        SeaTunnelConfig config = getField(service, "seaTunnelConfig");
+        ThreadShareMode originalMode = config.getEngineConfig().getTaskExecutionThreadShareMode();
+        String failureMessage = "Source connection lost while reading";
+        AtomicInteger[] closes = {new AtomicInteger(), new AtomicInteger()};
+        List<Task> tasks = new ArrayList<>();
+        for (int i = 0; i < 2; i++) {
+            boolean failing = i == 1;
+            AtomicInteger taskCloses = closes[i];
+            tasks.add(
+                    new TestTask(new AtomicBoolean(false), 10, true) {
+                        @NonNull @Override
+                        public ProgressState call() {
+                            if (failing) {
+                                throw new IllegalStateException(failureMessage);
+                            }
+                            return super.call();
+                        }
+
+                        @Override
+                        public void close() {
+                            taskCloses.incrementAndGet();
+                        }
+                    });
+        }
+        TaskGroupLocation location = newTaskGroupLocation();
+        TaskGroup group = new TaskGroupDefaultImpl(location, "thread-share-call-failure", tasks);
+        ConcurrentHashMap<Long, ClassLoader> classLoaders = new ConcurrentHashMap<>();
+        for (Task task : tasks) {
+            classLoaders.put(task.getTaskID(), Thread.currentThread().getContextClassLoader());
+        }
+        Map<TaskGroupLocation, TaskGroupContext> executionContexts =
+                getField(service, "executionContexts");
+        config.getEngineConfig().setTaskExecutionThreadShareMode(ThreadShareMode.PART);
+        try {
+            TaskExecutionState state =
+                    service.deployLocalTask(
+                                    FLAKE_ID_GENERATOR.newId(),
+                                    group,
+                                    classLoaders,
+                                    new ConcurrentHashMap<>(),
+                                    () -> {},
+                                    failure -> {})
+                            .get(10, TimeUnit.SECONDS);
+
+            assertEquals(FAILED, state.getExecutionState());
+            assertTrue(state.getThrowableMsg().contains(failureMessage), state.getThrowableMsg());
+            assertEquals(1, closes[0].get());
+            assertEquals(1, closes[1].get());
+            await().atMost(10, TimeUnit.SECONDS)
+                    .until(() -> !executionContexts.containsKey(location));
+        } finally {
+            config.getEngineConfig().setTaskExecutionThreadShareMode(originalMode);
+            service.cancelTaskGroup(location);
         }
     }
 
