@@ -49,6 +49,7 @@ Clients can send fragmented messages, ping, pong, and close frames. Interleaved 
 | `field_delimiter` | String | `,` | Delimiter for schema-based text. |
 | `max_connections` | Integer | `16` | Concurrent connections, 1–64, including in-progress handshakes. |
 | `max_message_bytes` | Integer | `262144` | Complete message bytes, 1–4194304. The product of this limit and `max_connections` must be at most 32 MiB. |
+| `max_decoded_units` | Integer | `1048576` | Typed schema/message work units, 1–4194304; slots, entries and visited characters, independent of wire bytes. |
 | `max_queue_messages` | Integer | `1024` | Pending message count, 1–10000. Empty messages count toward this limit. |
 | `max_queue_bytes` | Integer | `4194304` | Pending payload bytes, from `max_message_bytes` through 32 MiB. |
 | `handshake_timeout_ms` | Integer | `5000` | Total TLS and HTTP upgrade deadline, 100–120000 ms. |
@@ -56,6 +57,10 @@ Clients can send fragmented messages, ping, pong, and close frames. Interleaved 
 | `message_timeout_ms` | Integer | `10000` | Total deadline to finish a frame or fragmented message, 100–120000 ms. |
 
 When the queue is full, the listener closes the sending connection with code `1013`. A sender can reconnect and use its own durable buffer and delivery policy. An upgrade, successful frame write, or pong confirms a protocol action only. On savepoint, cancellation, or failure, connections and in-memory messages are discarded. Checkpoints preserve SeaTunnel's source assignment. Senders own replay and downstream deduplication using application identifiers when their delivery contract requires them.
+
+Fragmented messages allow at most 1,024 data fragments, including the initial fragment; control frames do not consume that count. The listener closes an over-limit message with `1009` even below the byte/time caps. TLS deadlines/cancellation abort the independently owned TCP transport, including when a peer stops reading control responses.
+
+For schema-based JSON/TEXT, `max_decoded_units` separately bounds prospective row slots (including missing/null-padded columns), container entries, visited characters and scalar conversion work. The same finite limit applies to schema inspection and retained temporal-formatter paths. Large sparse/repeated values can be rejected even below the wire cap. This is a work/allocation-admission policy, not a whole-JVM heap-byte bound. JSON uses iterative schema/composite conversion and the native scalar semantics, retains the existing Jackson read constraints, and does not retain peer field-name symbols between messages. TEXT admission mirrors the native literal row delimiter, nested control separators, trailing-empty MAP/ARRAY behavior and null padding; it keeps the existing seven-separator boundary. There is no new arbitrary nesting-depth limit. Raw and schema-free text keep their existing wire-only behavior.
 
 ## Example
 

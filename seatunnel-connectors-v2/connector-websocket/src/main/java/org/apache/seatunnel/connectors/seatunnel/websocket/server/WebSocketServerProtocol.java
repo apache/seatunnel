@@ -33,7 +33,11 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-/** Fixed HTTP/1.1 upgrade and RFC 6455 framing for the inbound listener. */
+/**
+ * Bounded HTTP upgrade and masked RFC 6455 framing. Length/mask/opcode admission precedes payload
+ * allocation. Failures retain only fixed status codes; headers, bearer credentials and payloads
+ * must not appear in diagnostics. The server owns independent transport abort for control writes.
+ */
 final class WebSocketServerProtocol {
     private static final int MAX_HEADERS_BYTES = 16384;
     private static final int MAX_HEADERS = 64;
@@ -130,64 +134,6 @@ final class WebSocketServerProtocol {
         }
     }
 
-    private static boolean isUnique(String name) {
-        switch (name) {
-            case "host":
-            case "origin":
-            case "authorization":
-            case "content-length":
-            case "transfer-encoding":
-            case "sec-websocket-key":
-            case "sec-websocket-version":
-                return true;
-            default:
-                return false;
-        }
-    }
-
-    private static boolean containsToken(String value, String expected) {
-        if (value != null) {
-            for (String item : value.split(",", -1)) {
-                if (expected.equalsIgnoreCase(item.trim())) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private static boolean validKey(String key) {
-        if (key == null || key.length() != 24) {
-            return false;
-        }
-        try {
-            byte[] value = Base64.getDecoder().decode(key);
-            return value.length == 16 && key.equals(Base64.getEncoder().encodeToString(value));
-        } catch (IllegalArgumentException ex) {
-            return false;
-        }
-    }
-
-    private static String line(InputStream in, int[] remaining) throws IOException {
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        for (; ; ) {
-            if (--remaining[0] < 0) {
-                throw new UpgradeFailure(400);
-            }
-            int value = readByte(in);
-            if (value == '\r') {
-                if (--remaining[0] < 0 || readByte(in) != '\n') {
-                    throw new UpgradeFailure(400);
-                }
-                return new String(bytes.toByteArray(), StandardCharsets.US_ASCII);
-            }
-            if ((value < 32 && value != '\t') || value > 126) {
-                throw new UpgradeFailure(400);
-            }
-            bytes.write(value);
-        }
-    }
-
     static void reject(OutputStream out, int status) throws IOException {
         String detail;
         switch (status) {
@@ -210,12 +156,10 @@ final class WebSocketServerProtocol {
                 out, "HTTP/1.1 " + detail + "\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
     }
 
-    private static void writeAscii(OutputStream out, String value) throws IOException {
-        out.write(value.getBytes(StandardCharsets.US_ASCII));
-        out.flush();
-    }
-
-    /** Validate the header and remaining message budget before allocating any payload. */
+    /**
+     * Validate opcode, masking, canonical length and remaining fragment bytes before allocating
+     * payload. Control frames use their independent 125-byte protocol cap.
+     */
     static Frame readFrame(InputStream in, int first, int remainingPayload, int maximumPayload)
             throws IOException {
         boolean fin = (first & 128) != 0;
@@ -301,6 +245,69 @@ final class WebSocketServerProtocol {
         control(out, 8, new byte[] {(byte) (code >> 8), (byte) code});
     }
 
+    private static boolean isUnique(String name) {
+        switch (name) {
+            case "host":
+            case "origin":
+            case "authorization":
+            case "content-length":
+            case "transfer-encoding":
+            case "sec-websocket-key":
+            case "sec-websocket-version":
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static boolean containsToken(String value, String expected) {
+        if (value != null) {
+            for (String item : value.split(",", -1)) {
+                if (expected.equalsIgnoreCase(item.trim())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean validKey(String key) {
+        if (key == null || key.length() != 24) {
+            return false;
+        }
+        try {
+            byte[] value = Base64.getDecoder().decode(key);
+            return value.length == 16 && key.equals(Base64.getEncoder().encodeToString(value));
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
+    }
+
+    private static String line(InputStream in, int[] remaining) throws IOException {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        for (; ; ) {
+            if (--remaining[0] < 0) {
+                throw new UpgradeFailure(400);
+            }
+            int value = readByte(in);
+            if (value == '\r') {
+                if (--remaining[0] < 0 || readByte(in) != '\n') {
+                    throw new UpgradeFailure(400);
+                }
+                return new String(bytes.toByteArray(), StandardCharsets.US_ASCII);
+            }
+            if ((value < 32 && value != '\t') || value > 126) {
+                throw new UpgradeFailure(400);
+            }
+            bytes.write(value);
+        }
+    }
+
+    private static void writeAscii(OutputStream out, String value) throws IOException {
+        out.write(value.getBytes(StandardCharsets.US_ASCII));
+        out.flush();
+    }
+
     private static int readByte(InputStream in) throws IOException {
         int value = in.read();
         if (value < 0) {
@@ -320,6 +327,10 @@ final class WebSocketServerProtocol {
         }
     }
 
+    /**
+     * One admitted frame owned by its connection worker. Payload allocation has passed the
+     * header/fragment budget; ownership transfers only after complete-message assembly.
+     */
     static final class Frame {
         final int opcode;
         final boolean fin;
@@ -332,6 +343,10 @@ final class WebSocketServerProtocol {
         }
     }
 
+    /**
+     * Carries only a fixed HTTP rejection status. Headers, credentials and request-target text must
+     * not escape through a reflected exception message or cause.
+     */
     static final class UpgradeFailure extends IOException {
         final int status;
 
@@ -340,6 +355,10 @@ final class WebSocketServerProtocol {
         }
     }
 
+    /**
+     * Carries only a fixed protocol close code. Peer close reasons, raw frame bytes and other
+     * message content must never be copied into diagnostic text or causes.
+     */
     static final class FrameFailure extends IOException {
         final int code;
 

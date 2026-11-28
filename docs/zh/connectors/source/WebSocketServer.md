@@ -49,6 +49,7 @@ import ChangeLog from '../changelog/connector-websocket-server.md';
 | `field_delimiter` | String | `,` | 按列解析文本所用的分隔符。 |
 | `max_connections` | Integer | `16` | 并发连接上限，1 至 64，包含正在握手的连接。 |
 | `max_message_bytes` | Integer | `262144` | 完整消息字节数上限，1 至 4194304。该值与连接上限的乘积最多为 32 MiB。 |
+| `max_decoded_units` | Integer | `1048576` | 有类型 schema/消息的工作单元上限，1–4194304；统计槽位、条目和访问字符，与传输字节数独立。 |
 | `max_queue_messages` | Integer | `1024` | 等待处理的消息数上限，1 至 10000。空消息也占一个名额。 |
 | `max_queue_bytes` | Integer | `4194304` | 等待处理的消息字节数上限，从 `max_message_bytes` 到 32 MiB。 |
 | `handshake_timeout_ms` | Integer | `5000` | TLS 与 HTTP 升级的总时限，100 至 120000 毫秒。 |
@@ -56,6 +57,10 @@ import ChangeLog from '../changelog/connector-websocket-server.md';
 | `message_timeout_ms` | Integer | `10000` | 接收一帧或完整分片消息的总时限，100 至 120000 毫秒。 |
 
 队列满时，监听器以状态码 `1013` 断开发送该消息的连接。发送端可重连，并依据自身的持久化缓冲和投递策略决定是否重发。连接升级、写入帧成功和 pong 只确认对应的协议操作。保存点停止、取消或失败时，连接和内存消息随监听器释放。检查点保存 SeaTunnel 的 Source 分配。需要重放和去重时，由发送端和下游基于业务消息标识实现。
+
+分片消息最多包含 1,024 个数据分片，首个分片也计数，控制帧不计数。即使未超过字节或时间上限，超过分片数量仍以 `1009` 关闭。TLS 截止时间和取消通过独立持有的 TCP 连接中断，包括对端停止读取控制响应的情况。
+
+对于带 schema 的 JSON/TEXT，`max_decoded_units` 独立限制预期行槽位（含缺失字段和补 null 字段）、容器条目、访问字符和标量转换工作。schema 检查及保留的时间格式路径缓存也分别使用该有限上限。稀疏或重复数据即使低于传输字节上限也可能被拒绝；这是工作/分配准入策略，不是整个 JVM 的堆字节上限。JSON 迭代检查 schema 和转换复合类型，保留原生标量语义与现有 Jackson 读取约束，不跨消息保留对端字段名称符号。TEXT 准入遵循原生行字段分隔符、嵌套控制字符分隔符、MAP/ARRAY 尾部空项处理和 null 补齐，保留现有七级分隔符边界，不新增任意固定嵌套深度限制。raw 和无 schema 的 text 保持原有仅传输字节限制。
 
 ## 示例
 

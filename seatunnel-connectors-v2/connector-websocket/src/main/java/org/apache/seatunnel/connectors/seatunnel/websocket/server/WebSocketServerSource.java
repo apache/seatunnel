@@ -17,10 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.websocket.server;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.json.JsonReadFeature;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
@@ -40,8 +36,6 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.format.json.JsonDeserializationSchema;
-import org.apache.seatunnel.format.text.TextDeserializationSchema;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -49,7 +43,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Receives pushed client messages as a single listening endpoint in a streaming job. */
+/**
+ * Receives pushed messages at one streaming listener. Only assignment is checkpointed; peers own
+ * durable replay/deduplication and a restored reader may bind on another worker. Network workers
+ * never emit rows, and typed decoding is admitted separately from the bounded wire queue.
+ */
 public final class WebSocketServerSource
         implements SeaTunnelSource<
                 SeaTunnelRow, WebSocketServerSource.Assignment, WebSocketServerSource.Assignment> {
@@ -142,6 +140,10 @@ public final class WebSocketServerSource
         return new Enumerator(context);
     }
 
+    /**
+     * Serializable listener ownership marker with stable split identity. It never captures sockets,
+     * queued payloads, partial messages or replay acknowledgements.
+     */
     static final class Assignment implements SourceSplit {
         private static final long serialVersionUID = 1L;
 
@@ -151,7 +153,10 @@ public final class WebSocketServerSource
         }
     }
 
-    /** Reader zero owns the port. Extra readers are idle and never bind. */
+    /**
+     * Assign the endpoint only to reader zero; extra readers never bind. Restore recreates the live
+     * assignment rather than recovering old sockets or receive buffers.
+     */
     private static final class Enumerator implements SourceSplitEnumerator<Assignment, Assignment> {
         private final Context<Assignment> context;
         private final Set<Integer> idle = new HashSet<>();
@@ -170,18 +175,6 @@ public final class WebSocketServerSource
             synchronized (context) {
                 running = true;
                 context.registeredReaders().forEach(this::dispatch);
-            }
-        }
-
-        private void dispatch(int reader) {
-            if (!running) {
-                return;
-            }
-            if (reader == 0 && !assigned) {
-                context.assignSplit(reader, new Assignment());
-                assigned = true;
-            } else if (reader != 0 && idle.add(reader)) {
-                context.signalNoMoreSplits(reader);
             }
         }
 
@@ -223,15 +216,30 @@ public final class WebSocketServerSource
 
         @Override
         public void close() {}
+
+        private void dispatch(int reader) {
+            if (!running) {
+                return;
+            }
+            if (reader == 0 && !assigned) {
+                context.assignSplit(reader, new Assignment());
+                assigned = true;
+            } else if (reader != 0 && idle.add(reader)) {
+                context.signalNoMoreSplits(reader);
+            }
+        }
     }
 
-    /** Emit only on the task thread. Checkpoints store the assignment and no peer data. */
+    /**
+     * Decode and emit only on the task thread, separately from network queue admission. Checkpoints
+     * store listener assignment only and never persist peer data.
+     */
     private static final class ListenerReader implements SourceReader<SeaTunnelRow, Assignment> {
         private final Context context;
         private final WebSocketServerSourceOptions.Settings settings;
         private final CatalogTable table;
-        private final JsonDeserializationSchema json;
-        private final TextDeserializationSchema text;
+        private final WebSocketServerDecoder decoder;
+        // Publication/cancel are serialized; decoding runs on the task thread outside this lock.
         private final Object lifecycle = new Object();
         private volatile boolean closed;
         private volatile boolean assigned;
@@ -247,21 +255,13 @@ public final class WebSocketServerSource
             this.context = context;
             this.settings = settings;
             this.table = table;
-            if ("json".equals(settings.format)) {
-                json = new JsonDeserializationSchema(table, false, false);
-                json.getObjectMapper().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
-                json.getObjectMapper()
-                        .disable(JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS.mappedFeature());
-            } else {
-                json = null;
-            }
-            text =
-                    customSchema && "text".equals(settings.format)
-                            ? TextDeserializationSchema.builder()
-                                    .seaTunnelRowType(table.getSeaTunnelRowType())
-                                    .delimiter(settings.delimiter)
-                                    .setCatalogTable(table)
-                                    .build()
+            decoder =
+                    "json".equals(settings.format) || customSchema && "text".equals(settings.format)
+                            ? new WebSocketServerDecoder(
+                                    table,
+                                    settings.format,
+                                    settings.delimiter,
+                                    settings.decodedUnits)
                             : null;
         }
 
@@ -290,6 +290,8 @@ public final class WebSocketServerSource
             if (message == null || closed) {
                 return;
             }
+            // Dequeue/decode is not durable state. Only emission is checkpoint-lock coordinated,
+            // matching the assignment-only recovery contract documented for this live receiver.
             SeaTunnelRow row = decode(message);
             if (row != null) {
                 synchronized (out.getCheckpointLock()) {
@@ -297,37 +299,6 @@ public final class WebSocketServerSource
                         out.collect(row);
                     }
                 }
-            }
-        }
-
-        private SeaTunnelRow decode(WebSocketServer.Message message) throws IOException {
-            try {
-                SeaTunnelRow row;
-                if (json != null) {
-                    JsonNode node = json.deserializeToJsonNode(message.data);
-                    if (node == null || !node.isObject()) {
-                        throw new IOException("WebSocketServer expects a JSON object");
-                    }
-                    row = json.convertToRowData(node);
-                } else if (text != null) {
-                    row = text.deserialize(message.data);
-                } else if ("raw".equals(settings.format)) {
-                    row =
-                            new SeaTunnelRow(
-                                    new Object[] {message.text ? "text" : "binary", message.data});
-                } else {
-                    row =
-                            new SeaTunnelRow(
-                                    new Object[] {WebSocketServerProtocol.text(message.data)});
-                }
-                if (row == null) {
-                    throw new IOException("WebSocketServer expects one parsed row per message");
-                }
-                row.setTableId(table.getTablePath().getFullName());
-                return row;
-            } catch (IOException | RuntimeException ex) {
-                throw new IOException(
-                        "WebSocketServer payload does not match the configured format or schema");
             }
         }
 
@@ -365,6 +336,31 @@ public final class WebSocketServerSource
         @Override
         public void close() {
             cancel();
+        }
+
+        private SeaTunnelRow decode(WebSocketServer.Message message) throws IOException {
+            try {
+                SeaTunnelRow row;
+                if (decoder != null) {
+                    row = decoder.decode(message.data);
+                } else if ("raw".equals(settings.format)) {
+                    row =
+                            new SeaTunnelRow(
+                                    new Object[] {message.text ? "text" : "binary", message.data});
+                } else {
+                    row =
+                            new SeaTunnelRow(
+                                    new Object[] {WebSocketServerProtocol.text(message.data)});
+                }
+                if (row == null) {
+                    throw new IOException("WebSocketServer expects one parsed row per message");
+                }
+                row.setTableId(table.getTablePath().getFullName());
+                return row;
+            } catch (IOException | RuntimeException ex) {
+                throw new IOException(
+                        "WebSocketServer payload exceeds decoded work budget or does not match the configured format or schema");
+            }
         }
     }
 }

@@ -29,7 +29,10 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 
-/** Listener settings for the WebSocketServer source. */
+/**
+ * Validated listener, wire/queue, deadline and typed-work contracts. Limits compose per peer and
+ * reader; decoded work units are prospective slots/entries/characters, not a JVM heap-size promise.
+ */
 public final class WebSocketServerSourceOptions {
     public static final Option<String> BIND_HOST =
             Options.key("bind_host")
@@ -101,6 +104,12 @@ public final class WebSocketServerSourceOptions {
                     .intType()
                     .defaultValue(262144)
                     .withDescription("Maximum payload bytes in a frame or an assembled message");
+    public static final Option<Integer> MAX_DECODED_UNITS =
+            Options.key("max_decoded_units")
+                    .intType()
+                    .defaultValue(1048576)
+                    .withDescription(
+                            "Typed schema/record work limit: slots, entries and visited characters; not heap bytes");
     public static final Option<Integer> MAX_QUEUE_MESSAGES =
             Options.key("max_queue_messages")
                     .intType()
@@ -130,7 +139,10 @@ public final class WebSocketServerSourceOptions {
 
     private WebSocketServerSourceOptions() {}
 
-    /** Serializes only configured settings, never the listener, TLS context or received data. */
+    /**
+     * Serializes validated configuration and finite admission limits only. Listener, TLS context,
+     * parser and received messages are owned by the worker reader.
+     */
     static final class Settings implements Serializable {
         private static final long serialVersionUID = 1L;
         final String bindHost;
@@ -148,6 +160,7 @@ public final class WebSocketServerSourceOptions {
         final int messageBytes;
         final int queueMessages;
         final int queueBytes;
+        final int decodedUnits;
         final int handshakeTimeout;
         final int idleTimeout;
         final int messageTimeout;
@@ -187,6 +200,7 @@ public final class WebSocketServerSourceOptions {
             }
             connections = bounded(options, MAX_CONNECTIONS, 1, 64);
             messageBytes = bounded(options, MAX_MESSAGE_BYTES, 1, 4 * 1024 * 1024);
+            decodedUnits = bounded(options, MAX_DECODED_UNITS, 1, 4 * 1024 * 1024);
             queueMessages = bounded(options, MAX_QUEUE_MESSAGES, 1, 10000);
             queueBytes = bounded(options, MAX_QUEUE_BYTES, messageBytes, 32 * 1024 * 1024);
             if ((long) connections * messageBytes > 32L * 1024 * 1024) {
@@ -195,33 +209,6 @@ public final class WebSocketServerSourceOptions {
             handshakeTimeout = bounded(options, HANDSHAKE_TIMEOUT_MS, 100, 120000);
             idleTimeout = bounded(options, IDLE_TIMEOUT_MS, 100, 600000);
             messageTimeout = bounded(options, MESSAGE_TIMEOUT_MS, 100, 120000);
-        }
-
-        private static int bounded(
-                ReadonlyConfig options, Option<Integer> option, int lower, int upper) {
-            Integer value = options.get(option);
-            if (value == null || value < lower || value > upper) {
-                throw invalid(option.key());
-            }
-            return value;
-        }
-
-        private static String optional(String value) {
-            return value == null || value.isEmpty() ? null : value;
-        }
-
-        private static boolean validPath(String value) {
-            if (value == null
-                    || value.length() > 4096
-                    || value.startsWith("//")
-                    || !value.matches("/[a-zA-Z0-9._~!$&'()*+,;=:@/%-]*")) {
-                return false;
-            }
-            try {
-                return value.equals(new URI(value).getRawPath());
-            } catch (URISyntaxException ex) {
-                return false;
-            }
         }
 
         static boolean validHost(String value) {
@@ -256,6 +243,33 @@ public final class WebSocketServerSourceOptions {
                 return scheme + "://" + uri.getHost().toLowerCase(Locale.ROOT) + ":" + port;
             } catch (URISyntaxException ex) {
                 throw invalid("origin");
+            }
+        }
+
+        private static int bounded(
+                ReadonlyConfig options, Option<Integer> option, int lower, int upper) {
+            Integer value = options.get(option);
+            if (value == null || value < lower || value > upper) {
+                throw invalid(option.key());
+            }
+            return value;
+        }
+
+        private static String optional(String value) {
+            return value == null || value.isEmpty() ? null : value;
+        }
+
+        private static boolean validPath(String value) {
+            if (value == null
+                    || value.length() > 4096
+                    || value.startsWith("//")
+                    || !value.matches("/[a-zA-Z0-9._~!$&'()*+,;=:@/%-]*")) {
+                return false;
+            }
+            try {
+                return value.equals(new URI(value).getRawPath());
+            } catch (URISyntaxException ex) {
+                return false;
             }
         }
 

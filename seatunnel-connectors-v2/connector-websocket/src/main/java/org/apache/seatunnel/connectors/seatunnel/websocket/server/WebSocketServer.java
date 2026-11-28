@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.websocket.server;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLSocket;
 
 import java.io.BufferedInputStream;
@@ -46,20 +45,32 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-/** Socket owner. Network workers only enqueue complete messages, never emit engine rows. */
+/**
+ * One owned listener and bounded workers enqueue complete messages, never emit engine rows. Raw
+ * accepted sockets remain abortable during TLS handshake, writes and graceful close; the single
+ * deadline task never enters JSSE close-notify locks. Wire queue and typed decoding have separate
+ * resource admission boundaries.
+ */
 final class WebSocketServer implements AutoCloseable {
     private final WebSocketServerSourceOptions.Settings options;
     private final MessageQueue queue;
+    // Keep clients registered through graceful TLS close so expiration can still abort raw TCP.
     private final Set<Client> clients = ConcurrentHashMap.newKeySet();
     private final ThreadPoolExecutor connections;
     private final ScheduledExecutorService deadlines;
     private final ServerSocket listener;
+    private final SSLContext tls;
     private volatile boolean closed;
     private volatile boolean listenerFailed;
 
     WebSocketServer(WebSocketServerSourceOptions.Settings options) throws IOException {
         this.options = options;
         queue = new MessageQueue(options.queueMessages, options.queueBytes);
+        try {
+            tls = options.keystorePath == null ? null : tlsContext(options);
+        } catch (GeneralSecurityException | IOException | RuntimeException ex) {
+            throw new IOException("WebSocketServer could not initialize the configured listener");
+        }
         listener = bind(options);
         connections =
                 new ThreadPoolExecutor(
@@ -76,30 +87,43 @@ final class WebSocketServer implements AutoCloseable {
         daemon(this::accept, "websocket-server-accept").start();
     }
 
+    Message poll() throws IOException {
+        if (listenerFailed) {
+            throw new IOException("WebSocketServer listener stopped accepting clients");
+        }
+        return queue.poll();
+    }
+
+    /**
+     * Close listener and every raw peer transport without graceful TLS locks. This must interrupt
+     * handshakes and control writes before the queue is discarded.
+     */
+    @Override
+    public synchronized void close() {
+        if (closed) {
+            return;
+        }
+        closed = true;
+        try {
+            listener.close();
+        } catch (IOException ignored) {
+            // A failed listener is already unavailable.
+        }
+        connections.shutdownNow();
+        deadlines.shutdownNow();
+        clients.forEach(Client::abort);
+        queue.close();
+    }
+
     private static ServerSocket bind(WebSocketServerSourceOptions.Settings options)
             throws IOException {
         ServerSocket socket = null;
         try {
-            if (options.keystorePath == null) {
-                socket = new ServerSocket();
-            } else {
-                SSLServerSocket tls =
-                        (SSLServerSocket)
-                                tlsContext(options).getServerSocketFactory().createServerSocket();
-                socket = tls;
-                String[] enabled =
-                        Arrays.stream(tls.getSupportedProtocols())
-                                .filter(
-                                        protocol ->
-                                                "TLSv1.2".equals(protocol)
-                                                        || "TLSv1.3".equals(protocol))
-                                .toArray(String[]::new);
-                tls.setEnabledProtocols(enabled);
-            }
+            socket = new ServerSocket();
             socket.setReuseAddress(true);
             socket.bind(new InetSocketAddress(options.bindHost, options.port), options.connections);
             return socket;
-        } catch (IOException | GeneralSecurityException | RuntimeException ex) {
+        } catch (IOException | RuntimeException ex) {
             if (socket != null) {
                 try {
                     socket.close();
@@ -160,6 +184,10 @@ final class WebSocketServer implements AutoCloseable {
         }
     }
 
+    /**
+     * Expire through raw TCP without entering TLS close-notify locks. A stalled control writer must
+     * not delay deadline checks for other connected peers.
+     */
     private void expireClients() {
         long now = System.nanoTime();
         for (Client client : clients) {
@@ -167,31 +195,6 @@ final class WebSocketServer implements AutoCloseable {
                 client.abort();
             }
         }
-    }
-
-    Message poll() throws IOException {
-        if (listenerFailed) {
-            throw new IOException("WebSocketServer listener stopped accepting clients");
-        }
-        return queue.poll();
-    }
-
-    /** Close the listener and every peer regardless of their handshake, read or write state. */
-    @Override
-    public synchronized void close() {
-        if (closed) {
-            return;
-        }
-        closed = true;
-        try {
-            listener.close();
-        } catch (IOException ignored) {
-            // A failed listener is already unavailable.
-        }
-        connections.shutdownNow();
-        deadlines.shutdownNow();
-        clients.forEach(Client::abort);
-        queue.close();
     }
 
     private static void closeSocket(Socket peer) {
@@ -202,14 +205,22 @@ final class WebSocketServer implements AutoCloseable {
         }
     }
 
+    /**
+     * Owns one raw socket and optional server TLS layer. Only its worker mutates fragment state;
+     * deadline/cancel threads see the volatile absolute deadline and close the final raw socket.
+     */
     private final class Client implements Runnable {
-        private final Socket peer;
+        // Publish the raw transport before layering/handshake; abort never takes JSSE write locks.
+        private final Socket transport;
+        private Socket peer;
+        // Handshake/frame/fragment deadlines do not reset on partial reads or interleaved controls.
         private volatile long deadline;
         private ByteArrayOutputStream fragments;
         private int fragmentedType;
         private int fragmentCount;
 
         private Client(Socket peer) {
+            this.transport = peer;
             this.peer = peer;
             deadline = after(options.handshakeTimeout);
         }
@@ -217,8 +228,27 @@ final class WebSocketServer implements AutoCloseable {
         @Override
         public void run() {
             try {
-                if (peer instanceof SSLSocket) {
-                    ((SSLSocket) peer).startHandshake();
+                if (tls != null) {
+                    SSLSocket secure =
+                            (SSLSocket)
+                                    tls.getSocketFactory()
+                                            .createSocket(
+                                                    transport,
+                                                    transport.getInetAddress().getHostAddress(),
+                                                    transport.getPort(),
+                                                    false);
+                    peer = secure;
+                    secure.setUseClientMode(false);
+                    // Match SSLServerSocket defaults: no requested/required client certificate.
+                    secure.setNeedClientAuth(false);
+                    secure.setEnabledProtocols(
+                            Arrays.stream(secure.getSupportedProtocols())
+                                    .filter(
+                                            protocol ->
+                                                    "TLSv1.2".equals(protocol)
+                                                            || "TLSv1.3".equals(protocol))
+                                    .toArray(String[]::new));
+                    secure.startHandshake();
                 }
                 InputStream in = new BufferedInputStream(peer.getInputStream());
                 OutputStream out = new BufferedOutputStream(peer.getOutputStream());
@@ -229,11 +259,17 @@ final class WebSocketServer implements AutoCloseable {
                     return;
                 }
                 frames(in, out);
-            } catch (IOException ignored) {
+            } catch (IOException | RuntimeException ignored) {
                 // Do not log peer-provided headers, close reasons, TLS details or payloads.
             } finally {
-                abort();
-                clients.remove(this);
+                // Stay registered while graceful TLS close runs: the deadline/cancel path must
+                // still be able to close transport if close_notify waits for output pressure.
+                try {
+                    closeSocket(peer);
+                } finally {
+                    abort();
+                    clients.remove(this);
+                }
             }
         }
 
@@ -278,7 +314,10 @@ final class WebSocketServer implements AutoCloseable {
             }
         }
 
-        /** Interleaved control frames never reset a fragmented message's deadline. */
+        /**
+         * Track the initial data type and cumulative fragment count/bytes. Interleaved control
+         * frames never reset the fragmented message's absolute deadline.
+         */
         private void data(WebSocketServerProtocol.Frame frame) throws IOException {
             if (frame.opcode == 0) {
                 if (fragments == null) {
@@ -315,7 +354,7 @@ final class WebSocketServer implements AutoCloseable {
         }
 
         private void abort() {
-            closeSocket(peer);
+            closeSocket(transport);
         }
     }
 
@@ -323,6 +362,10 @@ final class WebSocketServer implements AutoCloseable {
         return System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(milliseconds);
     }
 
+    /**
+     * Owns one completed wire payload until task-thread decoding. Empty payloads still consume a
+     * queue slot; queued bytes are not durable checkpoint state.
+     */
     static final class Message {
         final boolean text;
         final byte[] data;
@@ -333,7 +376,10 @@ final class WebSocketServer implements AutoCloseable {
         }
     }
 
-    /** Count and byte limits are applied as one admission decision, including empty messages. */
+    /**
+     * Serializes count and byte reservations with FIFO insertion/removal. Closing discards
+     * messages; assignment checkpoints intentionally contain none of this live receive state.
+     */
     static final class MessageQueue {
         private final ArrayDeque<Message> messages = new ArrayDeque<>();
         private final int maxCount;

@@ -30,7 +30,10 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
-/** Registers the inbound listener separately from the outbound WebSocket client. */
+/**
+ * Registers a separate inbound identity in the existing artifact. The source owns its complete
+ * produced catalog table; factory creation neither opens a socket nor changes client registration.
+ */
 @AutoService(Factory.class)
 public final class WebSocketServerSourceFactory implements TableSourceFactory {
     @Override
@@ -55,6 +58,7 @@ public final class WebSocketServerSourceFactory implements TableSourceFactory {
                         WebSocketServerSourceOptions.FIELD_DELIMITER,
                         WebSocketServerSourceOptions.MAX_CONNECTIONS,
                         WebSocketServerSourceOptions.MAX_MESSAGE_BYTES,
+                        WebSocketServerSourceOptions.MAX_DECODED_UNITS,
                         WebSocketServerSourceOptions.MAX_QUEUE_MESSAGES,
                         WebSocketServerSourceOptions.MAX_QUEUE_BYTES,
                         WebSocketServerSourceOptions.HANDSHAKE_TIMEOUT_MS,

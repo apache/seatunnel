@@ -52,6 +52,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.KeyStore;
+import java.security.SecureRandom;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -63,6 +64,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.awaitility.Awaitility.await;
@@ -72,7 +74,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Drives a streaming job through a separate RFC 6455 client and reads committed JDBC rows. */
+/**
+ * Drives installed streaming jobs with independent RFC 6455/TLS peers and exact committed JDBC
+ * rows. Added TLS-pressure cleanup always owns raw TCP, so a failing old close path cannot hang CI.
+ * Authored assertions are regression coverage, not evidence of an executed test or live deployment.
+ */
 class WebSocketServerIT extends TestSuiteBase {
     private static final String HOST = "ws-fixture";
     private static final String ORIGIN = "https://sender.example";
@@ -341,6 +347,99 @@ class WebSocketServerIT extends TestSuiteBase {
         }
     }
 
+    @Test
+    void abortsBackpressuredTlsControlWritesWithoutLosingOtherDeadlinesOrCancellation()
+            throws Exception {
+        try (Job job = new Job(JSON, 2048, 8, 1000, 4)) {
+            try (StalledTls stalled = new StalledTls();
+                    Peer incomplete = peer(HOST)) {
+                incomplete.upgrade(authorized());
+                incomplete.socket.setSoTimeout(5000);
+                incomplete.write(new byte[] {(byte) 0x81});
+                await().atMost(5, TimeUnit.SECONDS).until(() -> stalled.sent.get() > 128);
+                assertTrue(
+                        stalled.disconnected.get(12, TimeUnit.SECONDS),
+                        "nonreading WSS client must be aborted while its Pong output is blocked");
+                incomplete.expectDisconnected();
+            }
+            try (StalledTls stalled = new StalledTls()) {
+                await().atMost(5, TimeUnit.SECONDS).until(() -> stalled.sent.get() > 128);
+                CompletableFuture<Void> cancellation =
+                        CompletableFuture.runAsync(
+                                () -> {
+                                    try {
+                                        job.cancel();
+                                    } catch (Exception ex) {
+                                        throw new IllegalStateException(ex);
+                                    }
+                                });
+                try {
+                    cancellation.get(20, TimeUnit.SECONDS);
+                } finally {
+                    // Raw TCP cleanup precedes any JSSE close and unblocks an old broken server
+                    // too.
+                    stalled.close();
+                    cancellation.get(45, TimeUnit.SECONDS);
+                }
+            }
+        }
+        // Rebinding and exact output prove cancellation released the listener, not only CLI return.
+        try (Job rebound = new Job(JSON, 2048, 8, 1000, 2);
+                Peer sender = peer(HOST)) {
+            sender.upgrade(authorized());
+            sender.send(0x81, bytes("{\"id\":17,\"value\":\"rebound\"}"));
+            await().atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    assertEquals(
+                                            Collections.singletonList("17:rebound"),
+                                            rows(
+                                                    "SELECT id::text || ':' || value FROM json_output ORDER BY id")));
+        }
+    }
+
+    @Test
+    void rejectsTypedWorkOverBudgetAfterPreservingSmallJsonAndTextRows() throws Exception {
+        for (boolean json : new boolean[] {true, false}) {
+            String table = json ? "json_output" : "text_output";
+            try (Job job =
+                            new Job(
+                                    json ? "/json_budget.conf" : "/text_budget.conf",
+                                    2048,
+                                    8,
+                                    20000,
+                                    2);
+                    Peer sender = peer(json ? HOST : null)) {
+                sender.upgrade(authorized());
+                sender.send(0x81, bytes(json ? "{\"id\":1,\"value\":\"ok\"}" : "1|ok"));
+                await().atMost(30, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () ->
+                                        assertEquals(
+                                                Collections.singletonList("1:ok"),
+                                                rows(
+                                                        "SELECT id::text || ':' || value FROM "
+                                                                + table
+                                                                + " ORDER BY id")));
+                String excessive = "x".repeat(256);
+                sender.send(
+                        0x81,
+                        bytes(
+                                json
+                                        ? "{\"id\":2,\"value\":\"" + excessive + "\"}"
+                                        : "2|" + excessive));
+                Container.ExecResult failed = job.active.get(45, TimeUnit.SECONDS);
+                assertTrue(failed.getExitCode() != 0);
+                assertTrue(
+                        (failed.getStdout() + failed.getStderr() + engine.getServerLogs())
+                                .contains("decoded work budget"));
+                assertEquals(
+                        Collections.singletonList("1:ok"),
+                        rows("SELECT id::text || ':' || value FROM " + table + " ORDER BY id"));
+            }
+        }
+    }
+
     private void assertResponse(String status, String request) throws Exception {
         try (Peer peer = peer(null)) {
             assertTrue(peer.exchange(request).startsWith("HTTP/1.1 " + status + " "));
@@ -491,6 +590,10 @@ class WebSocketServerIT extends TestSuiteBase {
         return value.getBytes(StandardCharsets.UTF_8);
     }
 
+    /**
+     * Owns one asynchronous engine invocation through cancel/savepoint and restore. Endpoint
+     * rebinding and persisted rows distinguish lifecycle completion from CLI return.
+     */
     private final class Job implements AutoCloseable {
         private final String id = Long.toString(IDS.incrementAndGet());
         private final String config;
@@ -512,6 +615,26 @@ class WebSocketServerIT extends TestSuiteBase {
                         "test_tls_path=" + STORE_PATH
                     };
             start(false);
+        }
+
+        void saveAndRestore() throws Exception {
+            assertEquals(0, engine.savepointJob(id).getExitCode());
+            assertEquals(0, active.get(45, TimeUnit.SECONDS).getExitCode());
+            start(true);
+        }
+
+        void cancel() throws Exception {
+            assertEquals(0, engine.cancelJob(id).getExitCode());
+            await().atMost(35, TimeUnit.SECONDS)
+                    .until(() -> "CANCELED".equals(engine.getJobStatus(id)));
+            active.get(45, TimeUnit.SECONDS);
+        }
+
+        @Override
+        public void close() throws Exception {
+            if (!active.isDone() && "RUNNING".equals(engine.getJobStatus(id))) {
+                cancel();
+            }
         }
 
         private void start(boolean restore) throws Exception {
@@ -550,28 +673,12 @@ class WebSocketServerIT extends TestSuiteBase {
                 throw error;
             }
         }
-
-        void saveAndRestore() throws Exception {
-            assertEquals(0, engine.savepointJob(id).getExitCode());
-            assertEquals(0, active.get(45, TimeUnit.SECONDS).getExitCode());
-            start(true);
-        }
-
-        void cancel() throws Exception {
-            assertEquals(0, engine.cancelJob(id).getExitCode());
-            await().atMost(35, TimeUnit.SECONDS)
-                    .until(() -> "CANCELED".equals(engine.getJobStatus(id)));
-            active.get(45, TimeUnit.SECONDS);
-        }
-
-        @Override
-        public void close() throws Exception {
-            if (!active.isDone() && "RUNNING".equals(engine.getJobStatus(id))) {
-                cancel();
-            }
-        }
     }
 
+    /**
+     * Installs this fixture key store and JDBC driver into the real Zeta runtime. Its exposed
+     * listener port is reused to verify close/cancel releases endpoint ownership.
+     */
     private static final class Engine extends SeaTunnelContainer {
         private final Path store;
         private final Path jdbc;
@@ -599,7 +706,72 @@ class WebSocketServerIT extends TestSuiteBase {
         }
     }
 
-    /** Independent client framing, without the connector's protocol implementation. */
+    /**
+     * Sends valid Pings while refusing to consume Pongs. Owns the underlying TCP socket separately
+     * so a failed assertion interrupts client TLS I/O without waiting for graceful TLS close.
+     */
+    private final class StalledTls implements AutoCloseable {
+        private final Socket transport = new Socket();
+        private final AtomicInteger sent = new AtomicInteger();
+        private final CompletableFuture<Boolean> disconnected;
+
+        private StalledTls() throws Exception {
+            try {
+                transport.setReceiveBufferSize(1024);
+                transport.connect(new InetSocketAddress(engine.host(), engine.port()), 1000);
+                transport.setSoTimeout(5000);
+                SSLSocket secure =
+                        (SSLSocket)
+                                clientTls
+                                        .getSocketFactory()
+                                        .createSocket(transport, HOST, engine.port(), false);
+                SSLParameters parameters = secure.getSSLParameters();
+                parameters.setEndpointIdentificationAlgorithm("HTTPS");
+                secure.setSSLParameters(parameters);
+                secure.startHandshake();
+                Peer peer = new Peer(secure);
+                peer.upgrade(authorized());
+                disconnected =
+                        CompletableFuture.supplyAsync(
+                                () -> {
+                                    byte[] frame = Peer.frame(0x89, true, new byte[125]);
+                                    byte[] mask = new byte[4];
+                                    SecureRandom random = new SecureRandom();
+                                    try {
+                                        // Reuse one small frame; never build a flood-sized array or
+                                        // read Pongs.
+                                        for (int i = 0; i < 1000000; i++) {
+                                            random.nextBytes(mask);
+                                            System.arraycopy(mask, 0, frame, 2, mask.length);
+                                            for (int j = 0; j < 125; j++) {
+                                                frame[6 + j] = mask[j % mask.length];
+                                            }
+                                            peer.write(frame);
+                                            sent.incrementAndGet();
+                                        }
+                                        return false;
+                                    } catch (IOException expectedAbort) {
+                                        return true;
+                                    }
+                                });
+            } catch (Exception error) {
+                transport.close();
+                throw error;
+            }
+        }
+
+        @Override
+        public void close() throws Exception {
+            transport.close();
+            disconnected.get(10, TimeUnit.SECONDS);
+        }
+    }
+
+    /**
+     * Independent client framing and response assertions, without the connector's protocol helper.
+     * Raw-wire construction makes malformed-header, fragmentation and exact control checks capable
+     * of detecting a matching bug in the production implementation.
+     */
     private static final class Peer implements AutoCloseable {
         static final String KEY = "dGhlIHNhbXBsZSBub25jZQ==";
         private static final byte[] MASK = new byte[] {0x12, 0x34, 0x56, 0x78};
