@@ -23,7 +23,9 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import javax.transaction.xa.Xid;
 
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
@@ -52,6 +54,7 @@ class SemanticXidGenerator implements XidGenerator {
 
     private transient byte[] gtridBuffer;
     private transient byte[] bqualBuffer;
+    private transient List<XidImpl> checkpointXids;
 
     @Override
     public void open() {
@@ -59,6 +62,79 @@ class SemanticXidGenerator implements XidGenerator {
         gtridBuffer = new byte[JOB_ID_BYTES + Integer.BYTES + Long.BYTES];
         // branchQualifier = random bytes
         bqualBuffer = getRandomBytes(Integer.BYTES);
+        checkpointXids = new ArrayList<>();
+    }
+
+    @Override
+    public long restoreState(List<Xid> restoredXids) {
+        List<XidImpl> validated = new ArrayList<>();
+        long lastSequence = Long.MIN_VALUE;
+        for (Xid xid : restoredXids) {
+            checkArgument(isSemanticXid(xid), "Invalid checkpoint XA transaction identifier");
+            validated.add(
+                    new XidImpl(
+                            xid.getFormatId(),
+                            xid.getGlobalTransactionId(),
+                            xid.getBranchQualifier()));
+            lastSequence =
+                    Math.max(
+                            lastSequence,
+                            readLong(xid.getGlobalTransactionId(), JOB_ID_BYTES + Integer.BYTES));
+        }
+        checkpointXids = validated;
+        if (!validated.isEmpty()) {
+            // Keep the saved writer's ownership across repeated failures. A new random branch
+            // would leave transactions from attempts after this checkpoint unreachable by cleanup.
+            bqualBuffer = validated.get(0).getBranchQualifier().clone();
+        }
+        return lastSequence;
+    }
+
+    @Override
+    public boolean canRollback(Xid xid, JobContext context, SinkWriter.Context sinkContext) {
+        if (!isSemanticXid(xid)) {
+            return false;
+        }
+        XidImpl canonical =
+                new XidImpl(
+                        xid.getFormatId(), xid.getGlobalTransactionId(), xid.getBranchQualifier());
+        if (checkpointXids.contains(canonical)) {
+            return false;
+        }
+        if (belongsToSubtask(xid, context, sinkContext)
+                && Arrays.equals(bqualBuffer, xid.getBranchQualifier())) {
+            return true;
+        }
+        // Rescaling can restore several old writers. Match each entire owner tuple rather than
+        // combining independent sets of branches and subtask indexes.
+        for (Xid saved : checkpointXids) {
+            if (Arrays.equals(saved.getBranchQualifier(), xid.getBranchQualifier())
+                    && Arrays.equals(
+                            Arrays.copyOf(
+                                    saved.getGlobalTransactionId(), JOB_ID_BYTES + Integer.BYTES),
+                            Arrays.copyOf(
+                                    xid.getGlobalTransactionId(), JOB_ID_BYTES + Integer.BYTES))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isSemanticXid(Xid xid) {
+        return xid != null
+                && xid.getFormatId() == FORMAT_ID
+                && xid.getGlobalTransactionId() != null
+                && xid.getGlobalTransactionId().length == JOB_ID_BYTES + Integer.BYTES + Long.BYTES
+                && xid.getBranchQualifier() != null
+                && xid.getBranchQualifier().length == Integer.BYTES;
+    }
+
+    private static long readLong(byte[] bytes, int offset) {
+        long result = 0;
+        for (int i = 0; i < Long.BYTES; i++) {
+            result |= (bytes[offset + i] & 0xffL) << (Byte.SIZE * i);
+        }
+        return result;
     }
 
     @Override
@@ -76,18 +152,21 @@ class SemanticXidGenerator implements XidGenerator {
 
     @Override
     public boolean belongsToSubtask(Xid xid, JobContext context, SinkWriter.Context sinkContext) {
-        if (xid.getFormatId() != FORMAT_ID) {
-            return false;
-        }
-        int xidSubtaskIndex = readNumber(xid.getGlobalTransactionId(), JOB_ID_BYTES, Integer.BYTES);
-        if (xidSubtaskIndex != sinkContext.getIndexOfSubtask()) {
-            return false;
-        }
+        return isSemanticXid(xid)
+                && readNumber(xid.getGlobalTransactionId(), JOB_ID_BYTES, Integer.BYTES)
+                        == sinkContext.getIndexOfSubtask()
+                && belongsToJob(xid, context);
+    }
+
+    private boolean belongsToJob(Xid xid, JobContext context) {
         byte[] xidJobIdBytes = new byte[JOB_ID_BYTES];
         System.arraycopy(xid.getGlobalTransactionId(), 0, xidJobIdBytes, 0, JOB_ID_BYTES);
 
         byte[] jobIdBytes = new byte[JOB_ID_BYTES];
         byte[] bytes = context.getJobId().getBytes();
+        if (bytes.length > JOB_ID_BYTES) {
+            return false;
+        }
         System.arraycopy(bytes, 0, jobIdBytes, 0, bytes.length);
 
         return Arrays.equals(jobIdBytes, xidJobIdBytes);

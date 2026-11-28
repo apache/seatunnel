@@ -1,4 +1,4 @@
-import ChangeLog from '../changelog/connector-iotdb.md';
+import ChangeLog from '../changelog/connector-iotdb-v2.md';
 
 # IoTDBv2
 
@@ -29,6 +29,8 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 ## 数据类型映射
 
+下表适用于默认的树模型（`sql_dialect = "tree"`）。树模型下 `STRING` 写入为 IoTDB 的 `TEXT`，未列出的类型（例如 `TIMESTAMP` 和 `DATE`）会抛出 `UNSUPPORTED_DATA_TYPE`。表模型（`sql_dialect = "table"`）下 `STRING` 映射为 `STRING`，并且额外支持 `TIMESTAMP` 和 `DATE`。
+
 | SeaTunnel 数据类型 | IoTDB 数据类型 | 
 |----------------|------------|
 | BOOLEAN        | BOOLEAN    |
@@ -38,9 +40,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | BIGINT         | INT64      |
 | FLOAT          | FLOAT      |
 | DOUBLE         | DOUBLE     |
-| STRING         | STRING     |
-| TIMESTAMP      | TIMESTAMP  |
-| DATE           | DATE       |
+| STRING         | TEXT       |
 
 ## Sink 选项
 
@@ -56,7 +56,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | key_measurement_fields      | Array   | 否    | 见描述    | IoTDB 树模型：在 SeaTunnelRow 中指定 IoTDB 测量列表的字段名（如未指定，则包括排除`key_device`&`key_timestamp`后的其余字段）；<br/> IoTDB 表模型：在 SeaTunnelRow 中指定 IoTDB 测点列（FIELD）的字段名（如未指定，则包括排除`key_device`&`key_timestamp`&`key_tag_fields`&`key_attribute_fields`后的其余字段） |
 | key_tag_fields              | Array   | 否    | -      | IoTDB 树模型：不生效；<br/> IoTDB 表模型：在 SeaTunnelRow 中指定 IoTDB 标签列（TAG）的字段名                                                                                                                                                                     |
 | key_attribute_fields        | Array   | 否    | -      | IoTDB 树模型：不生效；<br/> IoTDB 表模型：在 SeaTunnelRow 中指定 IoTDB 属性列（ATTRIBUTE）的字段名                                                                                                                                                               |
-| batch_size                  | Integer | 否    | 1024   | 缓存的记录数达到 `batch_size` 时，连接器会把数据刷新到 IoTDB；在 checkpoint 提交前和写入器关闭时也会刷新。                                                                                                                                                                  |
+| batch_size                  | Integer | 否    | 1024（见说明） | 缓存的记录数达到 `batch_size` 时，连接器会把数据刷新到 IoTDB；在 checkpoint 提交前和写入器关闭时也会刷新。注意：未配置该选项时，内置默认值目前不会生效——此时数据只会在 checkpoint/关闭时刷新。如需按条数刷新，请显式配置 `batch_size`。 |
 | max_retries                 | Integer | 否    | -      | 刷新失败时的最大重试次数。                                                                                                                                                                                                                           |
 | retry_backoff_multiplier_ms | Integer | 否    | -      | 计算重试等待时间的退避倍数，单位为毫秒。                                                                                                                                                                                                                   |
 | max_retry_backoff_ms        | Integer | 否    | -      | 最大重试等待时间，单位为毫秒。                                                                                                                                                                                                                         |
@@ -126,6 +126,7 @@ sink {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
+    storage_group = "" # 必填选项；这里设为空字符串，因为 `key_device` 字段已包含完整设备路径
     key_device = "device_name" # specify the `deviceId` use device_name field
   }
 }
@@ -156,6 +157,7 @@ sink {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
+    storage_group = "" # 必填选项；这里设为空字符串，因为 `key_device` 字段已包含完整设备路径
     key_device = "device_name" # specify the `deviceId` use device_name field
     key_timestamp = "event_ts" # specify the `timestamp` use event_ts field
   }
@@ -187,6 +189,7 @@ sink {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
+    storage_group = "" # 必填选项；这里设为空字符串，因为 `key_device` 字段已包含完整设备路径
     key_device = "device_name"
     key_timestamp = "event_ts"
     key_measurement_fields = ["temperature", "moisture"]

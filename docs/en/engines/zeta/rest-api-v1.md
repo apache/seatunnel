@@ -152,6 +152,23 @@ network:
 - `requiredOptions[].ruleType` can be `ABSOLUTELY_REQUIRED`, `EXCLUSIVE`, `BUNDLED`, or `CONDITIONAL`.
 - `optionRule.conditionRules` recursively exposes nested conditional option rules and is an empty array when the connector does not define nested rules.
 - For conditional rules, both `expression` and `expressionTree` are returned for dynamic form rendering.
+- Conditional required options and nested rules store each predicate in `expressionTree.condition`. The expression node links to the next predicate. This excerpt shows the links for `A OR B AND C`, which evaluates as `A || (B && C)`. Only the option keys and links are shown.
+
+  ```json
+  {
+    "expressionTree": {
+      "condition": {"option": {"key": "a"}},
+      "operator": "OR",
+      "next": {
+        "condition": {"option": {"key": "b"}},
+        "operator": "AND",
+        "next": {"condition": {"option": {"key": "c"}}}
+      }
+    }
+  }
+  ```
+
+- In standalone `valueConstraints[].conditionTree`, the condition nodes themselves carry `operator` and `next`. The CLI uses the same precedence. [CLI metadata export](../../architecture/configuration-and-option-system.md#export-connector-metadata)
 - `optionRule.valueConstraints` describes value-level validation rules such as numeric ranges, string patterns, and cross-field comparisons. Each entry provides a human-readable `expression` string alongside a structured `conditionTree` for programmatic use. This array is empty when the connector does not define any value constraints.
 - Within `conditionTree`, the `compareOperator` field is `null` for `EQUAL` and otherwise uses the operator symbol exposed by the runtime rule (for example `>=`, `is not blank`, or `extension`). The `compareOption` field is populated only for cross-field comparisons.
 - `conditionOperator` is a stable operator identifier. Possible values include `EQUAL`, `GREATER_OR_EQUAL`, `NOT_BLANK`, `FIELD_LESS_THAN`, `EXTENSION`, etc. `conditionOperatorCategory` indicates the operator category, such as `NUMERIC`, `STRING`, `COLLECTION`, `EQUALITY`, `EXTENSION`, etc.
@@ -288,6 +305,7 @@ None.
     "envOptions": {
     },
     "createTime": "",
+    "startTime": "",
     "jobDag": {
       "jobId": "",
       "envOptions": [],
@@ -399,7 +417,7 @@ None.
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
 `finishTime`, `errorMsg` will return when job is finished.
 A running job also returns a `diagnostics` block (state timestamps and per-pipeline restore counts),
@@ -513,7 +531,7 @@ This API has been deprecated, please use /hazelcast/rest/maps/job-info/:jobId in
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
 `finishTime`, `errorMsg` will return when job is finished.
 
@@ -550,6 +568,7 @@ When we can't get the job info, the response contains only the requested `jobId`
     "jobStatus": "",
     "errorMsg": null,
     "createTime": "",
+    "startTime": "",
     "finishTime": "",
     "jobDag": {
       "jobId": "",
@@ -658,6 +677,9 @@ Each member is asked in parallel and awaited against one shared deadline (`seatu
 > | jobId                | optional | string    | job id                            |
 > | jobName              | optional | string    | job name                          |
 > | isStartWithSavePoint | optional | string    | if job is started with save point |
+> | restoreMode          | optional | string    | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
+> | restoreSourceJobId   | optional | string    | ID of the job to restore. Required for `CHECKPOINT`. In `SAVEPOINT` mode, the server uses `jobId` if this parameter is omitted. |
+> | format               | optional | string    | config format, support json, hocon and sql, default json |
 
 #### Body
 
@@ -716,6 +738,9 @@ Each member is asked in parallel and awaited against one shared deadline (`seatu
 > | jobId                | optional     | string  | job id                                |
 > | jobName              | optional     | string  | job name                              |
 > | isStartWithSavePoint | optional     | string  | if the job is started with save point |
+> | restoreMode          | optional     | string  | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
+> | restoreSourceJobId   | optional     | string  | ID of the job to restore. Required for `CHECKPOINT`. In `SAVEPOINT` mode, the server uses `jobId` if this parameter is omitted. |
+> | format               | optional     | string  | config format, support json, hocon and sql, default json |
 
 #### Request Body
 

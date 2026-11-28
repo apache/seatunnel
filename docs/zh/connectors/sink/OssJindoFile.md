@@ -84,6 +84,7 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 | is_enable_transaction                 | boolean | 否  | true                                       | 若为 `true`，写入目标目录的数据不会丢失或重复；当为 `true` 时，会自动在文件名前缀添加 `${transactionId}_`。                                                                       |
 | batch_size                            | int     | 否  | 1000000                                    | 单个文件的最大行数。对于 SeaTunnel Engine，文件中的行数由 `batch_size` 和 `checkpoint.interval` 共同决定。                                                                       |
 | compress_codec                        | string  | 否  | none                                       | 文件的压缩编解码器。Excel 格式不支持任何压缩格式。                                                                                                                 |
+| enable_header_write | boolean | 否 | false | 仅在 file_format_type 为 text,csv 时使用。<br/> false:不写入表头,true:写入表头。 |
 | common-options                        | object  | 否  | -                                          | Sink 插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 了解详情。                                                            |
 | max_rows_in_memory                    | int     | 否  | -                                          | 仅当 `file_format_type` 为 `excel` 时使用。                                                                                                      |
 | sheet_max_rows                        | int     | 否  | 1048576                                    | 仅当 `file_format_type` 为 `excel` 时使用；每个工作表允许写入的最大行数。                                                                                            |
@@ -91,7 +92,7 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 | csv_string_quote_mode                 | enum    | 否  | MINIMAL                                    | 仅当 `file_format_type` 为 `csv` 时使用。                                                                                                       |
 | xml_root_tag                          | string  | 否  | RECORDS                                    | 仅当 `file_format_type` 为 `xml` 时使用。                                                                                                        |
 | xml_row_tag                           | string  | 否  | RECORD                                     | 仅当 `file_format_type` 为 `xml` 时使用。                                                                                                        |
-| xml_use_attr_format                   | boolean | 否  | -                                          | 仅当 `file_format_type` 为 `xml` 时使用。                                                                                                        |
+| xml_use_attr_format                   | boolean | 条件必填  | -                                          | 仅当 `file_format_type` 为 `xml` 时使用。写 XML 文件时必填。 |
 | single_file_mode                      | boolean | 否  | false                                      | 每个并行度只输出一个文件。启用此选项后，`batch_size` 不再生效，输出文件名不包含文件块后缀。                                                                                          |
 | create_empty_file_when_no_data        | boolean | 否  | false                                      | 当上游没有数据同步时，仍然会生成对应的数据文件。                                                                                                                     |
 | parquet_avro_write_timestamp_as_int96 | boolean | 否  | false                                      | 仅当 `file_format_type` 为 `parquet` 时使用。                                                                                                    |
@@ -99,6 +100,11 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 | encoding                              | string  | 否  | "UTF-8"                                    | 仅当 `file_format_type` 为 `json`、`text`、`csv`、`xml` 时使用。要写入文件的字符集，通过 `Charset.forName(encoding)` 解析。                                                  |
 | merge_update_event                    | boolean | 否  | false                                      | 仅当 `file_format_type` 为 `canal_json`、`debezium_json`、`maxwell_json` 时使用。设置为 `true` 时，会将 `UPDATE_AFTER` 与 `UPDATE_BEFORE` 合并为 `UPDATE` 事件数据。                       |
 | schema_evolution_enabled              | boolean | 否  | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 `true` 时，来自上游的 `ADD/DROP/RENAME/MODIFY` 列事件无需重启作业即可应用到 Sink。不支持 `binary` 格式。                                                  |
+| date_format                            | string  | 否  | yyyy-MM-dd                                 | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。日期类型格式，用于告知 connector 如何写出 date 值。支持格式（示例）：`yyyy-MM-dd`、`yyyy.MM.dd`、`yyyy/MM/dd`。 |
+| datetime_format                        | string  | 否  | yyyy-MM-dd HH:mm:ss                        | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间戳类型格式，用于告知 connector 如何写出 datetime 值。支持格式：`yyyy-MM-dd HH:mm:ss`、`yyyy.MM.dd HH:mm:ss`、`yyyy/MM/dd HH:mm:ss`、`yyyyMMddHHmmss`。 |
+| time_format                            | string  | 否  | HH:mm:ss                                   | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间类型格式，用于告知 connector 如何写出 time 值。支持格式（示例）：`HH:mm:ss`、`HH:mm:ss.SSS`。 |
+| schema_save_mode                       | string  | 否  | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方式                                                       |
+| data_save_mode                         | string  | 否  | APPEND_DATA                                | 现有数据处理方式                                                       |
 
 ### path [string]
 
@@ -212,7 +218,7 @@ OSS 端点，例如 `oss-cn-beijing.aliyuncs.com`。
 - txt: `lzo` `none`
 - json: `lzo` `none`
 - csv: `lzo` `none`
-- orc: `lzo` `snappy` `lz4` `zlib` `none`
+- orc: `lzo` `snappy` `lz4` `zlib` `zstd` `none`
 - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
 
 提示：excel 格式不支持任何压缩格式。
@@ -233,7 +239,7 @@ Sink 插件通用参数，请参考 [Sink Common Options](../common-options/sink
 
 写入工作簿的工作表名称。
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 当文件格式为 CSV 时，CSV 的字符串引用模式。
 
