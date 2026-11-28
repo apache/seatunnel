@@ -40,7 +40,7 @@ Engine Supported
 
 |    Easysearch Data Type     | SeaTunnel Data Type  |
 |-----------------------------|----------------------|
-| STRING<br/>KEYWORD<br/>TEXT | STRING               |
+| STRING<br/>KEYWORD<br/>TEXT<br/>BINARY | STRING               |
 | BOOLEAN                     | BOOLEAN              |
 | BYTE                        | BYTE                 |
 | SHORT                       | SHORT                |

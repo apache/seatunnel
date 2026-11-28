@@ -90,7 +90,7 @@ Next, I'll show how to quickly use SeaTunnel's own `base64` encryption:
 2. Using the shell based on different calculate engine to encrypt config file, in this example we use zeta:
 
    ```shell
-   ${SEATUNNEL_HOME}/bin/seatunnel.sh --config config/v2.batch.template --encrypt
+   ${SEATUNNEL_HOME}/bin/seatunnel.sh --config config/v2.batch.config.template --encrypt
    ```
 
    Then you can see the encrypted configuration file in the terminal:
@@ -138,7 +138,7 @@ Next, I'll show how to quickly use SeaTunnel's own `base64` encryption:
 3. Of course, not only encrypted configuration files are supported, but if the user wants to see the decrypted configuration file, you can execute this command:
 
    ```shell
-   ${SEATUNNEL_HOME}/bin/seatunnel.sh --config config/v2.batch.template --decrypt
+   ${SEATUNNEL_HOME}/bin/seatunnel.sh --config config/v2.batch.config.template --decrypt
    ```
 
 ## How to implement user-defined encryption and decryption

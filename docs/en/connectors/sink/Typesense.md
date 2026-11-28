@@ -45,6 +45,10 @@ or more primary key fields.
 
 The access address for Typesense, formatted as `host:port`, e.g., `["typesense-01:8108"]`. When several nodes are configured, the sink keeps a single client per writer and does not balance writes across them.
 
+### protocol [string]
+
+The protocol used to connect to Typesense. The default value is `http`. Use `https` for Typesense Cloud.
+
 ### collection [string]
 
 The name of the collection to write to, e.g., `"seatunnel"`. In multi-table jobs, every table routes to the same configured collection; configure one sink block per target collection if different tables need different destinations.
@@ -104,7 +108,11 @@ Choose how to handle existing data on the target side before starting the synchr
 
 :::tip
 
-The connector uses Typesense's bulk import endpoint. `UPDATE` and `DELETE` row kinds are not interpreted as CDC operations — every upstream row is upserted into the target collection based on the generated document `id`. Use `data_save_mode = DROP_DATA` together with a stable `primary_keys` configuration to make repeated jobs behave like upserts rather than appends.
+The connector interprets CDC row kinds: `INSERT` and `UPDATE_AFTER` rows are upserted into the target collection via Typesense's bulk import endpoint based on the generated document `id`, `UPDATE_BEFORE` rows are skipped, and `DELETE` rows delete the document with the generated `id`. Configure `primary_keys` so the document `id` is stable across CDC events.
+
+The writer sends deletes immediately and can hold earlier upserts until the batch is flushed.
+With `max_batch_size > 1`, a buffered upsert can recreate a document after a later delete of the same ID.
+Set `max_batch_size = 1` to preserve this order within each sink writer.
 
 :::
 

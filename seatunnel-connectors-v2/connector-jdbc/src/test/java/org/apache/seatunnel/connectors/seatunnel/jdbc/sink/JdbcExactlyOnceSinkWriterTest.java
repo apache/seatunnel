@@ -36,6 +36,7 @@ import org.mockito.ArgumentCaptor;
 import javax.transaction.xa.Xid;
 
 import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -109,10 +110,8 @@ class JdbcExactlyOnceSinkWriterTest {
                         .getSuppressed()[0]
                         .getMessage()
                         .contains("unable to start xa transaction"));
-        ArgumentCaptor<Xid> recoverExcludeXidCaptor = ArgumentCaptor.forClass(Xid.class);
-        verify(context.xaGroupOps, times(1))
-                .recoverAndRollback(any(), any(), any(), recoverExcludeXidCaptor.capture());
-        Assertions.assertNull(recoverExcludeXidCaptor.getValue());
+        verify(context.xaFacade).recover();
+        verify(context.xaGroupOps, never()).recoverAndRollback(any(), any(), any(), any());
     }
 
     @Test
@@ -127,9 +126,7 @@ class JdbcExactlyOnceSinkWriterTest {
         doThrow(new RuntimeException("rollback prepared failed"))
                 .when(context.xaFacade)
                 .rollback(any());
-        doThrow(new RuntimeException("recover failed"))
-                .when(context.xaGroupOps)
-                .recoverAndRollback(any(), any(), any(), any());
+        doThrow(new RuntimeException("recover failed")).when(context.xaFacade).recover();
 
         JdbcConnectorException exception =
                 Assertions.assertThrows(
@@ -238,6 +235,45 @@ class JdbcExactlyOnceSinkWriterTest {
         verify(context.xidGenerator, times(1)).close();
         Assertions.assertNull(getPrivateField(context.writer, "prepareXid"));
         Assertions.assertNull(getPrivateField(context.writer, "currentXid"));
+    }
+
+    @Test
+    void testRollbackFailureRetriesOnlyFailedXidAndKeepsEarlierPreparedCheckpoint()
+            throws Exception {
+        TestContext context = createWriter();
+        context.writer.prepareCommit(10);
+        Xid earlier = (Xid) getPrivateField(context.writer, "prepareXid");
+        Xid failed = (Xid) getPrivateField(context.writer, "currentXid");
+        doThrow(new RuntimeException("start failed")).when(context.xaFacade).start(any());
+        doThrow(new RuntimeException("rollback failed"))
+                .doNothing()
+                .when(context.xaFacade)
+                .rollback(failed);
+        Xid sibling = new TestXid(987L);
+        when(context.xaFacade.recover()).thenReturn(Arrays.asList(failed, earlier, sibling));
+
+        Assertions.assertThrows(
+                JdbcConnectorException.class, () -> context.writer.prepareCommit(11));
+
+        verify(context.xaFacade, times(2)).rollback(failed);
+        verify(context.xaFacade, never()).rollback(earlier);
+        verify(context.xaFacade, never()).rollback(sibling);
+        verify(context.xaGroupOps, never()).recoverAndRollback(any(), any(), any(), any());
+    }
+
+    @Test
+    void testRestoredSequenceIsMonotonicAndExhaustionFailsBeforeStartingNewXid() throws Exception {
+        XidGenerator generator = XidGenerator.semanticXidGenerator();
+        generator.open();
+        Xid saved =
+                generator.generateXid(
+                        new JobContext(1L), new DefaultSinkWriterContext(0, 1), Long.MAX_VALUE);
+        TestContext context = createWriter(Collections.singletonList(new JdbcSinkState(saved)));
+        setPrivateField(context.writer, "xidGenerator", generator);
+
+        Assertions.assertThrows(
+                JdbcConnectorException.class, () -> context.writer.prepareCommit(10));
+        verify(context.xaFacade, never()).start(any());
     }
 
     private TestContext createWriter() throws Exception {

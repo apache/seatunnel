@@ -69,6 +69,14 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.ps
 @Slf4j
 public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
 
+    /** A binary PostgreSQL {@code numeric} special value consists of the four header words. */
+    private static final int BINARY_NUMERIC_HEADER_LENGTH = 8;
+
+    /** Sign words of the binary {@code numeric} infinities, see PostgreSQL {@code numeric.c}. */
+    private static final int BINARY_NUMERIC_POSITIVE_INFINITY = 0xD000;
+
+    private static final int BINARY_NUMERIC_NEGATIVE_INFINITY = 0xF000;
+
     private final boolean numericSpecialValueAsNull;
 
     /**
@@ -220,24 +228,64 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
      * <p>PostgreSQL allows the special numeric values {@code NaN}, {@code Infinity} and {@code
      * -Infinity} (supported since PostgreSQL 14), which have no {@code BigDecimal} representation.
      * The pgjdbc driver fails to convert them with {@code PSQLException: Bad value for type
-     * BigDecimal : NaN} (text protocol) or with a {@code ClassCastException} (binary protocol,
-     * where the driver returns a {@code Double}). When {@code numeric_special_value_as_null} is
+     * BigDecimal : NaN} (text protocol), or in the binary protocol with a {@code
+     * ClassCastException} for {@code NaN} (the driver returns a {@code Double}) and an {@code
+     * IllegalArgumentException} for the infinities. When {@code numeric_special_value_as_null} is
      * enabled, such values are read as {@code null} and a warning is logged for the first
      * occurrence per column, so that a single special value does not abort the whole job. Otherwise
      * the original error is rethrown, which keeps the default behavior unchanged.
      */
     private BigDecimal getDecimalValue(ResultSet rs, int columnIndex) throws SQLException {
-        BigDecimal value =
-                JdbcFieldTypeUtils.getBigDecimal(rs, columnIndex, numericSpecialValueAsNull);
+        BigDecimal value;
+        try {
+            value = JdbcFieldTypeUtils.getBigDecimal(rs, columnIndex, numericSpecialValueAsNull);
+        } catch (IllegalArgumentException e) {
+            // Binary protocol only: pgjdbc cannot decode the sign word of Infinity and -Infinity
+            if (numericSpecialValueAsNull && isBinaryNumericInfinity(rs, columnIndex)) {
+                logNumericSpecialValue(rs, columnIndex);
+                return null;
+            }
+            throw e;
+        }
         if (value == null
                 && numericSpecialValueAsNull
-                && JdbcFieldTypeUtils.isNumericSpecialValue(rs, columnIndex)
-                && shouldLogNumericSpecialValue(columnIndex)) {
+                && JdbcFieldTypeUtils.isNumericSpecialValue(rs, columnIndex)) {
+            logNumericSpecialValue(rs, columnIndex);
+        }
+        return value;
+    }
+
+    private void logNumericSpecialValue(ResultSet rs, int columnIndex) {
+        if (shouldLogNumericSpecialValue(columnIndex)) {
             log.warn(
                     "The numeric special value at column '{}' cannot be represented as BigDecimal, reading it as null. Further special values in this column will not be logged",
                     getColumnLabel(rs, columnIndex));
         }
-        return value;
+    }
+
+    /**
+     * Checks whether the raw bytes of the column are a binary PostgreSQL {@code numeric} {@code
+     * Infinity} or {@code -Infinity}. The binary format starts with four 16-bit words: digit count,
+     * weight, sign and display scale (see {@code numeric.c}); an infinity has no digits and the
+     * sign word {@code 0xD000} or {@code 0xF000}. The text value cannot be used here, because in
+     * the binary protocol {@code getString} decodes the same bytes and fails the same way.
+     */
+    static boolean isBinaryNumericInfinity(ResultSet rs, int columnIndex) {
+        byte[] bytes;
+        try {
+            bytes = rs.getBytes(columnIndex);
+        } catch (SQLException e) {
+            // The raw value cannot be read, so it cannot be identified as an infinity
+            return false;
+        }
+        if (bytes == null || bytes.length != BINARY_NUMERIC_HEADER_LENGTH) {
+            return false;
+        }
+        int digitCount = ((bytes[0] & 0xFF) << 8) | (bytes[1] & 0xFF);
+        int sign = ((bytes[4] & 0xFF) << 8) | (bytes[5] & 0xFF);
+        return digitCount == 0
+                && (sign == BINARY_NUMERIC_POSITIVE_INFINITY
+                        || sign == BINARY_NUMERIC_NEGATIVE_INFINITY);
     }
 
     /**

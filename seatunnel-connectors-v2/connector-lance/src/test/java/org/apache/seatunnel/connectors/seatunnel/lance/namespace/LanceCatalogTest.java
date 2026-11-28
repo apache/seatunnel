@@ -117,6 +117,12 @@ public class LanceCatalogTest {
         // The getTable() should return the same table structure as created, including primary key
         // and comment
         Assertions.assertEquals(templateTable.toString(), table.toString());
+        // TableSchema.toString() leaves out the columns, so check the integer types directly. The
+        // directory namespace returns no schema, so these come from the dataset's own schema.
+        Assertions.assertEquals(
+                BasicType.INT_TYPE, table.getTableSchema().getColumn("integer_col").getDataType());
+        Assertions.assertEquals(
+                BasicType.LONG_TYPE, table.getTableSchema().getColumn("long_col").getDataType());
     }
 
     @Test
