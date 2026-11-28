@@ -115,6 +115,7 @@
         <module>connector-nats-jetstream</module>
         <module>connector-firebase</module>
         <module>connector-websocket</module>
+        <module>connector-opcua</module>
     </modules>
 
     <dependencyManagement>
