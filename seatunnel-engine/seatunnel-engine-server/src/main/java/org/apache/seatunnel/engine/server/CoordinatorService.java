@@ -241,6 +241,7 @@ public class CoordinatorService {
 
     private final ResourceManagerFactory resourceManagerFactory;
 
+    /** Active-master-only service that must be released before the next master activation. */
     private ConnectorPackageService connectorPackageService;
 
     @Getter private EventProcessor eventProcessor;
@@ -1303,8 +1304,8 @@ public class CoordinatorService {
      *
      * <p>This method interrupts locally owned {@link JobMaster} instances, optionally clears queued
      * pending jobs for wait-based scheduling, and shuts down local services such as the executor,
-     * resource manager, and event processor. It does not delete distributed job metadata that a new
-     * active master needs for takeover recovery.
+     * connector package service, resource manager, and event processor. It does not delete
+     * distributed job metadata that a new active master needs for takeover recovery.
      */
     public synchronized void clearCoordinatorService() {
         isActive = false;
@@ -1354,6 +1355,17 @@ public class CoordinatorService {
             Thread.currentThread().interrupt();
             logger.info(
                     "Coordinator service shutdown interrupted while waiting executorService termination, continue cleanup.");
+        }
+
+        // JobMaster.run can release connector jar references from its finally block, so keep the
+        // package service available through the bounded coordinator-executor termination wait.
+        // Only the cleanup timer is stopped here; the reference is intentionally retained because
+        // an upload admitted by the master/active check before demotion may still read it from
+        // the separate upload executor. New callers are rejected by that check, and the next
+        // activation replaces this reference.
+        ConnectorPackageService packageService = connectorPackageService;
+        if (packageService != null) {
+            packageService.close();
         }
 
         // The finished-job IMaps are cluster-wide, so the expiration listeners registered by the
