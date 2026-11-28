@@ -49,6 +49,10 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * Fetches and validates one bounded metadata response before emitting any rows. No remote cursor is
+ * checkpointed; a restored split requests the current response again.
+ */
 final class DiscourseSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     static final int MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
     private static final int CONNECT_TIMEOUT_MS = 10_000;
@@ -57,21 +61,31 @@ final class DiscourseSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
     private final URI endpoint;
     private final String apiKey;
     private final String apiUsername;
-    private final DiscourseOptions.Resource resource;
+    private final DiscourseSourceOptions.Resource resource;
     private final boolean includeSubcategories;
     private final CatalogTable table;
     private final SingleSplitReaderContext context;
     private final ObjectMapper mapper =
             new ObjectMapper().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+    /*
+     * Sticky cancellation is checked before dispatch and while decoding category/topic rows.
+     */
     private final AtomicBoolean cancelled = new AtomicBoolean();
+    /*
+     * Published before checking cancellation so cancel either aborts or prevents dispatch.
+     */
     private final AtomicReference<HttpGet> activeRequest = new AtomicReference<>();
+    /*
+     * Created by open and closed by close under the normal engine lifecycle.
+     * Client publication is not atomically coordinated with a concurrent open/close call.
+     */
     private CloseableHttpClient client;
 
     DiscourseSourceReader(
             URI endpoint,
             String apiKey,
             String apiUsername,
-            DiscourseOptions.Resource resource,
+            DiscourseSourceOptions.Resource resource,
             boolean includeSubcategories,
             CatalogTable table,
             SingleSplitReaderContext context) {
@@ -84,6 +98,10 @@ final class DiscourseSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
         this.context = context;
     }
 
+    /*
+     * Creates the reader-owned HTTP client with finite inactivity timeouts and no redirects or retries.
+     * This method relies on the engine calling open before polling and close after use.
+     */
     @Override
     public void open() {
         client =
@@ -102,6 +120,9 @@ final class DiscourseSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
                         .build();
     }
 
+    /*
+     * Permanently marks cancellation and aborts any currently published request.
+     */
     @Override
     public void cancel() {
         cancelled.set(true);
@@ -111,6 +132,9 @@ final class DiscourseSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
         }
     }
 
+    /*
+     * Cancels active I/O before closing the client created by open.
+     */
     @Override
     public void close() throws IOException {
         cancel();
@@ -119,6 +143,10 @@ final class DiscourseSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
         }
     }
 
+    /*
+     * Runs under the inherited checkpoint lock, including HTTP, validation and emission.
+     * fetchRows validates the entire response first; only then are rows collected and end signaled.
+     */
     @Override
     public void internalPollNext(Collector<SeaTunnelRow> output) throws IOException {
         for (SeaTunnelRow row : fetchRows()) {
@@ -127,6 +155,10 @@ final class DiscourseSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
         context.signalNoMoreElement();
     }
 
+    /*
+     * Publishes the request before checking the sticky cancellation flag.
+     * Always detaches and releases the request, including validation and cancellation failures.
+     */
     List<SeaTunnelRow> fetchRows() throws IOException {
         HttpGet request = new HttpGet(endpoint);
         activeRequest.set(request);
@@ -141,6 +173,10 @@ final class DiscourseSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
         }
     }
 
+    /*
+     * Sends optional credentials only as headers and accepts exactly HTTP 200.
+     * Bounds the decoded response to 16 MiB before conversion; no continuation link is followed.
+     */
     private List<SeaTunnelRow> fetchRows(HttpGet request) throws IOException {
         request.setHeader("Accept", "application/json");
         if (apiKey != null) {
@@ -171,6 +207,11 @@ final class DiscourseSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
         return decodeRows(bytes);
     }
 
+    /*
+     * Validates all field types, required values and unique IDs before returning rows.
+     * An explicit iterator stack flattens requested nested categories without Java recursion;
+     * latest topics remain the single returned array. Diagnostics never echo parser payloads.
+     */
     private List<SeaTunnelRow> decodeRows(byte[] bytes) throws IOException {
         final JsonNode body;
         try {

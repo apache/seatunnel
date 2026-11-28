@@ -19,7 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.discourse;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-final class DiscourseOptions {
+/**
+ * Defines stable options for one bounded Discourse metadata resource. The factory and source share
+ * these definitions without changing user configuration keys.
+ */
+final class DiscourseSourceOptions {
+    private DiscourseSourceOptions() {}
+
     static final Option<String> BASE_URL =
             Options.key("base_url")
                     .stringType()
@@ -54,11 +60,17 @@ final class DiscourseOptions {
                     .withDescription(
                             "Number of topics requested for LATEST_TOPICS, from 1 to 100.");
 
+    /*
+     * Maps each resource to its response envelope and row-array name.
+     * These names also determine the produced table path; latest topics remain a single page.
+     */
     enum Resource {
         CATEGORIES("categories", "category_list"),
         LATEST_TOPICS("topics", "topic_list");
 
+        // Response array name and the resource-specific table name.
         final String rows;
+        // Response object containing the row array, independent of the request path.
         final String envelope;
 
         Resource(String rows, String envelope) {
@@ -66,6 +78,4 @@ final class DiscourseOptions {
             this.envelope = envelope;
         }
     }
-
-    private DiscourseOptions() {}
 }

@@ -38,12 +38,12 @@ public class DiscourseSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(DiscourseOptions.BASE_URL, DiscourseOptions.RESOURCE)
+                .required(DiscourseSourceOptions.BASE_URL, DiscourseSourceOptions.RESOURCE)
                 .optional(
-                        DiscourseOptions.TOKEN,
-                        DiscourseOptions.USERNAME,
-                        DiscourseOptions.INCLUDE_SUBCATEGORIES,
-                        DiscourseOptions.TOPIC_LIMIT)
+                        DiscourseSourceOptions.TOKEN,
+                        DiscourseSourceOptions.USERNAME,
+                        DiscourseSourceOptions.INCLUDE_SUBCATEGORIES,
+                        DiscourseSourceOptions.TOPIC_LIMIT)
                 .build();
     }
 

@@ -35,20 +35,28 @@ import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Validates one bounded category or recent-topic read and exposes its resource-specific schema. The
+ * source does not paginate topic history or maintain an incremental cursor.
+ */
 public class DiscourseSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     static final String PLUGIN_NAME = "Discourse";
 
-    private final DiscourseOptions.Resource resource;
+    private final DiscourseSourceOptions.Resource resource;
     private final URI endpoint;
     private final String apiKey;
     private final String apiUsername;
     private final boolean includeSubcategories;
     private final CatalogTable table;
 
+    /*
+     * Validates paired HTTPS credentials and resource-specific options before creating the endpoint.
+     * Appending the resource path preserves any deployment subpath in base_url.
+     */
     public DiscourseSource(ReadonlyConfig options) {
-        resource = options.get(DiscourseOptions.RESOURCE);
-        apiKey = options.getOptional(DiscourseOptions.TOKEN).orElse(null);
-        apiUsername = options.getOptional(DiscourseOptions.USERNAME).orElse(null);
+        resource = options.get(DiscourseSourceOptions.RESOURCE);
+        apiKey = options.getOptional(DiscourseSourceOptions.TOKEN).orElse(null);
+        apiUsername = options.getOptional(DiscourseSourceOptions.USERNAME).orElse(null);
         if ((apiKey == null) != (apiUsername == null)) {
             throw new IllegalArgumentException(
                     "Discourse token and username must be configured together");
@@ -57,25 +65,25 @@ public class DiscourseSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             validateHeader(apiKey, "token");
             validateHeader(apiUsername, "username");
         }
-        URI base = parseSite(options.get(DiscourseOptions.BASE_URL));
+        URI base = parseSite(options.get(DiscourseSourceOptions.BASE_URL));
         if (apiKey != null && !"https".equalsIgnoreCase(base.getScheme())) {
             throw new IllegalArgumentException("Discourse API authentication requires HTTPS");
         }
 
         String path;
-        if (resource == DiscourseOptions.Resource.CATEGORIES) {
-            if (options.getOptional(DiscourseOptions.TOPIC_LIMIT).isPresent()) {
+        if (resource == DiscourseSourceOptions.Resource.CATEGORIES) {
+            if (options.getOptional(DiscourseSourceOptions.TOPIC_LIMIT).isPresent()) {
                 throw new IllegalArgumentException(
                         "Discourse topic_limit applies only to LATEST_TOPICS");
             }
-            includeSubcategories = options.get(DiscourseOptions.INCLUDE_SUBCATEGORIES);
+            includeSubcategories = options.get(DiscourseSourceOptions.INCLUDE_SUBCATEGORIES);
             path = "/categories.json?include_subcategories=" + includeSubcategories;
         } else {
-            if (options.getOptional(DiscourseOptions.INCLUDE_SUBCATEGORIES).isPresent()) {
+            if (options.getOptional(DiscourseSourceOptions.INCLUDE_SUBCATEGORIES).isPresent()) {
                 throw new IllegalArgumentException(
                         "Discourse include_subcategories applies only to CATEGORIES");
             }
-            int limit = options.get(DiscourseOptions.TOPIC_LIMIT);
+            int limit = options.get(DiscourseSourceOptions.TOPIC_LIMIT);
             if (limit < 1 || limit > 100) {
                 throw new IllegalArgumentException(
                         "Discourse topic_limit must be between 1 and 100");
@@ -87,12 +95,19 @@ public class DiscourseSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         table = createTable(resource);
     }
 
+    /*
+     * Rejects empty or non-visible-ASCII credential headers without echoing their values.
+     */
     private static void validateHeader(String value, String name) {
         if (value.isEmpty() || value.chars().anyMatch(c -> c < 0x21 || c > 0x7e)) {
             throw new IllegalArgumentException("Invalid Discourse " + name);
         }
     }
 
+    /*
+     * Accepts an HTTP(S) site root, preserving its subpath while rejecting URL credentials,
+     * query strings, fragments and dot segments before an endpoint is appended.
+     */
     private static URI parseSite(String url) {
         final URI site;
         try {
@@ -113,13 +128,17 @@ public class DiscourseSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         return site;
     }
 
-    private static CatalogTable createTable(DiscourseOptions.Resource resource) {
+    /*
+     * Defines typed columns and nullability per resource. The primary key identifies a record
+     * within this site and resource only; nested categories use the same category schema.
+     */
+    private static CatalogTable createTable(DiscourseSourceOptions.Resource resource) {
         TableSchema.Builder schema =
                 TableSchema.builder()
                         .column(column("id", BasicType.LONG_TYPE, false))
                         .primaryKey(
                                 PrimaryKey.of("pk_discourse_id", Collections.singletonList("id")));
-        if (resource == DiscourseOptions.Resource.CATEGORIES) {
+        if (resource == DiscourseSourceOptions.Resource.CATEGORIES) {
             schema.column(column("name", BasicType.STRING_TYPE, false))
                     .column(column("slug", BasicType.STRING_TYPE, false))
                     .column(column("parent_category_id", BasicType.LONG_TYPE, true))
@@ -158,6 +177,9 @@ public class DiscourseSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         return Boundedness.BOUNDED;
     }
 
+    /*
+     * Rejects streaming jobs because a single metadata response is a bounded batch, not a feed.
+     */
     @Override
     public void setJobContext(JobContext context) {
         if (context.getJobMode() != JobMode.BATCH) {
