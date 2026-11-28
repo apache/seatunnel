@@ -21,9 +21,15 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.db2.DB2Catalog;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Db2Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -37,6 +43,7 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +55,9 @@ public class JdbcDb2IT extends AbstractJdbcIT {
     protected static final String DB2_DATABASE = "E2E";
     protected static final String DB2_SOURCE = "SOURCE";
     protected static final String DB2_SINK = "SINK";
+    private static final String VIEW_SOURCE = "E2E_VIEW_SOURCE";
+    private static final String VIEW_SINK = "E2E_VIEW_SINK";
+    private static final List<String> VIEW_COLUMNS = Arrays.asList("C_INT", "C_VARCHAR", "C_DATE");
 
     private static final String DB2_URL = "jdbc:db2://" + HOST + ":%s/%s";
 
@@ -90,6 +100,43 @@ public class JdbcDb2IT extends AbstractJdbcIT {
                     + "    C_DATE             DATE,\n"
                     + "    \"c_int_2\"             INTEGER\n"
                     + ");\n";
+
+    /** A source {@code table_path} may name a view, not only a table. */
+    @TestTemplate
+    public void testViewAsSourceTablePath(TestContainer container) throws Exception {
+        assertViewReadThroughTablePath(
+                container,
+                "/jdbc_db2_view_source_to_sink.conf",
+                createViewSql(),
+                buildTableInfoWithSchema(DB2_DATABASE, VIEW_SOURCE),
+                buildTableInfoWithSchema(DB2_DATABASE, VIEW_SINK));
+    }
+
+    @Test
+    public void testCatalogResolvesView() throws Exception {
+        String jdbcUrl = jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
+        assertCatalogResolvesView(
+                new DB2Catalog(
+                        "db2",
+                        jdbcCase.getUserName(),
+                        jdbcCase.getPassword(),
+                        JdbcUrlUtil.getUrlInfo(jdbcUrl),
+                        DB2_DATABASE,
+                        null),
+                createViewSql(),
+                buildTableInfoWithSchema(DB2_DATABASE, VIEW_SOURCE),
+                TablePath.of(DB2_DATABASE, DB2_DATABASE, VIEW_SOURCE),
+                VIEW_COLUMNS);
+    }
+
+    private String createViewSql() {
+        return "CREATE OR REPLACE VIEW "
+                + buildTableInfoWithSchema(DB2_DATABASE, VIEW_SOURCE)
+                + " AS SELECT "
+                + String.join(", ", VIEW_COLUMNS)
+                + " FROM "
+                + buildTableInfoWithSchema(DB2_DATABASE, DB2_SOURCE);
+    }
 
     @Override
     JdbcCase getJdbcCase() {

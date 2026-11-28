@@ -95,13 +95,15 @@ TDengine-compatible timestamp string, for example `2018-10-03 14:38:16.801`.
 ### read_columns [List]
 
 A list of column names to read. If it is not configured, all columns are read.
-When reading from a super table, put TAGS columns at the end of the list. Do not
-include `subtable_name`; the connector adds it automatically as the first output
-field.
+Do not include `subtable_name`; the connector adds it automatically as the first
+output field.
 
-The order of `read_columns` decides the output field order after
-`subtable_name`. If the result is written to a TDengine sink, keep normal columns
-before TAGS columns so the sink can split column values and TAGS values
+`read_columns` only selects which columns are read; the order of the list does
+not affect the output. The output field order always follows the definition
+order of the target super table (the order returned by
+`desc <database>.<stable>`): normal columns first, then TAGS columns. If the
+result is written to a TDengine sink, keep normal columns before TAGS columns in
+the super table definition so the sink can split column values and TAGS values
 correctly.
 
 ### common options
@@ -115,9 +117,9 @@ All required string options listed above must contain a nonblank value (not empt
 
 The output table always starts with the reserved `subtable_name` column, which
 carries the TDengine sub table name each row came from. Subsequent columns are
-the columns declared in `read_columns` (or all columns when `read_columns` is
-unset), in the order specified by `read_columns`. TAGS columns follow the
-normal columns in the same order you list them.
+the selected columns (those listed in `read_columns`, or all columns when
+`read_columns` is unset), in the definition order of the target super table:
+normal columns first, then TAGS columns.
 
 ## Examples
 

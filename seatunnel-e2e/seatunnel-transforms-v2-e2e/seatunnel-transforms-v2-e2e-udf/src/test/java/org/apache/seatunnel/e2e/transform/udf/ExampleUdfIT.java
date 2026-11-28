@@ -41,7 +41,7 @@ public class ExampleUdfIT extends TestSuiteBase {
 
     @TestTemplate
     public void testCustomUdf(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/custom_udf.conf");
+        Container.ExecResult execResult = container.executeJob("/custom_udf/custom_udf.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -86,7 +86,7 @@ public class ExampleUdfIT extends TestSuiteBase {
                 runStartupJob(
                         container,
                         0,
-                        "SELECT name FROM dual LATERAL VIEW EXPLODE(ARRAY(FAIL_ON_OPEN(name))) AS expanded"));
+                        "SELECT name FROM dual LATERAL VIEW EXPLODE(SPLIT(FAIL_ON_OPEN(name), ',')) AS expanded"));
     }
 
     @TestTemplate
@@ -110,7 +110,7 @@ public class ExampleUdfIT extends TestSuiteBase {
     public void testCustomUdfContextLifecycle(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/custom_udf_context_lifecycle.conf");
+                container.executeJob("/custom_udf/custom_udf_context_lifecycle.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 

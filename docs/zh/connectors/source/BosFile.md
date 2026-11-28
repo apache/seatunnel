@@ -72,6 +72,8 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 | time_format                | string  | 否   | HH:mm:ss                    |
 | schema                     | config  | 否   | -                           |
 | sheet_name                 | string  | 否   | -                           |
+| null_format                | string  | 否       | -                           |
+| excel_use_header_line      | boolean | 否       | false                       |
 | excel_engine               | string  | 否   | POI                         |
 | poi_excel_max_file_size    | long    | 否   | 52428800                    |
 | xml_row_tag                | string  | 否   | -                           |
@@ -91,6 +93,24 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 | recursive_file_scan        | boolean | 否   | true                        |
 | sort_files_by_modification_time | boolean | 否   | false                       |
 | common-options             |         | 否   | -                           |
+| enable_file_split          | boolean | 否   | false                       |
+| file_split_size            | long    | 否   | 134217728                   |
+| markdown_rag_metadata_enabled | boolean | 否  | false                       |
+| pdf_rag_metadata_enabled   | boolean | 否   | false                       |
+| discovery_mode             | string  | 否   | once                        |
+| scan_interval              | string  | 否   | 10S                         |
+| start_mode                 | string  | 否   | earliest                    |
+| sync_mode                  | string  | 否   | full                        |
+| target_path                | string  | 否   | -                           |
+| target_hadoop_conf         | map     | 否   | -                           |
+| update_strategy            | string  | 否   | distcp                      |
+| compare_mode               | string  | 否   | len_mtime                   |
+| update_compare_parallelism | int     | 否   | 8                           |
+| update_compare_bulk_threshold | int  | 否   | 0                           |
+| post_sync_action           | string  | 否   | none                        |
+| backup_path                | string  | 否   | -                           |
+| retention_max_age          | string  | 否   | -                           |
+| retention_check_interval   | string  | 否   | 1H                          |
 
 ### path [string]
 
@@ -119,6 +139,48 @@ BOS 的 endpoint，例如 `http://bj.bcebos.com`。
 ### common-options
 
 Source 插件通用参数，详情请参见 [Source Common Options](../common-options/source-common-options.md)。
+
+## 持续发现
+
+`discovery_mode=continuous` 会让流式作业保持运行，并定期轮询 BOS 中的新增或变更对象。该模式使用现有文件对比逻辑，不消费 BOS 事件通知，也不会为对象删除或覆盖生成 changelog 行。
+
+持续发现目前需要同时配置 `file_format_type="binary"` 和 `sync_mode="update"`。`target_path` 应与 sink 的基础 `path` 一致，以便源端跳过未变化对象。默认的 `discovery_mode="once"` 会保持原有有界读取行为。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  BosFile {
+    bucket = "bos://source-bucket"
+    path = "/watch/source"
+    access_key = "your-access-key"
+    secret_key = "your-secret-key"
+    endpoint = "http://bj.bcebos.com"
+    file_format_type = "binary"
+
+    discovery_mode = "continuous"
+    scan_interval = "10S"
+    start_mode = "earliest"
+    sync_mode = "update"
+    target_path = "/watch/target"
+  }
+}
+
+sink {
+  BosFile {
+    bucket = "bos://source-bucket"
+    path = "/watch/target"
+    tmp_path = "/watch/tmp"
+    access_key = "your-access-key"
+    secret_key = "your-secret-key"
+    endpoint = "http://bj.bcebos.com"
+    file_format_type = "binary"
+  }
+}
+```
 
 ## 示例
 

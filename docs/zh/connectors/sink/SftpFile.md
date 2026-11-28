@@ -205,7 +205,7 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 - txt: `lzo` `none`
 - json: `lzo` `none`
 - csv: `lzo` `none`
-- orc: `lzo` `snappy` `lz4` `zlib` `none`
+- orc: `lzo` `snappy` `lz4` `zlib` `zstd` `none`
 - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
 
 提示：excel类型不支持任何压缩格式
@@ -226,7 +226,7 @@ Sink插件常用参数，请参考[Sink common Options](../common-options/sink-c
 
 编写工作簿的工作表
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 当文件格式为CSV时，CSV的字符串引用模式。
 

@@ -34,7 +34,7 @@ Reads messages from Apache RocketMQ topics. The connector can read one or more t
 |------|------|----------|---------|-------------|
 | name.srv.addr | String | yes | - | RocketMQ name server address, for example `localhost:9876`. |
 | topics | String | no | - | Topic name list separated by commas, for example `"topic_a,topic_b"`. Configure only one of `topics`, `tables_configs`, and `table_list`. |
-| tables_configs | List | no | - | Multi-table read configuration. Each item must contain `topics` and can contain `format`, `schema`, `tags`, `start.mode`, `start.mode.timestamp`, `start.mode.offsets`, and `ignore_parse_errors`. |
+| tables_configs | List | no | - | Multi-table read configuration. Each item must contain `topics` and can contain `format`, `schema`, `tags`, `start.mode`, `start.mode.timestamp`, `start.mode.offsets`, `ignore_parse_errors`, and `field.delimiter`. |
 | table_list | List | no | - | Deprecated. Use `tables_configs` instead. |
 | tags | String | no | - | Tag list separated by commas. Only messages whose RocketMQ tag exactly matches one configured value are consumed. |
 | acl.enabled | Boolean | no | false | Whether to enable RocketMQ ACL authentication. |

@@ -99,14 +99,15 @@ class FlinkGlobalCommitterTest {
     }
 
     @Test
-    void testMixedAggregateUsesRecoveryAndReusedLiveAggregateFailsClosed() throws Exception {
+    void testMixedAggregateOrdersRecoveryBeforeLiveAndReusedLiveAggregateFailsClosed()
+            throws Exception {
         SinkAggregatedCommitter<String, String> delegate = mock(SinkAggregatedCommitter.class);
         FlinkGlobalCommitter<String, String> committer = new FlinkGlobalCommitter<>(delegate);
         CommitWrapper<String> restored = new CommitWrapper<>("restored");
         restored.markRecovered();
         CommitWrapper<String> live = new CommitWrapper<>("live");
         when(delegate.combine(java.util.Arrays.asList("restored", "live"))).thenReturn("mixed");
-        String mixed = committer.combine(java.util.Arrays.asList(restored, live));
+        String mixed = committer.combine(java.util.Arrays.asList(live, restored));
         committer.commit(Collections.singletonList(mixed));
         verify(delegate).restoreCommit(Collections.singletonList("mixed"));
         String reused = new String("combined");

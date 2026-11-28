@@ -371,7 +371,9 @@ class ConnectorItShardingTest(unittest.TestCase):
     def workflow_pl_modules(self):
         modules = set()
         for pl in re.findall(
-            r"-pl\s+(:[A-Za-z0-9._-]+(?:,:[A-Za-z0-9._-]+)*)", self.workflow_text()
+            r"(?:-pl\s+|^\s+modules: ')(:[A-Za-z0-9._-]+(?:,:[A-Za-z0-9._-]+)*)",
+            self.workflow_text(),
+            re.MULTILINE,
         ):
             modules.update(module.lstrip(":") for module in pl.split(",") if module)
         return modules

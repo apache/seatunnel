@@ -52,7 +52,7 @@ The internal implementation of StarRocks sink connector is cached and imported b
 | save_mode_create_template   | string  | no       | see below                    | see below                                                                                                                                                                                                         |
 | starrocks.config            | map     | no       | -                            | The parameter of the stream load `data_desc`                                                                                                                                                                      |
 | http_socket_timeout_ms      | int     | no       | 180000                       | Set http socket timeout, default is 3 minutes.                                                                                                                                                                    |
-| label_state_timeout_ms      | long    | no       | 180000                       | Total time the sink polls `get_load_state` to resolve a non-final stream load outcome (`Publish Timeout`, `Label Already Exists`, reused-label failure) to `VISIBLE`/`COMMITTED`/`ABORTED` before failing the flush. Default is 3 minutes; keep it below the job's checkpoint timeout. |
+| label_state_timeout_ms      | long    | no       | 180000                       | Total time the sink polls `get_load_state` to resolve a non-final stream load outcome (`Publish Timeout`, `Label Already Exists`, reused-label failure) to `VISIBLE`/`COMMITTED`/`ABORTED` before failing the flush. Default is 3 minutes; keep it below the job's checkpoint timeout. A non-positive value is not rejected: it falls back to the built-in default of 180000 ms. |
 | schema_save_mode            | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.                                                                         |
 | data_save_mode              | Enum    | no       | APPEND_DATA                  | Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.                                                                                    |
 | table_options               | Map     | no       | -                            | Sink-specific table properties merged into CREATE TABLE PROPERTIES during SaveMode auto-create. See below.                                                                                                          |
@@ -237,7 +237,9 @@ sink {
 
 #### Supported import data formats
 
-The supported formats include CSV and JSON
+The supported formats include CSV and JSON. The default load format is JSON, controlled by the
+`starrocks.config.format` option (`CSV` or `JSON`); when CSV is selected, set `starrocks.config.column_separator`
+(and the stream load row delimiter property) to match your data layout.
 
 ## Task Example
 
@@ -284,6 +286,7 @@ source {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
     username = "root"
     password = "secret"
     database = "test"
@@ -303,12 +306,11 @@ sink {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
     username = "root"
     password = "secret"
     database = "test"
     table = "e2e_table_sink"
-    ...
-    
     // Support upsert/delete event synchronization (enable_upsert_delete=true), only supports PrimaryKey model.
     enable_upsert_delete = true
   }
@@ -611,7 +613,7 @@ StarRocks column names are case-insensitive by default. Verify that upstream fie
 - `nodeUrls`: HTTP addresses of the StarRocks FE nodes, used for Stream Load data ingestion.
 - `base-url`: JDBC URL pointing to a StarRocks FE node, used for DDL operations such as table creation and schema inspection.
 
-Both parameters are required when automatic table creation is enabled.
+Both parameters are always required.
 
 ## Changelog
 
