@@ -224,6 +224,8 @@ seatunnel:
     classloader-cache-mode: true
 ```
 
+When `classloader-cache-mode` is `false`, a job class loader is released after the job finishes. At that point SeaTunnel also removes references that the MongoDB driver (buffer pool pruner) and Hadoop (`WritableComparator` and `CodecPool` registries) keep in static state, which would otherwise keep the released class loader and its Metaspace reachable. Only entries owned by the released class loader are removed. If this cleanup misbehaves with a particular library version, it can be turned off by starting the SeaTunnel server process with the environment variable `CLASSLOADER_SERVICE_SKIP_RELEASED_REFERENCE_CLEANUP=true`. Disabling it brings back the Metaspace growth that these references cause in non-cache mode.
+
 ### 4.6 Persistence Configuration of IMap (This parameter is invalid on the Worker node)
 
 :::tip
